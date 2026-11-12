@@ -8,9 +8,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * The release a release APK carries (ADR 0012): its Interop Package and Managed Payload zip under
- * {@code assets/bpp-release/<sha256>.zip}, named by {@code assets/bpp-release/release.json}. A new
- * install needs no download to run the release it came with. A build without them reads the network.
+ * The release a release APK carries (ADR 0012, ADR 0019): every adaptation's Interop Package and
+ * Managed Payload zip under {@code assets/bpp-release/<sha256>.zip}, named by
+ * {@code assets/bpp-release/release.json}. A new install needs no download to run the release it
+ * came with. A build without them reads the network.
  */
 public final class CarriedRelease {
     private static final String DIR = "bpp-release";

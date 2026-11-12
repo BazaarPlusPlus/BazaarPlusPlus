@@ -368,15 +368,16 @@ export async function main(
     return;
   }
   if (command === 'prepare' && android) {
-    const record = await prepareAndroidPayload({
+    const records = await prepareAndroidPayload({
       workspaceRoot,
       msbuildArgs,
       gameLibsStore: createGameLibsStore,
       log
     });
-    log(
-      `Prepared android Payload for ${version} against lock entry ${record.lockEntry.key} (${record.lockEntry.gameVersion}, ${record.lockEntry.loader.tag})`
-    );
+    for (const { lockEntry } of Object.values(records))
+      log(
+        `Prepared android Payload for ${version} against lock entry ${lockEntry.key} (${lockEntry.gameVersion}, ${lockEntry.loader.tag})`
+      );
     return;
   }
   if (command === 'build' && android) {
@@ -387,8 +388,14 @@ export async function main(
       log
     });
     log(
-      `Built android ${version} against lock entry ${manifest.lockEntry.key} (${manifest.game.gameVersion}): Android App ${manifest.app.path}, Interop Package ${manifest.interop.path}, Managed Payload ${manifest.managedPayload.path} in ${androidPaths(workspaceRoot).root}`
+      `Built android ${version}: Android App ${manifest.app.path} in ${androidPaths(workspaceRoot).root}`
     );
+    for (const { lockEntry, game, interop, managedPayload } of Object.values(
+      manifest.adaptations
+    ))
+      log(
+        `  ${lockEntry.key} (${game.gameVersion}): Interop Package ${interop.path}, Managed Payload ${managedPayload.path}`
+      );
     return;
   }
   if (command === 'prepare') {

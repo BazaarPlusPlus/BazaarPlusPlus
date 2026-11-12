@@ -46,8 +46,9 @@ internal enum AndroidGameUpdateStatus
 /// which stages nothing here (the Android App stages the Managed Payload, root ADR 0012) and
 /// compares the release with the runtime the App started this process with, and keeps what this
 /// copy needs beyond the Managed Payload (<see cref="AndroidGameUpdate.Needed"/>): a newer game
-/// or a new Android App. The game is compared by its code (<see cref="AndroidGameUpdate.Compare"/>,
-/// root ADR 0016), the running side from the Launch Record. Results land off the main thread;
+/// or a new Android App. The game is compared by its code with every adapted game
+/// (<see cref="AndroidGameUpdate.Compare"/>, root ADR 0016 and 0019), the running side from the
+/// Launch Record. Results land off the main thread;
 /// <see cref="Tick"/> observes them on it.
 /// </summary>
 internal sealed class AndroidVersionCheck : IDisposable
@@ -174,8 +175,8 @@ internal sealed class AndroidVersionCheck : IDisposable
     }
 
     /// <summary>
-    /// How the running game stands against the release's game; <see cref="AndroidGameAdaptation.Unknown"/>
-    /// before a successful check and after a failed one.
+    /// How the running game stands against the release's adapted games;
+    /// <see cref="AndroidGameAdaptation.Unknown"/> before a successful check and after a failed one.
     /// </summary>
     public AndroidGameAdaptation Adaptation
     {
@@ -251,19 +252,10 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
 
         var published = check.Result.AndroidApp;
-        var adaptation = AndroidGameUpdate.Compare(
-            _runningGame,
-            published == null
-                ? null
-                : new AndroidGameCode(
-                    published.GameVersionCode,
-                    published.GameIl2CppSha256,
-                    published.GameMetadataSha256
-                )
-        );
+        var comparison = AndroidGameUpdate.Compare(_runningGame, published?.Games);
+        var adaptation = comparison.Adaptation;
         var update = AndroidGameUpdate.Needed(
-            adaptation,
-            published?.GameVersion,
+            comparison,
             published == null ? null : new AndroidAppDownload(published.AppUrl, published.AppSize),
             check.Evaluation.Decision == SelfUpdateDecision.ManualUpdate
         );
@@ -284,8 +276,9 @@ internal sealed class AndroidVersionCheck : IDisposable
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Lobby, "lobby.game_update.checked"),
             ("game_version_code", _runningGame?.VersionCode),
-            ("published_game_version", published?.GameVersion),
-            ("published_game_version_code", published?.GameVersionCode),
+            ("published_game_source", comparison.Game?.Source),
+            ("published_game_version", comparison.Game?.GameVersion),
+            ("published_game_version_code", comparison.Game?.VersionCode),
             ("adaptation", adaptation.ToString()),
             (
                 "decision",

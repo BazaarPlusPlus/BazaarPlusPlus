@@ -16,10 +16,11 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * One BPP launch after the gate allowed it (ADR 0012): verify the Interop Package and take it from
- * the APK or the network, stage the release's Managed Payload the same way, reset LemonLoader's stale deployment state, prepare the game in
- * this process and write the Launch Record last. Any failure stops the launch. The steps are plain
- * Java over {@link LaunchDirs}; only {@link LaunchHost} reaches Android, so a JVM test drives them.
+ * One BPP launch after the gate allowed it (ADR 0012, ADR 0019): verify the selected adaptation's
+ * Interop Package and take it from the APK or the network, stage its Managed Payload the same way,
+ * reset LemonLoader's stale deployment state, prepare the game in this process and write the Launch
+ * Record last. Any failure stops the launch. The steps are plain Java over {@link LaunchDirs}; only
+ * {@link LaunchHost} reaches Android, so a JVM test drives them.
  */
 final class BppLaunch {
     static final String TAG = LauncherActivity.TAG;
@@ -58,9 +59,10 @@ final class BppLaunch {
             return;
         }
         // Past the guard without a Development interop the tier is NORMAL, and LaunchCheck.run decides
-        // NORMAL only against the game of a manifest it read, so the manifest is not null.
+        // NORMAL only against an adaptation of a manifest it read, so neither is null.
         PlatformManifest manifest = in.manifest;
-        PlatformManifest.Interop interop = manifest.interop;
+        PlatformManifest.Adaptation adaptation = in.adaptation;
+        PlatformManifest.Interop interop = adaptation.interop;
         String purpose = InteropStatement.releasePurpose(manifest.version);
 
         // The signature binds the zip to the installed game's code and this launch's purpose;
@@ -84,17 +86,27 @@ final class BppLaunch {
         String release = manifest.version;
         File updates = dirs.updates;
         String staged = null;
-        if (ManagedPayloadStaging.compareVersions(in.installedModsVersion, release) < 0) {
+        // Mods built for another game's interop crash it, and the Updater swaps by version only: a
+        // switch replaces them even with the same version (ADR 0019).
+        String game = adaptation.game.hash.toString();
+        boolean switched = !game.equals(ManagedPayloadStaging.remembered(dirs.stagedGame));
+        if (switched || ManagedPayloadStaging.compareVersions(in.installedModsVersion, release) < 0) {
             File payloadDir = dirs.managedPayloadCache;
-            PlatformManifest.Artifact payload = manifest.managedPayload.file;
+            PlatformManifest.Artifact payload = adaptation.managedPayload.file;
             File payloadZip = Download.cachedOrFetch(host.source(payload), payload.size, payload.sha256,
                     new File(payloadDir, payload.sha256 + ".zip"),
                     (received, total) -> progress.downloading(false, received, total));
             keepOnly(payloadDir, payloadZip.getName());
             progress.preparing();
+            if (switched) {
+                List<String> removed = ManagedPayloadStaging.removeInstalled(external);
+                AppLog.i(TAG, "the installed Mods are not staged for game " + game + ": deleted " + removed);
+            }
             ManagedPayloadStaging.stage(payloadZip, updates, release);
             staged = release;
-            AppLog.i(TAG, "staged the Managed Payload " + release + " over installed " + in.installedModsVersion);
+            ManagedPayloadStaging.remember(dirs.stagedGame, game);
+            AppLog.i(TAG, "staged the " + adaptation.source + " Managed Payload " + release + " over installed "
+                    + in.installedModsVersion);
         }
         ManagedPayloadStaging.remember(dirs.stagedVersion, staged);
         List<String> pruned = ManagedPayloadStaging.prune(updates, staged);

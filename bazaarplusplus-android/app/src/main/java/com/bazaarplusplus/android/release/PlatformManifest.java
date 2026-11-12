@@ -5,14 +5,27 @@ import com.bazaarplusplus.android.game.GameCodeHash;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
- * The Android Platform Release Manifest {@code latest/mod/android-aarch64.json} in ADR 0012's
- * shape ("fragment 与平台清单"): {@code downloads["android-aarch64"]} holds {@code app},
- * {@code game}, {@code interop}, {@code managedPayload}, {@code loader} and the Managed Payload's
- * compatibility facts. release/downloads.ts {@code decodeAndroidDownload} reads the same shape for
- * the site and the mod.
+ * The Android Platform Release Manifest {@code latest/mod/android-aarch64.json} in ADR 0019's
+ * shape ("平台清单：加 adaptations 列表"): {@code downloads["android-aarch64"]} holds {@code app},
+ * {@code loader}, the Managed Payload's compatibility facts and {@code adaptations}, one Game
+ * Adaptation per Android source. The top-level {@code game}, {@code interop} and
+ * {@code managedPayload} repeat the publisher's adaptation for Apps before ADR 0019; this App
+ * reads only {@code adaptations}. release/manifest.ts {@code validateAndroidRelease} owns the shape.
  */
 public final class PlatformManifest {
+    /** The publisher's APK. */
+    public static final String PUBLISHER = "publisher";
+    /** Google Play. */
+    public static final String PLAY = "play";
+    /** The Android sources, in the order the manifest lists their adaptations (ADR 0019). */
+    public static final List<String> SOURCES = List.of(PUBLISHER, PLAY);
+
     /** A downloadable file the manifest pins by size and sha256. */
     public static final class Artifact {
         public final String url;
@@ -28,6 +41,13 @@ public final class PlatformManifest {
         static Artifact decode(JSONObject json, ReleaseOrigin origin, String prefix) throws MalformedReleaseException {
             String url = StrictJson.string(json, "url");
             if (!origin.under(url, prefix)) throw new MalformedReleaseException(url + " is not under " + origin.base + prefix);
+            return new Artifact(url, StrictJson.positive(json, "size"), StrictJson.sha256(json, "sha256"));
+        }
+
+        /** An artifact whose URL the release names exactly. */
+        static Artifact exact(JSONObject json, String expected) throws MalformedReleaseException {
+            String url = StrictJson.string(json, "url");
+            if (!url.equals(expected)) throw new MalformedReleaseException(url + " is not " + expected);
             return new Artifact(url, StrictJson.positive(json, "size"), StrictJson.sha256(json, "sha256"));
         }
     }
@@ -93,6 +113,36 @@ public final class PlatformManifest {
         }
     }
 
+    /**
+     * One Game Adaptation: the game of one Android source, its Interop Package and the Managed
+     * Payload built against that interop. {@code signerSha256} is the source's game signing
+     * certificate, by which the App tells the installed game's source.
+     */
+    public static final class Adaptation {
+        public final String source;
+        public final String signerSha256;
+        public final Game game;
+        public final Interop interop;
+        public final ManagedPayload managedPayload;
+
+        Adaptation(String source, String signerSha256, Game game, Interop interop, ManagedPayload managedPayload) {
+            this.source = source;
+            this.signerSha256 = signerSha256;
+            this.game = game;
+            this.interop = interop;
+            this.managedPayload = managedPayload;
+        }
+
+        static Adaptation decode(JSONObject json, String source, ReleaseOrigin origin, String version)
+                throws MalformedReleaseException {
+            JSONObject payload = StrictJson.object(json, "managedPayload");
+            return new Adaptation(source, StrictJson.sha256(json, "signerSha256"),
+                    Game.decode(StrictJson.object(json, "game")), Interop.decode(StrictJson.object(json, "interop"), origin),
+                    new ManagedPayload(Artifact.exact(payload, origin.managedPayloadUrl(version, source)),
+                            StrictJson.string(payload, "signature")));
+        }
+    }
+
     public static final class Loader {
         public final String tag;
         public final String sha256;
@@ -113,30 +163,26 @@ public final class PlatformManifest {
     public final String gitCommit;
     /** Null only in the release an APK carries. */
     public final App app;
-    public final Game game;
-    public final Interop interop;
-    public final ManagedPayload managedPayload;
+    /** One adaptation per source of {@link #SOURCES}, in that order. */
+    public final Map<String, Adaptation> adaptations;
     public final Loader loader;
     public final boolean selfUpdatable;
     public final long historyDatabaseUserVersion;
     public final String nonManagedPayloadDigest;
 
-    private PlatformManifest(String version, String gitCommit, App app, Game game, Interop interop,
-            ManagedPayload managedPayload, Loader loader, boolean selfUpdatable, long historyDatabaseUserVersion,
-            String nonManagedPayloadDigest) {
+    private PlatformManifest(String version, String gitCommit, App app, Map<String, Adaptation> adaptations,
+            Loader loader, boolean selfUpdatable, long historyDatabaseUserVersion, String nonManagedPayloadDigest) {
         this.version = version;
         this.gitCommit = gitCommit;
         this.app = app;
-        this.game = game;
-        this.interop = interop;
-        this.managedPayload = managedPayload;
+        this.adaptations = Collections.unmodifiableMap(adaptations);
         this.loader = loader;
         this.selfUpdatable = selfUpdatable;
         this.historyDatabaseUserVersion = historyDatabaseUserVersion;
         this.nonManagedPayloadDigest = nonManagedPayloadDigest;
     }
 
-    /** Decodes a manifest. Anything that is not ADR 0012's shape throws. */
+    /** Decodes a manifest. Anything that is not ADR 0019's shape throws, a manifest without adaptations too. */
     public static PlatformManifest decode(String text, ReleaseOrigin origin) throws MalformedReleaseException {
         return decode(text, origin, false);
     }
@@ -166,14 +212,21 @@ public final class PlatformManifest {
             app = new App(Artifact.decode(appJson, origin, versioned + "/app/"),
                     StrictJson.positive(appJson, "versionCode"), StrictJson.sha256(appJson, "signerSha256"));
         }
-        JSONObject payloadJson = StrictJson.object(record, "managedPayload");
-        ManagedPayload payload = new ManagedPayload(Artifact.decode(payloadJson, origin, versioned + "/managed/"),
-                StrictJson.string(payloadJson, "signature"));
         long historyVersion = StrictJson.integer(record, "historyDatabaseUserVersion");
         if (historyVersion < 0) throw new MalformedReleaseException("historyDatabaseUserVersion is negative");
-        return new PlatformManifest(version, gitCommit, app, Game.decode(StrictJson.object(record, "game")),
-                Interop.decode(StrictJson.object(record, "interop"), origin), payload,
-                Loader.decode(StrictJson.object(record, "loader")), StrictJson.bool(record, "selfUpdatable"),
+        return new PlatformManifest(version, gitCommit, app, adaptations(StrictJson.object(record, "adaptations"), origin,
+                version), Loader.decode(StrictJson.object(record, "loader")), StrictJson.bool(record, "selfUpdatable"),
                 historyVersion, StrictJson.sha256(record, "nonManagedPayloadDigest"));
+    }
+
+    private static Map<String, Adaptation> adaptations(JSONObject json, ReleaseOrigin origin, String version)
+            throws MalformedReleaseException {
+        // A key set, not an order: JSON objects are unordered, and a reader may not keep the order.
+        if (json.length() != SOURCES.size()) throw new MalformedReleaseException("adaptations must be exactly " + SOURCES);
+        Map<String, Adaptation> adaptations = new LinkedHashMap<>();
+        for (String source : SOURCES) {
+            adaptations.put(source, Adaptation.decode(StrictJson.object(json, source), source, origin, version));
+        }
+        return adaptations;
     }
 }

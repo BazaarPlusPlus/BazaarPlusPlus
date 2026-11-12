@@ -2,7 +2,7 @@
 
 Cross-project terms (Android App, Game Code Hash, Interop Package, Launch Record) are in the root `GLOSSARY.md`.
 
-**Installed game**: the official `com.tempogames.thebazaar` as the package manager reports it: its base APK, split APKs, `versionCode` and `lastUpdateTime`. The App reads it and never writes to it.
+**Installed game**: the official `com.tempogames.thebazaar` as the package manager reports it: its base APK, split APKs, `versionCode`, `lastUpdateTime` and the sha256 of its signing certificates, which name its Android source. The App reads it and never writes to it.
 
 **Game class loader**: the `PathClassLoader` the App builds over `bridge.dex` and every installed game APK, with the library links as its native search path. The game's Java code and the bridge Activity run in it.
 
@@ -14,15 +14,17 @@ Cross-project terms (Android App, Game Code Hash, Interop Package, Launch Record
 
 **Android App Runtime**: what the App APK carries for LemonLoader: `assets/lemon-runtime.zip` (the Loader Release's assets and the Updater as the packaged deployment), `assets/bpp-runtime.json`, and the native libraries under `jniLibs/`. `release/android-app.ts stage-runtime` writes it.
 
-**Carried release**: the release a release APK runs without a download: `assets/bpp-release/<sha256>.zip` for its Interop Package and Managed Payload, and `assets/bpp-release/release.json`, its Platform Release Manifest without `app` (`release/CarriedRelease`). A launch takes a file from there when the sha256 matches, and uses the document when no manifest can be read.
+**Carried release**: the release a release APK runs without a download: `assets/bpp-release/<sha256>.zip` for every Game Adaptation's Interop Package and Managed Payload, and `assets/bpp-release/release.json`, its Platform Release Manifest without `app` (`release/CarriedRelease`). A launch takes a file from there when the sha256 matches, and uses the document when no manifest can be read.
 
 **Loader deployment state**: the `.lemonloader-*` markers and generated files under the App's `MelonLoader/` files directory. `LoaderDeployment` resets them when the App's `versionCode` or the interop changes, so LemonLoader deploys the new runtime instead of silently keeping the old one.
 
-**Launch tier**: the outcome of `launch/LaunchGate` for the installed game against the Platform Release Manifest's `game`: `NORMAL`, `NEWER_WAITING`, `OLDER`, `NOT_INSTALLED`, `ANDROID_RELEASE_APK`, plus `OFFLINE_NO_CACHE`. ADR 0012's table ("三档启动规则") names the first five; the launcher shows one per tier.
+**Launch tier**: the outcome of `launch/LaunchGate` for the installed game against the Platform Release Manifest's `adaptations`: `NORMAL`, `NEWER_WAITING`, `OLDER`, `NOT_INSTALLED`, `ANDROID_RELEASE_APK`, plus `OFFLINE_NO_CACHE`. A Game Code Hash that matches any adaptation is `NORMAL` with that adaptation; otherwise only the adaptation of the installed game's source, by signer, is compared. Root ADR 0019's table ("启动门禁") names the first five; the launcher shows one per tier.
 
 **Release cache**: `release/ReleaseCache`, the last Platform Release Manifest that decoded, kept in internal storage (`files/release/`, `files/release-dev/` for a Development origin) for a launch without network.
 
 **Staged version**: the Managed Payload version the App last put in the Data Root's `Updates/` (`files/managed-staged.txt`). When the installed Mods are still older and that `Updates/<version>/` is gone, the Updater rejected it, and the launcher says the last plugin install failed.
+
+**Staged game**: the Game Code Hash of the Game Adaptation whose Managed Payload the App last staged (`files/managed-staged-game.txt`). When the selected adaptation's game differs, or none is recorded, the launch deletes every file the installed Managed Payload Manifest names, then the manifest, and stages that adaptation's Managed Payload whatever its version: the Updater compares versions only.
 
 **Development origin**: a debug build's release source `http://127.0.0.1:<port>`, set by `files/dev/manifest-port` (`just android::dev-manifest-port`) and reached through `adb reverse`. It serves the public bucket's `installer/` layout; a debug build also trusts `files/dev/trusted-cert.der` (`just android::dev-signing-key`) for interop statements. Release builds have neither (`src/release/.../DevOverrides`).
 

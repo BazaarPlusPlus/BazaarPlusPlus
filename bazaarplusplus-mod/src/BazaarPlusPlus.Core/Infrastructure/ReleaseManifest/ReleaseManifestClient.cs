@@ -18,16 +18,25 @@ public enum ReleaseManifestFailureKind
 }
 
 /// <summary>
-/// What an Android Platform Release Manifest names for the Android App (root ADR 0012 and 0016):
-/// the game this release was adapted for, as its version (as the game reports it in
-/// <c>Application.version</c>), versionCode and game code hashes, and the Android App APK to
-/// install for it, with the size and SHA-256 a download is checked against.
+/// One game an Android release was adapted for (root ADR 0019): the Android source it comes
+/// from (the key under <c>adaptations</c>), its version as the game reports it in
+/// <c>Application.version</c>, its versionCode and its Game Code Hash.
+/// </summary>
+public sealed record AndroidAdaptedGame(
+    string Source,
+    string GameVersion,
+    long VersionCode,
+    string Il2CppSha256,
+    string MetadataSha256
+);
+
+/// <summary>
+/// What an Android Platform Release Manifest names for the Android App (root ADR 0012, 0016 and
+/// 0019): every game this release was adapted for, one per Android source, and the Android App
+/// APK to install for them, with the size and SHA-256 a download is checked against.
 /// </summary>
 public sealed record AndroidAppRelease(
-    string GameVersion,
-    long GameVersionCode,
-    string GameIl2CppSha256,
-    string GameMetadataSha256,
+    IReadOnlyList<AndroidAdaptedGame> Games,
     Uri AppUrl,
     long AppSize,
     string AppSha256
@@ -194,14 +203,40 @@ public sealed class ReleaseManifestClient
         );
     }
 
-    // An Android record names the game it was adapted for (game.gameVersion, the string the
-    // running game reports) and the Android App APK (app.url, size, sha256); release/manifest.ts
-    // owns them. Anything incomplete is no release.
+    // An Android record names every game it was adapted for (adaptations.<source>.game: the
+    // string the running game reports, its versionCode and Game Code Hash) and the Android App
+    // APK (app.url, size, sha256); release/manifest.ts owns them. The top-level game serves
+    // older mods only. Anything incomplete, in any adaptation, is no release.
     private AndroidAppRelease? ReadAndroidApp(JObject document)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
             return null;
-        if (release["app"] is not JObject apk || release["game"] is not JObject game)
+        if (release["app"] is not JObject apk || release["adaptations"] is not JObject adaptations)
+            return null;
+        var games = new List<AndroidAdaptedGame>();
+        foreach (var adaptation in adaptations.Properties())
+        {
+            if (ReadAdaptedGame(adaptation) is not { } game)
+                return null;
+            games.Add(game);
+        }
+        var url = apk.Value<string>("url");
+        var size = apk["size"]?.Type == JTokenType.Integer ? apk.Value<long>("size") : 0;
+        var sha256 = apk["sha256"]?.Type == JTokenType.String ? apk.Value<string>("sha256")! : "";
+        if (
+            games.Count == 0
+            || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || size <= 0
+            || !IsSha256(sha256)
+        )
+            return null;
+        return new AndroidAppRelease(games, uri, size, sha256);
+    }
+
+    private static AndroidAdaptedGame? ReadAdaptedGame(JProperty adaptation)
+    {
+        if (adaptation.Value is not JObject entry || entry["game"] is not JObject game)
             return null;
         if (game["gameVersion"]?.Type != JTokenType.String)
             return null;
@@ -216,21 +251,9 @@ public sealed class ReleaseManifestClient
             game["metadataSha256"]?.Type == JTokenType.String
                 ? game.Value<string>("metadataSha256")!
                 : "";
-        var url = apk.Value<string>("url");
-        var size = apk["size"]?.Type == JTokenType.Integer ? apk.Value<long>("size") : 0;
-        var sha256 = apk["sha256"]?.Type == JTokenType.String ? apk.Value<string>("sha256")! : "";
-        if (
-            gameVersion.Length == 0
-            || versionCode <= 0
-            || !IsSha256(il2cpp)
-            || !IsSha256(metadata)
-            || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            || uri.Scheme != Uri.UriSchemeHttps
-            || size <= 0
-            || !IsSha256(sha256)
-        )
+        if (gameVersion.Length == 0 || versionCode <= 0 || !IsSha256(il2cpp) || !IsSha256(metadata))
             return null;
-        return new AndroidAppRelease(gameVersion, versionCode, il2cpp, metadata, uri, size, sha256);
+        return new AndroidAdaptedGame(adaptation.Name, gameVersion, versionCode, il2cpp, metadata);
     }
 
     private static bool IsSha256(string value) =>

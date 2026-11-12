@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ANDROID_SOURCES } from './downloads.ts';
+import type { AndroidSource } from './downloads.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import { isSha256, jsonBytes } from './snapshot-files.ts';
 
@@ -19,8 +21,8 @@ export const LOCK_SCHEMA_VERSION = 1;
 export type SnapshotPlatform = 'macos' | 'windows' | 'android';
 /** A channel the Snapshot Lock keys a desktop entry by. */
 export type SnapshotChannel = 'online' | 'staging' | 'ptr';
-/** Where an Android player installs the official game from (ADR 0019). */
-export type AndroidSource = 'publisher' | 'play';
+export { ANDROID_SOURCES };
+export type { AndroidSource };
 /** The second half of a lock key: a desktop channel or an Android source. */
 export type LockChannel = SnapshotChannel | AndroidSource;
 /** A platform whose snapshot is a Managed directory captured from Steam. */
@@ -41,10 +43,6 @@ export const SNAPSHOT_CHANNELS: readonly SnapshotChannel[] = Object.freeze([
   'online',
   'staging',
   'ptr'
-]);
-export const ANDROID_SOURCES: readonly AndroidSource[] = Object.freeze([
-  'publisher',
-  'play'
 ]);
 // Desktop platforms capture a Steam install's Managed directory on three
 // branches. Android keys one entry per source, each the newest production

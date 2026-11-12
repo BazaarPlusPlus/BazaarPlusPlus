@@ -83,7 +83,7 @@ async function describeCard(page: Page, title: string) {
     .textContent();
   return {
     version: version?.trim(),
-    adaptedGame: await fact(card, 'Adapted game'),
+    adaptedGames: await adaptedGames(card),
     onlineGame: await onlineGame(card),
     primary: await describeLink(page, title, /^Download \./),
     mirror: await describeLink(page, title, `${title} mainland mirror`)
@@ -99,6 +99,14 @@ async function fact(card: Locator, label: string) {
   const key = card.locator('dt', { hasText: label });
   if ((await key.count()) === 0) return null;
   return text(key.locator('xpath=following-sibling::dd[1]'));
+}
+
+/** Each adapted game beside "Adapted game", or null when the row is absent. */
+async function adaptedGames(card: Locator) {
+  const key = card.locator('dt', { hasText: 'Adapted game' });
+  if ((await key.count()) === 0) return null;
+  const rows = key.locator('xpath=following-sibling::dd[1]/span/span');
+  return (await rows.allTextContents()).map((row) => row.trim());
 }
 
 /** The online game and the conclusion beside it, or null while the Game Status is missing. */
@@ -124,7 +132,7 @@ async function describeAndroid(page: Page) {
     ),
     notice: await text(card.getByText(/^Features differ from desktop/)),
     version: await fact(card, 'Current version'),
-    adaptedGame: await fact(card, 'Adapted game'),
+    adaptedGames: await adaptedGames(card),
     onlineGame: await onlineGame(card),
     size: await fact(card, 'Size'),
     sha256: (await card.locator('details code').count())
@@ -213,7 +221,7 @@ test('a missing or invalid Android manifest leaves the Android card unavailable'
     badge: loaded.android?.badge,
     notice: loaded.android?.notice,
     version: 'Unavailable',
-    adaptedGame: null,
+    adaptedGames: null,
     onlineGame: null,
     size: null,
     sha256: null,
@@ -301,21 +309,21 @@ test.describe('Game Status', () => {
     const games = async (title: string) => {
       const card = platformCard(page, title);
       return {
-        adapted: await fact(card, 'Adapted game'),
+        adapted: await adaptedGames(card),
         online: await onlineGame(card)
       };
     };
     // The same game code; a newer game; a content-only update of the adapted game.
     expect(await games('macOS')).toEqual({
-      adapted: '1.0.13081',
+      adapted: ['1.0.13081'],
       online: { version: '1.0.13081', conclusion: 'Adapted' }
     });
     expect(await games('Windows')).toEqual({
-      adapted: '1.0.13057',
+      adapted: ['1.0.13057'],
       online: { version: '1.0.13082', conclusion: 'Not adapted yet' }
     });
     expect(await games('Android')).toEqual({
-      adapted: '1.0.12825',
+      adapted: ['1.0.12825 · Publisher', '1.0.6 · Google Play'],
       online: { version: '1.0.12830', conclusion: 'Adapted' }
     });
     expectNoUnexpectedRequests(routes);

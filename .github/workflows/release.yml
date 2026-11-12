@@ -151,14 +151,21 @@ jobs:
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$platform" "$tools"
       - run: just release::check
-      # The product compiles against this platform's online Snapshot Lock entry;
-      # a null entry fails here, naming the snapshot to capture. The operator
-      # token reads the private store for this step only.
-      - name: Fetch the online Game Assembly Snapshot (android, the Interop Snapshot)
+      # The product compiles against this platform's online Snapshot Lock entry,
+      # and Android against the entry of each game source (ADR 0019); a null
+      # entry fails here, naming the snapshot to capture. The operator token
+      # reads the private store for this step only.
+      - name: Fetch the Game Assembly Snapshots (android, the Interop Snapshots)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: just mod::fetch "$RELEASE_PLATFORM" online
+        run: |
+          if [[ "$RELEASE_PLATFORM" == android ]]; then
+            just mod::fetch android publisher
+            just mod::fetch android play
+          else
+            just mod::fetch "$RELEASE_PLATFORM" online
+          fi
       # Daily CI defers Windows and wall-clock/preview-channel checks here.
       # dry_run retains its payload-preparation-only contract.
       - name: Verify the desktop Mod before release
@@ -176,7 +183,9 @@ jobs:
           fi
       - name: Verify the Android Mod before release
         if: env.STAGE == 'release' && matrix.platform == 'android'
-        run: just verify mod::android-build mod::test-core
+        run: |
+          BppAndroidSource=publisher just verify mod::android-build mod::test-core
+          BppAndroidSource=play just verify mod::android-build mod::test-core
       - name: Preserve Mod release verification evidence
         if: always() && env.STAGE == 'release'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -287,11 +296,11 @@ jobs:
             bazaarplusplus-installer/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.tar.gz*
           if-no-files-found: error
           retention-days: 14
-      # The build receipt and the three artifacts (about 80 MB), for build_only
-      # acceptance on a clean AVD and for inspection: the Android App APK, the
-      # Interop Package with its interop statement and signature, and the
-      # Managed Payload zip with its signature. No key material is under
-      # target/android/.
+      # The build receipt and the artifacts (about 110 MB), for build_only
+      # acceptance on a clean AVD and for inspection: the Android App APK, and
+      # per Game Adaptation the Interop Package with its interop statement and
+      # signature and the Managed Payload zip with its signature. No key
+      # material is under target/android/.
       - if: env.STAGE == 'release' && matrix.platform == 'android'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

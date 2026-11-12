@@ -13,7 +13,7 @@
         "signerSha256": "0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9"
       },
       "managedPayload": {
-        "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/managed/BazaarPlusPlus_3.1.2_android-aarch64-managed.zip",
+        "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/managed/publisher/BazaarPlusPlus_3.1.2_android-aarch64-publisher-managed.zip",
         "size": 30,
         "sha256": "03e651b2e1f76ad4b9b4b63d729ce34870bc50ed1d20f5e70a620686631c5abc",
         "signature": "android-managed-signature-3.1.2"
@@ -23,7 +23,7 @@
         "size": 34,
         "sha256": "f3d912c12d7a085f4d05acf3dbec42fa7ae1c867a7ceb585c82839117f5021ca",
         "snapshotSha256": "3f9a1c2d99999999999999999999999999999999999999999999999999999999",
-        "signature": "aW50ZXJvcCBzdGF0ZW1lbnQgc2lnbmF0dXJlIDMuMS4y"
+        "signature": "aW50ZXJvcCBzdGF0ZW1lbnQgc2lnbmF0dXJlIHB1Ymxpc2hlciAzLjEuMg=="
       },
       "game": {
         "gameVersion": "1.0.12825-production-android-d9601ded",
@@ -37,7 +37,53 @@
       },
       "selfUpdatable": true,
       "historyDatabaseUserVersion": 1,
-      "nonManagedPayloadDigest": "6666666666666666666666666666666666666666666666666666666666666666"
+      "nonManagedPayloadDigest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "adaptations": {
+        "publisher": {
+          "signerSha256": "f8f508cf8b590e715a2f5bdba78098f03daf988cf828dd61fcbee8aa9b21632a",
+          "game": {
+            "gameVersion": "1.0.12825-production-android-d9601ded",
+            "versionCode": 12825,
+            "il2cppSha256": "7777777777777777777777777777777777777777777777777777777777777777",
+            "metadataSha256": "9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          "interop": {
+            "url": "https://cdn.bazaarplusplus.com/installer/android/interop/f3d912c12d7a085f4d05acf3dbec42fa7ae1c867a7ceb585c82839117f5021ca.zip",
+            "size": 34,
+            "sha256": "f3d912c12d7a085f4d05acf3dbec42fa7ae1c867a7ceb585c82839117f5021ca",
+            "snapshotSha256": "3f9a1c2d99999999999999999999999999999999999999999999999999999999",
+            "signature": "aW50ZXJvcCBzdGF0ZW1lbnQgc2lnbmF0dXJlIHB1Ymxpc2hlciAzLjEuMg=="
+          },
+          "managedPayload": {
+            "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/managed/publisher/BazaarPlusPlus_3.1.2_android-aarch64-publisher-managed.zip",
+            "size": 30,
+            "sha256": "03e651b2e1f76ad4b9b4b63d729ce34870bc50ed1d20f5e70a620686631c5abc",
+            "signature": "android-managed-signature-3.1.2"
+          }
+        },
+        "play": {
+          "signerSha256": "f093884efa76e15b6375faa0c1ef195f4f5c411719e568e043fd82103c399b72",
+          "game": {
+            "gameVersion": "1.0.6",
+            "versionCode": 13168,
+            "il2cppSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+            "metadataSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "interop": {
+            "url": "https://cdn.bazaarplusplus.com/installer/android/interop/42848dedf59bc31bf68442f4c20c4bd5021b30362c89cf29d85d2a2aba0f6381.zip",
+            "size": 38,
+            "sha256": "42848dedf59bc31bf68442f4c20c4bd5021b30362c89cf29d85d2a2aba0f6381",
+            "snapshotSha256": "2e8b0d1c44444444444444444444444444444444444444444444444444444444",
+            "signature": "aW50ZXJvcCBzdGF0ZW1lbnQgc2lnbmF0dXJlIHBsYXkgMy4xLjI="
+          },
+          "managedPayload": {
+            "url": "https://cdn.bazaarplusplus.com/installer/3.1.2/android-aarch64/managed/play/BazaarPlusPlus_3.1.2_android-aarch64-play-managed.zip",
+            "size": 35,
+            "sha256": "59836e13ad40a6104736a8b433a5e09833608589735e505da38c5d054462fb08",
+            "signature": "android-managed-signature-3.1.2-play"
+          }
+        }
+      }
     }
   }
 }

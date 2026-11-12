@@ -13,6 +13,7 @@ import android.content.ContextWrapper;
 import com.bazaarplusplus.android.TestZips;
 import com.bazaarplusplus.android.game.GameCodeHash;
 import com.bazaarplusplus.android.launch.LaunchGate.Tier;
+import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
 import com.bazaarplusplus.android.release.Download;
 import com.bazaarplusplus.android.release.InteropPackage;
 import com.bazaarplusplus.android.release.InteropStatement;
@@ -42,6 +43,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
@@ -61,6 +63,14 @@ public class BppLaunchTest {
     static final GameCodeHash GAME = LaunchGateTest.ADAPTED;
     static final String GAME_VERSION_NAME = "1.0.12825-production-android-d9601ded";
     static final long GAME_VERSION_CODE = 12825;
+    static final GameCodeHash PLAY_GAME = LaunchGateTest.PLAY_ADAPTED;
+    static final String PLAY_VERSION_NAME = "1.0.6";
+    static final long PLAY_VERSION_CODE = 13168;
+    /** What an earlier staging installed: files in Mods/ and UserLibs/, the version file among them. */
+    static final List<String> INSTALLED_MODS = List.of("MelonLoader/Mods/BazaarPlusPlus.Core.dll",
+            "MelonLoader/Mods/BazaarPlusPlus.version", "MelonLoader/UserLibs/Microsoft.Data.Sqlite.dll");
+    /** Beside the Mods, and no Managed Payload Manifest names it. */
+    static final String USER_DATA = "MelonLoader/UserData/BazaarPlusPlus.cfg";
     static final String SNAPSHOT = "5".repeat(64);
     static final LaunchRecord.App APP = new LaunchRecord.App("com.bazaarplusplus.android", RELEASE, 6001000,
             "6".repeat(64));
@@ -225,18 +235,19 @@ public class BppLaunchTest {
         return sorted;
     }
 
-    byte[] interopZip(boolean stray) throws Exception {
+    byte[] interopZip(boolean stray, String assembly) throws Exception {
         Map<String, String> entries = new LinkedHashMap<>();
-        entries.put(InteropPackage.ENTRY_ROOT + "Assembly-CSharp.dll", "assembly");
+        entries.put(InteropPackage.ENTRY_ROOT + "Assembly-CSharp.dll", assembly);
         if (stray) entries.put("assets/LemonLoader/payload.json", "{}");
         return read(TestZips.write(tmp.newFile(), entries));
     }
 
-    byte[] payloadZip() throws Exception {
+    /** A Managed Payload of {@link #RELEASE} whose Core.dll holds {@code core}. */
+    byte[] payloadZip(String core) throws Exception {
         Map<String, String> entries = new LinkedHashMap<>();
         entries.put("manifest.txt", "bpp-managed-payload-manifest 1\nversion " + RELEASE + "\nplatform android-aarch64\n");
         entries.put("manifest.txt.minisig", "untrusted comment: x\nRW...\n");
-        entries.put("files/MelonLoader/Mods/BazaarPlusPlus.Core.dll", "core");
+        entries.put("files/MelonLoader/Mods/BazaarPlusPlus.Core.dll", core);
         return read(TestZips.write(tmp.newFile(), entries));
     }
 
@@ -251,18 +262,29 @@ public class BppLaunchTest {
         return new JSONObject().put("url", url).put("size", bytes.length).put("sha256", sha256(bytes));
     }
 
-    /** A Platform Release Manifest of {@link #RELEASE} for these zips, decoded as the App decodes one. */
-    static PlatformManifest manifest(byte[] interop, byte[] payload, String signature) throws Exception {
+    /** One adaptation of {@link #RELEASE}: its game, and these zips. */
+    static JSONObject adaptationJson(String source, String signer, String gameVersion, long versionCode, GameCodeHash game,
+            byte[] interop, byte[] payload, String signature) throws Exception {
+        return new JSONObject()
+                .put("signerSha256", signer)
+                .put("game", new JSONObject().put("gameVersion", gameVersion).put("versionCode", versionCode)
+                        .put("il2cppSha256", game.il2cppSha256).put("metadataSha256", game.metadataSha256))
+                .put("interop", artifact(ReleaseOrigin.PUBLIC.interopUrl(sha256(interop)), interop)
+                        .put("snapshotSha256", SNAPSHOT).put("signature", signature))
+                .put("managedPayload", artifact(ReleaseOrigin.PUBLIC.managedPayloadUrl(RELEASE, source), payload)
+                        .put("signature", "managed-signature-" + source));
+    }
+
+    /**
+     * A Platform Release Manifest of {@link #RELEASE} with a publisher and a Play adaptation,
+     * decoded as the App decodes one. It leaves out the top-level fields that only older Apps read.
+     */
+    static PlatformManifest manifest(JSONObject publisher, JSONObject play) throws Exception {
         String versioned = ReleaseOrigin.PUBLIC.base + "/" + RELEASE + "/android-aarch64";
         JSONObject record = new JSONObject()
                 .put("app", artifact(versioned + "/app/BazaarPlusPlus.apk", "apk".getBytes(StandardCharsets.UTF_8))
                         .put("versionCode", APP.versionCode).put("signerSha256", "0".repeat(64)))
-                .put("managedPayload", artifact(versioned + "/managed/BazaarPlusPlus-managed.zip", payload)
-                        .put("signature", "managed-signature"))
-                .put("interop", artifact(ReleaseOrigin.PUBLIC.interopUrl(sha256(interop)), interop)
-                        .put("snapshotSha256", SNAPSHOT).put("signature", signature))
-                .put("game", new JSONObject().put("gameVersion", GAME_VERSION_NAME).put("versionCode", GAME_VERSION_CODE)
-                        .put("il2cppSha256", GAME.il2cppSha256).put("metadataSha256", GAME.metadataSha256))
+                .put("adaptations", new JSONObject().put("publisher", publisher).put("play", play))
                 .put("loader", new JSONObject().put("tag", "v0.7.4-android.4").put("sha256", "8".repeat(64)))
                 .put("selfUpdatable", true)
                 .put("historyDatabaseUserVersion", 1)
@@ -272,21 +294,36 @@ public class BppLaunchTest {
         return PlatformManifest.decode(root.toString(), ReleaseOrigin.PUBLIC);
     }
 
-    /** One release a test serves through {@link FakeHost}. */
+    /**
+     * One release a test serves through {@link FakeHost}. {@code signer} signs the publisher's
+     * statement for {@code signedFor}; the Play statement is always good.
+     */
     final class Release {
         final byte[] interop;
         final byte[] payload;
+        final byte[] playInterop;
+        final byte[] playPayload;
         final PlatformManifest manifest;
 
         Release(boolean stray, KeyPair signer, GameCodeHash signedFor) throws Exception {
-            interop = interopZip(stray);
-            payload = payloadZip();
-            manifest = manifest(interop, payload,
-                    sign(signer, sha256(interop), signedFor, InteropStatement.releasePurpose(RELEASE)));
+            String purpose = InteropStatement.releasePurpose(RELEASE);
+            interop = interopZip(stray, "assembly");
+            payload = payloadZip("core");
+            playInterop = interopZip(false, "play assembly");
+            playPayload = payloadZip("play core");
+            manifest = manifest(
+                    adaptationJson("publisher", LaunchGateTest.PUBLISHER_SIGNER, GAME_VERSION_NAME, GAME_VERSION_CODE, GAME,
+                            interop, payload, sign(signer, sha256(interop), signedFor, purpose)),
+                    adaptationJson("play", LaunchGateTest.PLAY_SIGNER, PLAY_VERSION_NAME, PLAY_VERSION_CODE, PLAY_GAME,
+                            playInterop, playPayload, sign(KEY, sha256(playInterop), PLAY_GAME, purpose)));
         }
 
         Release() throws Exception {
             this(false, KEY, GAME);
+        }
+
+        PlatformManifest.Adaptation adaptation(String source) {
+            return manifest.adaptations.get(source);
         }
 
         File cachedZip() throws Exception {
@@ -303,15 +340,34 @@ public class BppLaunchTest {
         File preparedWith;
         /** Runs inside {@link #prepareGame}, to look at the files at that moment. */
         Runnable probe = () -> {};
+        /** The artifacts served with bytes other than the manifest's. */
+        Set<String> corrupt = Set.of();
 
         FakeHost(Release release) {
             this.release = release;
         }
 
+        /** "interop" and "managed" for the publisher's zips, "play interop" and "play managed" for Play's. */
         String name(PlatformManifest.Artifact file) {
-            if (release != null && file == release.manifest.interop.file) return "interop";
-            if (release != null && file == release.manifest.managedPayload.file) return "managed";
+            if (release != null) {
+                for (PlatformManifest.Adaptation adaptation : release.manifest.adaptations.values()) {
+                    String prefix = adaptation.source.equals(PlatformManifest.PUBLISHER) ? "" : adaptation.source + " ";
+                    if (file == adaptation.interop.file) return prefix + "interop";
+                    if (file == adaptation.managedPayload.file) return prefix + "managed";
+                }
+            }
             throw new AssertionError("an artifact of no release: " + file.url);
+        }
+
+        byte[] bytes(String name) {
+            if (corrupt.contains(name)) return "corrupt".getBytes(StandardCharsets.UTF_8);
+            switch (name) {
+                case "interop": return release.interop;
+                case "managed": return release.payload;
+                case "play interop": return release.playInterop;
+                case "play managed": return release.playPayload;
+                default: throw new AssertionError(name);
+            }
         }
 
         @Override public boolean gamePrepared() {
@@ -324,7 +380,7 @@ public class BppLaunchTest {
             events.add("source " + name);
             return () -> {
                 events.add("open " + name);
-                return new ByteArrayInputStream(name.equals("interop") ? release.interop : release.payload);
+                return new ByteArrayInputStream(bytes(name));
             };
         }
 
@@ -371,9 +427,20 @@ public class BppLaunchTest {
         };
     }
 
+    /** A NORMAL launch of the publisher's game. */
     LaunchInputs inputs(FakeHost host, String installedMods) {
         return new LaunchInputs(LauncherScreenTest.decision(Tier.NORMAL, false), true, GAME, GAME_VERSION_NAME,
-                GAME_VERSION_CODE, host.release.manifest, installedMods, trusted(host.events, KEY.getPublic()), null);
+                GAME_VERSION_CODE, host.release.manifest, host.release.adaptation(PlatformManifest.PUBLISHER),
+                installedMods, trusted(host.events, KEY.getPublic()), null);
+    }
+
+    /** A NORMAL launch of Google Play's game. */
+    LaunchInputs playInputs(FakeHost host, String installedMods) {
+        LaunchGate.Decision decision = LaunchGate.decide(new LaunchGate.Inputs(LaunchGateTest.installed(
+                PLAY_VERSION_CODE, PLAY_GAME, Set.of(LaunchGateTest.PLAY_SIGNER)), LaunchGateTest.RELEASE, false));
+        assertEquals(Tier.NORMAL, decision.tier);
+        return new LaunchInputs(decision, true, PLAY_GAME, PLAY_VERSION_NAME, PLAY_VERSION_CODE, host.release.manifest,
+                host.release.adaptation(PlatformManifest.PLAY), installedMods, trusted(host.events, KEY.getPublic()), null);
     }
 
     static final BppLaunch.Progress SILENT = new BppLaunch.Progress() {
@@ -386,7 +453,7 @@ public class BppLaunchTest {
         new BppLaunch(host, dirs()).prepare(in, SILENT);
     }
 
-    /** What an earlier launch left in every directory of {@link #dirs}. */
+    /** What an earlier launch of the publisher's game left in every directory of {@link #dirs}. */
     void earlierLaunch() throws Exception {
         LaunchDirs dirs = dirs();
         write(new File(dirs.interopCache, "0".repeat(64) + ".zip"), "an older Interop Package");
@@ -394,8 +461,40 @@ public class BppLaunchTest {
         write(new File(dirs.managedPayloadCache, "1".repeat(64) + ".zip"), "an older Managed Payload");
         write(new File(dirs.updates, "6.0.9/manifest.txt"), "version 6.0.9\n");
         write(dirs.stagedVersion, "6.0.9\n");
+        write(dirs.stagedGame, GAME + "\n");
         write(dirs.loaderDeployment, "{\"appVersionCode\":6000900,\"interopSha256\":\"" + "0".repeat(64) + "\"}");
         write(record(), "{\"processId\": 1}\n");
+    }
+
+    /** Installed Mods of {@code version}: {@link #INSTALLED_MODS}, the manifest that names them, and {@link #USER_DATA}. */
+    void installMods(String version) throws Exception {
+        File external = dirs().external;
+        StringBuilder manifest = new StringBuilder("bpp-managed-payload-manifest 1\nversion " + version
+                + "\nplatform android-aarch64\nhistory-database-user-version 1\nnon-managed-payload-digest "
+                + "7".repeat(64) + "\n");
+        for (String path : INSTALLED_MODS) {
+            write(new File(external, path), "installed " + path);
+            manifest.append("file ").append("0".repeat(64)).append(" 4 ").append(path).append('\n');
+        }
+        write(new File(external, ManagedPayloadStaging.INSTALLED_MANIFEST), manifest.toString());
+        write(new File(external, USER_DATA), "settings");
+    }
+
+    /** Whether each of {@link #INSTALLED_MODS} and their manifest is still there, and {@link #USER_DATA}. */
+    List<Boolean> installedMods() {
+        File external = dirs().external;
+        List<Boolean> present = new ArrayList<>();
+        for (String path : INSTALLED_MODS) present.add(new File(external, path).exists());
+        present.add(new File(external, ManagedPayloadStaging.INSTALLED_MANIFEST).exists());
+        present.add(new File(external, USER_DATA).exists());
+        return present;
+    }
+
+    static final List<Boolean> MODS_KEPT = List.of(true, true, true, true, true);
+    static final List<Boolean> MODS_REMOVED = List.of(false, false, false, false, true);
+
+    static String text(File file) throws Exception {
+        return new String(read(file), StandardCharsets.UTF_8);
     }
 
     @Test
@@ -426,6 +525,7 @@ public class BppLaunchTest {
         assertFalse("the zip is deleted", release.cachedZip().exists());
         assertEquals("nothing staged", List.of(), names(dirs.updates));
         assertFalse(dirs.stagedVersion.exists());
+        assertFalse(dirs.stagedGame.exists());
         assertArrayEquals("the loader deployment state is unchanged", loaderState, read(dirs.loaderDeployment));
         assertFalse("no Launch Record", record().exists());
         assertNull("the game is not prepared", host.preparedWith);
@@ -434,13 +534,67 @@ public class BppLaunchTest {
     @Test
     public void installedModsAtTheReleaseDownloadNoPayloadAndEmptyUpdates() throws Exception {
         earlierLaunch();
+        installMods(RELEASE);
         FakeHost host = new FakeHost(new Release());
         prepare(host, inputs(host, RELEASE));
         assertEquals("only the Interop Package", List.of("source interop", "open interop"), host.sources());
         assertTrue(dirs().updates.isDirectory());
         assertEquals("Updates/ is empty", List.of(), names(dirs().updates));
         assertFalse("the staged-version state file is deleted", dirs().stagedVersion.exists());
+        assertEquals("the same game keeps its record", GAME + "\n", text(dirs().stagedGame));
+        assertEquals("the same game keeps its Mods", MODS_KEPT, installedMods());
         assertTrue(record().isFile());
+    }
+
+    @Test
+    public void aGameSwitchReplacesTheInstalledModsEvenOfTheSameVersion() throws Exception {
+        earlierLaunch();
+        installMods(RELEASE);
+        FakeHost host = new FakeHost(new Release());
+        prepare(host, playInputs(host, RELEASE));
+        assertEquals("Play's zips only", List.of("source play interop", "open play interop", "source play managed",
+                "open play managed"), host.sources());
+        assertEquals("the publisher's Mods and their manifest are gone", MODS_REMOVED, installedMods());
+        assertEquals(List.of(RELEASE), names(dirs().updates));
+        assertEquals("Play's Managed Payload is staged", "play core",
+                text(new File(dirs().updates, RELEASE + "/files/MelonLoader/Mods/BazaarPlusPlus.Core.dll")));
+        assertEquals(RELEASE + "\n", text(dirs().stagedVersion));
+        assertEquals(PLAY_GAME + "\n", text(dirs().stagedGame));
+        assertEquals(host.preparedWith, new File(dirs().interopCache, sha256(host.release.playInterop) + ".zip"));
+        JSONObject written = new JSONObject(text(record()));
+        assertEquals(sha256(host.release.playInterop), written.getJSONObject("interop").getString("sha256"));
+        assertEquals(PLAY_GAME.il2cppSha256, written.getJSONObject("game").getString("il2cppSha256"));
+    }
+
+    @Test
+    public void aSwitchWhosePayloadDoesNotDownloadKeepsTheInstalledModsAndTheRecord() throws Exception {
+        earlierLaunch();
+        installMods(RELEASE);
+        FakeHost host = new FakeHost(new Release());
+        host.corrupt = Set.of("play managed");
+        assertThrows(IOException.class, () -> prepare(host, playInputs(host, RELEASE)));
+        assertEquals(MODS_KEPT, installedMods());
+        assertEquals("the switch is still to do", GAME + "\n", text(dirs().stagedGame));
+        assertNull(host.preparedWith);
+    }
+
+    @Test
+    public void anAppThatRecordedNoGameReplacesTheInstalledModsOnce() throws Exception {
+        // An App before ADR 0019 staged these Mods and recorded no game.
+        installMods(RELEASE);
+        FakeHost first = new FakeHost(new Release());
+        prepare(first, inputs(first, RELEASE));
+        assertEquals(List.of("source interop", "open interop", "source managed", "open managed"), first.sources());
+        assertEquals(MODS_REMOVED, installedMods());
+        assertEquals(GAME + "\n", text(dirs().stagedGame));
+
+        // The Updater swapped them in; the next launch stages nothing.
+        installMods(RELEASE);
+        FakeHost next = new FakeHost(first.release);
+        prepare(next, inputs(next, RELEASE));
+        assertEquals("the cached Interop Package, and no Managed Payload", List.of("source interop"), next.sources());
+        assertEquals(MODS_KEPT, installedMods());
+        assertEquals(List.of(), names(dirs().updates));
     }
 
     @Test
@@ -451,8 +605,9 @@ public class BppLaunchTest {
         prepare(host, inputs(host, "6.0.0"));
         assertEquals(List.of("source interop", "open interop", "source managed", "open managed"), host.sources());
         assertEquals(List.of(RELEASE), names(dirs().updates));
-        assertTrue(new File(dirs().updates, RELEASE + "/files/MelonLoader/Mods/BazaarPlusPlus.Core.dll").isFile());
+        assertEquals("core", text(new File(dirs().updates, RELEASE + "/files/MelonLoader/Mods/BazaarPlusPlus.Core.dll")));
         assertEquals(RELEASE + "\n", new String(read(dirs().stagedVersion), StandardCharsets.UTF_8));
+        assertEquals(GAME + "\n", text(dirs().stagedGame));
         assertEquals("the managed cache keeps only this zip",
                 List.of(sha256(host.release.payload) + ".zip"), names(dirs().managedPayloadCache));
     }
@@ -505,7 +660,8 @@ public class BppLaunchTest {
         FakeHost noRuntime = new FakeHost(release);
         LaunchInputs normal = inputs(noRuntime, "6.0.0");
         LaunchInputs withoutRuntime = new LaunchInputs(normal.decision, false, normal.hash, normal.gameVersionName,
-                normal.gameVersionCode, normal.manifest, normal.installedModsVersion, normal.trusted, normal.devInterop);
+                normal.gameVersionCode, normal.manifest, normal.adaptation, normal.installedModsVersion, normal.trusted,
+                normal.devInterop);
         Map<String, String> before = tree();
         IOException e = assertThrows(IOException.class, () -> prepare(prepared, inputs(prepared, "6.0.0")));
         assertTrue(e.getMessage(), e.getMessage().startsWith("The game already ran in this process"));
@@ -525,7 +681,8 @@ public class BppLaunchTest {
         boolean[] recordAtPrepare = {false};
         host.probe = () -> recordAtPrepare[0] = record().exists();
         LaunchInputs in = new LaunchInputs(LauncherScreenTest.decision(Tier.OFFLINE_NO_CACHE, true), true, GAME,
-                GAME_VERSION_NAME, GAME_VERSION_CODE, null, "6.0.0", trusted(host.events, KEY.getPublic()), devInterop);
+                GAME_VERSION_NAME, GAME_VERSION_CODE, null, null, "6.0.0", trusted(host.events, KEY.getPublic()),
+                devInterop);
         prepare(host, in);
         File copy = new File(dirs().interopCache, "development.zip");
         assertEquals("the game gets the read-only copy", copy, host.preparedWith);
@@ -536,6 +693,7 @@ public class BppLaunchTest {
         assertEquals("no statement, no source, no record", List.of("gamePrepared", "appVersionCode", "prepareGame"),
                 host.events);
         assertEquals("staging is not touched", "6.0.9\n", new String(read(dirs().stagedVersion), StandardCharsets.UTF_8));
+        assertEquals("nor the staged game", GAME + "\n", text(dirs().stagedGame));
     }
 
     @Test
@@ -630,6 +788,7 @@ public class BppLaunchTest {
         assertEquals(AppFiles.interopCache(context), dirs.interopCache);
         assertEquals(AppFiles.managedPayloadCache(context), dirs.managedPayloadCache);
         assertEquals(AppFiles.stagedVersion(context), dirs.stagedVersion);
+        assertEquals(AppFiles.stagedGame(context), dirs.stagedGame);
         assertEquals(AppFiles.loaderDeployment(context), dirs.loaderDeployment);
         assertFalse("launchDirs creates nothing", dirs.external.exists());
         assertEquals(AppFiles.external(context), dirs.external);

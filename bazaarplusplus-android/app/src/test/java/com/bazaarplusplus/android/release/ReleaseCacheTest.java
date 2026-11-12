@@ -89,6 +89,22 @@ public class ReleaseCacheTest {
     }
 
     @Test
+    public void aCacheWithoutAdaptationsGivesWayToTheCarriedRelease() throws Exception {
+        // What an App before ADR 0019 cached: decoding it fails, as if there were no cache.
+        JSONObject older = new JSONObject(PlatformManifestTest.fixture());
+        PlatformManifestTest.record(older).remove("adaptations");
+        com.bazaarplusplus.android.io.AtomicFiles.writeUtf8(new java.io.File(tmp.getRoot(), "manifest.json"),
+                older.toString());
+        assertNull("no carried release, nothing", cache().manifest().manifest);
+
+        carried = carriedFixture();
+        ReleaseCache.ManifestState state = cache().manifest();
+        assertTrue(state.fromCache);
+        assertNull("the carried release, which names no APK", state.manifest.app);
+        assertEquals(2, state.manifest.adaptations.size());
+    }
+
+    @Test
     public void noNetworkAndNoCacheIsUnavailable() {
         ReleaseCache.ManifestState state = cache().manifest();
         assertNull(state.manifest);

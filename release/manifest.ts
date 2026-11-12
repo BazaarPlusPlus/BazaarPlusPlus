@@ -18,6 +18,7 @@ import {
   platformManifestPath
 } from './downloads.ts';
 import type {
+  AndroidAdaptation,
   AndroidAppDownload,
   AndroidGameRelease,
   DesktopGameRelease,
@@ -25,7 +26,8 @@ import type {
   ManagedPayloadDownload
 } from './downloads.ts';
 import type { ArtifactManifest, ArtifactRecord } from './artifact-manifest.ts';
-import type { LoaderPin } from './snapshot-lock.ts';
+import { ANDROID_SOURCES } from './snapshot-lock.ts';
+import type { AndroidSource, LoaderPin } from './snapshot-lock.ts';
 
 export { RELEASE_MANIFEST_PATH, modManifestPath, platformManifestPath };
 
@@ -52,7 +54,16 @@ export type DesktopSelfUpdateFacts = {
   nonManagedPayloadDigest: string;
 };
 
-/** The release facts of an Android release (ANDROID_RELEASE_FIELDS). */
+/** The Game Adaptations of an Android release, one per Android source. */
+export type AndroidAdaptations = Record<AndroidSource, AndroidAdaptation>;
+
+/**
+ * The release facts of an Android release (ANDROID_RELEASE_FIELDS). The
+ * top-level `managedPayload`, `interop` and `game` are the publisher's
+ * adaptation, for the Apps and mods that read nothing else (ADR 0019). A
+ * manifest promoted before ADR 0019 has no `adaptations`; a fragment always
+ * has them.
+ */
 export type AndroidReleaseFacts = {
   app: AndroidAppDownload;
   managedPayload: ManagedPayloadDownload;
@@ -62,6 +73,7 @@ export type AndroidReleaseFacts = {
   selfUpdatable: boolean;
   historyDatabaseUserVersion: number;
   nonManagedPayloadDigest: string;
+  adaptations?: AndroidAdaptations;
 };
 
 /**
@@ -94,6 +106,7 @@ export interface AndroidPlatformFragment extends AndroidReleaseFacts {
   version: ProductVersion;
   platform: ReleasePlatformKey;
   gitCommit: string;
+  adaptations: AndroidAdaptations;
   installer?: undefined;
   updater?: undefined;
   signatureFile?: undefined;
@@ -206,15 +219,20 @@ export interface BuildPlatformFragmentOptions {
   game: DesktopGameRelease;
 }
 
+/** One Game Adaptation of an Android build, before its URLs are known. */
+export interface AndroidAdaptationFacts {
+  game: AndroidGameRelease;
+  interop: Omit<InteropPackageDownload, 'url'>;
+  managedPayload: Omit<ManagedPayloadDownload, 'url'>;
+}
+
 /** The inputs of buildAndroidFragment: the facts of one Android build. */
 export interface BuildAndroidFragmentOptions {
   version: ProductVersion;
   gitCommit: string;
   baseUrl: string;
   app: Pick<AndroidAppDownload, 'size' | 'sha256' | 'signerSha256'>;
-  game: AndroidGameRelease;
-  interop: Omit<InteropPackageDownload, 'url'>;
-  managedPayload: Omit<ManagedPayloadDownload, 'url'>;
+  adaptations: Record<AndroidSource, AndroidAdaptationFacts>;
   loader: AndroidLoader;
   selfUpdatable: boolean;
   historyDatabaseUserVersion: number;
@@ -321,6 +339,18 @@ export function fragmentKey(version: ProductVersion, platform: string): string {
 // it to the same digest.
 export const ANDROID_RELEASE_SIGNER_SHA256 =
   '0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9';
+
+// The certificate each Android source signs the official game with (ADR
+// 0019), as apksigner reports the current signer of the locked APKs: Tempo's
+// key for the publisher's APK, the Play App Signing key for Google Play. The
+// Android App picks the Game Adaptation whose signer signed the installed
+// game. They change only when a source rotates its key.
+export const ANDROID_GAME_SIGNERS: Readonly<Record<AndroidSource, string>> =
+  Object.freeze({
+    publisher:
+      'f8f508cf8b590e715a2f5bdba78098f03daf988cf828dd61fcbee8aa9b21632a',
+    play: 'f093884efa76e15b6375faa0c1ef195f4f5c411719e568e043fd82103c399b72'
+  });
 
 // What the Android App carries besides the Mods (ADR 0012): the Loader
 // Release and the native libraries of the Snapshot Lock's android-publisher
@@ -457,12 +487,22 @@ function assertAndroidLoader(
   return loader;
 }
 
-// The Managed Payload zip of one product version on one platform.
+// The Managed Payload zip of one product version on one desktop platform.
 export function managedPayloadKey(
   version: ProductVersion,
   platform: string
 ): string {
   return `${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`;
+}
+
+// The Managed Payload zip of one Game Adaptation of an Android release. The
+// Android App requires this exact key; App 6.2.5 checks only the version's
+// managed/ prefix, which the key stays under.
+export function androidManagedPayloadKey(
+  version: ProductVersion,
+  source: AndroidSource
+): string {
+  return `${version}/${ANDROID_PLATFORM}/managed/${source}/BazaarPlusPlus_${version}_${ANDROID_PLATFORM}-${source}-managed.zip`;
 }
 
 function assertReleaseOrigin(baseUrl: string): string {
@@ -616,18 +656,18 @@ export function buildPlatformFragment({
 }
 
 // The fragment `upload --platform android` writes beside the Android release
-// (kind `android-app`, ADR 0012): the Android App APK, the Interop Package and
-// the Managed Payload zip, the game they are adapted to, and the facts the
-// mod's self-update compares against the copy it runs. The caller supplies
-// the facts; the object keys and the App's versionCode follow from them.
+// (kind `android-app`, ADR 0012): the Android App APK, one Game Adaptation per
+// Android source (ADR 0019: its game, Interop Package and Managed Payload
+// zip), and the facts the mod's self-update compares against the copy it
+// runs. The top-level game, Interop Package and Managed Payload repeat the
+// publisher's adaptation. The caller supplies the facts; the object keys and
+// the App's versionCode follow from them.
 export function buildAndroidFragment({
   version,
   gitCommit,
   baseUrl,
   app,
-  game,
-  interop,
-  managedPayload,
+  adaptations: facts,
   loader,
   selfUpdatable,
   historyDatabaseUserVersion,
@@ -637,6 +677,40 @@ export function buildAndroidFragment({
   if (!GIT_COMMIT.test(gitCommit ?? ''))
     throw new Error('Android fragment requires an identified product build');
   const origin = assertReleaseOrigin(baseUrl);
+  const adaptation = (source: AndroidSource): AndroidAdaptation => {
+    const { game, interop, managedPayload } = facts?.[source] ?? {};
+    const interopSha256 = interop?.sha256 ?? '';
+    return {
+      signerSha256: ANDROID_GAME_SIGNERS[source],
+      game: {
+        gameVersion: game?.gameVersion,
+        versionCode: game?.versionCode,
+        il2cppSha256: game?.il2cppSha256,
+        metadataSha256: game?.metadataSha256
+      },
+      interop: {
+        // Without a digest the URL is absent; validation refuses the record
+        // on its digest before it reads the URL.
+        url: (SHA256.test(interopSha256)
+          ? `${origin}/${interopPackageKey(interopSha256)}`
+          : undefined) as string,
+        size: interop?.size,
+        sha256: interop?.sha256,
+        snapshotSha256: interop?.snapshotSha256,
+        signature: interop?.signature
+      },
+      managedPayload: {
+        url: `${origin}/${androidManagedPayloadKey(version, source)}`,
+        size: managedPayload?.size,
+        sha256: managedPayload?.sha256,
+        signature: managedPayload?.signature?.trim()
+      }
+    } as AndroidAdaptation;
+  };
+  const adaptations = Object.fromEntries(
+    ANDROID_SOURCES.map((source) => [source, adaptation(source)])
+  ) as AndroidAdaptations;
+  const { game, interop, managedPayload } = adaptations.publisher;
   const fragment: AndroidPlatformFragment = {
     schemaVersion: 1,
     kind: 'android-app',
@@ -650,33 +724,14 @@ export function buildAndroidFragment({
       versionCode: androidAppVersionCode(version),
       signerSha256: app?.signerSha256
     },
-    game: {
-      gameVersion: game?.gameVersion,
-      versionCode: game?.versionCode,
-      il2cppSha256: game?.il2cppSha256,
-      metadataSha256: game?.metadataSha256
-    },
-    interop: {
-      // Without a digest the URL is absent; validation refuses the record
-      // on its digest before it reads the URL.
-      url: (SHA256.test(interop?.sha256 ?? '')
-        ? `${origin}/${interopPackageKey(interop.sha256)}`
-        : undefined) as string,
-      size: interop?.size,
-      sha256: interop?.sha256,
-      snapshotSha256: interop?.snapshotSha256,
-      signature: interop?.signature
-    },
-    managedPayload: {
-      url: `${origin}/${managedPayloadKey(version, ANDROID_PLATFORM)}`,
-      size: managedPayload?.size,
-      sha256: managedPayload?.sha256,
-      signature: managedPayload?.signature?.trim()
-    },
+    game: { ...game },
+    interop: { ...interop },
+    managedPayload: { ...managedPayload },
     loader: { tag: loader?.tag, sha256: loader?.sha256 },
     selfUpdatable,
     historyDatabaseUserVersion,
-    nonManagedPayloadDigest
+    nonManagedPayloadDigest,
+    adaptations
   };
   return validatePlatformFragment(fragment, version, ANDROID_PLATFORM);
 }
@@ -717,7 +772,7 @@ export function androidCarriedRelease({
 // this order: the three artifacts a new install downloads (App, then the
 // Managed Payload and Interop Package it stages), the game they are adapted
 // to and the Loader Release the App carries, then the self-update facts in
-// the desktop order.
+// the desktop order, then every Game Adaptation (ADR 0019).
 const ANDROID_RELEASE_FIELDS: readonly (keyof AndroidReleaseFacts)[] =
   Object.freeze([
     'app',
@@ -727,7 +782,8 @@ const ANDROID_RELEASE_FIELDS: readonly (keyof AndroidReleaseFacts)[] =
     'loader',
     'selfUpdatable',
     'historyDatabaseUserVersion',
-    'nonManagedPayloadDigest'
+    'nonManagedPayloadDigest',
+    'adaptations'
   ]);
 
 function positiveInteger(value: number): boolean {
@@ -779,11 +835,46 @@ function validateAndroidRelease(
     throw new Error(`Unexpected Android App URL: ${app.url}`);
   assertInteropRecord(release.interop, `${platform} ${version}`);
   assertManagedPayload(managedPayload, version, platform);
+  const { adaptations } = release;
+  // A manifest promoted before ADR 0019 has one Managed Payload per version.
+  const managedKey = adaptations
+    ? androidManagedPayloadKey(version, 'publisher')
+    : managedPayloadKey(version, platform);
   if (
     new URL(managedPayload.url).pathname !==
-    `${RELEASE_BASE_PATH}/${managedPayloadKey(version, platform)}`
+    `${RELEASE_BASE_PATH}/${managedKey}`
   )
     throw new Error(`Unexpected Managed Payload URL: ${managedPayload.url}`);
+  if (adaptations === undefined) return;
+  if (!isDeepStrictEqual(Object.keys(adaptations), ANDROID_SOURCES))
+    throw new Error(
+      `${platform} ${version} adaptations must be exactly ${ANDROID_SOURCES.join(', ')}`
+    );
+  for (const source of ANDROID_SOURCES) {
+    const adaptation = adaptations[source];
+    const description = `${platform} ${version} ${source}`;
+    if (adaptation?.signerSha256 !== ANDROID_GAME_SIGNERS[source])
+      throw new Error(`Invalid ${description} game signer`);
+    assertAndroidGame(adaptation.game, description);
+    assertInteropRecord(adaptation.interop, description);
+    assertManagedPayload(adaptation.managedPayload, version, platform);
+    if (
+      new URL(adaptation.managedPayload.url).pathname !==
+      `${RELEASE_BASE_PATH}/${androidManagedPayloadKey(version, source)}`
+    )
+      throw new Error(
+        `Unexpected Managed Payload URL: ${adaptation.managedPayload.url}`
+      );
+  }
+  const { game, interop } = adaptations.publisher;
+  if (
+    !isDeepStrictEqual(release.game, game) ||
+    !isDeepStrictEqual(release.interop, interop) ||
+    !isDeepStrictEqual(managedPayload, adaptations.publisher.managedPayload)
+  )
+    throw new Error(
+      `${platform} ${version} game, interop and managedPayload must be the publisher adaptation's`
+    );
 }
 
 // ADR 0010's `kind: 'android'` fragments are refused by their kind, not by
@@ -804,27 +895,39 @@ function validateAndroidFragment<F extends PlatformFragment>(
     !GIT_COMMIT.test(fragment.gitCommit ?? '')
   )
     throw new Error(`Invalid ${platform} platform fragment for ${version}`);
+  if (fragment.adaptations === undefined)
+    throw new Error(
+      `${platform} platform fragment for ${version} has no adaptations`
+    );
   validateAndroidRelease(fragment, version, platform);
   return fragment;
 }
 
-// Every remote object a fragment names; promotion checks each is in place.
+// Every remote object a fragment names, each once; promotion checks each is
+// in place. Two adaptations of the same game share their Interop Package.
 export function fragmentArtifacts(
   fragment: PlatformFragment
 ): ReleaseArtifact[] {
   // A validated fragment has the shape its platform names.
-  return releasePlatformByKey(fragment.platform).kind === 'android'
-    ? [
-        (fragment as AndroidPlatformFragment).app,
-        (fragment as AndroidPlatformFragment).interop,
-        fragment.managedPayload
-      ]
-    : [
-        (fragment as DesktopPlatformFragment).installer,
-        (fragment as DesktopPlatformFragment).updater,
-        (fragment as DesktopPlatformFragment).signatureFile,
-        fragment.managedPayload
-      ];
+  if (releasePlatformByKey(fragment.platform).kind === 'android') {
+    const android = fragment as AndroidPlatformFragment;
+    const artifacts = [
+      android.app,
+      ...Object.values(android.adaptations).flatMap(
+        ({ interop, managedPayload }) => [interop, managedPayload]
+      )
+    ];
+    return artifacts.filter(
+      (artifact, index) =>
+        artifacts.findIndex(({ url }) => url === artifact.url) === index
+    );
+  }
+  return [
+    (fragment as DesktopPlatformFragment).installer,
+    (fragment as DesktopPlatformFragment).updater,
+    (fragment as DesktopPlatformFragment).signatureFile,
+    fragment.managedPayload
+  ];
 }
 
 // Returns the fragment it was given, as the shape its platform names.

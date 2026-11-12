@@ -31,7 +31,7 @@ import {
   isLockedLoader,
   lockedInteropEntry
 } from './interop-snapshot.ts';
-import { PUBLISHER_KEY } from './snapshot-lock.ts';
+import { ANDROID_SOURCES, PUBLISHER_KEY, interopKey } from './snapshot-lock.ts';
 import { sha256File } from './android-apk.ts';
 import {
   CARRIED_RELEASE_DIR,
@@ -53,9 +53,9 @@ import {
   androidAppKey,
   androidCarriedRelease,
   androidAppVersionCode,
+  androidManagedPayloadKey,
   androidNonManagedPayloadDigest,
-  interopPackageKey,
-  managedPayloadKey
+  interopPackageKey
 } from './manifest.ts';
 import { releasePlatform } from './release-platforms.ts';
 import type { ProductVersion } from './product.ts';
@@ -64,12 +64,16 @@ import type { ObjectStore } from './r2-store.ts';
 import type { RuntimeFacts } from './android-app.ts';
 import type { ReleaseKeyExporter, ReleaseKeystore } from './android-interop.ts';
 import type {
+  AndroidSource,
   InteropLockEntry,
   LoaderPin,
   NativeLibPin
 } from './snapshot-lock.ts';
 import type { PayloadInputRecord } from './payload.ts';
-import type { AndroidCarriedRelease } from './manifest.ts';
+import type {
+  AndroidAdaptationFacts,
+  AndroidCarriedRelease
+} from './manifest.ts';
 import type { GitState } from './artifact-manifest.ts';
 
 // The Android release (docs/adr/0012-android-app.md, docs/release.md
@@ -91,8 +95,8 @@ const jsonBytes = (value: unknown): Buffer =>
 const readJson = (file: string): unknown =>
   JSON.parse(fs.readFileSync(file, 'utf8'));
 
-const ANDROID_BUILD_RECORD_SCHEMA_VERSION = 2;
-const ANDROID_ARTIFACT_SCHEMA_VERSION = 2;
+const ANDROID_BUILD_RECORD_SCHEMA_VERSION = 3;
+const ANDROID_ARTIFACT_SCHEMA_VERSION = 3;
 // The Android host project, relative to bazaarplusplus-mod/.
 const ANDROID_HOST_PROJECT =
   'src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj';
@@ -121,11 +125,17 @@ const MIN_BUILD_TOOLS_MAJOR = 35;
 // Every output of the Android release under target/android/.
 export interface AndroidPaths {
   root: string;
-  payload: string;
-  buildRecord: string;
   artifactManifest: string;
   runtime: string;
   work: string;
+}
+
+// One Game Adaptation's staged Payload and its prepare record, under
+// target/android/<source>/ (ADR 0019).
+export interface AdaptationPaths {
+  root: string;
+  payload: string;
+  buildRecord: string;
 }
 
 // The lock entry a prepare record seals.
@@ -146,11 +156,13 @@ export interface PayloadOutputRecord {
   sha256: string;
 }
 
-// target/android/payload-build.json: what prepare sealed.
+// target/android/<source>/payload-build.json: what prepare sealed for one
+// Game Adaptation.
 export interface AndroidBuildRecord {
   schemaVersion: number;
   productVersion: ProductVersion;
   platform: 'android';
+  source: AndroidSource;
   interopPath: string;
   loaderPath: string;
   lockEntry: AndroidLockEntryRecord;
@@ -171,6 +183,7 @@ export type ReleaseLog = (line: string) => void;
 
 export interface ResolveSnapshotOptions {
   workspaceRoot: string;
+  source: AndroidSource;
   msbuildArgs: readonly string[];
   gameLibsStore: GameLibsStoreFactory;
   log: ReleaseLog;
@@ -298,6 +311,25 @@ export interface BuildAndroidReleaseOptions extends PrepareAndroidPayloadOptions
   captureIdentity?: (rootDir: string) => GitState;
 }
 
+// One Game Adaptation of a build receipt: the game, its Interop Package and
+// the Managed Payload compiled against it.
+export interface AdaptationArtifacts {
+  game: {
+    gameVersion: string;
+    versionCode: number;
+    il2cppSha256: string;
+    metadataSha256: string;
+  };
+  interop: InteropPackageRecord;
+  managedPayload: {
+    path: string;
+    size: number;
+    sha256: string;
+    signature: string;
+  };
+  lockEntry: AndroidLockEntryRecord;
+}
+
 // target/android/android-aarch64.json: the build receipt upload publishes.
 export interface AndroidArtifactManifest {
   schemaVersion: number;
@@ -314,30 +346,19 @@ export interface AndroidArtifactManifest {
     versionCode: number;
     signerSha256: string;
   };
-  interop: InteropPackageRecord;
-  managedPayload: {
-    path: string;
-    size: number;
-    sha256: string;
-    signature: string;
-  };
-  game: {
-    gameVersion: string;
-    versionCode: number;
-    il2cppSha256: string;
-    metadataSha256: string;
-  };
   loader: { tag: string; sha256: string };
   historyDatabaseUserVersion: number;
   nonManagedPayloadDigest: string;
-  lockEntry: AndroidLockEntryRecord;
+  adaptations: Record<AndroidSource, AdaptationArtifacts>;
 }
 
-// The three artifacts of a build receipt as absolute paths.
+// The artifacts of a build receipt as absolute paths.
 export interface AndroidArtifactFiles {
   app: string;
-  interop: string;
-  managedPayload: string;
+  adaptations: Record<
+    AndroidSource,
+    { interop: string; managedPayload: string }
+  >;
 }
 
 export interface AndroidArtifacts {
@@ -350,11 +371,21 @@ export function androidPaths(workspaceRoot: string): AndroidPaths {
   const key = releasePlatform(PLATFORM).key;
   return {
     root,
-    payload: path.join(root, 'payload'),
-    buildRecord: path.join(root, 'payload-build.json'),
     artifactManifest: path.join(root, `${key}.json`),
     runtime: path.join(root, 'runtime'),
     work: path.join(root, 'work')
+  };
+}
+
+export function adaptationPaths(
+  workspaceRoot: string,
+  source: AndroidSource
+): AdaptationPaths {
+  const root = path.join(androidPaths(workspaceRoot).root, source);
+  return {
+    root,
+    payload: path.join(root, 'payload'),
+    buildRecord: path.join(root, 'payload-build.json')
   };
 }
 
@@ -385,9 +416,12 @@ export function stagedUpdaterSha256(payloadRoot: string): string {
   return sha256(fs.readFileSync(stagedUpdater(payloadRoot)));
 }
 
-function lockEntryRecord(entry: InteropLockEntry): AndroidLockEntryRecord {
+function lockEntryRecord(
+  entry: InteropLockEntry,
+  source: AndroidSource
+): AndroidLockEntryRecord {
   return {
-    key: PUBLISHER_KEY,
+    key: interopKey(source),
     gameVersion: entry.gameVersion,
     versionCode: entry.versionCode,
     il2cppSha256: entry.il2cppSha256,
@@ -411,27 +445,31 @@ function msbuildProperty(
 const withSlash = (directory: string): string =>
   directory.endsWith(path.sep) ? directory : `${directory}${path.sep}`;
 
-// The Interop Snapshot and Loader Release the host compiles against: the
-// locked copies under game-libs/ (fetched when absent), or the -p: overrides,
-// which prepare still checks against the lock entry.
+// The Interop Snapshot and Loader Release one Game Adaptation compiles
+// against: the locked copies under game-libs/ (fetched when absent). A
+// -p:LemonLoaderPath override names the one loader every adaptation shares;
+// prepare still checks it against the lock entry. Each adaptation has its
+// own interop, so one -p:InteropPath cannot name them.
 async function resolveLockedSnapshot({
   workspaceRoot,
+  source,
   msbuildArgs,
   gameLibsStore,
   log
 }: ResolveSnapshotOptions): Promise<LockedSnapshot> {
-  const interopOverride = msbuildProperty(msbuildArgs, 'InteropPath');
+  if (msbuildProperty(msbuildArgs, 'InteropPath'))
+    throw new Error(
+      'prepare --platform android builds every Game Adaptation against its locked Interop Snapshot; drop -p:InteropPath'
+    );
   const loaderOverride = msbuildProperty(msbuildArgs, 'LemonLoaderPath');
-  if (interopOverride && loaderOverride)
-    return { interopPath: interopOverride, loaderPath: loaderOverride };
   const fetched = await fetchInteropSnapshot({
     workspaceRoot,
-    source: 'publisher',
+    source,
     storeFactory: gameLibsStore,
     log
   });
   return {
-    interopPath: interopOverride ?? fetched.interopPath,
+    interopPath: fetched.interopPath,
     loaderPath: loaderOverride ?? fetched.loaderPath
   };
 }
@@ -513,6 +551,9 @@ function androidInputs({ workspaceRoot, interopPath }: AndroidInputsOptions) {
   });
 }
 
+// Every Android Game Adaptation's prepared Payload, by source.
+export type AndroidBuildRecords = Record<AndroidSource, AndroidBuildRecord>;
+
 async function prepareUnlocked({
   workspaceRoot,
   msbuildArgs = [],
@@ -520,77 +561,90 @@ async function prepareUnlocked({
   produce = produceWithDotnet,
   gameLibsStore = gameLibsStoreFromEnvironment,
   log = () => {}
-}: PrepareAndroidPayloadOptions): Promise<AndroidBuildRecord> {
+}: PrepareAndroidPayloadOptions): Promise<AndroidBuildRecords> {
   assertReleaseBuildArgs(msbuildArgs, PLATFORM);
   synchronizePayloadProjection(workspaceRoot, { check: true });
-  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
-  const snapshot = await resolveSnapshot({
-    workspaceRoot,
-    msbuildArgs,
-    gameLibsStore,
-    log
-  });
-  const interopPath = fs.realpathSync(snapshot.interopPath);
-  const loaderPath = fs.realpathSync(snapshot.loaderPath);
-  const digest = interopDirectoryDigest(interopPath);
-  if (digest !== entry.interopSha256)
-    throw new Error(
-      `${interopPath} hashes to ${digest}, not the ${entry.interopSha256} lock entry ${PUBLISHER_KEY} records; build against the locked Interop Snapshot ('just mod::fetch android publisher')`
-    );
-  if (!isLockedLoader(loaderPath, entry.loader))
-    throw new Error(
-      `${loaderPath} is not the Loader Release ${entry.loader.tag} (${entry.loader.sha256}) lock entry ${PUBLISHER_KEY} records; build against the locked loader ('just mod::fetch android publisher')`
-    );
   const productVersion = readProductVersion(workspaceRoot);
-  const inputs = androidInputs({ workspaceRoot, interopPath });
   const paths = androidPaths(workspaceRoot);
   fs.mkdirSync(paths.root, { recursive: true });
-  const stage = fs.mkdtempSync(path.join(paths.root, 'stage-'));
-  try {
-    const payloadRoot = path.join(stage, 'payload');
-    produce({
+  const records = {} as AndroidBuildRecords;
+  for (const source of ANDROID_SOURCES) {
+    const key = interopKey(source);
+    const entry = lockedInteropEntry(workspaceRoot, source);
+    const snapshot = await resolveSnapshot({
       workspaceRoot,
-      payloadRoot,
-      buildArgs: [
-        '-p:BuildProductionPackage=true',
-        '-p:BppReleasePlatform=android',
-        `-p:BppPayloadStagingRoot=${payloadRoot}`,
-        `-p:InteropPath=${withSlash(interopPath)}`,
-        `-p:LemonLoaderPath=${withSlash(loaderPath)}`
-      ]
+      source,
+      msbuildArgs,
+      gameLibsStore,
+      log
     });
-    if (androidInputs({ workspaceRoot, interopPath }).digest !== inputs.digest)
-      throw new Error('Release inputs changed while building the Payload');
-    validateAndroidPayload(payloadRoot, productVersion, BUILD_PRODUCERS);
-    writeManagedPayloadManifest({
-      sourceDir: payloadRoot,
-      platform: PLATFORM,
-      version: productVersion,
-      nonManagedPayloadDigest: androidEntryNonManagedPayloadDigest(
-        entry,
-        stagedUpdaterSha256(payloadRoot)
+    const interopPath = fs.realpathSync(snapshot.interopPath);
+    const loaderPath = fs.realpathSync(snapshot.loaderPath);
+    const digest = interopDirectoryDigest(interopPath);
+    if (digest !== entry.interopSha256)
+      throw new Error(
+        `${interopPath} hashes to ${digest}, not the ${entry.interopSha256} lock entry ${key} records; build against the locked Interop Snapshot ('just mod::fetch android ${source}')`
+      );
+    if (!isLockedLoader(loaderPath, entry.loader))
+      throw new Error(
+        `${loaderPath} is not the Loader Release ${entry.loader.tag} (${entry.loader.sha256}) lock entry ${key} records; build against the locked loader ('just mod::fetch android ${source}')`
+      );
+    const inputs = androidInputs({ workspaceRoot, interopPath });
+    const target = adaptationPaths(workspaceRoot, source);
+    const stage = fs.mkdtempSync(path.join(paths.root, 'stage-'));
+    try {
+      const payloadRoot = path.join(stage, 'payload');
+      log(
+        `Building the ${source} Game Adaptation against ${entry.gameVersion}`
+      );
+      produce({
+        workspaceRoot,
+        payloadRoot,
+        buildArgs: [
+          '-p:BuildProductionPackage=true',
+          '-p:BppReleasePlatform=android',
+          `-p:BppPayloadStagingRoot=${payloadRoot}`,
+          `-p:InteropPath=${withSlash(interopPath)}`,
+          `-p:LemonLoaderPath=${withSlash(loaderPath)}`
+        ]
+      });
+      if (
+        androidInputs({ workspaceRoot, interopPath }).digest !== inputs.digest
       )
-    });
-    validateAndroidPayload(payloadRoot, productVersion);
-    const record: AndroidBuildRecord = {
-      schemaVersion: ANDROID_BUILD_RECORD_SCHEMA_VERSION,
-      productVersion,
-      platform: PLATFORM,
-      interopPath,
-      loaderPath,
-      lockEntry: lockEntryRecord(entry),
-      inputDigest: inputs.digest,
-      inputs: inputs.files,
-      output: payloadOutput(payloadRoot)
-    };
-    fs.rmSync(paths.buildRecord, { force: true });
-    fs.rmSync(paths.payload, { recursive: true, force: true });
-    fs.renameSync(payloadRoot, paths.payload);
-    fs.writeFileSync(paths.buildRecord, jsonBytes(record));
-    return record;
-  } finally {
-    fs.rmSync(stage, { recursive: true, force: true });
+        throw new Error('Release inputs changed while building the Payload');
+      validateAndroidPayload(payloadRoot, productVersion, BUILD_PRODUCERS);
+      writeManagedPayloadManifest({
+        sourceDir: payloadRoot,
+        platform: PLATFORM,
+        version: productVersion,
+        nonManagedPayloadDigest: androidEntryNonManagedPayloadDigest(
+          entry,
+          stagedUpdaterSha256(payloadRoot)
+        )
+      });
+      validateAndroidPayload(payloadRoot, productVersion);
+      const record: AndroidBuildRecord = {
+        schemaVersion: ANDROID_BUILD_RECORD_SCHEMA_VERSION,
+        productVersion,
+        platform: PLATFORM,
+        source,
+        interopPath,
+        loaderPath,
+        lockEntry: lockEntryRecord(entry, source),
+        inputDigest: inputs.digest,
+        inputs: inputs.files,
+        output: payloadOutput(payloadRoot)
+      };
+      fs.rmSync(target.root, { recursive: true, force: true });
+      fs.mkdirSync(target.root, { recursive: true });
+      fs.renameSync(payloadRoot, target.payload);
+      fs.writeFileSync(target.buildRecord, jsonBytes(record));
+      records[source] = record;
+    } finally {
+      fs.rmSync(stage, { recursive: true, force: true });
+    }
   }
+  return records;
 }
 
 function installerRoot(workspaceRoot: string): string {
@@ -612,55 +666,61 @@ async function withAndroidLock<T>(
 
 export async function prepareAndroidPayload(
   options: PrepareAndroidPayloadOptions
-): Promise<AndroidBuildRecord> {
+): Promise<AndroidBuildRecords> {
   return withAndroidLock(options.workspaceRoot, 'prepare', () =>
     prepareUnlocked(options)
   );
 }
 
-// The sealed prepare record still describes the staged Payload: same product
-// version, same inputs, same output bytes.
+// Each sealed prepare record still describes its staged Payload: same product
+// version, same lock entry, same inputs, same output bytes.
 export function verifyAndroidPayload(
   workspaceRoot: string
-): AndroidBuildRecord {
-  const paths = androidPaths(workspaceRoot);
-  if (!fs.existsSync(paths.buildRecord))
-    throw new Error(
-      'No Android Payload prepared. Run bun release/cli.ts prepare --platform android.'
-    );
-  const record = readJson(paths.buildRecord) as AndroidBuildRecord;
+): AndroidBuildRecords {
   const productVersion = readProductVersion(workspaceRoot);
-  if (
-    record.schemaVersion !== ANDROID_BUILD_RECORD_SCHEMA_VERSION ||
-    record.platform !== PLATFORM ||
-    record.productVersion !== productVersion
-  )
-    throw new Error(
-      'Android Payload build identity is stale. Run bun release/cli.ts prepare --platform android.'
-    );
-  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
-  if (
-    JSON.stringify(record.lockEntry) !== JSON.stringify(lockEntryRecord(entry))
-  )
-    throw new Error(
-      `Lock entry ${PUBLISHER_KEY} changed since preparation. Run bun release/cli.ts prepare --platform android.`
-    );
-  if (
-    androidInputs({ workspaceRoot, interopPath: record.interopPath }).digest !==
-    record.inputDigest
-  )
-    throw new Error(
-      'Android Payload build inputs changed. Run bun release/cli.ts prepare --platform android.'
-    );
-  if (
-    JSON.stringify(payloadOutput(paths.payload)) !==
-    JSON.stringify(record.output)
-  )
-    throw new Error(
-      'Android Payload output changed since preparation. Run bun release/cli.ts prepare --platform android.'
-    );
-  validateAndroidPayload(paths.payload, productVersion);
-  return record;
+  const records = {} as AndroidBuildRecords;
+  for (const source of ANDROID_SOURCES) {
+    const paths = adaptationPaths(workspaceRoot, source);
+    if (!fs.existsSync(paths.buildRecord))
+      throw new Error(
+        `No ${source} Android Payload prepared. Run bun release/cli.ts prepare --platform android.`
+      );
+    const record = readJson(paths.buildRecord) as AndroidBuildRecord;
+    if (
+      record.schemaVersion !== ANDROID_BUILD_RECORD_SCHEMA_VERSION ||
+      record.platform !== PLATFORM ||
+      record.source !== source ||
+      record.productVersion !== productVersion
+    )
+      throw new Error(
+        'Android Payload build identity is stale. Run bun release/cli.ts prepare --platform android.'
+      );
+    const entry = lockedInteropEntry(workspaceRoot, source);
+    if (
+      JSON.stringify(record.lockEntry) !==
+      JSON.stringify(lockEntryRecord(entry, source))
+    )
+      throw new Error(
+        `Lock entry ${interopKey(source)} changed since preparation. Run bun release/cli.ts prepare --platform android.`
+      );
+    if (
+      androidInputs({ workspaceRoot, interopPath: record.interopPath })
+        .digest !== record.inputDigest
+    )
+      throw new Error(
+        'Android Payload build inputs changed. Run bun release/cli.ts prepare --platform android.'
+      );
+    if (
+      JSON.stringify(payloadOutput(paths.payload)) !==
+      JSON.stringify(record.output)
+    )
+      throw new Error(
+        'Android Payload output changed since preparation. Run bun release/cli.ts prepare --platform android.'
+      );
+    validateAndroidPayload(paths.payload, productVersion);
+    records[source] = record;
+  }
+  return records;
 }
 
 function run(
@@ -1067,9 +1127,8 @@ async function buildUnlocked({
   const identity = captureIdentity(rootDir);
   if (identity.commit !== startingCommit)
     throw new Error('Git identity changed during Payload preparation');
-  const record = verifyAndroidPayload(workspaceRoot);
-  const version = record.productVersion;
-  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
+  const records = verifyAndroidPayload(workspaceRoot);
+  const version = records.publisher.productVersion;
   const key = releasePlatform(PLATFORM).key;
 
   for (const stale of fs.readdirSync(paths.root))
@@ -1077,45 +1136,80 @@ async function buildUnlocked({
       fs.rmSync(path.join(paths.root, stale), { force: true });
   fs.rmSync(paths.work, { recursive: true, force: true });
 
-  const zipPath = path.join(
-    paths.root,
-    path.posix.basename(managedPayloadKey(version, key))
-  );
-  const zip = writeManagedPayloadZip({
-    sourceDir: paths.payload,
-    platform: PLATFORM,
-    outputPath: zipPath,
-    sign: ({ file }: { file: string }) => sign({ workspaceRoot, file })
-  });
-  const signature = sign({ workspaceRoot, file: zipPath });
-  log(`Signed ${path.basename(zipPath)}`);
-
-  const nonManagedPayloadDigest = androidEntryNonManagedPayloadDigest(
-    entry,
-    stagedUpdaterSha256(paths.payload)
-  );
   const signing = signingKey();
-  // Before the App, which carries both zips. The certificate is the pin: the
+  // Each Game Adaptation: its Managed Payload zip and its Interop Package,
+  // before the App, which carries them all. The certificate is the pin: the
   // App signed below must match it too.
-  const interop = packInterop({
-    root: paths.root,
-    interopPath: record.interopPath,
-    entry,
-    version,
-    signing,
-    releaseKey,
-    signerSha256: releaseSignerSha256
-  });
-  log(`Signed the interop statement of ${interop.key}`);
+  const built = {} as Record<
+    AndroidSource,
+    AdaptationArtifacts & { zipPath: string; nonManagedPayloadDigest: string }
+  >;
+  for (const source of ANDROID_SOURCES) {
+    const record = records[source];
+    const entry = lockedInteropEntry(workspaceRoot, source);
+    const payload = adaptationPaths(workspaceRoot, source).payload;
+    const zipPath = path.join(
+      paths.root,
+      path.posix.basename(androidManagedPayloadKey(version, source))
+    );
+    const zip = writeManagedPayloadZip({
+      sourceDir: payload,
+      platform: PLATFORM,
+      outputPath: zipPath,
+      sign: ({ file }: { file: string }) => sign({ workspaceRoot, file })
+    });
+    const signature = sign({ workspaceRoot, file: zipPath });
+    log(`Signed ${path.basename(zipPath)}`);
+    const interop = packInterop({
+      root: paths.root,
+      interopPath: record.interopPath,
+      entry,
+      version,
+      signing,
+      releaseKey,
+      signerSha256: releaseSignerSha256
+    });
+    log(`Signed the interop statement of ${interop.key}`);
+    built[source] = {
+      game: {
+        gameVersion: entry.gameVersion,
+        versionCode: entry.versionCode,
+        il2cppSha256: entry.il2cppSha256,
+        metadataSha256: entry.metadataSha256
+      },
+      interop,
+      managedPayload: {
+        path: path.relative(paths.root, zipPath),
+        size: fs.statSync(zipPath).size,
+        sha256: zip.sha256,
+        signature
+      },
+      lockEntry: record.lockEntry,
+      zipPath,
+      nonManagedPayloadDigest: androidEntryNonManagedPayloadDigest(
+        entry,
+        stagedUpdaterSha256(payload)
+      )
+    };
+  }
+  // The App carries one runtime, so every adaptation names the same one.
+  const nonManagedPayloadDigest = built.publisher.nonManagedPayloadDigest;
+  for (const source of ANDROID_SOURCES)
+    if (built[source].nonManagedPayloadDigest !== nonManagedPayloadDigest)
+      throw new Error(
+        `The ${source} Game Adaptation needs another Android App runtime than the publisher's: both lock entries must pin the same Loader Release and native libraries`
+      );
+  const publisherPayload = adaptationPaths(workspaceRoot, 'publisher').payload;
   const { manifest: managed } = readStagedManagedPayload(
-    paths.payload,
+    publisherPayload,
     PLATFORM
   );
+  const entry = lockedInteropEntry(workspaceRoot, 'publisher');
   const nativeDir = path.join(paths.work, 'native');
   const facts = stageAndroidAppRuntime({
-    loaderPath: record.loaderPath,
+    loaderPath: records.publisher.loaderPath,
     loader: entry.loader,
-    updaterDll: stagedUpdater(paths.payload),
+    updaterDll: stagedUpdater(publisherPayload),
     nativeLibs: await resolveNativeLibs({ entry, into: nativeDir }),
     nonManagedPayloadDigest,
     outDir: paths.runtime
@@ -1124,24 +1218,46 @@ async function buildUnlocked({
     version,
     gitCommit: identity.commit,
     baseUrl: RELEASE_BASE_URL,
-    game: entry,
-    interop,
-    managedPayload: {
-      size: fs.statSync(zipPath).size,
-      sha256: zip.sha256,
-      signature
-    },
+    adaptations: Object.fromEntries(
+      ANDROID_SOURCES.map((source): [AndroidSource, AndroidAdaptationFacts] => {
+        const { game, interop, managedPayload } = built[source];
+        return [
+          source,
+          {
+            game,
+            interop: {
+              size: interop.size,
+              sha256: interop.sha256,
+              snapshotSha256: interop.snapshotSha256,
+              signature: interop.signature
+            },
+            managedPayload: {
+              size: managedPayload.size,
+              sha256: managedPayload.sha256,
+              signature: managedPayload.signature
+            }
+          }
+        ];
+      })
+    ) as Record<AndroidSource, AndroidAdaptationFacts>,
     loader: entry.loader,
     historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
     nonManagedPayloadDigest
   });
+  const zips = ANDROID_SOURCES.flatMap((source) => [
+    {
+      sha256: built[source].interop.sha256,
+      file: path.join(paths.root, built[source].interop.path)
+    },
+    { sha256: built[source].managedPayload.sha256, file: built[source].zipPath }
+  ]);
   stageCarriedRelease({
     outDir: paths.runtime,
     release: carried,
-    zips: [
-      { sha256: interop.sha256, file: path.join(paths.root, interop.path) },
-      { sha256: zip.sha256, file: zipPath }
-    ]
+    zips: zips.filter(
+      (zip, index) =>
+        zips.findIndex(({ sha256: digest }) => digest === zip.sha256) === index
+    )
   });
   const versionCode = androidAppVersionCode(version);
   log(`Building the Android App ${version} (versionCode ${versionCode})`);
@@ -1173,10 +1289,16 @@ async function buildUnlocked({
     throw new Error(
       'Product source or Git identity changed during packaging; no artifact manifest was written'
     );
-  if (managed.nonManagedPayloadDigest !== nonManagedPayloadDigest)
-    throw new Error(
-      'The Managed Payload Manifest names another non-managed payload than the Android App; run bun release/cli.ts prepare --platform android'
-    );
+  for (const source of ANDROID_SOURCES) {
+    const staged = readStagedManagedPayload(
+      adaptationPaths(workspaceRoot, source).payload,
+      PLATFORM
+    ).manifest;
+    if (staged.nonManagedPayloadDigest !== nonManagedPayloadDigest)
+      throw new Error(
+        `The ${source} Managed Payload Manifest names another non-managed payload than the Android App; run bun release/cli.ts prepare --platform android`
+      );
+  }
   const manifest: AndroidArtifactManifest = {
     schemaVersion: ANDROID_ARTIFACT_SCHEMA_VERSION,
     platform: key,
@@ -1192,23 +1314,15 @@ async function buildUnlocked({
       versionCode,
       signerSha256
     },
-    interop,
-    managedPayload: {
-      path: path.relative(paths.root, zipPath),
-      size: fs.statSync(zipPath).size,
-      sha256: zip.sha256,
-      signature
-    },
-    game: {
-      gameVersion: entry.gameVersion,
-      versionCode: entry.versionCode,
-      il2cppSha256: entry.il2cppSha256,
-      metadataSha256: entry.metadataSha256
-    },
     loader: { tag: entry.loader.tag, sha256: entry.loader.sha256 },
     historyDatabaseUserVersion: managed.historyDatabaseUserVersion,
     nonManagedPayloadDigest,
-    lockEntry: record.lockEntry
+    adaptations: Object.fromEntries(
+      ANDROID_SOURCES.map((source) => {
+        const { game, interop, managedPayload, lockEntry } = built[source];
+        return [source, { game, interop, managedPayload, lockEntry }];
+      })
+    ) as Record<AndroidSource, AdaptationArtifacts>
   };
   fs.writeFileSync(paths.artifactManifest, jsonBytes(manifest));
   return manifest;
@@ -1255,16 +1369,39 @@ export async function readAndroidArtifacts(
       throw new Error(`${what} changed or is missing: ${absolute}`);
     return absolute;
   };
-  const files: AndroidArtifactFiles = {
-    app: file(manifest.app, 'Android App APK'),
-    interop: file(manifest.interop, 'Interop Package'),
-    managedPayload: file(manifest.managedPayload, 'Managed Payload zip')
+  const checks: [string, string][] = [];
+  const checked = (
+    record: { path: string; size: number; sha256: string },
+    what: string
+  ) => {
+    const absolute = file(record, what);
+    checks.push([absolute, record.sha256]);
+    return absolute;
   };
-  for (const [name, absolute] of Object.entries(files) as [
-    keyof AndroidArtifactFiles,
-    string
-  ][])
-    if ((await sha256File(absolute)) !== manifest[name].sha256)
+  const files: AndroidArtifactFiles = {
+    app: checked(manifest.app, 'Android App APK'),
+    adaptations: Object.fromEntries(
+      ANDROID_SOURCES.map((source) => {
+        const adaptation = manifest.adaptations?.[source];
+        if (!adaptation)
+          throw new Error(
+            `The Android build has no ${source} Game Adaptation. Run bun release/cli.ts build --platform android.`
+          );
+        return [
+          source,
+          {
+            interop: checked(adaptation.interop, `${source} Interop Package`),
+            managedPayload: checked(
+              adaptation.managedPayload,
+              `${source} Managed Payload zip`
+            )
+          }
+        ];
+      })
+    ) as AndroidArtifactFiles['adaptations']
+  };
+  for (const [absolute, digest] of checks)
+    if ((await sha256File(absolute)) !== digest)
       throw new Error(`Artifact changed before upload: ${absolute}`);
   return { manifest, files };
 }

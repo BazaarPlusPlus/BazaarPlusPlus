@@ -60,6 +60,7 @@ Game Code Hash 推广为**游戏代码身份**：
 - **Android 保留启动门禁。** ADR 0013 规定"等待适配"时绝不用旧 interop 启动，因为 interop 用 `GetIl2CppMethodByToken` 按元数据 token 绑定方法，游戏代码一变就会绑错。本记录起初决定未适配时也用最新发布的 interop 启动，接受闪退或读错数据的风险。2026-11-07 在模拟器上实测（#891）：已装游戏 1.0.13113、发布版本 6.2.3（适配 1.0.13084）时，LemonLoader 与 Mods 正常加载，然后 mod 第一次调用游戏方法（`AndroidRunLifecycleSource.Subscribe` 里的 `Event.AddListener`）时 `SIGSEGV`，2 次运行 2 次都在同一处；已装游戏 1.0.12825 时，LemonLoader 自己初始化（`SceneHandler.Init` 的 Harmony 补丁）就 `SIGSEGV`，还没运行 mod 代码。所以不是"可能闪退"，而是每次启动都闪退，用户决定保留门禁。ADR 0012 的三档启动规则与 ADR 0013 都不变；本记录只把提示改为按游戏代码哈希判断。
 - ADR 0015 末段"下载页不显示桌面版的已适配版本"被本记录取代。那时桌面清单没有这个字段；本记录加上了它。
 - `GLOSSARY.md`：Game Code Hash 改为"游戏代码身份"并加桌面一行；Game Adaptation 不再只指 Android；Game Status 写明桌面与 Android 两个对象。
+- 2026-11-12：[ADR 0019](0019-android-launcher-adaptations.md) 让每个 Android 来源各有一个适配包。Android 的"已适配"改为哈希等于任一适配包的游戏；"游戏较旧"在 App 里按同一来源判断，在 mod 里按任一适配包的 `versionCode` 更高判断。Game Status 仍只覆盖发行商来源。
 
 ## 否决的方案
 
