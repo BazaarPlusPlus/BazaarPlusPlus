@@ -9,3 +9,5 @@
 2026-10-22 注：[ADR 0010](0010-android-release-platform.md) 让 Android 成为发布平台。Android 第一版没有大陆镜像（APK 超出蓝奏云单文件上限），`promote --platform android` 不读也不要求镜像记录，`mirror`、`verify-mirror` 拒绝 Android。这是平台表里的规则，不是逐次的跳过，所以不经过 `--without-mainland-mirror`；桌面平台"缺少记录时拒绝、没有静默绕过"的规则不变。
 
 2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010，并沿用"Android 没有大陆镜像、`promote --platform android` 不读镜像记录"这条平台规则。
+
+2026-11-13 注：Android 也有大陆镜像了（用户决定）。上面那条平台规则的理由是 APK 放不进蓝奏云：当时注入版 APK 有 2.8 GB。ADR 0012 的 Android App APK 现在约 67 MB，6.3.2 的 APK 已经手动上传到蓝奏云。所以 Android 改用桌面的规则：`mirror --platform android` 核对分享页提供的是 Android App APK（`release/manifest.ts` 的 `mirrorFileName`），再记录地址；`promote --platform android` 缺少记录时拒绝，`--without-mainland-mirror` 显式跳过。地址写进 `latest/android-aarch64.json` 的 `downloads["android-aarch64"].mainlandUrl`。Android App 携带的发布文档（`androidCarriedRelease`）不含这个地址，因为它在记录镜像之前就已打进 APK。`mirror-all` 和不带 `--platform` 的 `verify-mirror` 仍只看 Windows 与 macOS；`verify-mirror --latest` 看三个平台。蓝奏云的单文件上限仍是风险：APK 超过上限时，Android 用 `--without-mainland-mirror` 提升。

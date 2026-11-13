@@ -39,7 +39,6 @@ import {
 } from './android-release.ts';
 import {
   RELEASE_PLATFORMS,
-  defaultTargetBuildPlatforms,
   releasePlatform,
   resolveBuildPlatform
 } from './release-platforms.ts';
@@ -112,26 +111,28 @@ const usage = `Product release commands (run from any directory):
                                                     Payload zip and the fragment to R2
   bun release/cli.ts mirror-all --windows-url <share-url> --macos-url <share-url>
                                                     Verify both uploaded platforms and record both mainland mirrors
-  bun release/cli.ts mirror --platform macos --url <share-url>
-                                                    Verify and record the platform's mainland mirror page
-  bun release/cli.ts verify-mirror [--platform macos]
+  bun release/cli.ts mirror --platform android --url <share-url>
+                                                    Verify and record one platform's mainland mirror page
+  bun release/cli.ts verify-mirror [--platform android]
                                                     Re-check the recorded mainland mirrors of VERSION
+                                                    (Windows and macOS unless --platform names one)
   bun release/cli.ts verify-mirror --latest       Re-check the mainland mirrors of the published platform manifests
   bun release/cli.ts promote                      Publish Windows and macOS at VERSION and advance latest.json
   bun release/cli.ts promote --platform macos     Publish one platform's manifest; latest.json advances once
                                                     Windows and macOS are at the same version
   bun release/cli.ts promote --platform android   Publish the Android Platform Release Manifest after checking
                                                     the three uploaded artifacts and the App's signer; Android
-                                                    records no mainland mirror and never moves latest.json
+                                                    never moves latest.json
 
 Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<path>;
 android accepts -- -p:InteropPath=<dir> -p:LemonLoaderPath=<dir> instead, and its
 build needs the Android App's JDK and SDK build-tools, openssl, and the Android
 release keystore in BPP_SIGNING_SECRETS_DIR.
-mirror refuses a share page that does not serve the uploaded installer unless
---allow-unverified-mirror is passed; promote refuses a platform without a
-recorded mirror unless --without-mainland-mirror is passed. mirror-all requires
-both platforms uploaded at the same version and commit before recording either mirror.
+mirror refuses a share page that does not serve the uploaded installer (Android:
+the App APK) unless --allow-unverified-mirror is passed; promote refuses a
+platform without a recorded mirror unless --without-mainland-mirror is passed.
+mirror-all requires both platforms uploaded at the same version and commit
+before recording either mirror.
 Only upload, mirror, mirror-all, promote and build --platform android access R2,
 and require CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived
 from the token); prepare --platform android reads the private snapshot store only
@@ -199,10 +200,6 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
     throw new Error('MSBuild properties must follow --');
   // A command-line value; the checks below reject any other platform name.
   const platform = values.platform as BuildPlatform | undefined;
-  // Android has no mainland mirror yet (ADR 0010), so mirror and verify-mirror
-  // take only the Tauri platforms.
-  const tauriPlatforms: readonly BuildPlatform[] =
-    defaultTargetBuildPlatforms();
   const releasePlatforms = RELEASE_PLATFORMS.map(
     ({ buildPlatform }) => buildPlatform
   );
@@ -212,11 +209,11 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
     if (platform === undefined || !releasePlatforms.includes(platform))
       throw new Error(mustBe(releasePlatforms));
   } else if (command === 'mirror') {
-    if (platform === undefined || !tauriPlatforms.includes(platform))
-      throw new Error(mustBe(tauriPlatforms));
+    if (platform === undefined || !releasePlatforms.includes(platform))
+      throw new Error(mustBe(releasePlatforms));
   } else if (command === 'verify-mirror') {
-    if (platform !== undefined && !tauriPlatforms.includes(platform))
-      throw new Error(mustBe(tauriPlatforms));
+    if (platform !== undefined && !releasePlatforms.includes(platform))
+      throw new Error(mustBe(releasePlatforms));
   } else if (command === 'promote') {
     if (platform !== undefined && !releasePlatforms.includes(platform))
       throw new Error(mustBe(releasePlatforms));
@@ -256,12 +253,6 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
     );
   if (values['without-mainland-mirror'] && command !== 'promote')
     throw new Error('--without-mainland-mirror is only valid for promote');
-  if (
-    values['without-mainland-mirror'] &&
-    platform !== undefined &&
-    releasePlatform(platform).kind !== 'tauri'
-  )
-    throw new Error(`${platform} has no mainland mirror to waive`);
   assertReleaseBuildArgs(positionals, platform);
   if (command === 'assert-build-owner' && rest.length)
     throw new Error('assert-build-owner takes no arguments');
@@ -436,7 +427,7 @@ export async function main(
       log
     });
     log(
-      `Uploaded android ${version}. Run promote --platform android to publish it.`
+      `Uploaded android ${version}. Upload the App APK to the mainland mirror and run mirror --platform android, then promote --platform android.`
     );
   } else if (command === 'upload') {
     // parseReleaseArgs requires a platform here, and android uploaded above.

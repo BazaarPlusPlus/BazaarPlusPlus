@@ -720,6 +720,9 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
       '--allow-unverified-mirror'
     ])
   );
+  succeeded(
+    f.run(['release::mirror', 'android', 'https://mirror.example/apk'])
+  );
   assert.deepEqual(f.calls(), [
     call(
       f.dir,
@@ -753,6 +756,22 @@ test('release::mirror forwards the platform, the share URL and optional flags', 
       '--url',
       'https://mirror.example/win',
       '--allow-unverified-mirror'
+    ),
+    call(
+      f.dir,
+      null,
+      'bun',
+      'scripts/workspace.ts',
+      'run',
+      'release',
+      '--',
+      'bun',
+      'release/cli.ts',
+      'mirror',
+      '--platform',
+      'android',
+      '--url',
+      'https://mirror.example/apk'
     )
   ]);
 });

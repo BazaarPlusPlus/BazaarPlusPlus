@@ -30,7 +30,7 @@ upload platform:
     bun scripts/workspace.ts run release -- bun release/cli.ts upload --platform "$1"
 
 # Verify one platform's mainland mirror share page and record it for this version.
-[arg('platform', pattern='macos|windows')]
+[arg('platform', pattern='macos|windows|android')]
 mirror platform url *args:
     bun scripts/workspace.ts run release -- bun release/cli.ts mirror --platform "$1" --url "$2" "${@:3}"
 

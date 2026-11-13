@@ -234,7 +234,7 @@ describe('Android release interface', () => {
         { source: 'publisher', game: record.adaptations.publisher.game },
         { source: 'play', game: record.adaptations.play.game }
       ],
-      mainlandUrl: null
+      mainlandUrl: record.mainlandUrl
     });
     expect(fetchStub).toHaveBeenCalledTimes(1);
     expect(fetchStub).toHaveBeenCalledWith(

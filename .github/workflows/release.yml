@@ -9,7 +9,8 @@ name: Delivery / Product release
 # streams the App, the Interop Package and the Managed Payload zip to R2
 # (docs/adr/0012-android-app.md).
 # promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
-# recorded with mirror-all before promote, so promote stays a local command.
+# recorded with mirror-all (Android: mirror --platform android) before
+# promote, so promote stays a local command.
 # Signing secrets and variables live in the `release` GitHub Environment; the
 # repository variable CLOUDFLARE_ACCOUNT_ID and the repository secret
 # CLOUDFLARE_API_TOKEN (the operator token) are shared with other workflows;

@@ -6,6 +6,8 @@
 
 2026-11-07 注：[ADR 0016](0016-one-game-compatibility-rule.md) 统一了三个平台的兼容规则。三档启动规则不变，启动器的提示与 mod 的主菜单标签改为按游戏代码哈希判断。
 
+2026-11-13 注：Android 有了大陆镜像（用户决定），规则与桌面相同，见 [ADR 0002](0002-mainland-mirror-check.md) 的 2026-11-13 注。原来不做镜像的理由是 APK 放不进蓝奏云，Android App APK 现在约 67 MB。本记录的相应部分已按此改写。
+
 2026-11-12 注：[ADR 0019](0019-android-launcher-adaptations.md) 让每个 Android 来源（发行商、Google Play）各有一个适配包。三档启动规则改为：哈希等于任一适配包的游戏就是已适配；否则按签名证书找到同一来源的适配包，再比较 `versionCode`。App 最低 API 改为 32。
 
 [ADR 0010](0010-android-release-platform.md) 让 Android 用户安装一个注入后由 BPP 签名的官方 APK（下称 A 方案）。它有三个固定代价：用户必须先卸载官方版；游戏每更新一次，用户都要等 BPP 重新注入，再下载约 2.8 GB；每个版本在 R2 多存约 2.9 GB，注入只能在 Linux x64 上跑。2026-11-01 的可行性试验（#747，模拟器 `bpp_host_spike`）证明：一个只用公开 API 的 App（`AppComponentFactory`、`PathClassLoader`、`ContextWrapper`、`ResourcesLoader`）能在自己的进程里加载用户已装、未修改的官方 APK，复用 LemonLoader 的运行时，跑通 master 的全部 Android Mods，并能和官方 App 共存。
@@ -65,7 +67,7 @@ Android App 启动时找到官方游戏（`com.tempogames.thebazaar`），在它
 - **interop 的签名。** interop 是 LemonLoader 在 mod 和 Updater 之前加载的托管代码，所以它必须签名，而不能只靠平台清单里的 sha256（平台清单本身没有签名）。签名的对象是一段**interop 声明** `bpp-interop-v1\n<zip 的 sha256>\n<il2cppSha256>\n<metadataSha256>\n<用途>\n`，用途是 `release <产品版本>`；算法是 SHA256withRSA，密钥是 Android 发布密钥（ADR 0009）。声明把 interop 和它适配的游戏代码绑在一起，所以被篡改的清单也不能把一份真的 interop 配给另一个游戏。用途把它和产品版本绑在一起：Android App 只接受用途是 `release <平台清单的版本>` 的声明，而这个版本也是 Updater 验过 minisign 的 Managed Payload 的版本，所以改平台清单的人不能把一个版本的 interop 配给另一个版本的 Mods。Android App 内置发布证书（公开的 DER），用它验证；Android 11 原生支持这个算法，不需要新的库。开发构建内置同一份证书，所以也能用正式发布的 interop。Android App 在加载前还要检查 zip 里没有 `assets/LemonLoader/runtime/interop/` 以外的条目，因为后加的 `ResourcesLoader` 会遮盖运行时里的同名 asset。
 - Android App APK 的 `versionCode` 由产品版本算出（`major × 1000000 + minor × 1000 + patch`），由 `release/manifest.ts` 定义，Gradle 构建接收它。
 - Payload Inventory（`release/payload.json`）的 `melonloader` 条目相对游戏存储（见“游戏存储”一节）。A 方案的生产者 `apk-injection` 退役，改为生产者 `android-app`：它的条目是 Android App APK 内部的路径（`lib/arm64-v8a/libmain.so`、`lib/arm64-v8a/libe_sqlite3.so` 与 LemonLoader 运行时），以及启动记录（见下文），都由 Android App 产生，不进 mod 构建。
-- 产品版本可以跳过 Android；Android 不在 `latest.json` 的 lockstep 集合里（`LOCKSTEP_PLATFORM_KEYS`）；"一个版本号只对应一个提交"对 Android 同样成立；Android 没有大陆镜像，`promote --platform android` 不读镜像记录。这几条沿用 ADR 0010，不变。
+- 产品版本可以跳过 Android；Android 不在 `latest.json` 的 lockstep 集合里（`LOCKSTEP_PLATFORM_KEYS`）；"一个版本号只对应一个提交"对 Android 同样成立。这几条沿用 ADR 0010，不变。大陆镜像的规则与桌面相同（2026-11-13 注）。
 
 ### fragment 与平台清单
 
@@ -154,7 +156,7 @@ LemonLoader 用**游戏**的 `lastUpdateTime` 作为部署 revision 和 interop 
 ## 修订的记录
 
 - [ADR 0001](0001-product-release-promotion.md)：Android 发布产物不再含游戏二进制；interop 包是游戏派生物，在合作授权下公开分发。
-- [ADR 0002](0002-mainland-mirror-check.md)、[ADR 0003](0003-per-platform-release-promotion.md)：Android 的平台规则（没有大陆镜像、不在 lockstep 集合里）改由本记录承载，内容不变。
+- [ADR 0002](0002-mainland-mirror-check.md)、[ADR 0003](0003-per-platform-release-promotion.md)：Android 不在 lockstep 集合里这条平台规则改由本记录承载，内容不变。ADR 0010 的"Android 没有大陆镜像"在 2026-11-13 取消，Android 改用 ADR 0002 的规则。
 - [ADR 0007](0007-one-public-bucket-and-domain.md)：公开桶的 `installer/android/apk/` 不再写入；interop 包进公开桶的 `installer/android/`。
 - [ADR 0008](0008-interop-snapshots-in-snapshot-lock.md)：Payload Inventory 不再有 `apk-injection` 条目；Patcher 只作为锁定的 interop 生成工具（`generate-interop`）留在快照采集里，发布不再运行它。
 - [ADR 0009](0009-android-release-key.md)：签名对象改为 Android App 和 interop 声明，换成 2026-11-01 生成的新密钥。

@@ -364,6 +364,16 @@ function AndroidCard({
             >
               {androidCopy.actionLabel}
             </Button>
+            <Button
+              href={release?.mainlandUrl ?? '#'}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={androidCopy.mainlandActionLabel}
+              disabled={release?.mainlandUrl == null}
+              icon={<ExternalLinkIcon />}
+            >
+              {copy.mainlandButtonLabel}
+            </Button>
             <FeedbackGroupButton copy={androidCopy} />
           </div>
           {release && (

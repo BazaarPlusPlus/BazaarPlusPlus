@@ -157,14 +157,11 @@ test.each([
   ['upload', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
   ['promote', '--latest'],
   ['promote', '--platform', 'linux'],
-  ['promote', '--platform', 'android', '--without-mainland-mirror'],
   ['prepare', '--platform', 'android', '--', managed],
   ['build', '--platform', 'android', '--', '-p:InteropPath=a;Version=1'],
   ['prepare', '--platform', 'macos', '--', '-p:InteropPath=/interop/'],
   ['build', '--platform', 'android', '--rebuild-apk'],
   ['upload', '--platform', 'android', '--', '-p:InteropPath=/interop/'],
-  ['mirror', '--platform', 'android', '--url', 'https://mirror.example/apk'],
-  ['verify-mirror', '--platform', 'android'],
   ['promote', '--platform'],
   ['promote', '--allow-unverified-mirror'],
   ['promote', '--without-mainland-mirror', '--without-mainland-mirror'],
@@ -207,6 +204,37 @@ test('android prepare and build take the Interop Snapshot overrides', () => {
     command: 'upload',
     platform: 'android',
     msbuildArgs: []
+  });
+});
+
+test('android records, re-checks and may waive its mainland mirror like a desktop platform', () => {
+  expect(
+    parseReleaseArgs([
+      'mirror',
+      '--platform',
+      'android',
+      '--url',
+      'https://mirror.example/apk'
+    ])
+  ).toMatchObject({
+    command: 'mirror',
+    platform: 'android',
+    url: 'https://mirror.example/apk'
+  });
+  expect(
+    parseReleaseArgs(['verify-mirror', '--platform', 'android'])
+  ).toMatchObject({ command: 'verify-mirror', platform: 'android' });
+  expect(
+    parseReleaseArgs([
+      'promote',
+      '--platform',
+      'android',
+      '--without-mainland-mirror'
+    ])
+  ).toMatchObject({
+    command: 'promote',
+    platform: 'android',
+    withoutMainlandMirror: true
   });
 });
 
@@ -329,8 +357,9 @@ test('check catches stale Payload projection and platform overlays', async () =>
 });
 
 // Canned public release origin: an uploaded fragment and mirror record per
-// Lockstep Platform at `version`, the shared platform fixtures as the
-// published manifests, and a share page serving each recorded installer.
+// Lockstep Platform at `version`, the shared platform fixtures (Android's
+// too) as the published manifests, and a share page serving each recorded
+// installer or App.
 function publicOrigin(version: string) {
   const files = new Map();
   const pages = new Map();
@@ -378,6 +407,17 @@ function publicOrigin(version: string) {
     const { url, mainlandUrl } = published.downloads[key];
     pages.set(mainlandUrl, decodeURIComponent(url.split('/').at(-1)));
   }
+  const android = 'android-aarch64';
+  const published = JSON.parse(
+    fs.readFileSync(
+      path.join(import.meta.dirname, 'fixtures', `latest/${android}.json`),
+      'utf8'
+    )
+  );
+  files.set(`${RELEASE_BASE_URL}/latest/${android}.json`, published);
+  const { app, mainlandUrl } = published.downloads[android];
+  if (mainlandUrl)
+    pages.set(mainlandUrl, decodeURIComponent(app.url.split('/').at(-1)));
   return vi.fn(async (url: string) => {
     if (files.has(url))
       return new Response(JSON.stringify(files.get(url)), { status: 200 });
@@ -476,7 +516,9 @@ const goldenFiles = [
 const anchorMirrors: Record<string, string> = {
   'https://cauyxy.lanzout.com/bppwin311': 'BazaarPlusPlus_3.1.1_x64-setup.exe',
   'https://cauyxy.lanzout.com/bppmac311': 'BazaarPlusPlus_3.1.1_aarch64.dmg',
-  'https://cauyxy.lanzout.com/bppwin312': 'BazaarPlusPlus_3.1.2_x64-setup.exe'
+  'https://cauyxy.lanzout.com/bppwin312': 'BazaarPlusPlus_3.1.2_x64-setup.exe',
+  'https://cauyxy.lanzout.com/bppapk312':
+    'BazaarPlusPlus_3.1.2_android-aarch64.apk'
 };
 
 function commitFixture(cwd: string, message: string) {
@@ -581,14 +623,22 @@ test('publish pipeline reproduces the shared fixtures', async () => {
     now: new Date('2026-09-20T00:00:00.000Z')
   });
 
-  // Android's release job uploads the APK, the Managed Payload zip and the
-  // fragment (#358); promotion checks both artifacts, records no mirror and
-  // leaves latest.json at the last lockstep release.
+  // Android's release job uploads the App, the Interop Packages, the Managed
+  // Payload zips and the fragment; its mainland mirror serves the App, and
+  // promotion checks the artifacts and leaves latest.json at the last
+  // lockstep release.
   await uploadAndroid(store, {
     version: '3.1.2',
     gitCommit: aheadCommit,
     baseUrl: RELEASE_BASE_URL
   });
+  await run([
+    'mirror',
+    '--platform',
+    'android',
+    '--url',
+    'https://cauyxy.lanzout.com/bppapk312'
+  ]);
   const latestBefore = (await store.get('latest.json'))!.bytes;
   await run(['promote', '--platform', 'android'], {
     now: new Date('2026-09-21T00:00:00.000Z')

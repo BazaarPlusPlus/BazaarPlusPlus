@@ -14,7 +14,7 @@ The files the mod loader host loads: on desktop, what the installer carries and 
 The shared facts about Payload files (`release/payload.json`): current files, their host (`bepinex` or `melonloader`) and platform scope, ownership, producer, and retired files. Each release platform installs only its own host's entries. User data and third-party plugins are outside it.
 
 **Platform Release Manifest**:
-One platform's newest promoted release. The installer and website read `latest/<platformKey>.json`; the mod reads the same record at its separate endpoint `latest/mod/<platformKey>.json`. Both are published by the same Release Promotion. A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android App APK, the Interop Package and the game it was adapted for. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
+One platform's newest promoted release. The installer and website read `latest/<platformKey>.json`; the mod reads the same record at its separate endpoint `latest/mod/<platformKey>.json`. Both are published by the same Release Promotion. A desktop one carries its version, updater package, actual installer download URL, and recorded Mainland Mirror address; the Android one carries the Android App APK, the Interop Package, the game it was adapted for, and its recorded Mainland Mirror address. Each carries its Managed Payload with the history database schema and the `nonManagedPayloadDigest` it needs. Platforms may be at different versions.
 
 **Lockstep Platform** (lockstep 平台):
 A platform the Release Manifest waits for: Windows and macOS (`LOCKSTEP_PLATFORM_KEYS` in `release/release-platforms.ts`). Android is a release platform but not a Lockstep Platform, so its game-driven cadence never holds back a desktop release.
@@ -23,7 +23,7 @@ A platform the Release Manifest waits for: Windows and macOS (`LOCKSTEP_PLATFORM
 The newest Product Release that every Lockstep Platform promoted at the same version and commit, in the same Tauri shape for each (`latest.json`). Installers whose own Platform Release Manifest fails to load fall back to it, so it never runs ahead of any Lockstep Platform.
 
 **Release Promotion**:
-Publishing both update endpoints of one platform's Platform Release Manifest once its complete artifacts are in place and, on desktop, its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
+Publishing both update endpoints of one platform's Platform Release Manifest once its complete artifacts are in place and its Mainland Mirror is recorded or explicitly waived; the Release Manifest advances when every Lockstep Platform names the same release. Repeating the promotion of the same release leaves the existing artifacts unchanged.
 
 **Android App** (BPP Android App):
 BPP's own Android application, package `com.bazaarplusplus.android` (development builds add `.dev`), in `bazaarplusplus-android/`. It loads the user's installed official game in its own process, gives LemonLoader the Loader Release it carries and the Interop Package it downloads, stages the Managed Payload, writes the Launch Record, and also opens the official App unchanged ("native launch"). It has no account of its own. It carries the Loader Release, `libe_sqlite3.so` and the Updater, never the game, interop or Mods. It is not the mod's Android Host, which is the mod assembly it ends up loading. `docs/adr/0012-android-app.md` records the decision. The issues call it 宿主 App.
@@ -62,7 +62,7 @@ The Payload files the Android Host loads from `MelonLoader/Mods/` and `MelonLoad
 _Avoid_: Mods zip
 
 **Mainland Mirror**:
-A manually uploaded share page of one platform's installer for mainland-China networks. Its address is an explicit operator input, checked against the uploaded installer and recorded per platform before that platform's Release Promotion, then published in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
+A manually uploaded share page of one platform's download (the desktop installer or the Android App APK) for mainland-China networks. Its address is an explicit operator input, checked against the uploaded file and recorded per platform before that platform's Release Promotion, then published in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
 
 ## Game assemblies
 

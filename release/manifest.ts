@@ -117,7 +117,7 @@ export type PlatformFragment =
   | DesktopPlatformFragment
   | AndroidPlatformFragment;
 
-/** The Mainland Mirror record stored beside an uploaded desktop release. */
+/** The Mainland Mirror record stored beside an uploaded release. */
 export interface MirrorRecord {
   schemaVersion: 1;
   version: ProductVersion;
@@ -304,6 +304,14 @@ export function installerFileName(installerUrl: string): string {
   if (!fileName)
     throw new Error(`Installer URL has no file name: ${installerUrl}`);
   return fileName;
+}
+
+// The file a platform's Mainland Mirror serves: the installer of a desktop
+// platform, the Android App APK of Android.
+export function mirrorFileName(fragment: PlatformFragment): string {
+  return installerFileName(
+    fragment.kind === 'android-app' ? fragment.app.url : fragment.installer.url
+  );
 }
 
 // The Mainland Mirror address is an explicit operator input recorded next to
@@ -558,7 +566,7 @@ export function validateMirrorRecord(
   assertMirrorUrl(record.url);
   if (record.fileName !== fileName)
     throw new Error(
-      `${platform} mainland mirror was recorded for ${record.fileName}, but the release installer is ${fileName}`
+      `${platform} mainland mirror was recorded for ${record.fileName}, but the release ships ${fileName}`
     );
   return record;
 }
@@ -1085,12 +1093,8 @@ export function buildPlatformManifest({
     ? (existing as DesktopPlatformManifest).downloads[platform].mainlandUrl
     : undefined;
   const mainlandUrl = mirror
-    ? validateMirrorRecord(
-        mirror,
-        version,
-        platform,
-        installerFileName(desktop.installer.url)
-      ).url
+    ? validateMirrorRecord(mirror, version, platform, mirrorFileName(desktop))
+        .url
     : publishedMirror;
   const manifest: DesktopPlatformManifest = {
     version,
@@ -1126,9 +1130,10 @@ export function buildPlatformManifest({
   return manifest;
 }
 
-// Android has no Mainland Mirror yet (ADR 0012): promotion records none, and
-// an address already published for this version would be kept. `existing` is
-// the published manifest of this same version, or null.
+// The Mainland Mirror serves the Android App APK. The mirror address is never
+// a fact of the fragment, so the release the APK carries cannot name it.
+// `existing` is the published manifest of this same version, or null; once
+// published, its own mirror address is authoritative.
 function buildAndroidPlatformManifest({
   version,
   fragment,
@@ -1143,13 +1148,16 @@ function buildAndroidPlatformManifest({
   now: Date;
 }): AndroidPlatformManifest {
   const platform = fragment.platform;
-  if (mirror) throw new Error(`${platform} does not record a mainland mirror`);
   // fromEntries keeps every field it is given but not their names.
   const release = Object.fromEntries(
     ANDROID_RELEASE_FIELDS.map((field) => [field, fragment[field]])
   ) as AndroidReleaseFacts;
   const publishedMirror = (existing as AndroidPlatformManifest | null)
     ?.downloads[platform].mainlandUrl;
+  const mainlandUrl = mirror
+    ? validateMirrorRecord(mirror, version, platform, mirrorFileName(fragment))
+        .url
+    : publishedMirror;
   const manifest: AndroidPlatformManifest = {
     version,
     gitCommit: fragment.gitCommit,
@@ -1157,9 +1165,7 @@ function buildAndroidPlatformManifest({
     pub_date: existing ? existing.pub_date : now.toISOString(),
     downloads: {
       [platform]:
-        publishedMirror === undefined
-          ? release
-          : { ...release, mainlandUrl: publishedMirror }
+        mainlandUrl === undefined ? release : { ...release, mainlandUrl }
     }
   };
   if (existing) {

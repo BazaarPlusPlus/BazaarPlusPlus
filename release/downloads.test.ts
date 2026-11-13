@@ -17,10 +17,6 @@ type AndroidRecord = AndroidManifest['downloads']['android-aarch64'];
 type BrokenAndroidRecord = Omit<AndroidRecord, 'game'> & {
   game: Partial<AndroidRecord['game']>;
 };
-// The Android fixture with the optional mainland mirror its record omits.
-type MirroredAndroidManifest = AndroidManifest & {
-  downloads: { 'android-aarch64': { mainlandUrl?: string } };
-};
 
 test('consumers read the mainland mirror address from the Release Manifest', () => {
   expect(decodeMainlandDownloadUrl(fixture, 'windows-x86_64')).toBe(
@@ -67,13 +63,16 @@ test('consumers read the Android App, Managed Payload, Interop Package and game 
       { source: 'publisher', game: record.adaptations.publisher.game },
       { source: 'play', game: record.adaptations.play.game }
     ],
-    mainlandUrl: null
+    mainlandUrl: record.mainlandUrl
   });
-  const mirrored: MirroredAndroidManifest = structuredClone(android);
-  mirrored.downloads['android-aarch64'].mainlandUrl = 'https://m.example/apk';
-  expect(decodeAndroidDownload(mirrored)?.mainlandUrl).toBe(
-    'https://m.example/apk'
-  );
+  // The mainland mirror is optional: a release promoted without one has none.
+  const { mainlandUrl: _mirror, ...unmirrored } = record;
+  expect(
+    decodeAndroidDownload({
+      ...android,
+      downloads: { 'android-aarch64': unmirrored }
+    })?.mainlandUrl
+  ).toBeNull();
 });
 
 const brokenAndroid = (
