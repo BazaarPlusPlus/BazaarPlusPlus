@@ -46,6 +46,8 @@
         <Project Path="HistoryPanelRepository.Tests/HistoryPanelRepository.Tests.csproj" />
         <Project Path="HistoryPanelPreview.Tests/HistoryPanelPreview.Tests.csproj" />
         <Project Path="HistoryPanelFactory.Tests/HistoryPanelFactory.Tests.csproj" />
+        <Project Path="GhostBattleSync.Tests/GhostBattleSync.Tests.csproj" />
+        <Project Path="ReplayPresentationWarmup.Tests/ReplayPresentationWarmup.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

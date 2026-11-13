@@ -4,15 +4,17 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Bundle;
+using Xunit;
 
-internal static class GhostBundleImportTests
+public sealed class GhostBundleImportTests
 {
-    internal static async Task RunAsync()
-    {
-        await ImportAsync(malformedReplay: false);
-        await ImportAsync(malformedReplay: true);
-        await ImportAsync(malformedReplay: true, rejectedReplay: true);
-    }
+    // The capsule's three imports: one row each.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public Task Imports(bool malformedReplay, bool rejectedReplay) =>
+        ImportAsync(malformedReplay, rejectedReplay);
 
     // malformedReplay fails projecting the battle; rejectedReplay makes the replay's messages fail
     // the host's verification instead. Either is an import failure.
