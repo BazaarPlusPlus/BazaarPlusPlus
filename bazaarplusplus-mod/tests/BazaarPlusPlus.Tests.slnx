@@ -26,6 +26,13 @@
         <Project Path="CollectionFilterEngine.Tests/CollectionFilterEngine.Tests.csproj" />
         <Project Path="CollectionGridLayout.Tests/CollectionGridLayout.Tests.csproj" />
         <Project Path="CollectionViewState.Tests/CollectionViewState.Tests.csproj" />
+        <Project Path="UiFoundation.Tests/UiFoundation.Tests.csproj" />
+        <Project Path="TooltipPreviewTargetResolver.Tests/TooltipPreviewTargetResolver.Tests.csproj" />
+        <Project Path="UpgradePreviewTooltip.Tests/UpgradePreviewTooltip.Tests.csproj" />
+        <Project Path="ItemEnchantPreview.Tests/ItemEnchantPreview.Tests.csproj" />
+        <Project Path="NativeCardArtwork.Tests/NativeCardArtwork.Tests.csproj" />
+        <Project Path="HotkeyBindingPath.Tests/HotkeyBindingPath.Tests.csproj" />
+        <Project Path="StaticCardMapCompatibility.Tests/StaticCardMapCompatibility.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

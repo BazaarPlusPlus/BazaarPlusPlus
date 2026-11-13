@@ -12,10 +12,14 @@ using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.TestSupport;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Xunit;
 
-internal static class PantryCompatibilityTests
+namespace StaticCardMapCompatibility.Tests;
+
+public sealed class PantryCompatibilityTests
 {
-    internal static void Run()
+    [Fact]
+    public void Run()
     {
         var json = TestInputs.Scratch(Path.Combine(AppContext.BaseDirectory, "Pantry.json"));
         var nativeAlreadySupportsPantry = NativeSupports(json);
@@ -158,9 +162,6 @@ internal static class PantryCompatibilityTests
             "A card serializer adapter must not mutate the global native type registry."
         );
         VerifyNativeTargetAndRecordBehavior(serializer);
-        Console.WriteLine(
-            "PASS: Pantry is retained; all five references preserve unique food counting, tiers, empty stash, and round trips."
-        );
     }
 
     private static TReferenceValueWithTargetCard ReadFallback(
