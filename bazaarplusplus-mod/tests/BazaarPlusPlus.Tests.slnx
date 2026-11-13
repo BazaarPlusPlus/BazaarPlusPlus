@@ -33,6 +33,8 @@
         <Project Path="NativeCardArtwork.Tests/NativeCardArtwork.Tests.csproj" />
         <Project Path="HotkeyBindingPath.Tests/HotkeyBindingPath.Tests.csproj" />
         <Project Path="StaticCardMapCompatibility.Tests/StaticCardMapCompatibility.Tests.csproj" />
+        <Project Path="CollectionCardProjection.Tests/CollectionCardProjection.Tests.csproj" />
+        <Project Path="CollectionSourceFiltering.Tests/CollectionSourceFiltering.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />
