@@ -23,7 +23,7 @@ public sealed class MacNativeReplayManagedArchitectureTests
                         Accesses(
                             build
                                 .Type(
-                                    "BazaarPlusPlus.Game.HistoryPanel.DesktopReplayRecordingAvailability"
+                                    "BazaarPlusPlus.Game.CombatReplay.Video.CombatReplayRecordingGate"
                                 )
                                 .MethodClosure("Prewarm"),
                             taskRun
