@@ -20,6 +20,9 @@
         <Project Path="MainMenuVersionLabel.Tests/MainMenuVersionLabel.Tests.csproj" />
         <Project Path="BundleSealConvergence.Tests/BundleSealConvergence.Tests.csproj" />
         <Project Path="ReleaseManifestClient.Tests/ReleaseManifestClient.Tests.csproj" />
+        <Project Path="OverlayPanelLifecycle.Tests/OverlayPanelLifecycle.Tests.csproj" />
+        <Project Path="LiveBuildPanel.Tests/LiveBuildPanel.Tests.csproj" />
+        <Project Path="LiveBuildRecommendationCore.Tests/LiveBuildRecommendationCore.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

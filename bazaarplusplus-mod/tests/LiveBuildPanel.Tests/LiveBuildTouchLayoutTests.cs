@@ -1,6 +1,8 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.LiveBuildPanel.Ui;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
@@ -8,23 +10,13 @@ namespace LiveBuildPanel.Tests;
 /// The touch geometry the Android host's Live Build panel is built on: physical sizes, the safe
 /// area, and a layout that neither overflows nor overlaps at the screens the device runs check.
 /// </summary>
-internal static class LiveBuildTouchLayoutTests
+public sealed class LiveBuildTouchLayoutTests
 {
-    private const float Reference = 1080f;
+    // The capsule installed English before these checks.
+    public LiveBuildTouchLayoutTests() =>
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
-    public static void Run()
-    {
-        MetricsScaleDpByDensityAndCanvasHeight();
-        MetricsFallBackOnAnUnknownDensity();
-        SafeAreaFlipsToTopDownCanvasUnits();
-        ColumnCountStaysWithinBounds();
-        TextNeverFallsUnderTheBodyMinimum();
-        foreach (var (name, metrics) in Screens())
-            LayoutFits(name, metrics);
-        TheArrangementFollowsTheDensity();
-        CardsFollowTheirSocketsAndSpans();
-        InspectScaleKeepsTheCardInsideItsArea();
-    }
+    private const float Reference = 1080f;
 
     private static IEnumerable<(string Name, TouchMetrics Metrics)> Screens()
     {
@@ -59,7 +51,8 @@ internal static class LiveBuildTouchLayoutTests
             height
         );
 
-    private static void MetricsScaleDpByDensityAndCanvasHeight()
+    [Fact]
+    public void MetricsScaleDpByDensityAndCanvasHeight()
     {
         var phone = Screen(2400f, 1080f, 420f);
         Near(2400f, phone.CanvasWidth, "A height-matched canvas keeps the aspect.");
@@ -71,7 +64,8 @@ internal static class LiveBuildTouchLayoutTests
         Near(2.625f * 1080f / 1600f, tablet.UnitsPerDp, "More pixels per unit shrink dp in units.");
     }
 
-    private static void MetricsFallBackOnAnUnknownDensity()
+    [Fact]
+    public void MetricsFallBackOnAnUnknownDensity()
     {
         var unknown = Screen(2400f, 1080f, 0f);
         Near(TouchMetrics.FallbackDpi / 160f, unknown.UnitsPerDp, "No dpi reads as the fallback.");
@@ -79,7 +73,8 @@ internal static class LiveBuildTouchLayoutTests
         Near(TouchMetrics.FallbackDpi / 160f, nan.UnitsPerDp, "A NaN dpi reads as the fallback.");
     }
 
-    private static void SafeAreaFlipsToTopDownCanvasUnits()
+    [Fact]
+    public void SafeAreaFlipsToTopDownCanvasUnits()
     {
         // Unity's safe area is bottom-up in pixels: a 100px bottom bar and a 64px top cutout.
         var metrics = TouchMetrics.From(2560f, 1600f, 420f, Reference, 80f, 100f, 2400f, 1436f);
@@ -103,7 +98,8 @@ internal static class LiveBuildTouchLayoutTests
         );
     }
 
-    private static void ColumnCountStaysWithinBounds()
+    [Fact]
+    public void ColumnCountStaysWithinBounds()
     {
         Check.Equal(2, TouchMetrics.ColumnCount(300f, 110f, 10f, 2), "Two fit and two is the cap.");
         Check.Equal(
@@ -115,7 +111,8 @@ internal static class LiveBuildTouchLayoutTests
         Check.Equal(4, TouchMetrics.ColumnCount(50f, 0f, 10f, 4), "No minimum takes the cap.");
     }
 
-    private static void TextNeverFallsUnderTheBodyMinimum()
+    [Fact]
+    public void TextNeverFallsUnderTheBodyMinimum()
     {
         var metrics = Screen(2400f, 1080f, 420f);
         Near(metrics.Dp(12f), metrics.Sp(8f), "Sp clamps to the body minimum.");
@@ -136,8 +133,14 @@ internal static class LiveBuildTouchLayoutTests
             Check.That(size >= metrics.BodyText - 0.01f, $"Text size {size} is under 12sp.");
     }
 
-    private static void LayoutFits(string name, TouchMetrics metrics)
+    // One row per screen of Screens(), keyed by its name.
+    public static TheoryData<string> ScreenNames => new(Screens().Select(screen => screen.Name));
+
+    [Theory]
+    [MemberData(nameof(ScreenNames))]
+    public void LayoutFits(string name)
     {
+        var metrics = Screens().Single(screen => screen.Name == name).Metrics;
         var layout = LiveBuildTouchLayout.For(metrics);
         var sheet = layout.Sheet;
         Check.That(metrics.SafeArea.Contains(sheet), $"{name}: the sheet leaves the safe area.");
@@ -356,7 +359,8 @@ internal static class LiveBuildTouchLayoutTests
             );
     }
 
-    private static void TheArrangementFollowsTheDensity()
+    [Fact]
+    public void TheArrangementFollowsTheDensity()
     {
         Check.That(
             !LiveBuildTouchLayout.For(Screen(2400f, 1080f, 420f)).Stacked,
@@ -377,7 +381,8 @@ internal static class LiveBuildTouchLayoutTests
         );
     }
 
-    private static void CardsFollowTheirSocketsAndSpans()
+    [Fact]
+    public void CardsFollowTheirSocketsAndSpans()
     {
         var layout = LiveBuildTouchLayout.For(Screen(2400f, 1080f, 420f));
         var small = layout.CardRect(0, 1);
@@ -406,7 +411,8 @@ internal static class LiveBuildTouchLayoutTests
         );
     }
 
-    private static void InspectScaleKeepsTheCardInsideItsArea()
+    [Fact]
+    public void InspectScaleKeepsTheCardInsideItsArea()
     {
         foreach (var (name, metrics) in Screens())
         {

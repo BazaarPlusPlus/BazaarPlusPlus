@@ -9,6 +9,7 @@ using BazaarPlusPlus.TestSupport;
 using Json.Schema;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Xunit;
 
 // Behavior tests for the analyzer ten-win build corpus consumed by LiveBuildPanel, run against
 // Core alone. The payload is the compact string-table + schema-driven array-row format published
@@ -18,9 +19,7 @@ using Newtonsoft.Json.Linq;
 // RemoteEmbeddedCatalog.Tests project; the embedded seed the desktop host bundles is gated by
 // LiveBuildRecommendations.Tests.
 
-TenWinBuildTests.Run();
-
-internal static class TenWinBuildTests
+public sealed class TenWinBuildTests
 {
     // The analyzer-produced golden (contracts/v6/fixtures/builds.latest.json).
     private const string ContractResourceName =
@@ -31,44 +30,11 @@ internal static class TenWinBuildTests
     private const string GuidC = "cccccccc-cccc-cccc-cccc-cccccccccccc";
     private const string GuidD = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
-    public static void Run()
-    {
-        TestParserAcceptsAnalyzerContract();
-        TestParserEnforcesTopLevelAndExactSchemas();
-        TestParserEnforcesWindowContract();
-        TestParserRejectsIllegalIndexesAndSemanticMismatches();
-        TestParserAcceptsDuplicateCardRefsNullableP75AndEmptyHero();
-        TestRemoteUrlsUseMetricsV6Latest();
-        TestOptionalLiveSampleParses();
-        TestFindRecommendationsTakesHeroSelectionAndLiveState();
-        TestDefaultCachePathUsesBuildsFileName();
-        TestSingleCardSelectionResolvesViaCardIndex();
-        TestMultiCardSelectionPrefersIntersection();
-        TestUnionFallbackWhenIntersectionEmptyButAllCovered();
-        TestUnionFallbackKeepsResultsWhenOneSelectedCardUncovered();
-        TestTinyFilterExaminesEveryCardAndPreservesRanking();
-        TestTinyFilterFallsBackToEligiblePartialMatches();
-        TestTinyFilterRechecksUnavailableTemplates();
-        TestSelectingOnlyUncoveredCardsReturnsEmpty();
-        TestLiveStateRankingOutranksScore();
-        TestBoardContractMapsTierEnchantSize();
-        TestNullEnchantRefAndP75DoNotCrash();
-        TestRemoteRefreshPreservesProductFailure();
-        TestCatalogRefreshPublishesSharedSnapshot();
-        TestCorpusSummaryIncludesPerHeroBuildCounts();
-        TestProjectedBoardsFollowTheirHeroAndSnapshot();
-        TestNonPlayableCorpusKeysCannotBeQueried();
-        TestCorpusTooltipsUseCanonicalPresentation();
-        TestDragonsQueriesShareTheCanonicalRemoteFixture();
-        TestExistingSevenHeroesKeepRecommendationResults();
-        TestOnlyPlayableHeroesAreQueried();
-
-        Console.WriteLine("LiveBuild recommendation checks passed.");
-    }
-
     // ---- Tests ------------------------------------------------------------
+    // Each test is one check the capsule's Run() called, with the same name.
 
-    private static void TestParserAcceptsAnalyzerContract()
+    [Fact]
+    public void TestParserAcceptsAnalyzerContract()
     {
         using var schemaStream =
             Assembly
@@ -126,7 +92,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestParserEnforcesTopLevelAndExactSchemas()
+    [Fact]
+    public void TestParserEnforcesTopLevelAndExactSchemas()
     {
         RejectContract(root => root["schema_version"] = 1, "schema_version 1");
         RejectContract(root => root["schema_version"] = 3, "schema_version 3");
@@ -151,7 +118,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestParserEnforcesWindowContract()
+    [Fact]
+    public void TestParserEnforcesWindowContract()
     {
         AcceptWindow("2026-08-11", "2026-08-11", 1);
         AcceptWindow("2026-08-07", "2026-08-11", 5);
@@ -161,7 +129,8 @@ internal static class TenWinBuildTests
         RejectWindow("2026-08-07", "2026-08-11", 4);
     }
 
-    private static void TestParserRejectsIllegalIndexesAndSemanticMismatches()
+    [Fact]
+    public void TestParserRejectsIllegalIndexesAndSemanticMismatches()
     {
         RejectContract(root => ContractCardRefs(root)[0] = 99, "card_refs card ref");
         RejectContract(root => ContractLayoutRow(root, 0)[0] = 99, "layout card ref");
@@ -199,7 +168,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestParserAcceptsDuplicateCardRefsNullableP75AndEmptyHero()
+    [Fact]
+    public void TestParserAcceptsDuplicateCardRefsNullableP75AndEmptyHero()
     {
         var root = JObject.Parse(ScorePayload("Vanessa", 333, p75: null));
         ((JObject)root["heroes"]!)["Dooley"] = new JObject
@@ -224,7 +194,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestRemoteUrlsUseMetricsV6Latest()
+    [Fact]
+    public void TestRemoteUrlsUseMetricsV6Latest()
     {
         const string expected = "https://cdn.bazaarplusplus.com/metrics/v6/builds/latest.json";
         var runtimeUrl = TenWinBuildCatalogSettings.RemoteUrl;
@@ -245,7 +216,8 @@ internal static class TenWinBuildTests
 
     // Set BPP_TENWIN_SAMPLE_PATH to a downloaded builds/latest.json to validate a live sample.
     // Without it this remains a no-op so the normal test run is hermetic.
-    private static void TestOptionalLiveSampleParses()
+    [Fact]
+    public void TestOptionalLiveSampleParses()
     {
         var path = Environment.GetEnvironmentVariable("BPP_TENWIN_SAMPLE_PATH");
         if (string.IsNullOrWhiteSpace(path))
@@ -260,7 +232,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestFindRecommendationsTakesHeroSelectionAndLiveState()
+    [Fact]
+    public void TestFindRecommendationsTakesHeroSelectionAndLiveState()
     {
         var repositoryType = typeof(BuildRecommendationRepository);
 
@@ -277,7 +250,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestDefaultCachePathUsesBuildsFileName()
+    [Fact]
+    public void TestDefaultCachePathUsesBuildsFileName()
     {
         var dataRootPath = Path.Combine(Path.GetTempPath(), $"bpp-data-root-{Guid.NewGuid():N}");
         var cachePath = TenWinBuildCatalogSettings.BuildCacheFilePath(dataRootPath);
@@ -288,7 +262,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestRemoteRefreshPreservesProductFailure()
+    [Fact]
+    public async Task TestRemoteRefreshPreservesProductFailure()
     {
         var corpus = TenWinBuildCorpus.Parse(ScorePayload("CacheHero", 333))!;
         using var catalog = new StubCatalog(corpus);
@@ -302,7 +277,7 @@ internal static class TenWinBuildTests
                 )
             )
         );
-        var failure = repository.TryRefreshFinalBuildsFromRemoteAsync().GetAwaiter().GetResult();
+        var failure = await repository.TryRefreshFinalBuildsFromRemoteAsync();
         Assert(!failure.Succeeded, "A failed pull should surface as a product failure.");
         Assert(
             failure.Error?.Contains("refresh-boom") == true,
@@ -310,7 +285,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestCatalogRefreshPublishesSharedSnapshot()
+    [Fact]
+    public async Task TestCatalogRefreshPublishesSharedSnapshot()
     {
         var initialCorpus = TenWinBuildCorpus.Parse(ScorePayload("InitialHero", 111))!;
         var refreshedCorpus = TenWinBuildCorpus.Parse(ScorePayload("RefreshedHero", 222))!;
@@ -318,10 +294,10 @@ internal static class TenWinBuildTests
         var repository = new BuildRecommendationRepository(catalog);
 
         var refresh = repository.TryRefreshFinalBuildsFromRemoteAsync();
-        catalog.Started.GetAwaiter().GetResult();
+        await catalog.Started;
         catalog.Complete(refreshedCorpus);
 
-        var result = refresh.GetAwaiter().GetResult();
+        var result = await refresh;
         Assert(result.Succeeded, "The plugin-lifetime catalog refresh should finish.");
         var summary = repository.GetCorpusSummary();
         Assert(summary.HasValue, "The shared repository should retain the refreshed snapshot.");
@@ -332,7 +308,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestSingleCardSelectionResolvesViaCardIndex()
+    [Fact]
+    public void TestSingleCardSelectionResolvesViaCardIndex()
     {
         WithCorpus(
             MainRecallPayload("Vanessa"),
@@ -348,7 +325,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestMultiCardSelectionPrefersIntersection()
+    [Fact]
+    public void TestMultiCardSelectionPrefersIntersection()
     {
         WithCorpus(
             MainRecallPayload("Vanessa"),
@@ -364,7 +342,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestUnionFallbackWhenIntersectionEmptyButAllCovered()
+    [Fact]
+    public void TestUnionFallbackWhenIntersectionEmptyButAllCovered()
     {
         // cards A,B both covered but with disjoint build sets -> intersection empty -> union.
         var payload = Payload(
@@ -387,7 +366,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestUnionFallbackKeepsResultsWhenOneSelectedCardUncovered()
+    [Fact]
+    public void TestUnionFallbackKeepsResultsWhenOneSelectedCardUncovered()
     {
         WithCorpus(
             MainRecallPayload("Vanessa"),
@@ -404,7 +384,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestTinyFilterExaminesEveryCardAndPreservesRanking()
+    [Fact]
+    public void TestTinyFilterExaminesEveryCardAndPreservesRanking()
     {
         using var catalog = new StubCatalog(RequireCorpus(TinyFilterPayload()));
         var repository = new BuildRecommendationRepository(catalog, TinyTemplateSize);
@@ -432,7 +413,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestTinyFilterFallsBackToEligiblePartialMatches()
+    [Fact]
+    public void TestTinyFilterFallsBackToEligiblePartialMatches()
     {
         using var catalog = new StubCatalog(RequireCorpus(TinyFilterPayload()));
         var repository = new BuildRecommendationRepository(catalog, TinyTemplateSize);
@@ -466,7 +448,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestTinyFilterRechecksUnavailableTemplates()
+    [Fact]
+    public void TestTinyFilterRechecksUnavailableTemplates()
     {
         using var catalog = new StubCatalog(RequireCorpus(TinyFilterPayload()));
         var ready = false;
@@ -527,7 +510,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestSelectingOnlyUncoveredCardsReturnsEmpty()
+    [Fact]
+    public void TestSelectingOnlyUncoveredCardsReturnsEmpty()
     {
         WithCorpus(
             MainRecallPayload("Vanessa"),
@@ -546,7 +530,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestLiveStateRankingOutranksScore()
+    [Fact]
+    public void TestLiveStateRankingOutranksScore()
     {
         WithCorpus(
             MainRecallPayload("Vanessa"),
@@ -570,7 +555,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestBoardContractMapsTierEnchantSize()
+    [Fact]
+    public void TestBoardContractMapsTierEnchantSize()
     {
         var payload = Payload(
             cards: $"[\"{GuidA}\"]",
@@ -617,7 +603,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestNullEnchantRefAndP75DoNotCrash()
+    [Fact]
+    public void TestNullEnchantRefAndP75DoNotCrash()
     {
         var payload = Payload(
             cards: $"[\"{GuidA}\"]",
@@ -645,7 +632,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestCorpusSummaryIncludesPerHeroBuildCounts()
+    [Fact]
+    public void TestCorpusSummaryIncludesPerHeroBuildCounts()
     {
         WithCorpus(
             TwoHeroSummaryPayload(),
@@ -674,7 +662,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestProjectedBoardsFollowTheirHeroAndSnapshot()
+    [Fact]
+    public async Task TestProjectedBoardsFollowTheirHeroAndSnapshot()
     {
         var corpus = RequireCorpus(TwoHeroSummaryPayload());
         using var catalog = new StubCatalog(corpus);
@@ -707,7 +696,7 @@ internal static class TenWinBuildTests
             )
         );
         Assert(
-            repository.TryRefreshFinalBuildsFromRemoteAsync().GetAwaiter().GetResult().Succeeded,
+            (await repository.TryRefreshFinalBuildsFromRemoteAsync()).Succeeded,
             "The replacement snapshot should publish."
         );
         var refreshed = Find(repository, "Vanessa", [GuidA]).Single().Board;
@@ -717,7 +706,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestNonPlayableCorpusKeysCannotBeQueried()
+    [Fact]
+    public void TestNonPlayableCorpusKeysCannotBeQueried()
     {
         var build = Build("[0]", "[[0,0,1,0,1]]", 500);
         WithCorpus(
@@ -749,7 +739,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestCorpusTooltipsUseCanonicalPresentation()
+    [Fact]
+    public void TestCorpusTooltipsUseCanonicalPresentation()
     {
         var withBuilds = new TenWinCorpusSummary(
             windowEndUtc: null,
@@ -776,7 +767,8 @@ internal static class TenWinBuildTests
         );
     }
 
-    private static void TestOnlyPlayableHeroesAreQueried()
+    [Fact]
+    public void TestOnlyPlayableHeroesAreQueried()
     {
         foreach (
             var hero in new[]
@@ -801,7 +793,8 @@ internal static class TenWinBuildTests
             Assert(!LiveBuildPlayableHero.IsPlayable(hero), $"'{hero}' should not be playable.");
     }
 
-    private static void TestDragonsQueriesShareTheCanonicalRemoteFixture()
+    [Fact]
+    public void TestDragonsQueriesShareTheCanonicalRemoteFixture()
     {
         var parser = new TenWinBuildCatalogParser();
         var canonicalRemoteDocument = ScorePayload("TheDragons", 444);
@@ -810,7 +803,8 @@ internal static class TenWinBuildTests
         AssertAliasQueriesShareScore(canonicalRemote.Value!, 444);
     }
 
-    private static void TestExistingSevenHeroesKeepRecommendationResults()
+    [Fact]
+    public void TestExistingSevenHeroesKeepRecommendationResults()
     {
         var heroIds = new[]
         {
@@ -1228,9 +1222,6 @@ internal static class TenWinBuildTests
     private static List<long> ScoresOf(IEnumerable<BuildRecommendation> recommendations) =>
         recommendations.Select(recommendation => recommendation.Score).ToList();
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 }
