@@ -26,4 +26,4 @@ Players search for the whole destruction mechanic, not only active `TActionCardD
 - Keep `AbsorbDestroy` off `CollectionKeywordWhitelist.Ordered`; its hidden-tag mapping feeds only the Destroy mechanic.
 - Reclassifying `TTriggerOnCardRepaired` or splitting the cluster requires a new product decision.
 
-Executable semantics live in [`CollectionFilterEngine.Tests`](../../tests/CollectionFilterEngine.Tests/Program.cs).
+Executable semantics live in [`CollectionFilterEngine.Tests`](../../tests/CollectionFilterEngine.Tests/CollectionFilterEngineTests.cs).
