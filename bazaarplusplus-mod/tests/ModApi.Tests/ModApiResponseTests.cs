@@ -3,19 +3,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using BazaarPlusPlus.ModApi.Http;
+using Xunit;
 
-internal static class ModApiResponseTests
+public sealed class ModApiResponseTests
 {
-    public static async Task RunAsync()
-    {
-        await ReadsNestedAndLegacyEnvelopes();
-        await ResolvesRequestIdAndRetryAfter();
-        await CollapsesMalformedBlankAndOversizedBodies();
-        TransportFailureSeparatesUserAndDiagnosticChannels();
-        Console.WriteLine("ModApiResponseTests passed.");
-    }
-
-    private static async Task ReadsNestedAndLegacyEnvelopes()
+    [Fact]
+    public async Task ReadsNestedAndLegacyEnvelopes()
     {
         using var nestedMessage = Json(
             HttpStatusCode.Conflict,
@@ -50,7 +43,8 @@ internal static class ModApiResponseTests
         Assert(sentinel.UserCode == "http_403", "arbitrary remote code is not user-facing");
     }
 
-    private static async Task ResolvesRequestIdAndRetryAfter()
+    [Fact]
+    public async Task ResolvesRequestIdAndRetryAfter()
     {
         using var deltaMessage = Json(
             (HttpStatusCode)429,
@@ -70,7 +64,8 @@ internal static class ModApiResponseTests
         Assert(date.RetryAfterSeconds is >= 28 and <= 30, "Retry-After date");
     }
 
-    private static async Task CollapsesMalformedBlankAndOversizedBodies()
+    [Fact]
+    public async Task CollapsesMalformedBlankAndOversizedBodies()
     {
         using var malformedMessage = Json(HttpStatusCode.BadGateway, "private-sentinel{");
         var malformed = await ModApiResponse.ReadAsync(malformedMessage, ModApiBodyReadPolicy.Json);
@@ -91,7 +86,8 @@ internal static class ModApiResponseTests
         Assert(oversized.UserCode == "body_too_large", "overflow closed code");
     }
 
-    private static void TransportFailureSeparatesUserAndDiagnosticChannels()
+    [Fact]
+    public void TransportFailureSeparatesUserAndDiagnosticChannels()
     {
         var exception = new InvalidOperationException("private-transport-sentinel");
         var failure = new ModApiFailure("transport_error", exception);
@@ -109,6 +105,6 @@ internal static class ModApiResponseTests
     private static void Assert(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

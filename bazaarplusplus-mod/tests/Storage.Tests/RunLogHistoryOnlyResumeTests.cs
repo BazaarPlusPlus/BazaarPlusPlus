@@ -2,13 +2,15 @@
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class RunLogHistoryOnlyResumeTests
+public sealed class RunLogHistoryOnlyResumeTests
 {
     // A normal store never writes history_only, and the V5 import closes unfinished Runs. If an
     // imported Run is still active anyway, resume skips it and a game Run with the same id
     // gets a collision id instead of writing into the imported row.
-    internal static void Run()
+    [Fact]
+    public void ResumeAndCreateSkipHistoryOnlyRuns()
     {
         var tempRoot = Path.Combine(
             Path.GetTempPath(),

@@ -1,18 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class RunLogSchemaInitializationTests
+public sealed class RunLogSchemaInitializationTests
 {
-    internal static void Run()
-    {
-        CreatesFreshCurrentVersionAndSupportsConcurrentInitialization();
-        RejectsUnknownFutureVersionWithoutMutation();
-        RejectsAV5DatabaseWithoutMutation();
-        ClosedValueSetsRejectOtherValues();
-    }
-
-    private static void CreatesFreshCurrentVersionAndSupportsConcurrentInitialization()
+    [Fact]
+    public async Task CreatesFreshCurrentVersionAndSupportsConcurrentInitialization()
     {
         var databasePath = Path.Combine(
             Path.GetTempPath(),
@@ -20,7 +14,7 @@ internal static class RunLogSchemaInitializationTests
         );
         try
         {
-            Task.WaitAll(
+            await Task.WhenAll(
                 Enumerable
                     .Range(0, 8)
                     .Select(_ =>
@@ -74,7 +68,8 @@ internal static class RunLogSchemaInitializationTests
         }
     }
 
-    private static void RejectsUnknownFutureVersionWithoutMutation()
+    [Fact]
+    public void RejectsUnknownFutureVersionWithoutMutation()
     {
         var databasePath = Path.Combine(
             Path.GetTempPath(),
@@ -109,7 +104,8 @@ internal static class RunLogSchemaInitializationTests
     }
 
     // A V5 database (user_version 3) is imported, never opened in place.
-    private static void RejectsAV5DatabaseWithoutMutation()
+    [Fact]
+    public void RejectsAV5DatabaseWithoutMutation()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
@@ -127,7 +123,8 @@ internal static class RunLogSchemaInitializationTests
         );
     }
 
-    private static void ClosedValueSetsRejectOtherValues()
+    [Fact]
+    public void ClosedValueSetsRejectOtherValues()
     {
         using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
@@ -247,9 +244,7 @@ internal static class RunLogSchemaInitializationTests
     private static void Equal<T>(T expected, T actual, string label)
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual))
-            throw new InvalidOperationException(
-                $"Expected {label} to be '{expected}', got '{actual}'."
-            );
+            Xunit.Assert.Fail($"Expected {label} to be '{expected}', got '{actual}'.");
     }
 
     private static void Throws<T>(Action action, string label)
@@ -264,6 +259,6 @@ internal static class RunLogSchemaInitializationTests
             return;
         }
 
-        throw new InvalidOperationException($"Expected {label} to throw {typeof(T).Name}.");
+        Xunit.Assert.Fail($"Expected {label} to throw {typeof(T).Name}.");
     }
 }

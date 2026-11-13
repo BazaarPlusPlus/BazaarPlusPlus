@@ -3,10 +3,11 @@ using System.Security.Cryptography;
 using System.Text;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // `user_version` names the column shape the installer reads, so a version bump must change it and a
 // column change must bump it (ADR-0011).
-internal static class RunLogSchemaColumnShapeTests
+public sealed class RunLogSchemaColumnShapeTests
 {
     // One fingerprint per shipped LocalDatabaseSchemaVersion of the V6 database, which starts at 1.
     // Version 1 was last reshaped before 6.0.0 shipped (favorite_battles); from then on it is frozen.
@@ -18,13 +19,8 @@ internal static class RunLogSchemaColumnShapeTests
         [1] = "6b01d7570e831f1f",
     };
 
-    internal static void Run()
-    {
-        CurrentVersionMatchesItsRecordedColumnShape();
-        EveryShippedVersionHasADistinctColumnShape();
-    }
-
-    private static void CurrentVersionMatchesItsRecordedColumnShape()
+    [Fact]
+    public void CurrentVersionMatchesItsRecordedColumnShape()
     {
         var version = RunLogSchema.LocalDatabaseSchemaVersion;
         var actual = FreshColumnShape();
@@ -38,7 +34,8 @@ internal static class RunLogSchemaColumnShapeTests
             );
     }
 
-    private static void EveryShippedVersionHasADistinctColumnShape()
+    [Fact]
+    public void EveryShippedVersionHasADistinctColumnShape()
     {
         foreach (
             var shared in ShippedColumnShapes

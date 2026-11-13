@@ -3,10 +3,12 @@ using System.Reflection.Emit;
 using System.Text.Json;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.ModApi.Http;
+using Xunit;
 
-internal static class ErrorCodeContractTests
+public sealed class ErrorCodeContractTests
 {
-    public static void Run()
+    [Fact]
+    public void UploadClassifierHandlesEveryDeclaredCode()
     {
         using var stream =
             Assembly

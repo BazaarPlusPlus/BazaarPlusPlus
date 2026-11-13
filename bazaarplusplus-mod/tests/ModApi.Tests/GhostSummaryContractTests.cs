@@ -4,10 +4,12 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using BazaarPlusPlus.ModApi.Clients;
+using Xunit;
 
-internal static class GhostSummaryContractTests
+public sealed class GhostSummaryContractTests
 {
-    public static async Task RunAsync()
+    [Fact]
+    public async Task ParsesTheServerGhostSummaryContract()
     {
         string golden;
         using (
@@ -91,7 +93,7 @@ internal static class GhostSummaryContractTests
     private static void Assert(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private sealed class GoldenHandler(string body) : HttpMessageHandler

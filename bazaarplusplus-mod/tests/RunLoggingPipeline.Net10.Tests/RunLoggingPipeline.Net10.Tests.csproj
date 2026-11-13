@@ -3,13 +3,23 @@
        net10.0 outputs of Core and Storage, bound to the NuGet packages pinned to the game's
        versions, as the Android host ships them (ADR-0013). It reproduces the same goldens. -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>RunLoggingPipeline.Net10.Tests</AssemblyName>
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
     <DefineConstants>$(DefineConstants);BPP_NET10_BINDING</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
   <ItemGroup>
     <Compile
