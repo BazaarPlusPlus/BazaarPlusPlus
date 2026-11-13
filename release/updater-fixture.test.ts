@@ -150,8 +150,9 @@ test('the shared Android fixture is a Platform Release Manifest outside latest.j
       { source: 'publisher', game: release.adaptations.publisher.game },
       { source: 'play', game: release.adaptations.play.game }
     ],
-    mainlandUrl: null
+    mainlandUrl: release.mainlandUrl
   });
+  expect(new URL(release.mainlandUrl).protocol).toBe('https:');
   // The App sits in its version's directory, the Interop Package at its
   // content address, and the App is signed by the pinned release key.
   expect(download.app.url).toBe(

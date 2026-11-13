@@ -432,6 +432,8 @@ const promote = (
     baseUrl: RELEASE_BASE_URL,
     store,
     releaseSignerSha256: keys.release.sha256,
+    // The mainland mirror is product-release.test.ts's concern.
+    withoutMainlandMirror: true,
     ...extra
   });
 
@@ -540,7 +542,7 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
   ).rejects.toThrow(/Unsupported release build override/);
 });
 
-test('the carried release is the Platform Release Manifest without the App', () => {
+test('the carried release is the Platform Release Manifest without the App and its mainland mirror', () => {
   const fixtures = path.join(WORKSPACE_ROOT, 'release', 'fixtures');
   const published = JSON.parse(
     fs.readFileSync(path.join(fixtures, 'latest', `${KEY}.json`), 'utf8')
@@ -559,7 +561,13 @@ test('the carried release is the Platform Release Manifest without the App', () 
   const text = `${JSON.stringify(produced, null, 2)}\n`;
   if (process.env.BPP_UPDATE_GOLDENS === '1') fs.writeFileSync(golden, text);
   expect(text).toBe(fs.readFileSync(golden, 'utf8'));
-  const { app: _app, selfUpdatable: _self, ...rest } = record;
+  const {
+    app: _app,
+    selfUpdatable: _self,
+    mainlandUrl: _mirror,
+    ...rest
+  } = record;
+  expect(produced.downloads[KEY]).not.toHaveProperty('mainlandUrl');
   expect(produced.downloads[KEY]).toMatchObject(rest);
   expect(produced.downloads[KEY]).not.toHaveProperty('app');
 });

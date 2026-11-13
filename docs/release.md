@@ -113,9 +113,9 @@ S3 密钥对由 `release/r2-store.ts` 从 token 推导（一次 `GET /accounts/{
 
 `promote` 验证完整安装器及 Managed Payload 的完整性，然后以 ETag compare-and-swap 依次写入各平台的安装器入口 `latest/<平台键>.json`、mod 入口 `latest/mod/<平台键>.json`，最后写入 `latest.json`。两个平台入口使用同一份 Platform Release Manifest，包括版本、提交、发布时间与下载地址；没有单独推进 mod 版本的命令。有其他发布者抢先写入时重新检查版本，不能用旧版本覆盖新版本。重复发布同版本只能确认已有事实，不能替换它们。回退产品行为需要发布一个更高版本号的修复版本。多个清单的写入不是原子事务：中途失败时命令报错，重跑同一次 `promote` 补齐 mod 入口，即使 `latest.json` 已是该版本也会补齐；确认旧 lockstep 版本不会回退已经领先的平台。首次发布的新入口尚未写成时，mod 检查可能暂时失败，补齐后重新启动游戏再检查。
 
-`release/downloads.ts` 是浏览器可消费的发布事实入口，统一发布 origin、平台键、安装器与 mod 清单路径（`platformManifestPath`、`modManifestPath`）、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.ts` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload、mirror 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store 并执行 `promote --platform android`，最后把 manifest 与样例逐字节比对，并检查 mod 入口与对应安装器入口的字节相同，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 bun run vp test run release/cli.test.ts` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
+`release/downloads.ts` 是浏览器可消费的发布事实入口，统一发布 origin、平台键、安装器与 mod 清单路径（`platformManifestPath`、`modManifestPath`）、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.ts` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload、mirror 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store，执行 `mirror --platform android` 与 `promote --platform android`，最后把 manifest 与样例逐字节比对，并检查 mod 入口与对应安装器入口的字节相同，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 bun run vp test run release/cli.test.ts` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
 
-lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。Android 的平台清单没有 `platforms` 字段，见 [Android 发布](#android-发布)。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
+lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。Android 的平台清单没有 `platforms` 字段，大陆镜像地址同样在 `downloads["android-aarch64"].mainlandUrl`，见 [Android 发布](#android-发布)。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
 
 ## 按平台发布
 
@@ -138,13 +138,13 @@ Android 是第三个发布平台（平台键 `android-aarch64`），不进 `late
 | Interop Package | `android/interop/<zip 的 sha256>.zip`，按内容寻址 | interop 声明的 SHA256withRSA 签名 |
 | Managed Payload zip | `<版本>/android-aarch64/managed/` | minisign 签名，由 Updater 验证 |
 
-对象键、Android App 的 `versionCode`（`androidAppVersionCode`）、`nonManagedPayloadDigest` 的算法（`androidNonManagedPayloadDigest`）以及 fragment（`kind: 'android-app'`）与平台清单的字段都由 `release/manifest.ts` 定义；平台清单 `downloads["android-aarch64"]` 的字段顺序是 `ANDROID_RELEASE_FIELDS`。interop 声明的字节、签名与验证由 `release/android-interop.ts` 定义，共享样例在 `release/fixtures/android-interop/`。同一份 Interop Snapshot 只有一个 Interop Package，用这份快照的各次发布共用同一个对象。
+对象键、Android App 的 `versionCode`（`androidAppVersionCode`）、`nonManagedPayloadDigest` 的算法（`androidNonManagedPayloadDigest`）以及 fragment（`kind: 'android-app'`）与平台清单的字段都由 `release/manifest.ts` 定义；平台清单 `downloads["android-aarch64"]` 的字段顺序是 `ANDROID_RELEASE_FIELDS`，有镜像记录时最后加 `mainlandUrl`。interop 声明的字节、签名与验证由 `release/android-interop.ts` 定义，共享样例在 `release/fixtures/android-interop/`。同一份 Interop Snapshot 只有一个 Interop Package，用这份快照的各次发布共用同一个对象。
 
 ```bash
 just release::promote --platform android
 ```
 
-`promote --platform android` 校验三样产物在 R2 上存在且大小、sha256 与 fragment 一致，依次写入 `latest/android-aarch64.json` 与 `latest/mod/android-aarch64.json`，从不推进 `latest.json`。Android 没有大陆镜像：不读镜像记录，`--without-mainland-mirror`、`mirror` 和 `verify-mirror` 对 Android 拒绝执行。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。
+`promote --platform android` 校验三样产物在 R2 上存在且大小、sha256 与 fragment 一致，依次写入 `latest/android-aarch64.json` 与 `latest/mod/android-aarch64.json`，从不推进 `latest.json`。它和桌面一样要求大陆镜像记录或 `--without-mainland-mirror`，见[中国大陆镜像](#中国大陆镜像)。Android App 携带的发布文档（`androidCarriedRelease`）不含镜像地址。"一个版本号只对应一个提交"同样成立：桌面上传与提升会和同版本的 Android fragment 比对提交，Android 提升也会和桌面 fragment 比对；Android 可以跳过版本。
 
 签名证书分两层检查，`upload` 与 `promote` 都执行（[ADR 0009](adr/0009-android-release-key.md) 的 2026-11-01 修订）：Android App APK 的证书必须等于 `ANDROID_RELEASE_SIGNER_SHA256` 钉住的发布证书；已提升的平台清单有 `app` 时，还必须等于它的 `app.signerSha256`。
 
@@ -177,6 +177,7 @@ just with-config release just mod::fetch android play
 just release::prepare android
 just release::build android
 just release::upload android
+just release::mirror android <Android大陆分享页地址>
 just release::promote --platform android
 ```
 
@@ -192,21 +193,22 @@ just release::promote --platform android
 
    步骤与工具查找见 `release/android-release.ts` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK，每个来源的 `<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
 4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、每个来源的 Interop Package 与 Managed Payload zip，再写每个 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。
-5. `promote --platform android`。
+5. 把 Android App APK 原样上传到蓝奏云，用 `mirror android <分享页地址>` 记录镜像。
+6. `promote --platform android`。
 
 `.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，先按工具链锁装 JDK 与 SDK 包，标签推送只构建桌面两平台。`dry_run` 只跑到 `prepare`。构建回执和产物（Android App APK，每个来源的 Interop Package 及其声明与签名、Managed Payload zip 及其签名）都留作 Actions 产物；`build_only` 不上传 R2，用于在干净的 AVD 上验收。
 
 ## 中国大陆镜像
 
-Mainland Mirror 是手工上传到蓝奏云的安装包分享页，只作为大陆网络下手动下载的兜底，不是第二个发布来源，也不能充当 updater endpoint：蓝奏云只提供分享页，不提供可校验签名的直链。
+Mainland Mirror 是手工上传到蓝奏云的安装包或 Android App APK 的分享页，只作为大陆网络下手动下载的兜底，不是第二个发布来源，也不能充当 updater endpoint：蓝奏云只提供分享页，不提供可校验签名的直链。
 
-镜像地址是发布者显式提供的输入，不由版本号拼接。`mirror` 读取该平台已上传的 fragment，抓取分享页核对标题里的文件名等于安装包文件名，然后把地址写入 `<版本>/<平台键>/mirror/mainland.json`；`promote` 把记录组装成 `downloads[平台键].mainlandUrl`。官网和 installer 只从 manifest 读取这个地址，manifest 里没有就不显示大陆入口。决策记录见 [ADR 0002](adr/0002-mainland-mirror-check.md)。
+镜像地址是发布者显式提供的输入，不由版本号拼接。`mirror` 读取该平台已上传的 fragment，抓取分享页核对标题里的文件名等于这个平台发布的文件名（桌面是安装包，Android 是 Android App APK，见 `mirrorFileName`），然后把地址写入 `<版本>/<平台键>/mirror/mainland.json`；`promote` 把记录组装成 `downloads[平台键].mainlandUrl`。官网和 installer 只从 manifest 读取这个地址，manifest 里没有就不显示大陆入口。决策记录见 [ADR 0002](adr/0002-mainland-mirror-check.md)。
 
-双平台发布使用 `mirror-all`。预检包括两个平台 fragment 的版本与提交、R2 产物的大小和 hash、平台是否已发布，以及两个分享页的文件名。任一预检失败都不会写镜像记录；全部通过后分别以条件写入保存两份记录。两次写入不构成跨对象事务，网络中断可能只留下第一份记录，修复后重跑同一命令即可。`mirror-all` 成功后再执行 `promote`；它本身不会上传蓝奏云文件或修改任何 latest 清单。不要并发运行镜像阶段和 `promote`。
+双平台发布使用 `mirror-all`。预检包括两个平台 fragment 的版本与提交、R2 产物的大小和 hash、平台是否已发布，以及两个分享页的文件名。任一预检失败都不会写镜像记录；全部通过后分别以条件写入保存两份记录。两次写入不构成跨对象事务，网络中断可能只留下第一份记录，修复后重跑同一命令即可。`mirror-all` 成功后再执行 `promote`；它本身不会上传蓝奏云文件或修改任何 latest 清单。Android 不进 `mirror-all`，用 `mirror android <分享页地址>` 单独记录。不要并发运行镜像阶段和 `promote`。
 
-上传约定：文件名必须与 R2 上 `installer` 目录里的文件名完全一致，不改名；分享地址随意。核对结果分三类：`verified`、`missing-or-misnamed`（分享不存在、被取消或文件名不符，修正分享后重跑 `mirror` 即可覆盖记录）、`unverifiable`（超时、非 200 或页面格式不认识）；`--allow-unverified-mirror` 把未通过的地址记录为 `verified: false` 并打印警告。核对只比文件名，不比 hash，也只能证明核对那一刻分享存在。
+上传约定：文件名必须与 R2 上 `installer` 目录（Android 是 `app` 目录）里的文件名完全一致，不改名；分享地址随意。蓝奏云对单个文件有大小上限，6.3.2 的 67 MB APK 能上传；APK 超过上限时，Android 用 `--without-mainland-mirror` 提升。核对结果分三类：`verified`、`missing-or-misnamed`（分享不存在、被取消或文件名不符，修正分享后重跑 `mirror` 即可覆盖记录）、`unverifiable`（超时、非 200 或页面格式不认识）；`--allow-unverified-mirror` 把未通过的地址记录为 `verified: false` 并打印警告。核对只比文件名，不比 hash，也只能证明核对那一刻分享存在。
 
-记录在该平台提升前可以覆盖，提升后 `mirror` 拒绝再写，写入前后都会复查，提升与记录撞车时以已发布的地址为准：已发布的镜像地址和其他已发布事实一样，修改需要新版本。`promote` 缺少任一平台的记录时拒绝写入，`--without-mainland-mirror` 显式跳过并打印警告，跳过的平台这个版本不能再补上；确认已发布的版本不需要记录。`verify-mirror` 不需要 R2 凭据：默认复核 VERSION 已记录的镜像，可用 `--platform` 只看一个平台；`--latest` 逐平台复核线上 `latest/<平台键>.json` 里的地址，也可加 `--platform`；显式跳过镜像的平台报告为 `waived`，不算失败。发布后的例行核对用 `--latest`，因为 VERSION 通常已经提前推进。
+记录在该平台提升前可以覆盖，提升后 `mirror` 拒绝再写，写入前后都会复查，提升与记录撞车时以已发布的地址为准：已发布的镜像地址和其他已发布事实一样，修改需要新版本。`promote` 缺少任一平台的记录时拒绝写入，`--without-mainland-mirror` 显式跳过并打印警告，跳过的平台这个版本不能再补上；确认已发布的版本不需要记录。`verify-mirror` 不需要 R2 凭据：默认复核 VERSION 下 Windows 与 macOS 已记录的镜像，`--platform` 只看一个平台，Android 要用 `--platform android`；`--latest` 逐平台复核线上三个 `latest/<平台键>.json` 里的地址，也可加 `--platform`；显式跳过镜像的平台报告为 `waived`，不算失败。发布后的例行核对用 `--latest`，因为 VERSION 通常已经提前推进。
 
 ## 验证
 

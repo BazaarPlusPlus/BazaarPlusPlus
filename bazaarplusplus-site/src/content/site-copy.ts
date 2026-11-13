@@ -144,6 +144,7 @@ export type DownloadPageCopy = {
     checksumCopied: string;
     checksumFailed: string;
     actionLabel: string;
+    mainlandActionLabel: string;
     /** Followed by the QQ group number on the feedback button. */
     feedbackGroup: string;
     /** The feedback button's tooltip: clicking copies the group number. */
@@ -512,6 +513,7 @@ const zh: LocalizedSiteCopy = {
       checksumCopied: '已复制 SHA-256',
       checksumFailed: '未能复制，请手动选中校验码复制。',
       actionLabel: '下载 .apk',
+      mainlandActionLabel: 'Android 大陆渠道',
       feedbackGroup: 'QQ 反馈群',
       feedbackCopy: '复制群号',
       feedbackCopied: '已复制群号',
@@ -866,6 +868,7 @@ const en: LocalizedSiteCopy = {
       checksumCopied: 'SHA-256 copied',
       checksumFailed: 'Could not copy. Select and copy the checksum manually.',
       actionLabel: 'Download .apk',
+      mainlandActionLabel: 'Android mainland mirror',
       feedbackGroup: 'QQ feedback group',
       feedbackCopy: 'Copy the group number',
       feedbackCopied: 'Group number copied',

@@ -10,6 +10,10 @@ import {
 } from './mirror.ts';
 import type { MirrorCheckResult } from './mirror.ts';
 import type { FetchImpl } from './r2-store.ts';
+import { buildPlatformManifest, fragmentKey } from './manifest.ts';
+import type { AndroidPlatformManifest } from './manifest.ts';
+import { MemoryStore } from './test-support/memory-store.ts';
+import { uploadAndroid } from './test-support/android-fixture.ts';
 
 const baseUrl = 'https://cdn.bazaarplusplus.com/installer';
 const windowsInstaller = (version: string) =>
@@ -237,6 +241,29 @@ const shares = (version: string) => ({
   'https://mirror.example/mac': `BazaarPlusPlus_${version}_aarch64.dmg`
 });
 
+const ANDROID = 'android-aarch64';
+const androidApk = (version: string) =>
+  `BazaarPlusPlus_${version}_${ANDROID}.apk`;
+
+// An uploaded Android App fragment, and its Platform Release Manifest with
+// or without a mainland mirror.
+async function androidRelease(version: string) {
+  const { fragment } = await uploadAndroid(new MemoryStore(), {
+    version,
+    gitCommit: 'a'.repeat(40),
+    baseUrl
+  });
+  const manifest = (mainlandUrl?: string) => {
+    const built = buildPlatformManifest({
+      version,
+      fragment
+    }) as AndroidPlatformManifest;
+    if (mainlandUrl) built.downloads[ANDROID].mainlandUrl = mainlandUrl;
+    return built;
+  };
+  return { fragment, manifest };
+}
+
 test('before promotion the read-only check re-checks the recorded mirrors from the public origin', async () => {
   const fetchImpl = publicOrigin(
     { ...uploaded('5.5.0'), ...recorded('5.5.0') },
@@ -347,6 +374,7 @@ function platformManifest(
 }
 
 test('after promotion the check reads each published platform manifest, which may be at different versions', async () => {
+  const android = await androidRelease('5.4.0');
   const published = {
     [`${baseUrl}/latest/windows-x86_64.json`]: platformManifest(
       '5.6.0',
@@ -357,21 +385,26 @@ test('after promotion the check reads each published platform manifest, which ma
       '5.5.0',
       'darwin-aarch64',
       'https://mirror.example/mac'
+    ),
+    [`${baseUrl}/latest/${ANDROID}.json`]: android.manifest(
+      'https://mirror.example/apk'
     )
   };
   const bothShares = {
     'https://mirror.example/win': 'BazaarPlusPlus_5.6.0_x64-setup.exe',
-    'https://mirror.example/mac': 'BazaarPlusPlus_5.5.0_aarch64.dmg'
+    'https://mirror.example/mac': 'BazaarPlusPlus_5.5.0_aarch64.dmg',
+    'https://mirror.example/apk': androidApk('5.4.0')
   };
   const verified = await verifyMainlandMirrors({
     baseUrl,
     latest: true,
     fetchImpl: publicOrigin(published, bothShares)
   });
-  expect(verified.version).toBe('5.6.0 / 5.5.0');
+  expect(verified.version).toBe('5.6.0 / 5.5.0 / 5.4.0');
   expect(verified.results.map((result) => result.fileName)).toEqual([
     'BazaarPlusPlus_5.6.0_x64-setup.exe',
-    'BazaarPlusPlus_5.5.0_aarch64.dmg'
+    'BazaarPlusPlus_5.5.0_aarch64.dmg',
+    androidApk('5.4.0')
   ]);
   const one = await verifyMainlandMirrors({
     baseUrl,
@@ -405,7 +438,8 @@ test('after promotion the check reads each published platform manifest, which ma
         [`${baseUrl}/latest/darwin-aarch64.json`]: platformManifest(
           '5.5.0',
           'darwin-aarch64'
-        )
+        ),
+        [`${baseUrl}/latest/${ANDROID}.json`]: android.manifest()
       },
       { 'https://mirror.example/win': 'BazaarPlusPlus_5.6.0_x64-setup.exe' }
     ),
@@ -413,11 +447,50 @@ test('after promotion the check reads each published platform manifest, which ma
   });
   expect(waived.results.map((result) => result.outcome)).toEqual([
     'verified',
+    'waived',
     'waived'
   ]);
   expect(log).toHaveBeenCalledWith(
     expect.stringMatching(/^darwin-aarch64: waived null \(promoted without/)
   );
+});
+
+test('before promotion Android is checked only when named, against its App APK', async () => {
+  const android = await androidRelease('5.6.0');
+  const fetchImpl = publicOrigin(
+    {
+      ...uploaded('5.6.0'),
+      ...recorded('5.6.0'),
+      [`${baseUrl}/${fragmentKey('5.6.0', ANDROID)}`]: android.fragment,
+      [`${baseUrl}/5.6.0/${ANDROID}/mirror/mainland.json`]: {
+        schemaVersion: 1,
+        version: '5.6.0',
+        platform: ANDROID,
+        url: 'https://mirror.example/apk',
+        fileName: androidApk('5.6.0'),
+        verified: true
+      }
+    },
+    { ...shares('5.6.0'), 'https://mirror.example/apk': androidApk('5.6.0') }
+  );
+  const lockstep = await verifyMainlandMirrors({
+    baseUrl,
+    version: '5.6.0',
+    fetchImpl
+  });
+  expect(lockstep.results.map((result) => result.platform)).toEqual([
+    'windows-x86_64',
+    'darwin-aarch64'
+  ]);
+  const one = await verifyMainlandMirrors({
+    baseUrl,
+    version: '5.6.0',
+    platform: 'android',
+    fetchImpl
+  });
+  expect(one.results).toMatchObject([
+    { platform: ANDROID, fileName: androidApk('5.6.0'), outcome: 'verified' }
+  ]);
 });
 
 test('a failed read-only check points at re-recording, not at the recording override flag', async () => {

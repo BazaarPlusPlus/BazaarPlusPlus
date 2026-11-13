@@ -1,6 +1,7 @@
 import {
   fragmentKey,
   installerFileName,
+  mirrorFileName,
   mirrorRecordKey,
   platformManifestPath,
   validateMirrorRecord,
@@ -8,15 +9,16 @@ import {
   validatePlatformManifest
 } from './manifest.ts';
 import type {
-  DesktopPlatformFragment,
-  DesktopPlatformManifest,
-  MirrorRecord
+  MirrorRecord,
+  PlatformFragment,
+  PlatformManifest
 } from './manifest.ts';
 import { assertProductVersion } from './product.ts';
 import type { ProductVersion } from './product.ts';
 import type { FetchImpl } from './r2-store.ts';
 import {
   LOCKSTEP_PLATFORM_KEYS,
+  RELEASE_PLATFORM_KEYS,
   releasePlatform
 } from './release-platforms.ts';
 import type { ReleasePlatformKey } from './release-platforms.ts';
@@ -259,16 +261,16 @@ async function fetchJson(
   }
 }
 
-// Only Lockstep Platforms record a mainland mirror; Android has none yet
-// (ADR 0012).
+// Every platform records a mainland mirror. Without a platform, the check
+// before promotion covers the Lockstep Platforms, which upload together;
+// Android uploads on its own cadence and is named explicitly. The check of
+// the published manifests covers every platform.
 function platformKeysFor(
-  platform: string | undefined
+  platform: string | undefined,
+  latest: boolean
 ): readonly ReleasePlatformKey[] {
-  if (!platform) return LOCKSTEP_PLATFORM_KEYS;
-  const { key } = releasePlatform(platform);
-  if (!(LOCKSTEP_PLATFORM_KEYS as readonly ReleasePlatformKey[]).includes(key))
-    throw new Error(`${platform} has no mainland mirror`);
-  return [key];
+  if (platform) return [releasePlatform(platform).key];
+  return latest ? RELEASE_PLATFORM_KEYS : LOCKSTEP_PLATFORM_KEYS;
 }
 
 // Read-only check against the public release origin; needs no credentials.
@@ -289,13 +291,13 @@ export async function verifyMainlandMirrors({
   let target = version;
   if (latest) {
     const versions: ProductVersion[] = [];
-    for (const key of platformKeysFor(platform)) {
+    for (const key of platformKeysFor(platform, true)) {
       const manifestPath = platformManifestPath(key);
-      // A Lockstep Platform's manifest is a desktop one; the check proves it.
+      // The check proves the manifest's shape.
       const manifest = validatePlatformManifest(
         (await fetchJson(`${origin}/${manifestPath}`, fetchImpl, manifestPath, {
           missing: `${key} has no platform manifest yet at ${manifestPath}`
-        })) as DesktopPlatformManifest,
+        })) as PlatformManifest,
         key
       );
       versions.push(manifest.version);
@@ -303,24 +305,27 @@ export async function verifyMainlandMirrors({
       targets.push({
         platform: key,
         url: download.mainlandUrl ?? null,
-        fileName: installerFileName(download.url)
+        // A desktop download is the installer; Android's names its App.
+        fileName: installerFileName(
+          download.app === undefined ? download.url : download.app.url
+        )
       });
     }
     target = [...new Set(versions)].join(' / ');
   } else {
     // assertProductVersion returns the version it accepts.
     target = assertProductVersion(target);
-    for (const key of platformKeysFor(platform)) {
+    for (const key of platformKeysFor(platform, false)) {
       const uploadedKey = fragmentKey(target, key);
-      // A Lockstep Platform's fragment is a desktop one; the check proves it.
+      // The check proves the fragment's shape.
       const fragment = validatePlatformFragment(
         (await fetchJson(`${origin}/${uploadedKey}`, fetchImpl, uploadedKey, {
           missing: `${key} ${target} is not uploaded yet; run upload first`
-        })) as DesktopPlatformFragment,
+        })) as PlatformFragment,
         target,
         key
       );
-      const fileName = installerFileName(fragment.installer.url);
+      const fileName = mirrorFileName(fragment);
       const recordKey = mirrorRecordKey(target, key);
       const record = validateMirrorRecord(
         (await fetchJson(`${origin}/${recordKey}`, fetchImpl, recordKey, {

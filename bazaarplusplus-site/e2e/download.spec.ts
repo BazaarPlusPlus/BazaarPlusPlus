@@ -142,6 +142,7 @@ async function describeAndroid(page: Page) {
       href: await download.getAttribute('href'),
       disabled: (await download.getAttribute('aria-disabled')) === 'true'
     },
+    mirror: await describeLink(page, 'Android', 'Android mainland mirror'),
     feedback: await text(
       card.getByRole('button', { name: /^QQ feedback group/ })
     ),
@@ -226,6 +227,7 @@ test('a missing or invalid Android manifest leaves the Android card unavailable'
     size: null,
     sha256: null,
     download: { href: '#', disabled: true },
+    mirror: { href: '#', disabled: true, target: '_blank' },
     feedback: loaded.android?.feedback,
     stepsTitle: loaded.android?.stepsTitle,
     steps: loaded.android?.steps,

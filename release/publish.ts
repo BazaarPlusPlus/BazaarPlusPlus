@@ -15,10 +15,10 @@ import {
   buildPlatformManifest,
   fragmentArtifacts,
   fragmentKey,
-  installerFileName,
   androidManagedPayloadKey,
   managedPayloadKey,
   mergeReleaseManifest,
+  mirrorFileName,
   mirrorRecordKey,
   modManifestPath,
   platformManifestPath,
@@ -140,7 +140,7 @@ interface ReadMirrorsOptions {
 
 interface PrepareMirrorRecordOptions {
   version: ProductVersion;
-  fragment: DesktopPlatformFragment;
+  fragment: PlatformFragment;
   url: string;
   probeMirror: ProbeMirror;
   allowUnverified: boolean;
@@ -256,7 +256,7 @@ async function assertArtifactsStored(
 async function readMirrors(
   store: ObjectStore,
   version: ProductVersion,
-  fragments: readonly DesktopPlatformFragment[],
+  fragments: readonly PlatformFragment[],
   { withoutMainlandMirror, confirming, log }: ReadMirrorsOptions
 ): Promise<MirrorRecords> {
   const mirrors: MirrorRecords = {};
@@ -271,7 +271,7 @@ async function readMirrors(
         record,
         version,
         fragment.platform,
-        installerFileName(fragment.installer.url)
+        mirrorFileName(fragment)
       );
     } else if (withoutMainlandMirror) {
       log(
@@ -571,15 +571,21 @@ export async function uploadAndroidPlatform({
   return fragment;
 }
 
+// A mirror can be recorded until its platform publishes the version. A
+// Lockstep Platform publishes into the Release Manifest too; Android does
+// not, so the Release Manifest moving ahead never freezes Android's mirror.
 async function assertMirrorRecordable(
   store: ObjectStore,
   version: ProductVersion,
-  key: string
+  platform: string
 ): Promise<void> {
-  for (const [source, published] of [
-    [platformManifestPath(key), await readPlatformManifest(store, key)],
-    [RELEASE_MANIFEST_PATH, await readLatest(store)]
-  ] as const) {
+  const key = releasePlatformByKey(platform).key;
+  const sources: [string, { version: ProductVersion } | null][] = [
+    [platformManifestPath(key), await readPlatformManifest(store, key)]
+  ];
+  if ((LOCKSTEP_PLATFORM_KEYS as readonly ReleasePlatformKey[]).includes(key))
+    sources.push([RELEASE_MANIFEST_PATH, await readLatest(store)]);
+  for (const [source, published] of sources) {
     if (published && compareProductVersions(version, published.version) <= 0)
       throw new Error(
         `${source} has already published ${published.version}; a mainland mirror for ${key} ${version} can no longer be recorded, publish a new product version`
@@ -596,19 +602,11 @@ export async function recordMainlandMirror({
   allowUnverified = false,
   log = () => {}
 }: RecordMainlandMirrorOptions): Promise<MirrorRecord> {
-  const definition = releasePlatform(platform);
-  if (definition.kind !== 'tauri')
-    throw new Error(`${platform} has no mainland mirror`);
-  const key = definition.key;
+  const key = releasePlatform(platform).key;
   if (typeof probeMirror !== 'function')
     throw new Error('Recording a mainland mirror requires a page probe');
   assertMirrorUrl(url);
-  // A Tauri platform's fragment is a desktop one; the read proves it.
-  const fragment = await readFragment<DesktopPlatformFragment>(
-    store,
-    version,
-    key
-  );
+  const fragment = await readFragment(store, version, key);
   await assertMirrorRecordable(store, version, key);
   const record = await prepareMirrorRecord({
     version,
@@ -631,7 +629,7 @@ async function prepareMirrorRecord({
   log
 }: PrepareMirrorRecordOptions): Promise<MirrorRecord> {
   const key = fragment.platform;
-  const fileName = installerFileName(fragment.installer.url);
+  const fileName = mirrorFileName(fragment);
   const result = await checkMainlandMirror({
     platform: key,
     url,
@@ -663,11 +661,7 @@ async function writeMirrorRecord(
     jsonBytes(record),
     'application/json'
   );
-  // Only a desktop platform records a mirror; the read proves the shape.
-  const published = await readPlatformManifest<DesktopPlatformManifest>(
-    store,
-    key
-  );
+  const published = await readPlatformManifest(store, key);
   if (
     published?.version === version &&
     published.downloads[key].mainlandUrl !== url
@@ -840,8 +834,8 @@ async function writeLockstepManifest(
 
 // Promote one platform without waiting for the others. The lockstep Release
 // Manifest advances only once every Lockstep Platform names the same release
-// (ADR 0003). Android writes only its Platform Release Manifest and records
-// no mainland mirror (ADR 0012).
+// (ADR 0003). Android writes only its Platform Release Manifest; like every
+// platform, it needs a mainland mirror record or an explicit waiver.
 export async function promotePlatform({
   version,
   platform,
@@ -857,8 +851,6 @@ export async function promotePlatform({
   const lockstep = (
     LOCKSTEP_PLATFORM_KEYS as readonly ReleasePlatformKey[]
   ).includes(key);
-  if (withoutMainlandMirror && definition.kind !== 'tauri')
-    throw new Error(`${platform} has no mainland mirror to waive`);
   const fragment = await readFragment(store, version, key);
   await assertArtifactsStored(store, fragment, baseUrl);
   await assertSameCommitAcrossPlatforms(store, version, fragment);
@@ -871,20 +863,11 @@ export async function promotePlatform({
       releaseSignerSha256
     );
   const existing = await readPlatformManifest(store, key);
-  const mirrors: MirrorRecords =
-    definition.kind === 'tauri'
-      ? // A Tauri platform's fragment is a desktop one.
-        await readMirrors(
-          store,
-          version,
-          [fragment as DesktopPlatformFragment],
-          {
-            withoutMainlandMirror,
-            confirming: () => existing?.version === version,
-            log
-          }
-        )
-      : {};
+  const mirrors = await readMirrors(store, version, [fragment], {
+    withoutMainlandMirror,
+    confirming: () => existing?.version === version,
+    log
+  });
   // Validate against the current manifest before any remote write.
   const candidate = buildPlatformManifest({
     version,

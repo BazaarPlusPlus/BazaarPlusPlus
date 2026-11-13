@@ -15,6 +15,8 @@ import {
   fragmentKey,
   interopPackageKey,
   managedPayloadKey,
+  mirrorFileName,
+  mirrorRecordKey,
   modManifestPath,
   validatePlatformFragment,
   validatePlatformManifest
@@ -1104,7 +1106,8 @@ test('the writer reproduces every shared platform fixture', () => {
 });
 
 // Android (ADR 0012): its own Platform Release Manifest, outside latest.json,
-// without a mainland mirror, under the same one-commit-per-version rule.
+// under the same one-commit-per-version rule. Tests that are not about its
+// mainland mirror waive it.
 const ANDROID = 'android-aarch64';
 const promoteAndroid = (
   data: Pick<ReleaseFixture, 'version'>,
@@ -1116,6 +1119,7 @@ const promoteAndroid = (
     platform: 'android',
     baseUrl,
     store,
+    withoutMainlandMirror: true,
     ...extra
   });
 
@@ -1156,14 +1160,63 @@ test('Android promotion checks the three artifacts and publishes only its own ma
   expect((await store.get(modManifestPath(ANDROID)))!.bytes).toEqual(
     (await store.get(`latest/${ANDROID}.json`))!.bytes
   );
-  // No mirror record is read, and none can be waived.
+  // The waiver writes no mirror record.
   expect(store.writes.some((key) => key.includes('mirror'))).toBe(false);
-  await expect(
-    promoteAndroid(data, store, { withoutMainlandMirror: true })
-  ).rejects.toThrow(/no mainland mirror/);
   // Repeating the promotion leaves the manifest unchanged.
   const published = store.objects.get(`latest/${ANDROID}.json`)!.bytes;
   await promoteAndroid(data, store);
+  expect(store.objects.get(`latest/${ANDROID}.json`)!.bytes).toEqual(published);
+});
+
+test('an Android mirror serves the App APK, stays recordable after latest.json moves, and is published with the release', async () => {
+  const data = fixture();
+  const store = new MemoryStore();
+  await stage(data, store);
+  await promote(data, store);
+  const { fragment } = await uploadAndroid(store, {
+    version: data.version,
+    gitCommit: data.commits.a,
+    baseUrl
+  });
+  const apk = mirrorFileName(fragment);
+  expect(apk).toBe(`BazaarPlusPlus_${data.version}_${ANDROID}.apk`);
+  await expect(
+    promoteAndroid(data, store, { withoutMainlandMirror: false })
+  ).rejects.toThrow(
+    `Missing ${ANDROID} mainland mirror for ${data.version}; run mirror for it or pass --without-mainland-mirror`
+  );
+  const url = mirrorUrl('android', data.version);
+  const recordAndroid = (page: MirrorPage) =>
+    recordMainlandMirror({
+      version: data.version,
+      platform: 'android',
+      url,
+      store,
+      probeMirror: mirrorProbe(data.version, { [url]: page })
+    });
+  // A share of a desktop installer is not the APK.
+  await expect(
+    recordAndroid(sharePage(installerName('windows', data.version)))
+  ).rejects.toThrow(/missing-or-misnamed/);
+  expect(await store.get(mirrorRecordKey(data.version, ANDROID))).toBeNull();
+  // latest.json already names this version; it never freezes Android's mirror.
+  expect(await recordAndroid(sharePage(apk))).toMatchObject({
+    platform: ANDROID,
+    url,
+    fileName: apk,
+    verified: true
+  });
+  await promoteAndroid(data, store, { withoutMainlandMirror: false });
+  const published = store.objects.get(`latest/${ANDROID}.json`)!.bytes;
+  expect(JSON.parse(published.toString()).downloads[ANDROID].mainlandUrl).toBe(
+    url
+  );
+  expect((await store.get(modManifestPath(ANDROID)))!.bytes).toEqual(published);
+  // Once published, the address is frozen, and a repeat keeps it.
+  await expect(recordAndroid(sharePage(apk))).rejects.toThrow(
+    `latest/${ANDROID}.json has already published ${data.version}`
+  );
+  await promoteAndroid(data, store, { withoutMainlandMirror: false });
   expect(store.objects.get(`latest/${ANDROID}.json`)!.bytes).toEqual(published);
 });
 
