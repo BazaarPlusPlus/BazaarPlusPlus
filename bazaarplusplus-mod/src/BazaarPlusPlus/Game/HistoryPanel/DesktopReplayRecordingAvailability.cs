@@ -17,19 +17,7 @@ internal sealed class DesktopReplayRecordingAvailability : IReplayRecordingAvail
 
     public bool Supported => true;
 
-    // Capture Unity-owned dimensions/FPS and load the desktop native plugin on the UI thread.
-    public void Prewarm()
-    {
-        ReplayVideoCaptureSettingsCache.TryCaptureCurrent(out _);
-        var backend = ReplayVideoBackendPolicy.Current;
-        if (backend == ReplayVideoBackend.MacNative)
-        {
-            MacMetalVideoEncoder.TryGetAvailability(out _);
-            return;
-        }
-        if (backend == ReplayVideoBackend.WindowsNative)
-            WindowsMediaFoundationVideoEncoder.TryGetAvailability(out _);
-    }
+    public void Prewarm() => CombatReplayRecordingGate.Prewarm();
 
     // The backend probe is warm here.
     public bool CanRecord() => CombatReplayRecordingGate.Evaluate(_videoDirectoryPath).CanRecord;

@@ -34,13 +34,8 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
         _render = new object();
         _controller = controller;
         _tooltip = tooltip;
-        // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip whose
-        // main text lists none offers them behind the switch.
-        var preview = Patches.AndroidPatchHost.Features?.EnchantPreview;
         _candidates =
-            preview == null || preview.InlineCandidates(tooltip).Count > 0
-                ? []
-                : preview.Candidates(tooltip);
+            Patches.AndroidPatchHost.Features?.EnchantPreview?.SwitchCandidates(tooltip) ?? [];
     }
 
     public bool TryReadShown(out object card, out object render)

@@ -94,6 +94,14 @@ internal sealed class TouchEnchantPreview<TTooltip>
     public IReadOnlyList<string> Candidates(TTooltip tooltip) =>
         MobilePlatform.Port.PlayState().OffersEnchantments ? _host.Candidates(tooltip) : [];
 
+    /// <summary>
+    /// The enchantments the tooltip offers behind the Enchantments switch: its
+    /// <see cref="Candidates"/> when the main text lists none
+    /// (<see cref="InlineCandidates"/>), or none when the main text lists them.
+    /// </summary>
+    public IReadOnlyList<string> SwitchCandidates(TTooltip tooltip) =>
+        InlineCandidates(tooltip).Count > 0 ? [] : Candidates(tooltip);
+
     /// <summary>The contents of a card tooltip start to render: build its main-text section.</summary>
     public void Prepare(TTooltip? tooltip)
     {
