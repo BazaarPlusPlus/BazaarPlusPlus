@@ -1,6 +1,6 @@
 {
   "jdk": { "major": 21 },
-  "androidGradlePlugin": "9.5.0",
+  "androidGradlePlugin": "9.5.1",
   "androidSdk": {
     "compileSdk": 35,
     "targetSdk": 35,
