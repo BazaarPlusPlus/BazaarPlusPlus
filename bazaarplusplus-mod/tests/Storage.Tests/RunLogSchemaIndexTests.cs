@@ -2,20 +2,15 @@
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class RunLogSchemaIndexTests
+public sealed class RunLogSchemaIndexTests
 {
     // A History page names this index in INDEXED BY, which errors when the index cannot serve it.
     private const string HintedIndexName = "idx_battles_history_ghost";
 
-    internal static void Run()
-    {
-        OpeningTheShippedSchemaFileDropsNothing();
-        OpeningADatabaseRedefinesADriftedIndex();
-        ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone();
-    }
-
-    private static void OpeningADatabaseRedefinesADriftedIndex()
+    [Fact]
+    public void OpeningADatabaseRedefinesADriftedIndex()
     {
         var expected = new Dictionary<string, string>();
         WithDatabase(connection =>
@@ -51,7 +46,8 @@ internal static class RunLogSchemaIndexTests
         });
     }
 
-    private static void ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone()
+    [Fact]
+    public void ReopeningAnUpToDateDatabaseLeavesTheSchemaAlone()
     {
         WithDatabase(connection =>
         {
@@ -92,7 +88,8 @@ internal static class RunLogSchemaIndexTests
 
     // The schema file the installer and import build against is exactly what BootstrapSql creates,
     // so a database built from it opens with no index rebuilt and no DDL run.
-    private static void OpeningTheShippedSchemaFileDropsNothing()
+    [Fact]
+    public void OpeningTheShippedSchemaFileDropsNothing()
     {
         WithDatabase(connection =>
         {
@@ -157,8 +154,6 @@ internal static class RunLogSchemaIndexTests
     private static void Equal<T>(T expected, T actual, string label)
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual))
-            throw new InvalidOperationException(
-                $"Expected {label} to be '{expected}', got '{actual}'."
-            );
+            Xunit.Assert.Fail($"Expected {label} to be '{expected}', got '{actual}'.");
     }
 }

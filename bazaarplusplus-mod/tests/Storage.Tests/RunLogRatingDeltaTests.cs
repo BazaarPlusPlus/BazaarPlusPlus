@@ -2,12 +2,14 @@
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class RunLogRatingDeltaTests
+public sealed class RunLogRatingDeltaTests
 {
     // History shows final_player_rating_delta as the Run's rating change, so a Run whose
     // starting rating was never captured stores NULL (unknown) rather than 0 (no change).
-    internal static void Run()
+    [Fact]
+    public void RatingDeltaIsNullWhenTheStartingRatingIsUnknown()
     {
         var tempRoot = Path.Combine(
             Path.GetTempPath(),

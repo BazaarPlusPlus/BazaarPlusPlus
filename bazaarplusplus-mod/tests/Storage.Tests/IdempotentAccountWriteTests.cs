@@ -3,16 +3,14 @@ using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class IdempotentAccountWriteTests
+public sealed class IdempotentAccountWriteTests
 {
-    internal static void Run()
-    {
-        foreach (var mode in new[] { SqliteJournalMode.Wal, SqliteJournalMode.Delete })
-            CheckMode(mode);
-    }
-
-    private static void CheckMode(SqliteJournalMode mode)
+    [Theory]
+    [InlineData(SqliteJournalMode.Wal)]
+    [InlineData(SqliteJournalMode.Delete)]
+    public void CheckMode(SqliteJournalMode mode)
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-idempotent-account-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -143,6 +141,6 @@ internal static class IdempotentAccountWriteTests
     private static void Equal(string expected, string? actual)
     {
         if (actual != expected)
-            throw new InvalidOperationException($"Expected {expected}, got {actual}.");
+            Xunit.Assert.Fail($"Expected {expected}, got {actual}.");
     }
 }

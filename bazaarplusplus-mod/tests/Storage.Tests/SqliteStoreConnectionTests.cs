@@ -1,14 +1,10 @@
 #nullable enable
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class SqliteStoreConnectionTests
+public sealed class SqliteStoreConnectionTests
 {
-    internal static void Run()
-    {
-        ForeignKeysStayEnforcedOnEveryAcquisition();
-    }
-
     private sealed class ProbeStore : SqliteStoreBase
     {
         internal ProbeStore(string databasePath)
@@ -20,7 +16,8 @@ internal static class SqliteStoreConnectionTests
             OpenConnection(busyTimeoutMilliseconds);
     }
 
-    private static void ForeignKeysStayEnforcedOnEveryAcquisition()
+    [Fact]
+    public void ForeignKeysStayEnforcedOnEveryAcquisition()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-store-connection-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -106,9 +103,7 @@ internal static class SqliteStoreConnectionTests
     private static void Equal<T>(T expected, T actual, string label)
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual))
-            throw new InvalidOperationException(
-                $"Expected {label} to be '{expected}', got '{actual}'."
-            );
+            Xunit.Assert.Fail($"Expected {label} to be '{expected}', got '{actual}'.");
     }
 
     private static void Throws<T>(Action action, string label)
@@ -123,6 +118,6 @@ internal static class SqliteStoreConnectionTests
             return;
         }
 
-        throw new InvalidOperationException($"Expected {label} to throw {typeof(T).Name}.");
+        Xunit.Assert.Fail($"Expected {label} to throw {typeof(T).Name}.");
     }
 }

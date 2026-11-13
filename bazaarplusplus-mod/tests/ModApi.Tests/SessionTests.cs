@@ -1,10 +1,12 @@
 #nullable enable
 using System.Net;
 using BazaarPlusPlus.ModApi.Clients;
+using Xunit;
 
-internal static class SessionTests
+public sealed class SessionTests
 {
-    public static async Task RunAsync()
+    [Fact]
+    public async Task SessionOwnsAndDisposesItsClients()
     {
         var handler = new TrackingHandler();
         using (
@@ -80,7 +82,7 @@ internal static class SessionTests
     private static void Assert(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private sealed class TrackingHandler : HttpMessageHandler

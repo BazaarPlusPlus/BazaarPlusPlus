@@ -3,10 +3,12 @@ using System.Text.Json;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.TestSupport;
+using Xunit;
 
-internal static class RunLogSchemaReleaseContractTests
+public sealed class RunLogSchemaReleaseContractTests
 {
-    internal static void Run()
+    [Fact]
+    public void ReleaseContractMatchesTheSchema()
     {
         var contractPath = Path.Combine(
             AppContext.BaseDirectory,
@@ -36,6 +38,6 @@ internal static class RunLogSchemaReleaseContractTests
         where T : IEquatable<T>
     {
         if (!actual.Equals(expected))
-            throw new InvalidOperationException($"{label}: expected '{expected}', got '{actual}'.");
+            Xunit.Assert.Fail($"{label}: expected '{expected}', got '{actual}'.");
     }
 }

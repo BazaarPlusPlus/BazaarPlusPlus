@@ -2,8 +2,9 @@
 using BazaarPlusPlus.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using Newtonsoft.Json;
+using Xunit;
 
-internal static class RunLogEventPayloadTests
+public sealed class RunLogEventPayloadTests
 {
     // Properties that were never written by any construction site and were removed.
     // NullValueHandling.Ignore already kept them out of payload_json; this pins that.
@@ -20,13 +21,8 @@ internal static class RunLogEventPayloadTests
         "schema_version",
     ];
 
-    internal static void Run()
-    {
-        RunStartedPayloadIsUnchanged();
-        PvpCombatRecordedPayloadIsUnchanged();
-    }
-
-    private static void RunStartedPayloadIsUnchanged()
+    [Fact]
+    public void RunStartedPayloadIsUnchanged()
     {
         // Shaped exactly as RunLoggingModule builds a run_started event, plus the
         // RunId/Seq/Ts that RunLogStore stamps before serializing.
@@ -54,7 +50,8 @@ internal static class RunLogEventPayloadTests
         AssertNoRemovedNames(payload, "run_started");
     }
 
-    private static void PvpCombatRecordedPayloadIsUnchanged()
+    [Fact]
+    public void PvpCombatRecordedPayloadIsUnchanged()
     {
         var payload = Serialize(
             new RunLogEvent
@@ -104,8 +101,6 @@ internal static class RunLogEventPayloadTests
     private static void Equal<T>(T expected, T actual, string label)
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual))
-            throw new InvalidOperationException(
-                $"Expected {label} to be '{expected}', got '{actual}'."
-            );
+            Xunit.Assert.Fail($"Expected {label} to be '{expected}', got '{actual}'.");
     }
 }

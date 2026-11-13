@@ -1,10 +1,12 @@
 #nullable enable
 using System.Net;
 using BazaarPlusPlus.ModApi.Clients;
+using Xunit;
 
-internal static class HealthClientTests
+public sealed class HealthClientTests
 {
-    public static async Task RunAsync()
+    [Fact]
+    public async Task ProbeFollowsTheHealthContract()
     {
         var success = await ProbeAsync(_ =>
             Json("{\"status\":\"ok\",\"server_time_ms\":1780444800000}")
@@ -84,7 +86,7 @@ internal static class HealthClientTests
     private static void Assert(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)

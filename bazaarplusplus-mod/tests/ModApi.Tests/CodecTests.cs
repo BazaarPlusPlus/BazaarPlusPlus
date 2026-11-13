@@ -1,7 +1,8 @@
 #nullable enable
 using BazaarPlusPlus.ModApi;
+using Xunit;
 
-internal static class CodecTests
+public sealed class CodecTests
 {
     // Plain POCO: ContractlessStandardResolverAllowPrivate needs no MessagePack attributes.
     private sealed class Sample
@@ -11,16 +12,8 @@ internal static class CodecTests
         public int[] Values { get; set; } = Array.Empty<int>();
     }
 
-    public static void Run()
-    {
-        RoundTripsPayload();
-        ProducesGzipFraming();
-        ReportsErrorForEmptyOrNonGzip();
-        ReportsErrorForCorruptGzip();
-        Console.WriteLine("CodecTests passed.");
-    }
-
-    private static void RoundTripsPayload()
+    [Fact]
+    public void RoundTripsPayload()
     {
         var sample = new Sample
         {
@@ -46,21 +39,24 @@ internal static class CodecTests
             throw new Exception("MessagePackGzipCodec round-trip mismatch.");
     }
 
-    private static void ProducesGzipFraming()
+    [Fact]
+    public void ProducesGzipFraming()
     {
         var bytes = MessagePackGzipCodec.Serialize(new Sample { Name = "x" });
         if (bytes.Length < 2 || bytes[0] != 0x1F || bytes[1] != 0x8B)
             throw new Exception("MessagePackGzipCodec did not emit gzip framing.");
     }
 
-    private static void ReportsErrorForEmptyOrNonGzip()
+    [Fact]
+    public void ReportsErrorForEmptyOrNonGzip()
     {
         AssertDeserializeFailure(null, "payload_empty");
         AssertDeserializeFailure(Array.Empty<byte>(), "payload_empty");
         AssertDeserializeFailure(new byte[] { 1, 2, 3, 4 }, "payload_not_gzip");
     }
 
-    private static void ReportsErrorForCorruptGzip()
+    [Fact]
+    public void ReportsErrorForCorruptGzip()
     {
         AssertDeserializeFailure(new byte[] { 0x1F, 0x8B, 0x01, 0x02 }, "Exception:");
     }

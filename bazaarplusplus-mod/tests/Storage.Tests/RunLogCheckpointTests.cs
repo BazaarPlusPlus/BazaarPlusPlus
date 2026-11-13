@@ -2,12 +2,14 @@
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class RunLogCheckpointTests
+public sealed class RunLogCheckpointTests
 {
     // A checkpoint carries progress, never terminal state: a late checkpoint for a run that is
     // already completed or abandoned must not reopen it as the active run.
-    internal static void Run()
+    [Fact]
+    public void LateCheckpointDoesNotReopenAFinishedRun()
     {
         var tempRoot = Path.Combine(
             Path.GetTempPath(),

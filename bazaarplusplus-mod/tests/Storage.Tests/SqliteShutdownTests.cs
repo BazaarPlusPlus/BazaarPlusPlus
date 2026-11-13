@@ -3,10 +3,12 @@ using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class SqliteShutdownTests
+public sealed class SqliteShutdownTests
 {
-    public static void Run()
+    [Fact]
+    public void ShutdownHandsTheWalOverToReaders()
     {
         var tempRoot = Path.Combine(
             Path.GetTempPath(),
@@ -51,8 +53,6 @@ internal static class SqliteShutdownTests
                 ReadRunCount(dbPath) == 1,
                 "A read-only reader should see the run without recovering a WAL."
             );
-
-            Console.WriteLine("SqliteShutdownTests passed.");
         }
         finally
         {
@@ -60,13 +60,12 @@ internal static class SqliteShutdownTests
             if (Directory.Exists(tempRoot))
                 Directory.Delete(tempRoot, recursive: true);
         }
-
-        RollbackJournalLeavesNoSidecar();
     }
 
     // A host that opens the database in DELETE mode commits straight into the main file, so a
     // reader sees every run with no shutdown hand-over at all.
-    private static void RollbackJournalLeavesNoSidecar()
+    [Fact]
+    public void RollbackJournalLeavesNoSidecar()
     {
         var tempRoot = Path.Combine(
             Path.GetTempPath(),
@@ -100,8 +99,6 @@ internal static class SqliteShutdownTests
 
             Assert(!File.Exists(dbPath + "-wal"), "Shutdown should not create a WAL.");
             Assert(ReadJournalMode(dbPath) == "delete", "Shutdown should keep DELETE mode.");
-
-            Console.WriteLine("SqliteShutdownTests (DELETE journal) passed.");
         }
         finally
         {
@@ -132,7 +129,7 @@ internal static class SqliteShutdownTests
     private static void Assert(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }
 
