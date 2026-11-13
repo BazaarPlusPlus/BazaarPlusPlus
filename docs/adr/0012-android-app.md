@@ -10,6 +10,8 @@
 
 2026-11-12 注：[ADR 0019](0019-android-launcher-adaptations.md) 让每个 Android 来源（发行商、Google Play）各有一个适配包。三档启动规则改为：哈希等于任一适配包的游戏就是已适配；否则按签名证书找到同一来源的适配包，再比较 `versionCode`。App 最低 API 改为 32。
 
+2026-11-14 注：App 最低 API 改回 30（用户决定），理由见 [ADR 0019](0019-android-launcher-adaptations.md) 的"最低 API 30（用户决定）"。
+
 [ADR 0010](0010-android-release-platform.md) 让 Android 用户安装一个注入后由 BPP 签名的官方 APK（下称 A 方案）。它有三个固定代价：用户必须先卸载官方版；游戏每更新一次，用户都要等 BPP 重新注入，再下载约 2.8 GB；每个版本在 R2 多存约 2.9 GB，注入只能在 Linux x64 上跑。2026-11-01 的可行性试验（#747，模拟器 `bpp_host_spike`）证明：一个只用公开 API 的 App（`AppComponentFactory`、`PathClassLoader`、`ContextWrapper`、`ResourcesLoader`）能在自己的进程里加载用户已装、未修改的官方 APK，复用 LemonLoader 的运行时，跑通 master 的全部 Android Mods，并能和官方 App 共存。
 
 本记录取代 ADR 0010。下文用 **Android App**（BPP Android App）指包名为 `com.bazaarplusplus.android` 的 BPP 应用，以便和 mod 的 Android Host（`BazaarPlusPlus.Android`，LemonLoader 上的 mod 程序集）以及官方游戏的 App 区分开。父 issue 写作"宿主 App"的就是它。
@@ -25,7 +27,7 @@
 ### Android App
 
 - 包名 `com.bazaarplusplus.android`，一经发布永不更改，与 iOS 的 `com.bazaarplusplus.ios` 对应。开发构建用 `applicationIdSuffix ".dev"`，可以和正式版并存；两者的沙盒和外部文件目录各自独立。
-- 最低 Android 12L（API 32）。`ResourcesLoader` 从 API 30 起才有；2026-11-12 起改为与 Google Play 版游戏的 `minSdk` 相同（用户决定），低于它的设备装不了 Play 版。
+- 最低 Android 11（API 30）：`ResourcesLoader` 从 API 30 起才有。6.3.0 到 6.3.2 的最低版本是 Android 12L（API 32），2026-11-14 改回（用户决定），见 [ADR 0019](0019-android-launcher-adaptations.md)。
 - Android App 本身没有账号，不需要登录。游戏在 Android App 的沙盒里运行，登录状态和官方 App 分开保存，所以第一次用 BPP 启动时，用户要在游戏自己的登录界面再登录一次。
 - 它携带的运行时是 Loader Release（Snapshot Lock 的 `loader` 条目）、`libe_sqlite3.so`（`nativeLibs` 条目）和 `BazaarPlusPlus.Updater.dll`（在运行时 zip 的 `assets/LemonLoader/deployment/Plugins/` 下，是 LemonLoader 唯一的打包部署）。它还携带所属版本的 Interop Package 与 Managed Payload zip（`assets/bpp-release/<sha256>.zip`），以及指明它们的 `assets/bpp-release/release.json`，见"下载与 Managed Payload 的安装"。
 - 加载方式：用游戏的 `sourceDir` 加 `splitSourceDirs` 建 `PathClassLoader`；在 `instantiateActivity` 里从这个 loader 创建继承游戏 `UnityPlayerActivity` 的 Activity；它的 Context 对外报告游戏的包名、`ApplicationInfo` 和资源，所有可写目录留在 Android App 的沙盒里。Unity 按绝对路径从 `nativeLibraryDir` 加载 `libmain.so`（其余库是否也按绝对路径加载，由 #749 第 3 项在 Play 的 split 安装上验证），所以 Android App 构造一个符号链接 lib 目录：`libmain.so` 与 `libe_sqlite3.so` 指向自己的副本（Android App 设 `extractNativeLibs="true"`，它们在磁盘上），游戏已解压的库指向游戏的副本；游戏没有解压的库（Play 的 split 安装通常如此）不建链接，类加载器的库搜索路径里加上每个游戏 APK 的 `!/lib/arm64-v8a`，从 APK 内部加载。LemonLoader 通过游戏 `Resources` 的 `AssetManager` 读 `LemonLoader/**`，Android App 用 `ResourcesLoader` 把运行时 zip 和 interop 包加进去。
