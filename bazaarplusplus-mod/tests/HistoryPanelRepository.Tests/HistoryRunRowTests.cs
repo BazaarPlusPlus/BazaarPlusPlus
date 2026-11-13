@@ -3,13 +3,19 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // The History Run row both hosts list: HistoryRunColumns.Select read through
 // HistoryPanelRowMapper.ReadRun. The desktop pages it with HistoryPageQuery; the Android reader
 // selects the same columns, so these rules hold on both.
-internal static class HistoryRunRowTests
+public sealed class HistoryRunRowTests : IDisposable
 {
-    internal static void Run(string root)
+    private readonly string root = TestRoot.Create();
+
+    public void Dispose() => TestRoot.Delete(root);
+
+    [Fact]
+    public void ReadsRunRows()
     {
         var path = Path.Combine(root, "history-run-rows.sqlite3");
         using var connection = new SqliteConnection($"Data Source={path}");
@@ -93,6 +99,6 @@ internal static class HistoryRunRowTests
     private static void Check(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

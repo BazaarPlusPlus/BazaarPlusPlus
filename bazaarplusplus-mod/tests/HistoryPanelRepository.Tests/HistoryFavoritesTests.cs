@@ -5,12 +5,18 @@ using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // A favorite is a snapshot of its battle: it outlives the run, keeps its own replay state and
 // note, and lists newest-favorited first without opening its board documents.
-internal static class HistoryFavoritesTests
+public sealed class HistoryFavoritesTests : IDisposable
 {
-    internal static void Run(string root)
+    private readonly string root = TestRoot.Create();
+
+    public void Dispose() => TestRoot.Delete(root);
+
+    [Fact]
+    public void StoresFavoritesAsSnapshots()
     {
         var path = Path.Combine(root, "favorites.sqlite3");
         using (var seed = new SqliteConnection($"Data Source={path}"))
@@ -182,6 +188,6 @@ internal static class HistoryFavoritesTests
     private static void Check(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

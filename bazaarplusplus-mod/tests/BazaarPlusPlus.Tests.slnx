@@ -41,6 +41,11 @@
         <Project Path="CombatReplayAudioVideo.Tests/CombatReplayAudioVideo.Tests.csproj" />
         <Project Path="CombatReplayRecording.Tests/CombatReplayRecording.Tests.csproj" />
         <Project Path="EndOfRunScreenshotGate.Tests/EndOfRunScreenshotGate.Tests.csproj" />
+        <Project Path="HistoryPanelDecisions.Tests/HistoryPanelDecisions.Tests.csproj" />
+        <Project Path="HistoryPanelFiltering.Tests/HistoryPanelFiltering.Tests.csproj" />
+        <Project Path="HistoryPanelRepository.Tests/HistoryPanelRepository.Tests.csproj" />
+        <Project Path="HistoryPanelPreview.Tests/HistoryPanelPreview.Tests.csproj" />
+        <Project Path="HistoryPanelFactory.Tests/HistoryPanelFactory.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

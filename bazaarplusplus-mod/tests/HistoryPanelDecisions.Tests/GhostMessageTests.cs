@@ -4,11 +4,15 @@ using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Localization;
+using Xunit;
 
 // History archive status is a table: observed facts in, list/board/page-label copy out. Every
 // expectation is the HistoryPanelText entry itself, resolved under each installed language.
-internal static class GhostMessageTests
+public sealed class GhostMessageTests
 {
+    // The capsule ran these checks with English installed.
+    public GhostMessageTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
     private const string FailureDetail = "network failure with retry guidance";
 
     private static readonly HistoryArchiveFacts Ghost = new(
@@ -482,7 +486,8 @@ internal static class GhostMessageTests
         ),
     ];
 
-    public static void Run()
+    [Fact]
+    public void ArchiveStatusMessagesInEveryLanguage()
     {
         try
         {
@@ -517,9 +522,6 @@ internal static class GhostMessageTests
                 "幽靈同步失敗，列表可能不完整。請重新打開歷史記錄後重試。",
                 "Traditional Chinese derives the incomplete-sync copy from the Mainland text."
             );
-            L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
-            ObserveFiltersToTheSelectedBattle();
-            DownloadFailureMessages();
         }
         finally
         {
@@ -527,7 +529,8 @@ internal static class GhostMessageTests
         }
     }
 
-    private static void ObserveFiltersToTheSelectedBattle()
+    [Fact]
+    public void ObserveFiltersToTheSelectedBattle()
     {
         var state = new HistoryPanelState
         {
@@ -629,7 +632,8 @@ internal static class GhostMessageTests
         );
     }
 
-    private static void DownloadFailureMessages()
+    [Fact]
+    public void DownloadFailureMessages()
     {
         Equal(
             HistoryPanelDecisions.GhostDownloadFailureMessage(
@@ -714,8 +718,6 @@ internal static class GhostMessageTests
     private static void Equal<T>(T actual, T expected, string message)
     {
         if (!EqualityComparer<T>.Default.Equals(actual, expected))
-            throw new InvalidOperationException(
-                $"{message} Expected '{expected}', got '{actual}'."
-            );
+            Xunit.Assert.Fail($"{message} Expected '{expected}', got '{actual}'.");
     }
 }

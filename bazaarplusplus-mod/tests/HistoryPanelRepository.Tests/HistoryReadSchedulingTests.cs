@@ -1,10 +1,12 @@
 #nullable enable
 using System.Collections.Concurrent;
 using BazaarPlusPlus.Game.HistoryPanel;
+using Xunit;
 
-internal static class HistoryReadSchedulingTests
+public sealed class HistoryReadSchedulingTests
 {
-    internal static void Run()
+    [Fact]
+    public void PublishesOnlyTheLatestRead()
     {
         var previous = SynchronizationContext.Current;
         using var context = new UiContext();
@@ -80,7 +82,7 @@ internal static class HistoryReadSchedulingTests
     private static void Check(bool value, string message)
     {
         if (!value)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private sealed class UiContext : SynchronizationContext, IDisposable

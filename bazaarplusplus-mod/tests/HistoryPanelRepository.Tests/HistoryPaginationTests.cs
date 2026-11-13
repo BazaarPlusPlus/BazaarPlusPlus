@@ -5,16 +5,26 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class HistoryPaginationTests
+public sealed class HistoryPaginationTests : IDisposable
 {
-    internal static void Run(string root)
-    {
-        foreach (var size in new[] { 1000, 10000 })
-            CheckRuns(Path.Combine(root, $"pages-{size}.sqlite3"), size);
-        CheckFilterCases(Path.Combine(root, "filter-cases.sqlite3"));
+    private readonly string root = TestRoot.Create();
+
+    public void Dispose() => TestRoot.Delete(root);
+
+    // The capsule's loop over run counts: one row per size.
+    [Theory]
+    [InlineData(1000)]
+    [InlineData(10000)]
+    public void PagesRuns(int size) => CheckRuns(Path.Combine(root, $"pages-{size}.sqlite3"), size);
+
+    [Fact]
+    public void CountsFilterCases() => CheckFilterCases(Path.Combine(root, "filter-cases.sqlite3"));
+
+    [Fact]
+    public void RepairsADriftedGhostIndex() =>
         CheckDriftedGhostIndex(Path.Combine(root, "drifted-index.sqlite3"));
-    }
 
     // A database from a release that shipped another definition under a hinted index's name.
     private static void CheckDriftedGhostIndex(string path)
@@ -618,6 +628,6 @@ internal static class HistoryPaginationTests
     private static void Check(bool value, string message)
     {
         if (!value)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

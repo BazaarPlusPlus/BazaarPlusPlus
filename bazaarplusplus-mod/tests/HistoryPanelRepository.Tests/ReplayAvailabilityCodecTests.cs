@@ -4,12 +4,18 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // Every Replay Availability must survive the schema's ghost_replay_state CHECK and read back
 // unchanged through both Ghost read paths; a NULL state reads as Unavailable.
-internal static class ReplayAvailabilityCodecTests
+public sealed class ReplayAvailabilityCodecTests : IDisposable
 {
-    internal static void Run(string root)
+    private readonly string root = TestRoot.Create();
+
+    public void Dispose() => TestRoot.Delete(root);
+
+    [Fact]
+    public void EveryStoredStateReadsBack()
     {
         var path = Path.Combine(root, "replay-availability.sqlite3");
         var expected = new Dictionary<string, ReplayAvailability>();
@@ -83,6 +89,6 @@ internal static class ReplayAvailabilityCodecTests
     private static void Check(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }
