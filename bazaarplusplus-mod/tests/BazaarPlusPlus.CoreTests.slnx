@@ -22,6 +22,8 @@
         <Project Path="HistoryPanelDecisions.Tests/HistoryPanelDecisions.Tests.csproj" />
         <Project Path="HistoryPanelFiltering.Tests/HistoryPanelFiltering.Tests.csproj" />
         <Project Path="HistoryPanelRepository.Tests/HistoryPanelRepository.Tests.csproj" />
+        <Project Path="GhostBattleSync.Tests/GhostBattleSync.Tests.csproj" />
+        <Project Path="ReplayPresentationWarmup.Tests/ReplayPresentationWarmup.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

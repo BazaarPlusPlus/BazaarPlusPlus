@@ -1,13 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>ReplayPresentationWarmup.Tests</AssemblyName>
     <BppRequiresManagedPath>false</BppRequiresManagedPath>
     <!-- Linked stats include audio/VFX fields whose native writers are outside this capsule. -->
     <NoWarn>$(NoWarn);CS0649</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference
       Include="../../src/BazaarPlusPlus.Core/BazaarPlusPlus.Core.csproj"

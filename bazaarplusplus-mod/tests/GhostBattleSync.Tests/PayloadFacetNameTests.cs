@@ -8,11 +8,12 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.TestSupport;
+using Xunit;
 
 // Ghost and favorite payload files carry a manifest whose cards are BPP facets. A facet's integer
 // is BPP's own and never persisted (ADR-0015 §4), so both files store every enum by member name
 // and read back to the same facets.
-internal static class PayloadFacetNameTests
+public sealed class PayloadFacetNameTests
 {
     private static readonly string[] MemberNames =
     [
@@ -24,7 +25,8 @@ internal static class PayloadFacetNameTests
         "LiveRetry",
     ];
 
-    internal static void Run()
+    [Fact]
+    public void PayloadsStoreFacetsByMemberName()
     {
         var ghostBytes = GhostBattlePayloadCodec.Serialize(
             new GhostBattlePayload
@@ -143,6 +145,6 @@ internal static class PayloadFacetNameTests
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

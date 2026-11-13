@@ -7,10 +7,12 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class HistoryGhostRecoveryTests
+public sealed class HistoryGhostRecoveryTests
 {
-    internal static void Run()
+    [Fact]
+    public void RecoversGhostRows()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-ghost-recovery-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -168,6 +170,6 @@ internal static class HistoryGhostRecoveryTests
     private static void Check(bool value, string message)
     {
         if (!value)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

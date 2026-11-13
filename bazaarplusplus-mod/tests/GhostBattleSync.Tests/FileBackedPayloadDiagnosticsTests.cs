@@ -3,10 +3,12 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Infrastructure;
+using Xunit;
 
-internal static class FileBackedPayloadDiagnosticsTests
+public sealed class FileBackedPayloadDiagnosticsTests
 {
-    internal static void Run()
+    [Fact]
+    public void InvalidPayloadFilesReportTheirFailure()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-payload-diagnostics-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -148,6 +150,6 @@ internal static class FileBackedPayloadDiagnosticsTests
     private static void Check(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

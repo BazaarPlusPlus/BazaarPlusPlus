@@ -7,10 +7,13 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
+using Xunit;
 
-internal static class GhostDownloadSelectionTests
+public sealed class GhostDownloadSelectionTests
 {
-    public static void Run()
+    // One test: the three final states share the UI context the capsule installed once.
+    [Fact]
+    public void DownloadSelectionSettlesOnEachFinalState()
     {
         var previousContext = SynchronizationContext.Current;
         var context = new UiContext();
@@ -165,7 +168,7 @@ internal static class GhostDownloadSelectionTests
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private sealed class UiContext : SynchronizationContext
