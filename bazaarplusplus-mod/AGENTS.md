@@ -20,7 +20,7 @@ What `just --list mod` cannot tell you:
 - No desktop recipe builds the Android Host, yet it references Core, and through Core, Storage and ModApi. Touching one of those needs `just mod::fetch android publisher`, `just mod::android-build` and `just mod::test-core`; on a fork PR nothing else compiles the host (`docs/architecture/android-host.md`).
 - In a linked worktree, MSBuild falls back to the main checkout's `game-libs/` only while the worktree has none; `mod::fetch` (and so `mod::android-check`) never does. Before those recipes, symlink `bazaarplusplus-mod/game-libs` to the main checkout's, after removing any empty `game-libs/` a failed fetch left.
 - `just mod::locks-check` runs a locked restore so NuGet graph drift fails in the mod, not later in the installer build.
-- Doc edits are gated by `just mod::test`: `tests/Architecture.Tests/DocsHygieneTests.cs` enforces byte budgets on this file and `docs/MEMORY.md` and checks that links resolve; stay under a budget by merging entries, not appending.
+- Doc edits are gated by `just mod::test`: `tests/Architecture.Tests/DocsHygieneTests.cs` enforces a byte budget on each always-loaded doc (`AlwaysLoadedBudgets` lists them) and checks that links resolve; stay under a budget by merging entries, not appending.
 - A deletion is proved by deleting: `just mod::build` and `just mod::test` must both pass, because test projects compile fakes and source-shadow capsules that `build` never touches.
 
 ## Logs and debugging
@@ -37,7 +37,7 @@ The layering traps, not a map of what exists:
 
 - Reusable adapters over The Bazaar and Unity runtime surfaces go in `GameInterop/`. Feature workflows, UI state, product policy, filtering and classification rules, upload decisions, and storage orchestration go in `Game/`, even when they mention a game enum or DTO.
 - When two features need the same runtime, prefab, or static-data behavior, extract the adapter to `GameInterop/<Concept>/` and have both consume that seam instead of one importing the other's internals.
-- Patches reach feature services only through `BppPatchHost`, the static service locator. Shared Harmony reflection helpers and native runtime adapters live in `GameInterop/` or `Infrastructure/`, outside any feature directory.
+- Patches reach feature services only through `BppPatchHost`, the static service locator; `PatchHostArchitectureTests` fails on a new static reach into `Game/` and lists the old ones as debt. Shared Harmony reflection helpers and native runtime adapters live in `GameInterop/` or `Infrastructure/`, outside any feature directory.
 - A boundary the compiler cannot enforce gets an architecture test over compiled artifacts in the same change (ADR-0009).
 
 ## Game behavior
