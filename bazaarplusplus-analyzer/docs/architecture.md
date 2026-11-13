@@ -23,7 +23,7 @@ Paths in the table are relative to `src/bazaarlens/`. `SourceHourIntake` in
 facts modules. Facts do not depend on consumer products or publication.
 
 `ConsumerProduct` in `products/base.py` declares each product's fact tables,
-builder, calculation version, semantic validator, contract, destinations, and report counters.
+builder, semantic validator, contract, destinations, and report counters.
 `PRODUCTS` in `products/__init__.py` is the explicit registry. A new product
 supplies that definition and its owned contract; the driver and snapshot
 execution sequence do not contain product-specific branches.
@@ -130,7 +130,7 @@ mirrors it around each run:
 The Analysis Window advances when another Complete Source Day becomes
 available. `SnapshotRunner` reuses a local snapshot only when its input
 fingerprint and content digest match. The fingerprint covers the selected day-seal identities,
-window, product calculation version, schema and hero-alias bytes, fact tables,
+window, a digest of the analyzer package sources, schema and hero-alias bytes, fact tables,
 report counters, and public destination. Day seals identify their hourly fact
 commits. A cache hit still validates the snapshot and verifies its referenced
 hours; it skips product queries and preserves the original generation time.
@@ -141,8 +141,8 @@ product counters. The runner atomically saves the snapshot before this evidence;
 an absent, invalid, or mismatched pair triggers a rebuild. Neither file changes
 the consumer contract. A local cache hit still checks the remote object when
 publication is enabled, so a failed or skipped upload can recover on the next
-run. Bump the product's `calculation_version` whenever its builder or calculation
-semantics change, including changes in shared calculation helpers.
+run. `code_sha256` in `resources.py` digests every module of the package, so any
+code change rebuilds each snapshot once; no version is bumped by hand.
 
 The production source and inclusive Source Epoch are defined by `API_BASE_URL`
 and `SOURCE_EPOCH` in `src/bazaarlens/bundle_source.py`. Local and CI runs use

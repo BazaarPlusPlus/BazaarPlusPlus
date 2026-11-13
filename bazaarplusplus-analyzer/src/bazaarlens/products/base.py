@@ -31,7 +31,6 @@ class ConsumerProduct:
     build: Callable[[duckdb.DuckDBPyConnection, AnalysisWindow, datetime], ProductData]
     validate_semantics: Callable[[Mapping[str, Any], date, date, int], None]
     counter_names: tuple[str, ...]
-    calculation_version: str
 
     def empty_counts(self) -> dict[str, int]:
         return dict.fromkeys(self.counter_names, 0)

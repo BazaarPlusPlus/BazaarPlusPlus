@@ -20,7 +20,7 @@ from bazaarlens.products.base import (
     ContractViolation,
     SnapshotResult,
 )
-from bazaarlens.resources import contract_bytes
+from bazaarlens.resources import code_sha256, contract_bytes
 
 LATEST_CACHE_CONTROL = "public,max-age=60,must-revalidate"
 JSON_CONTENT_TYPE = "application/json"
@@ -39,7 +39,7 @@ def _input_fingerprint(product: ConsumerProduct, window: AnalysisWindow) -> str:
         "format": 1,
         "product": product.name,
         "public_key": product.public_key,
-        "calculation_version": product.calculation_version,
+        "code_sha256": code_sha256(),
         "contract_sha256": hashlib.sha256(contract_bytes(product.schema_file)).hexdigest(),
         "hero_aliases_sha256": hashlib.sha256(contract_bytes("hero-aliases.json")).hexdigest(),
         "tables": product.tables,

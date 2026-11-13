@@ -273,7 +273,6 @@ def test_unchanged_inputs_reuse_bytes_across_clocks_and_recover_remote(
     store = FactStore(nine_sealed_days)
     window = select_analysis_window(store.seals())
     assert window is not None
-    product = replace(product, calculation_version="cache-test")
     objects = MemoryObjectStore()
     runner = _runner(store, object_store=objects, clock=lambda: datetime(2026, 8, 16, tzinfo=UTC))
     first = runner.ensure(product, window, publish=False)
@@ -301,7 +300,7 @@ def test_unchanged_inputs_reuse_bytes_across_clocks_and_recover_remote(
     assert objects.get(product.public_key).body == original
 
 
-@pytest.mark.parametrize("changed", ["version", "contract", "seal", "window"])
+@pytest.mark.parametrize("changed", ["code", "contract", "seal", "window"])
 def test_snapshot_rebuilds_when_an_input_identity_changes(
     nine_sealed_days: Path, monkeypatch: pytest.MonkeyPatch, changed: str
 ) -> None:
@@ -310,11 +309,11 @@ def test_snapshot_rebuilds_when_an_input_identity_changes(
     store = FactStore(nine_sealed_days)
     window = select_analysis_window(store.seals())
     assert window is not None
-    product = replace(HEROES, calculation_version="cache-test")
+    product = HEROES
     runner = _runner(store)
     assert runner.ensure(product, window).error is None
-    if changed == "version":
-        product = replace(product, calculation_version="cache-test-2")
+    if changed == "code":
+        monkeypatch.setattr(snapshots, "code_sha256", lambda: "0" * 64)
     elif changed == "contract":
         original_contract = snapshots.contract_bytes
 
@@ -345,7 +344,7 @@ def test_unusable_local_cache_rebuilds_without_publishing_damaged_bytes(
     store = FactStore(nine_sealed_days)
     window = select_analysis_window(store.seals())
     assert window is not None
-    product = replace(HEROES, calculation_version="cache-test")
+    product = HEROES
     objects = MemoryObjectStore()
     runner = _runner(store, object_store=objects)
     assert runner.ensure(product, window, publish=False).error is None
@@ -393,7 +392,7 @@ def test_interrupted_sidecar_save_retains_local_evidence_and_recovers(
     store = FactStore(nine_sealed_days)
     window = select_analysis_window(store.seals())
     assert window is not None
-    product = replace(HEROES, calculation_version="cache-test")
+    product = HEROES
     runner = _runner(store)
     original_replace = snapshots.atomic_replace
 
