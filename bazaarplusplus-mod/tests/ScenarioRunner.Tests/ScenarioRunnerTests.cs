@@ -11,25 +11,13 @@ namespace ScenarioRunner.Tests;
 /// </summary>
 public sealed partial class ScenarioRunnerTests
 {
-    // Each ParallelScenarioRunner capsule has its own class.
     public static IEnumerable<object[]> DefaultRunners() =>
-        RunnerProjects()
-            .Where(name => !ParallelScenarioRunner.Projects.Contains(name))
-            .Select(name => new object[] { name });
+        RunnerProjects().Select(name => new object[] { name });
 
     [Theory]
     [MemberData(nameof(DefaultRunners))]
     [Trait("TestKind", "ScenarioRunner")]
     public Task Scenario_runner_passes(string projectName) => RunAsync(projectName);
-
-    [Fact]
-    [Trait("TestKind", "Performance")]
-    public Task Replay_payload_maintenance_meets_the_time_budget() =>
-        RunAsync(
-            "ReplayPayloadMaintenance.Tests",
-            ["--benchmark"],
-            new Dictionary<string, string>()
-        );
 
     internal static Task RunAsync(string projectName) =>
         RunAsync(projectName, [], new Dictionary<string, string>());

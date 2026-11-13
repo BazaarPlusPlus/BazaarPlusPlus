@@ -1,19 +1,11 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay.Video;
+using Xunit;
 
-internal static class ReplayVideoArtifactMaintenanceTests
+public sealed class ReplayVideoArtifactMaintenanceTests
 {
-    internal static void Run()
-    {
-        ReconcilePreservesSuccessfulMp4AndCleansOnlyExpiredUnprotectedTemps();
-        StaleRecordingFinalMp4SurvivesTheCrashWindow();
-        ReconcileUsesSnapshotCasAcrossAConcurrentFinish();
-        TenThousandArtifactsUseBulkLinearReconciliation();
-        MaintenanceDoesNotFollowSymlinkEscapes();
-        RelativePathConversionRejectsPrefixSiblings();
-    }
-
-    private static void StaleRecordingFinalMp4SurvivesTheCrashWindow()
+    [Fact]
+    public static void StaleRecordingFinalMp4SurvivesTheCrashWindow()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-crash-{Guid.NewGuid():N}");
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
@@ -45,7 +37,8 @@ internal static class ReplayVideoArtifactMaintenanceTests
         }
     }
 
-    private static void ReconcileUsesSnapshotCasAcrossAConcurrentFinish()
+    [Fact]
+    public static void ReconcileUsesSnapshotCasAcrossAConcurrentFinish()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-race-{Guid.NewGuid():N}");
         var catalog = new FakeCatalog([
@@ -74,7 +67,8 @@ internal static class ReplayVideoArtifactMaintenanceTests
         );
     }
 
-    private static void TenThousandArtifactsUseBulkLinearReconciliation()
+    [Fact]
+    public static void TenThousandArtifactsUseBulkLinearReconciliation()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-linear-{Guid.NewGuid():N}");
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
@@ -112,7 +106,8 @@ internal static class ReplayVideoArtifactMaintenanceTests
         }
     }
 
-    private static void RelativePathConversionRejectsPrefixSiblings()
+    [Fact]
+    public static void RelativePathConversionRejectsPrefixSiblings()
     {
         var parent = Path.Combine(Path.GetTempPath(), $"bpp-video-relative-{Guid.NewGuid():N}");
         var root = Path.Combine(parent, "recordings");
@@ -132,7 +127,8 @@ internal static class ReplayVideoArtifactMaintenanceTests
         );
     }
 
-    private static void ReconcilePreservesSuccessfulMp4AndCleansOnlyExpiredUnprotectedTemps()
+    [Fact]
+    public static void ReconcilePreservesSuccessfulMp4AndCleansOnlyExpiredUnprotectedTemps()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-maint-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -199,7 +195,8 @@ internal static class ReplayVideoArtifactMaintenanceTests
         }
     }
 
-    private static void MaintenanceDoesNotFollowSymlinkEscapes()
+    [Fact]
+    public static void MaintenanceDoesNotFollowSymlinkEscapes()
     {
         if (OperatingSystem.IsWindows())
             return;

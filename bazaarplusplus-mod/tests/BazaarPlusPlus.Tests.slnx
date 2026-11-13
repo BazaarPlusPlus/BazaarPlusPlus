@@ -56,6 +56,10 @@
         <Project Path="Storage.Net10.Tests/Storage.Net10.Tests.csproj" />
         <Project Path="ModApi.Tests/ModApi.Tests.csproj" />
         <Project Path="ModApi.Net10.Tests/ModApi.Net10.Tests.csproj" />
+        <Project Path="BundleQueueSqliteStore.Tests/BundleQueueSqliteStore.Tests.csproj" />
+        <Project Path="BundlePipeline.Tests/BundlePipeline.Tests.csproj" />
+        <Project Path="RemoteEmbeddedDataPipeline.Tests/RemoteEmbeddedDataPipeline.Tests.csproj" />
+        <Project Path="ReplayPayloadMaintenance.Tests/ReplayPayloadMaintenance.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

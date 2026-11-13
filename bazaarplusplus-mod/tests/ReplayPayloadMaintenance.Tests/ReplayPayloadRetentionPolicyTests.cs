@@ -1,16 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using Xunit;
 
-internal static class ReplayPayloadRetentionPolicyTests
+public sealed class ReplayPayloadRetentionPolicyTests
 {
-    internal static void Run()
-    {
-        KeepsNewestCountUnionAgeWindowAndProtectedPayloads();
-        UsesBattleIdAsStableTieBreak();
-    }
-
-    private static void KeepsNewestCountUnionAgeWindowAndProtectedPayloads()
+    [Fact]
+    public static void KeepsNewestCountUnionAgeWindowAndProtectedPayloads()
     {
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
         var records = Enumerable
@@ -40,7 +36,8 @@ internal static class ReplayPayloadRetentionPolicyTests
         Equal(records.Count, result.EvaluatedCount, "evaluated work units");
     }
 
-    private static void UsesBattleIdAsStableTieBreak()
+    [Fact]
+    public static void UsesBattleIdAsStableTieBreak()
     {
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
         var timestamp = now.AddDays(-31);
@@ -66,11 +63,8 @@ internal static class ReplayPayloadRetentionPolicyTests
         DateTimeOffset recordedAt
     ) => new(battleId, recordedAt, ReplayPayloadState.Ready);
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private static void Equal<T>(T expected, T actual, string label)
     {

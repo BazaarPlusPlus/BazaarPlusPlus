@@ -1,10 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using Xunit;
 
-internal static partial class ReplayPayloadMaintenanceServiceTests
+public sealed partial class ReplayPayloadMaintenanceServiceTests
 {
-    private static void ParallelDeletionPreservesCatalogThreadAndOrder()
+    [Fact]
+    public static void ParallelDeletionPreservesCatalogThreadAndOrder()
     {
         var now = DateTimeOffset.UtcNow;
         var inventory = Enumerable
@@ -79,7 +81,8 @@ internal static partial class ReplayPayloadMaintenanceServiceTests
         Equal(0, files.Count(), "retry removed the remaining files");
     }
 
-    private static void CancellationKeepsTheLeaseUntilFileDeletionEnds()
+    [Fact]
+    public static void CancellationKeepsTheLeaseUntilFileDeletionEnds()
     {
         var now = DateTimeOffset.UtcNow;
         var inventory = Enumerable

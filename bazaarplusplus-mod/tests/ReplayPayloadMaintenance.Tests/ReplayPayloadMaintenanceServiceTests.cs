@@ -5,24 +5,22 @@ using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static partial class ReplayPayloadMaintenanceServiceTests
+public sealed partial class ReplayPayloadMaintenanceServiceTests
 {
-    internal static void Benchmark() =>
-        TenThousandPayloadsUseBulkStorageAndLinearWork(enforceTiming: true);
+    // `just mod::test-performance` runs the wall-clock budget; `just mod::test` filters it out.
+    [Fact]
+    [Trait("TestKind", "Performance")]
+    public static void Benchmark() =>
+        TenThousandPayloadsUseBulkStorageAndLinearWorkTimed(enforceTiming: true);
 
-    internal static void Run()
-    {
-        TenThousandPayloadsUseBulkStorageAndLinearWork();
-        TenThousandPayloadsUseBoundedRealSqliteCommands();
-        MissingPayloadsDoNotConsumeNewestRetentionSlots();
-        FailedFileDeleteRemainsPendingUntilAReentrantRetry();
-        MaintenanceFlightsAreSingleAndCancelable();
-        ParallelDeletionPreservesCatalogThreadAndOrder();
-        CancellationKeepsTheLeaseUntilFileDeletionEnds();
-    }
+    [Fact]
+    public static void TenThousandPayloadsUseBulkStorageAndLinearWork() =>
+        TenThousandPayloadsUseBulkStorageAndLinearWorkTimed(enforceTiming: false);
 
-    private static void MissingPayloadsDoNotConsumeNewestRetentionSlots()
+    [Fact]
+    public static void MissingPayloadsDoNotConsumeNewestRetentionSlots()
     {
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
         var inventory = Enumerable
@@ -55,7 +53,8 @@ internal static partial class ReplayPayloadMaintenanceServiceTests
         );
     }
 
-    private static void TenThousandPayloadsUseBoundedRealSqliteCommands()
+    [Fact]
+    public static void TenThousandPayloadsUseBoundedRealSqliteCommands()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-replay-sqlite-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -125,7 +124,8 @@ internal static partial class ReplayPayloadMaintenanceServiceTests
         }
     }
 
-    private static void MaintenanceFlightsAreSingleAndCancelable()
+    [Fact]
+    public static void MaintenanceFlightsAreSingleAndCancelable()
     {
         using var entered = new ManualResetEventSlim();
         using var flight = new ReplayMaintenanceFlight();
@@ -162,7 +162,7 @@ internal static partial class ReplayPayloadMaintenanceServiceTests
         }
     }
 
-    private static void TenThousandPayloadsUseBulkStorageAndLinearWork(bool enforceTiming = false)
+    private static void TenThousandPayloadsUseBulkStorageAndLinearWorkTimed(bool enforceTiming)
     {
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
         var inventory = Enumerable
@@ -207,7 +207,8 @@ internal static partial class ReplayPayloadMaintenanceServiceTests
         );
     }
 
-    private static void FailedFileDeleteRemainsPendingUntilAReentrantRetry()
+    [Fact]
+    public static void FailedFileDeleteRemainsPendingUntilAReentrantRetry()
     {
         var now = new DateTimeOffset(2026, 8, 23, 0, 0, 0, TimeSpan.Zero);
         var inventory = Enumerable
@@ -383,11 +384,8 @@ internal static partial class ReplayPayloadMaintenanceServiceTests
         }
     }
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private static void Equal<T>(T expected, T actual, string label)
     {

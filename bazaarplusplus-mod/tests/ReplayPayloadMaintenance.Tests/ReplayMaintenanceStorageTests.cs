@@ -2,20 +2,15 @@
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class ReplayMaintenanceStorageTests
+public sealed class ReplayMaintenanceStorageTests
 {
-    internal static void Run()
-    {
-        SchedulesOnlyDurablyUnprotectedPayloadsAndRetriesFileDeletion();
-        SchedulingRechecksConcurrentSealOwnershipInsideItsWriteTransaction();
-        KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects();
-    }
-
     // Replay maintenance protects a superset of the fixture's protected Runs: it also keeps
     // replays behind a pending outbox, which installer History cleanup releases. A History-Only
     // Run is never sealed, so its replays are released.
-    private static void KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects()
+    [Fact]
+    public static void KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-replay-seal-fixture-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -65,7 +60,8 @@ internal static class ReplayMaintenanceStorageTests
         }
     }
 
-    private static void SchedulingRechecksConcurrentSealOwnershipInsideItsWriteTransaction()
+    [Fact]
+    public static void SchedulingRechecksConcurrentSealOwnershipInsideItsWriteTransaction()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-replay-seal-race-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -144,7 +140,8 @@ internal static class ReplayMaintenanceStorageTests
         }
     }
 
-    private static void SchedulesOnlyDurablyUnprotectedPayloadsAndRetriesFileDeletion()
+    [Fact]
+    public static void SchedulesOnlyDurablyUnprotectedPayloadsAndRetriesFileDeletion()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-replay-maintenance-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -319,11 +316,8 @@ internal static class ReplayMaintenanceStorageTests
         command.ExecuteNonQuery();
     }
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private static void Equal<T>(T expected, T actual, string label)
     {

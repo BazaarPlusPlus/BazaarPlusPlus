@@ -45,11 +45,11 @@ cmd_test() {
         "${TEST_DIAGNOSTICS[@]}" "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
 }
 
-# Run wall-clock assertions separately from parallel functional suites, through the capsule host.
+# Run wall-clock assertions separately from parallel functional suites.
 cmd_test_performance() {
     resolve_test_inputs "$@"
     test_diagnostics performance
-    dotnet test tests/ScenarioRunner.Tests/ScenarioRunner.Tests.csproj --filter 'TestKind=Performance' \
+    dotnet test tests/BazaarPlusPlus.Tests.slnx --filter 'TestKind=Performance' \
         "${TEST_DIAGNOSTICS[@]}" "${TEST_PROPS[@]}" ${PROPS[@]+"${PROPS[@]}"}
 }
 

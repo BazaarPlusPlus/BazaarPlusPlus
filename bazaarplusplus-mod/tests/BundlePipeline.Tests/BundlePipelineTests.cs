@@ -1,0 +1,1223 @@
+using System.Net;
+using System.Text;
+using System.Text.Json.Nodes;
+using BazaarGameShared;
+using BazaarGameShared.Infra.Messages;
+using BazaarGameShared.Infra.Messages.GameSimEvents;
+using BazaarPlusPlus.Core.Cards;
+using BazaarPlusPlus.Core.Config;
+using BazaarPlusPlus.Core.Events;
+using BazaarPlusPlus.Core.GameState;
+using BazaarPlusPlus.Core.RunContext;
+using BazaarPlusPlus.Core.Runtime;
+using BazaarPlusPlus.Game.BundlePipeline;
+using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.Game.PvpBattles.Persistence;
+using BazaarPlusPlus.Host;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.ModApi.Bundle;
+using BazaarPlusPlus.ModApi.Clients;
+using BazaarPlusPlus.Storage.Paths;
+using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.Storage.RunScreenshot;
+using BazaarPlusPlus.TestSupport;
+using BepInEx.Logging;
+using MessagePack;
+using Microsoft.Data.Sqlite;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using Xunit;
+
+// The Bundle pipeline anchor: real SQLite run and battle stores -> replay payloads ->
+// BundleSealCoordinator -> BundleQueueStore outbox -> BundleUploadFeed.Session -> ModApiSession.
+// Every sealed Bundle lands in artifacts/bundle-pipeline/ and the normalized summary must match
+// fixtures/bundle-pipeline.golden.json (PipelineArtifacts owns the format and regeneration).
+// Each test writes under its own temporary directory; the capsule gave each step its own
+// subdirectory of one root.
+public sealed class BundlePipelineTests : IDisposable
+{
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-pipeline-" + Guid.NewGuid().ToString("N")
+    );
+
+    public BundlePipelineTests() => Directory.CreateDirectory(_root);
+
+    public void Dispose()
+    {
+        SqliteConnection.ClearAllPools();
+        Directory.Delete(_root, recursive: true);
+    }
+
+    // The goldens hold the desktop binding: the netstandard2.1 outputs of Core, Storage and
+    // ModApi (ADR-0013).
+    [Fact]
+    public void The_shared_projects_load_their_desktop_output()
+    {
+        var mismatch = SharedTargetPin.Mismatch(SharedTargetPin.Desktop);
+        Check.That(mismatch == null, mismatch ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task The_pipeline_seals_and_uploads_every_run_as_its_golden_records()
+    {
+        var root = _root;
+        // Privacy anchor: the real log stack observes the whole seal -> outbox -> upload run.
+        var logLines = new List<string>();
+        var logSource = new ManualLogSource("bundle-pipeline-privacy");
+        logSource.LogEvent += (_, args) => logLines.Add(args.Data?.ToString() ?? string.Empty);
+        BppLog.Install(new BepInExLogSink(logSource));
+
+        var artifacts = new PipelineArtifacts();
+        var dataRoot = Path.Combine(root, "pipeline");
+        Directory.CreateDirectory(dataRoot);
+        var paths = new TestPaths(dataRoot);
+        var store = new RunLogStore(paths);
+        var database = PathConstants.RunLogDatabase(dataRoot);
+        var replays = new CombatReplayPayloadStore(PathConstants.CombatReplays(dataRoot));
+        using var coordinator = DesktopBundleSealCoordinator.Create(new TestServices(paths));
+
+        RoutingKeepsPveOutOfPersistence(database);
+
+        // run-only: one replayable PvP battle, no screenshot requested.
+        CreateRun(store, "run-seal-001", minute: 0, screenshotRequested: false);
+        SaveBattle(database, "battle-seal-001", "run-seal-001", minute: 0);
+        SealInputs.SaveReplay(replays, "battle-seal-001");
+        var roundTrip = replays.LoadDetailed("battle-seal-001");
+        Check.That(
+            roundTrip.Status == FileBackedPayloadLoadStatus.Loaded
+                && roundTrip.Payload!.CombatMessageBytes.SequenceEqual(ReplayBytes.Combat),
+            "Replay payload bytes must round-trip exactly."
+        );
+        CompleteRun(store, "run-seal-001", minute: 0);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var runOnly = Sealed(artifacts, dataRoot, "run-only", "run-seal-001");
+        Check.That(runOnly.Opened.Manifest.Screenshot == null, "No screenshot was requested.");
+        Check.That(runOnly.Payload.PlayerAccountId == "account-001", "Frozen account is kept.");
+        Check.That(
+            runOnly.Payload.ReplayableBattleIds.SequenceEqual(new[] { "battle-seal-001" }),
+            "The composer should use the shared replayability contract."
+        );
+        Check.That(
+            RunBundleV6Contract
+                .Open(runOnly.Bytes)
+                .Value!.TryGetReplayableBattle("battle-seal-001", out _),
+            "The sealed replayable battle should resolve through the shared contract."
+        );
+        artifacts.RecordQueue("run-only", database, "run-seal-001");
+        SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");
+        Check.That(
+            Count(database, "bundle_outbox", "run-seal-001") == 1,
+            "The outbox must not FK-block Run deletion."
+        );
+
+        // screenshot: a requested end-of-run screenshot is present when the job seals.
+        CreateRun(store, "run-screenshot", minute: 60, screenshotRequested: true);
+        var capturedAtUtc = PipelineInputs.Base.AddMinutes(61).AddSeconds(50);
+        var relativeImage = "2099-01-01/2099-01-01_01-01-50-000_final_run-run-screenshot.png";
+        SealInputs.WritePng(Path.Combine(PathConstants.Screenshots(dataRoot), relativeImage));
+        var screenshots = new RunScreenshotSqliteStore(database);
+        screenshots.Save(
+            SealInputs.Screenshot(
+                "shot-primary-001",
+                "run-screenshot",
+                relativeImage,
+                capturedAtUtc
+            )
+        );
+        ExpectSqliteConstraint(
+            () =>
+                screenshots.Save(
+                    SealInputs.Screenshot(
+                        "shot-primary-002",
+                        "run-screenshot",
+                        "2099-01-01/duplicate.png",
+                        capturedAtUtc
+                    )
+                ),
+            "Only one primary screenshot may exist per run."
+        );
+        Check.That(
+            screenshots.TryGetLatestPrimaryForRun("missing-run") == null,
+            "A run without a primary screenshot has none."
+        );
+        CompleteRun(store, "run-screenshot", minute: 60);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var shot = Sealed(artifacts, dataRoot, "screenshot", "run-screenshot");
+        Check.That(
+            Number(
+                database,
+                "SELECT has_screenshot FROM bundle_outbox WHERE run_id='run-screenshot';"
+            ) == 1,
+            "A sealed screenshot sets has_screenshot."
+        );
+        Check.That(
+            shot.Opened.Manifest.Screenshot?.CapturedAtMs == capturedAtUtc.ToUnixTimeMilliseconds()
+                && shot.Opened.Screenshot is { Length: > 0 }
+                && !shot.Payload.Degradation.ScreenshotOmitted,
+            "The primary screenshot should seal into the Bundle."
+        );
+        artifacts.RecordScreenshots(database, "run-screenshot");
+        artifacts.RecordQueue("screenshot", database, "run-screenshot");
+
+        // screenshot-deadline: a requested screenshot that never arrives waits, then seals Run-only.
+        CreateRun(store, "run-waits-for-screenshot", minute: 120, screenshotRequested: true);
+        CompleteRun(store, "run-waits-for-screenshot", minute: 120);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Check.That(
+            Count(database, "bundle_outbox", "run-waits-for-screenshot") == 0,
+            "A requested screenshot keeps the job waiting before its deadline."
+        );
+        artifacts.RecordQueue("screenshot-deadline:waiting", database, "run-waits-for-screenshot");
+        SealInputs.ExpireDeadline(database, "run-waits-for-screenshot");
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var timedOut = Sealed(
+            artifacts,
+            dataRoot,
+            "screenshot-deadline",
+            "run-waits-for-screenshot"
+        );
+        Check.That(
+            timedOut.Opened.Manifest.Screenshot == null
+                && timedOut.Payload.Degradation.ScreenshotOmitted,
+            "The same job seals Run-only once its deadline expires."
+        );
+        artifacts.RecordQueue("screenshot-deadline:sealed", database, "run-waits-for-screenshot");
+
+        // replay-persistence: a Run whose replay writes are still in flight waits; others seal.
+        CreateRun(store, "run-replay-held", minute: 180, screenshotRequested: false);
+        CreateRun(store, "run-replay-free", minute: 181, screenshotRequested: false);
+        ReplayPersistenceStateTracker.Enqueued("run-replay-held");
+        CompleteRun(store, "run-replay-held", minute: 180);
+        CompleteRun(store, "run-replay-free", minute: 181);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Check.That(
+            Count(database, "bundle_outbox", "run-replay-held") == 0,
+            "A Run with pending replay persistence must not seal."
+        );
+        Sealed(artifacts, dataRoot, "replay-free", "run-replay-free");
+        artifacts.RecordQueue(
+            "replay-persistence:held",
+            database,
+            "run-replay-held",
+            "run-replay-free"
+        );
+        ReplayPersistenceStateTracker.Completed("run-replay-held");
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Sealed(artifacts, dataRoot, "replay-held", "run-replay-held");
+        artifacts.RecordQueue("replay-persistence:drained", database, "run-replay-held");
+
+        // corrupt-replay: an undecodable replay waits for the deadline, then is omitted.
+        CreateRun(store, "run-corrupt-replay", minute: 240, screenshotRequested: false);
+        SaveBattle(database, "battle-corrupt", "run-corrupt-replay", minute: 240);
+        SealInputs.SaveReplay(replays, "battle-corrupt");
+        File.WriteAllBytes(
+            Directory
+                .EnumerateFiles(PathConstants.CombatReplays(dataRoot), "battle-corrupt*")
+                .Single(),
+            [0, 1, 2, 3]
+        );
+        Check.That(
+            replays.LoadDetailed("battle-corrupt").Status == FileBackedPayloadLoadStatus.Invalid,
+            "A corrupt replay file is classified as invalid."
+        );
+        CompleteRun(store, "run-corrupt-replay", minute: 240);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Check.That(
+            Count(database, "bundle_outbox", "run-corrupt-replay") == 0,
+            "An omitted replay keeps the job waiting before its deadline."
+        );
+        artifacts.RecordQueue("corrupt-replay:waiting", database, "run-corrupt-replay");
+        SealInputs.ExpireDeadline(database, "run-corrupt-replay");
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var corrupt = Sealed(artifacts, dataRoot, "corrupt-replay", "run-corrupt-replay");
+        Check.That(
+            corrupt.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                new[] { "battle-corrupt" }
+            ) && !corrupt.Payload.ReplayableBattleIds.Contains("battle-corrupt"),
+            "The corrupt replay is omitted explicitly at seal."
+        );
+        artifacts.RecordQueue("corrupt-replay:sealed", database, "run-corrupt-replay");
+
+        await UploadStage.RunAsync(
+            dataRoot,
+            artifacts,
+            [
+                "run-seal-001",
+                "run-screenshot",
+                "run-waits-for-screenshot",
+                "run-replay-free",
+                "run-replay-held",
+                "run-corrupt-replay",
+            ]
+        );
+
+        // size-budget: Runs over BundleLimitsV6.MaxRunBytes trim in a fixed order. They seal after
+        // the upload stage so their Bundles stay out of its steps.
+        await SealOverBudgetRuns(store, database, replays, coordinator, artifacts, dataRoot);
+
+        BppLog.Flush();
+        LogPrivacy.Verify(logLines);
+
+        // The golden comes first so a pipeline regression shows as an artifact diff.
+        var goldenMismatch = artifacts.GoldenMismatch();
+        Check.That(goldenMismatch == null, goldenMismatch ?? string.Empty);
+    }
+
+    private static void CreateRun(
+        RunLogStore store,
+        string runId,
+        int minute,
+        bool screenshotRequested
+    ) =>
+        store.CreateRun(
+            new RunLogCreateRequest
+            {
+                RunId = runId,
+                StartedAtUtc = PipelineInputs.Base.AddMinutes(minute),
+                Hero = "Vanessa",
+                GameMode = "Ranked",
+                PlayerAccountId = "account-001",
+                BundleScreenshotRequested = screenshotRequested,
+                ModVersion = "5.0.0",
+            }
+        );
+
+    private static void CompleteRun(RunLogStore store, string runId, int minute) =>
+        store.CompleteRun(
+            runId,
+            new RunLogCompletion
+            {
+                EndedAtUtc = PipelineInputs.Base.AddMinutes(minute + 1),
+                Status = "completed",
+            }
+        );
+
+    private static void SaveBattle(
+        string database,
+        string battleId,
+        string runId,
+        int minute,
+        PvpBattleSnapshots? snapshots = null,
+        string? opponentAccountId = "account-002"
+    ) =>
+        new PvpBattleCatalog(new PvpBattleSqliteStore(database)).Save(
+            new PvpBattleManifest
+            {
+                BattleId = battleId,
+                RunId = runId,
+                RecordedAtUtc = PipelineInputs.Base.AddMinutes(minute).AddSeconds(30),
+                CombatKind = "PVPCombat",
+                Day = 1,
+                Hour = 1,
+                Participants = new PvpBattleParticipants
+                {
+                    PlayerName = "Player",
+                    PlayerAccountId = "account-001",
+                    PlayerHero = "Vanessa",
+                    OpponentName = "Opponent",
+                    OpponentAccountId = opponentAccountId,
+                    OpponentHero = "Pygmalien",
+                },
+                Outcome = new PvpBattleOutcome
+                {
+                    Result = "Win",
+                    WinnerCombatantId = "Player",
+                    LoserCombatantId = "Opponent",
+                },
+                Snapshots =
+                    snapshots
+                    ?? new PvpBattleSnapshots
+                    {
+                        PlayerHand = CapturedEmpty(),
+                        PlayerSkills = CapturedEmpty(),
+                        OpponentHand = CapturedEmpty(),
+                        OpponentSkills = CapturedEmpty(),
+                    },
+            }
+        );
+
+    // Two Runs whose Run segment is over BundleLimitsV6.MaxRunBytes. The golden pins each trimmed
+    // payload byte for byte (its MessagePack sha256), so the trim order and count cannot change
+    // unnoticed. Replay and event bodies are seeded random base64, which gzip cannot shrink below
+    // their random bytes; every trim decision stays BudgetMargin from the limit on both sides, so the
+    // trim count does not depend on the platform's zlib.
+    private static async Task SealOverBudgetRuns(
+        RunLogStore store,
+        string database,
+        CombatReplayPayloadStore replays,
+        BundleSealCoordinator coordinator,
+        PipelineArtifacts artifacts,
+        string dataRoot
+    )
+    {
+        const int BudgetMargin = 64 * 1024;
+
+        // Five projected replays and one replayable battle that is no projection (no opponent
+        // account): the latter is trimmed first, then the oldest projections until the segment fits.
+        const int ReplayEntropy = 600_000;
+        CreateRun(store, "run-budget-replays", minute: 600, screenshotRequested: false);
+        SaveBattle(database, "budget-extra", "run-budget-replays", 600, opponentAccountId: null);
+        replays.Save(BudgetReplay("budget-extra", 300_000, seed: 5300));
+        for (var index = 1; index <= 5; index++)
+        {
+            var battleId = $"budget-projection-{index}";
+            SaveBattle(database, battleId, "run-budget-replays", 600 + index);
+            replays.Save(BudgetReplay(battleId, ReplayEntropy, seed: 5300 + index));
+        }
+        CompleteRun(store, "run-budget-replays", minute: 606);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var trimmedReplays = Sealed(
+            artifacts,
+            dataRoot,
+            "size-budget-replays",
+            "run-budget-replays"
+        );
+        Check.That(
+            trimmedReplays.Payload.Degradation.Categories.SequenceEqual(
+                new[] { "non_projection_replay_trimmed", "projection_battle_trimmed" }
+            )
+                && trimmedReplays.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                    new[] { "budget-extra", "budget-projection-1", "budget-projection-2" }
+                )
+                && trimmedReplays.Opened.Manifest.Run.Projection.Battles.Count == 3,
+            "The size budget trims the non-projection replay, then the two oldest projections."
+        );
+        ExpectBudgetMargin(trimmedReplays, ReplayEntropy, BudgetMargin, "replay trim");
+
+        // Terminal events stay; the other events go oldest first until the segment fits.
+        const int EventEntropy = 200_000;
+        const int EventCount = 27;
+        CreateRun(store, "run-budget-events", minute: 700, screenshotRequested: false);
+        var seq = 0L;
+        void Append(string kind, string? body) =>
+            store.AppendEvent(
+                "run-budget-events",
+                new RunLogEvent
+                {
+                    RunId = "run-budget-events",
+                    Seq = ++seq,
+                    Ts = PipelineInputs.Base.AddMinutes(700).AddSeconds(seq),
+                    Kind = kind,
+                    EncounterId = body,
+                }
+            );
+        Append("run_started", null);
+        for (var index = 0; index < EventCount; index++)
+            Append("budget_padding", SeededBase64(EventEntropy, seed: 5400 + index));
+        Append("run_completed", null);
+        CompleteRun(store, "run-budget-events", minute: 701);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var trimmedEvents = Sealed(artifacts, dataRoot, "size-budget-events", "run-budget-events");
+        var events = trimmedEvents.Payload.Events;
+        var omitted = trimmedEvents.Payload.Degradation.EventsOmitted;
+        Check.That(
+            trimmedEvents.Payload.Degradation.Categories.SequenceEqual(new[] { "events_trimmed" })
+                && omitted is > 10 and < EventCount
+                && events.Count == EventCount + 2 - omitted
+                && events[0].Kind == "run_started"
+                && events[^1].Kind == "run_completed"
+                && events[1].Seq == 2 + omitted,
+            "The size budget drops the oldest non-terminal events and keeps the terminal ones."
+        );
+        ExpectBudgetMargin(trimmedEvents, EventEntropy, BudgetMargin, "event trim");
+
+        // Trimming every projected replay still overflows, so the budget goes on into the events:
+        // their random bytes alone exceed the limit by more than the margin.
+        const int MixedEventCount = 13;
+        Check.That(
+            MixedEventCount * EventEntropy - BundleLimitsV6.MaxRunBytes >= BudgetMargin,
+            "The mixed Run must overflow with every projection trimmed."
+        );
+        CreateRun(store, "run-budget-mixed", minute: 800, screenshotRequested: false);
+        for (var index = 1; index <= 2; index++)
+        {
+            var battleId = $"budget-mixed-{index}";
+            SaveBattle(database, battleId, "run-budget-mixed", 800 + index);
+            replays.Save(BudgetReplay(battleId, 300_000, seed: 5500 + index));
+        }
+        var mixedSeq = 0L;
+        void AppendMixed(string kind, string? body) =>
+            store.AppendEvent(
+                "run-budget-mixed",
+                new RunLogEvent
+                {
+                    RunId = "run-budget-mixed",
+                    Seq = ++mixedSeq,
+                    Ts = PipelineInputs.Base.AddMinutes(800).AddSeconds(mixedSeq),
+                    Kind = kind,
+                    EncounterId = body,
+                }
+            );
+        AppendMixed("run_started", null);
+        for (var index = 0; index < MixedEventCount; index++)
+            AppendMixed("budget_padding", SeededBase64(EventEntropy, seed: 5600 + index));
+        AppendMixed("run_completed", null);
+        CompleteRun(store, "run-budget-mixed", minute: 803);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        var trimmedMixed = Sealed(artifacts, dataRoot, "size-budget-mixed", "run-budget-mixed");
+        var mixedOmitted = trimmedMixed.Payload.Degradation.EventsOmitted;
+        Check.That(
+            trimmedMixed.Payload.Degradation.Categories.SequenceEqual(
+                new[] { "projection_battle_trimmed", "events_trimmed" }
+            )
+                && trimmedMixed.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
+                    new[] { "budget-mixed-1", "budget-mixed-2" }
+                )
+                && trimmedMixed.Payload.ReplayableBattleIds.Count == 0
+                && trimmedMixed.Opened.Manifest.Run.Projection.Battles.Count == 0
+                && mixedOmitted is > 0 and < MixedEventCount
+                && trimmedMixed.Payload.Events.Count == MixedEventCount + 2 - mixedOmitted,
+            "Projections that cannot fit are all trimmed before the oldest events go."
+        );
+        ExpectBudgetMargin(trimmedMixed, EventEntropy, BudgetMargin, "mixed trim");
+    }
+
+    // The sealed segment fits with the margin to spare, and one fewer trim would put back at least
+    // `entropy` random bytes, which no compressor removes, so it would overflow by the margin.
+    private static void ExpectBudgetMargin(
+        SealedBundle sealedBundle,
+        int entropy,
+        int margin,
+        string name
+    )
+    {
+        var length = sealedBundle.Opened.RunPayload.Length;
+        Check.That(
+            BundleLimitsV6.MaxRunBytes - length >= margin
+                && length + entropy - BundleLimitsV6.MaxRunBytes >= margin,
+            $"{name}: the trim decision must stay {margin} bytes from the limit (segment {length})."
+        );
+    }
+
+    private static PvpReplayPayload BudgetReplay(string battleId, int entropy, int seed) =>
+        new()
+        {
+            BattleId = battleId,
+            SpawnMessageBytes = MessagePackSerializer.Serialize(
+                new NetMessageGameSim(new GameSim()) { MessageId = SeededBase64(entropy, seed) },
+                MessagePackConfig.Options
+            ),
+            CombatMessageBytes = ReplayBytes.Combat,
+            DespawnMessageBytes = ReplayBytes.Despawn,
+        };
+
+    private static string SeededBase64(int entropy, int seed)
+    {
+        var random = new byte[entropy];
+        new Random(seed).NextBytes(random);
+        return Convert.ToBase64String(random);
+    }
+
+    private static void RoutingKeepsPveOutOfPersistence(string database)
+    {
+        Check.That(
+            CapturedReplayRouter.Resolve(
+                new PvpBattleManifest { BattleId = "pve", CombatKind = "Combat" }
+            ) == CapturedReplayRoute.CurrentNative,
+            "PvE captures stay on the in-memory current-native route."
+        );
+        Check.That(
+            CapturedReplayRouter.Resolve(
+                new PvpBattleManifest { BattleId = "pvp", CombatKind = "PVPCombat" }
+            ) == CapturedReplayRoute.PersistedPvp,
+            "PvP captures use the persisted catalog route."
+        );
+        try
+        {
+            new PvpBattleCatalog(new PvpBattleSqliteStore(database)).Save(
+                new PvpBattleManifest { BattleId = "pve", CombatKind = "Combat" }
+            );
+            throw new InvalidOperationException("The PvP store accepted a PvE manifest.");
+        }
+        catch (ArgumentException)
+        {
+            // A routing regression must fail instead of reporting false persistence success.
+        }
+    }
+
+    private static SealedBundle Sealed(
+        PipelineArtifacts artifacts,
+        string dataRoot,
+        string name,
+        string runId
+    )
+    {
+        var database = PathConstants.RunLogDatabase(dataRoot);
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT bundle_id, file_name FROM bundle_outbox WHERE run_id=$runId AND status='pending';";
+        command.Parameters.AddWithValue("$runId", runId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            reader.Close();
+            using var job = connection.CreateCommand();
+            job.CommandText =
+                "SELECT state, last_error_code, last_error_detail FROM bundle_seal_jobs WHERE run_id=$runId;";
+            job.Parameters.AddWithValue("$runId", runId);
+            using var jobReader = job.ExecuteReader();
+            var detail = jobReader.Read()
+                ? $"{jobReader.GetString(0)}/{(jobReader.IsDBNull(1) ? "" : jobReader.GetString(1))}/{(jobReader.IsDBNull(2) ? "" : jobReader.GetString(2))}"
+                : "job missing";
+            throw new InvalidOperationException($"{runId} should seal into the outbox: {detail}");
+        }
+        var bundleId = reader.GetString(0);
+        var bytes = TestInputs.ScratchBytes(
+            Path.Combine(PathConstants.BundleOutbox(dataRoot), reader.GetString(1))
+        );
+        var opened = artifacts.RecordBundle(name, bytes);
+        Check.That(opened.Manifest.BundleId == bundleId, "File identity should match the outbox.");
+        Check.That(
+            RunBundleV6Contract.Open(bytes).Succeeded,
+            $"{name} should satisfy the Run Bundle contract."
+        );
+        var payload = RunPayloadV6Codec.Decode(opened.RunPayload);
+        Check.That(payload.RunId == runId, "The payload should preserve the Run identity.");
+        return new SealedBundle(bytes, opened, payload);
+    }
+
+    private static long Count(string database, string table, string runId) =>
+        Number(database, $"SELECT COUNT(*) FROM {table} WHERE run_id='{runId}';");
+
+    private static long Number(string database, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return Convert.ToInt64(command.ExecuteScalar());
+    }
+
+    private static void ExpectSqliteConstraint(Action action, string message)
+    {
+        try
+        {
+            action();
+        }
+        catch (SqliteException)
+        {
+            return;
+        }
+        throw new InvalidOperationException(message);
+    }
+
+    private static PvpBattleCardSetCapture CapturedEmpty() =>
+        new() { Status = PvpBattleCaptureStatus.CapturedEmpty };
+
+    private static PvpBattleCardSetCapture Captured(params CardType[] types) =>
+        new()
+        {
+            Status = PvpBattleCaptureStatus.Captured,
+            Items = types
+                .Select(
+                    (type, index) =>
+                        new PvpBattleCardSnapshot
+                        {
+                            InstanceId = $"card-{index}",
+                            TemplateId = Guid.Empty.ToString(),
+                            Type = type,
+                        }
+                )
+                .ToList(),
+        };
+
+    // The database stores Unix-millisecond instants and no seed; the composer copies those integers
+    // into the V6 Run segment unchanged, emits a null seed, and strips the envelope keys from
+    // payload_json. Participant card counts come from the captured sets.
+    [Fact]
+    public async Task VerifyRunSegmentProjectionAsync()
+    {
+        var root = Path.Combine(_root, "run-segment");
+        Directory.CreateDirectory(root);
+        var paths = new TestPaths(root);
+        var store = new RunLogStore(paths);
+        using var coordinator = DesktopBundleSealCoordinator.Create(new TestServices(paths));
+        CreateRun(store, "run-segment", minute: 0, screenshotRequested: false);
+        SaveBattle(
+            PathConstants.RunLogDatabase(root),
+            "battle-segment",
+            "run-segment",
+            minute: 0,
+            new PvpBattleSnapshots
+            {
+                PlayerHand = Captured(CardType.Item, CardType.SocketEffect, CardType.Item),
+                PlayerSkills = Captured(CardType.Skill),
+                OpponentHand = CapturedEmpty(),
+                OpponentSkills = new PvpBattleCardSetCapture
+                {
+                    Status = PvpBattleCaptureStatus.Missing,
+                },
+            }
+        );
+        store.AppendEvent(
+            "run-segment",
+            new RunLogEvent
+            {
+                RunId = "run-segment",
+                Seq = 1,
+                Ts = PipelineInputs.Base.AddSeconds(5),
+                Kind = "state_changed",
+            }
+        );
+        CompleteRun(store, "run-segment", minute: 0);
+        var database = PathConstants.RunLogDatabase(root);
+        // The Missing set leaves the Battle unreplayable, which holds the Run until its deadline.
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        SealInputs.ExpireDeadline(database, "run-segment");
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        var file = Scalar(
+            connection,
+            "SELECT file_name FROM bundle_outbox WHERE run_id='run-segment' AND status='pending';"
+        )!;
+        var bytes = TestInputs.ScratchBytes(Path.Combine(PathConstants.BundleOutbox(root), file));
+        var payload = RunPayloadV6Codec.Decode(BundleV6Codec.Open(bytes).RunPayload);
+        Assert(
+            payload.Run.Seed == null,
+            "The V6 database has no seed; the Run segment carries null."
+        );
+        var started = PipelineInputs.Base.ToUnixTimeMilliseconds();
+        Assert(
+            payload.Run.StartedAtMs == started && payload.Run.EndedAtMs == started + 60_000,
+            "Run start and end must be the database's Unix-millisecond integers."
+        );
+        var runEvent = payload.Events.Single();
+        Assert(
+            runEvent.TimestampMs == started + 5_000
+                && runEvent.Seq == 1
+                && runEvent.Kind == "state_changed",
+            "The RunEventV6 envelope carries the event's Unix-millisecond time, sequence, and kind."
+        );
+        var body = JsonNode.Parse(runEvent.PayloadJson)!.AsObject();
+        Assert(
+            !body.ContainsKey("schema_version")
+                && !body.ContainsKey("run_id")
+                && !body.ContainsKey("seq")
+                && !body.ContainsKey("ts")
+                && !body.ContainsKey("kind"),
+            "Event payload_json carries no schema_version and drops the keys the envelope owns."
+        );
+        var participants = payload.Battles.Single().Participants;
+        Assert(
+            participants.Player.HandItemCount == 2
+                && participants.Player.SkillCount == 1
+                && participants.Opponent.HandItemCount == 0
+                && participants.Opponent.SkillCount == null,
+            "Participant counts are the set's Item or Skill cards, 0 when captured empty, null when Missing."
+        );
+    }
+
+    [Fact]
+    public async Task VerifyRecoveryAsync()
+    {
+        var root = Path.Combine(_root, "recovery");
+        Directory.CreateDirectory(root);
+        var paths = new TestPaths(root);
+        var store = new RunLogStore(paths);
+        var database = PathConstants.RunLogDatabase(root);
+        using var coordinator = DesktopBundleSealCoordinator.Create(new TestServices(paths));
+        var outboxRoot = PathConstants.BundleOutbox(root);
+        Directory.CreateDirectory(outboxRoot);
+
+        store.CreateRun(
+            new RunLogCreateRequest
+            {
+                RunId = "run-orphan-adopt",
+                StartedAtUtc = PipelineInputs.Base,
+                Hero = "Vanessa",
+                GameMode = "Ranked",
+                PlayerAccountId = "account-adopt",
+            }
+        );
+        var adopted = BuildRunOnlyBundle(
+            "01J00000000000000000000AD0",
+            "run-orphan-adopt",
+            "account-adopt",
+            1000
+        );
+        InsertSealJob(
+            database,
+            "run-orphan-adopt",
+            adopted.Manifest.BundleId,
+            1000,
+            "account-adopt"
+        );
+        File.WriteAllBytes(
+            Path.Combine(outboxRoot, adopted.Manifest.BundleId + ".bundle"),
+            adopted.Bytes
+        );
+
+        store.CreateRun(
+            new RunLogCreateRequest
+            {
+                RunId = "run-orphan-mismatch",
+                StartedAtUtc = PipelineInputs.Base,
+                Hero = "Vanessa",
+                GameMode = "Ranked",
+                PlayerAccountId = "account-mismatch",
+            }
+        );
+        var mismatch = BuildRunOnlyBundle(
+            "01J00000000000000000000BAD",
+            "run-orphan-mismatch",
+            "account-mismatch",
+            2000
+        );
+        InsertSealJob(
+            database,
+            "run-orphan-mismatch",
+            "01J00000000000000000000EXP",
+            2000,
+            "account-mismatch"
+        );
+        var mismatchPath = Path.Combine(outboxRoot, mismatch.Manifest.BundleId + ".bundle");
+        File.WriteAllBytes(mismatchPath, mismatch.Bytes);
+        // File age is measured against the 24-hour orphan retention, so it stays clock-relative.
+        File.SetLastWriteTimeUtc(mismatchPath, DateTime.UtcNow.AddHours(-25));
+
+        store.CreateRun(
+            new RunLogCreateRequest
+            {
+                RunId = "run-invalid-pending",
+                StartedAtUtc = PipelineInputs.Base,
+                Hero = "Vanessa",
+                GameMode = "Ranked",
+                PlayerAccountId = null,
+            }
+        );
+        using (var connection = new SqliteConnection($"Data Source={database}"))
+        {
+            connection.Open();
+            using var invalid = connection.CreateCommand();
+            invalid.CommandText =
+                "INSERT INTO bundle_outbox (bundle_id, run_id, file_name, content_sha256_hex, content_digest, total_bytes, has_screenshot, sealed_at_ms, status, next_attempt_at_ms) VALUES ('invalid-bundle', 'run-invalid-pending', 'invalid.bundle', 'sha', 'digest', 3, 0, $now, 'pending', $now);";
+            invalid.Parameters.AddWithValue("$now", PipelineInputs.Base.ToUnixTimeMilliseconds());
+            invalid.ExecuteNonQuery();
+        }
+        File.WriteAllText(Path.Combine(outboxRoot, "invalid.bundle"), "bad");
+
+        await coordinator.ReconcileAsync(CancellationToken.None);
+
+        using var verify = new SqliteConnection($"Data Source={database}");
+        verify.Open();
+        Assert(
+            Scalar(
+                verify,
+                "SELECT status FROM bundle_outbox WHERE bundle_id='"
+                    + adopted.Manifest.BundleId
+                    + "';"
+            ) == "pending",
+            "A matching allocated orphan should be adopted atomically."
+        );
+        Assert(
+            !File.Exists(mismatchPath),
+            "An expired allocation-mismatch orphan should be deleted."
+        );
+        Assert(
+            Scalar(verify, "SELECT status FROM bundle_outbox WHERE bundle_id='invalid-bundle';")
+                == "permanent_failure",
+            "An invalid pending sidecar should fail its outbox row."
+        );
+        Assert(
+            Convert.ToInt32(
+                ScalarObject(
+                    verify,
+                    "SELECT COUNT(*) FROM bundle_seal_jobs WHERE run_id='run-invalid-pending';"
+                )
+            ) == 1,
+            "Invalid pending recovery should create a durable reseal job before processing it."
+        );
+    }
+
+    private static BundleBuildResultV6 BuildRunOnlyBundle(
+        string bundleId,
+        string runId,
+        string accountId,
+        long createdAtMs
+    ) =>
+        BundleV6Codec.Build(
+            new BundleBuildInputV6
+            {
+                BundleId = bundleId,
+                CreatedAtMs = createdAtMs,
+                RunId = runId,
+                PlayerAccountId = accountId,
+                RunPayload = RunPayloadV6Codec.Encode(
+                    new RunPayloadV6 { RunId = runId, PlayerAccountId = accountId }
+                ),
+            }
+        );
+
+    private static void InsertSealJob(
+        string database,
+        string runId,
+        string bundleId,
+        long createdAtMs,
+        string accountId
+    )
+    {
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "INSERT INTO bundle_seal_jobs (run_id, state, player_account_id, screenshot_requested, screenshot_state, input_deadline_at_ms, bundle_id, created_at_ms) VALUES ($runId, 'sealing', $accountId, 0, 'not_requested', $deadline, $bundleId, $createdAtMs);";
+        command.Parameters.AddWithValue("$runId", runId);
+        command.Parameters.AddWithValue("$accountId", accountId);
+        command.Parameters.AddWithValue(
+            "$deadline",
+            PipelineInputs.Base.AddMinutes(2).ToUnixTimeMilliseconds()
+        );
+        command.Parameters.AddWithValue("$bundleId", bundleId);
+        command.Parameters.AddWithValue("$createdAtMs", createdAtMs);
+        command.ExecuteNonQuery();
+    }
+
+    private static string? Scalar(SqliteConnection connection, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteScalar() as string;
+    }
+
+    private static object? ScalarObject(SqliteConnection connection, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteScalar();
+    }
+
+    [Fact]
+    public static async Task VerifyUploadClientAsync()
+    {
+        var payload = RunPayloadV6Codec.Encode(
+            new RunPayloadV6 { RunId = "run-http", PlayerAccountId = "account-http" }
+        );
+        var built = BundleV6Codec.Build(
+            new BundleBuildInputV6
+            {
+                BundleId = "01J00000000000000000000111",
+                CreatedAtMs = 1_785_628_800_000,
+                RunId = "run-http",
+                PlayerAccountId = "account-http",
+                RunPayload = payload,
+            }
+        );
+        // Each entry is an answer or a thrown exception, with the disposition and code it must map to.
+        var matrix = new (object Answer, BundleUploadDisposition Disposition, string? Code)[]
+        {
+            (
+                Json(
+                    HttpStatusCode.Created,
+                    "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"stored\"}"
+                ),
+                BundleUploadDisposition.Uploaded,
+                null
+            ),
+            (
+                Json(
+                    HttpStatusCode.OK,
+                    "{\"bundle_id\":\"01J00000000000000000000111\",\"run_id\":\"run-http\",\"outcome\":\"duplicate\"}"
+                ),
+                BundleUploadDisposition.Uploaded,
+                null
+            ),
+            (
+                Json(
+                    HttpStatusCode.Conflict,
+                    "{\"error\":{\"code\":\"bundle_id_conflict\",\"message\":\"different\",\"retryable\":false,\"request_id\":\"body-request-id\"}}"
+                ),
+                BundleUploadDisposition.Permanent,
+                null
+            ),
+            // An untrusted (legacy-shaped) 409 is about this Bundle, not the endpoint.
+            (
+                Json(
+                    HttpStatusCode.Conflict,
+                    "{\"error\":\"bundle_id_conflict\",\"retryable\":false}"
+                ),
+                BundleUploadDisposition.Transient,
+                null
+            ),
+            (
+                Json(
+                    HttpStatusCode.ServiceUnavailable,
+                    "{\"error\":{\"code\":\"storage_unavailable\",\"message\":\"later\",\"retryable\":true,\"request_id\":\"r\"}}"
+                ),
+                BundleUploadDisposition.EndpointUnavailable,
+                "http_503"
+            ),
+            (
+                new HttpResponseMessage(HttpStatusCode.TooManyRequests),
+                BundleUploadDisposition.EndpointUnavailable,
+                "http_429"
+            ),
+            (
+                new HttpResponseMessage(HttpStatusCode.RequestTimeout),
+                BundleUploadDisposition.EndpointUnavailable,
+                "http_408"
+            ),
+            (
+                Json(
+                    HttpStatusCode.Created,
+                    "{\"bundle_id\":\"01J00000000000000000000999\",\"run_id\":\"run-http\",\"outcome\":\"stored\"}"
+                ),
+                BundleUploadDisposition.Transient,
+                "invalid_success_receipt"
+            ),
+            // A server-marked retryable error on another status stays a per-Bundle retry.
+            (
+                Json(
+                    HttpStatusCode.Forbidden,
+                    "{\"error\":{\"code\":\"busy\",\"message\":\"later\",\"retryable\":true}}"
+                ),
+                BundleUploadDisposition.Transient,
+                "http_403"
+            ),
+            (
+                new HttpRequestException("network is unreachable"),
+                BundleUploadDisposition.EndpointUnavailable,
+                "transport_error"
+            ),
+            (
+                new TaskCanceledException("request timed out"),
+                BundleUploadDisposition.EndpointUnavailable,
+                "request_timeout"
+            ),
+        };
+        var handler = new CaptureHandler(new Queue<object>(matrix.Select(entry => entry.Answer)));
+        using var session =
+            ModApiSession.TryCreate(
+                "https://example.test",
+                "test",
+                platformKey: null,
+                "BundleUpload",
+                TimeSpan.FromSeconds(120),
+                handler
+            ) ?? throw new InvalidOperationException("test Mod API session");
+        var results = new List<BundleUploadResponse>();
+        for (var index = 0; index < matrix.Length; index++)
+        {
+            using var stream = new MemoryStream(built.Bytes, writable: false);
+            var response = await session.UploadBundleAsync(
+                stream,
+                built.Bytes.Length,
+                built.ContentDigest,
+                built.Manifest.BundleId,
+                built.Manifest.Run.RunId,
+                CancellationToken.None
+            );
+            results.Add(response);
+            Assert(
+                response.Disposition == matrix[index].Disposition
+                    && (matrix[index].Code == null || response.Code == matrix[index].Code),
+                $"upload response matrix entry {index} should classify as {matrix[index].Disposition} "
+                    + $"{matrix[index].Code}, got {response.Disposition} {response.Code}"
+            );
+        }
+        Assert(
+            results[2].RequestId == "body-request-id",
+            "nested body request ID should remain available when the header is absent"
+        );
+        Assert(
+            handler.Bodies.All(body => body.SequenceEqual(built.Bytes)),
+            "retries must be byte-identical"
+        );
+        Assert(
+            handler.ContentDigests.All(value => value == built.ContentDigest),
+            "Content-Digest must be exact"
+        );
+    }
+
+    private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
+        new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+    private static void Assert(bool condition, string message)
+    {
+        if (!condition)
+            throw new InvalidOperationException(message);
+    }
+}
+
+/// <summary>
+/// The account id the runs carry and the secrets the 5xx upload body carries; no log line from
+/// the pipeline run may contain any of them.
+/// </summary>
+internal static class LogPrivacy
+{
+    internal const string AccountId = "account-001";
+    internal const string ResponseSecret = "token-secret";
+    internal const string AccountSecret = "account-secret";
+
+    internal static void Verify(IReadOnlyList<string> lines)
+    {
+        Check.That(
+            lines.Any(line => line.Contains("event=bundle_pipeline.seal.succeeded"))
+                && lines.Any(line => line.Contains("event=bundle_pipeline.upload.degraded"))
+                && lines.Any(line => line.Contains("event=bundle_pipeline.upload.succeeded")),
+            "The privacy capture must observe the seal, the failed upload, and the accepted upload."
+        );
+        foreach (var secret in new[] { AccountId, ResponseSecret, AccountSecret })
+        {
+            var leaked = lines.FirstOrDefault(line =>
+                line.Contains(secret, StringComparison.Ordinal)
+            );
+            Check.That(leaked == null, $"A log line carries '{secret}': {leaked}");
+        }
+    }
+}
+
+/// <summary>Answers each request with the next queued response, or throws the next queued exception.</summary>
+internal sealed class CaptureHandler(Queue<object> answers) : HttpMessageHandler
+{
+    internal List<byte[]> Bodies { get; } = new();
+    internal List<string?> ContentDigests { get; } = new();
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (request.RequestUri?.AbsolutePath != "/bundles")
+            throw new InvalidOperationException($"Upload route drifted: {request.RequestUri}");
+        Bodies.Add(await request.Content!.ReadAsByteArrayAsync(cancellationToken));
+        ContentDigests.Add(request.Headers.GetValues("Content-Digest").Single());
+        if (request.Content.Headers.ContentLength != Bodies[^1].Length)
+            throw new InvalidOperationException("Content-Length required");
+        if (request.Content.Headers.ContentType!.MediaType != BundleLimitsV6.BundleContentType)
+            throw new InvalidOperationException("Bundle Content-Type required");
+        return answers.Dequeue() switch
+        {
+            HttpResponseMessage response => response,
+            Exception exception => throw exception,
+            var other => throw new InvalidOperationException($"Unexpected answer {other}."),
+        };
+    }
+}
+
+internal sealed class TestPaths(string root) : IPathProvider
+{
+    public string? DataRootDirectoryPath => root;
+}
+
+internal sealed class TestServices(IPathProvider paths) : IBppServices
+{
+    public IBppEventBus EventBus { get; } = new InMemoryBppEventBus();
+    public BppSettings Config => null!;
+    public IPathProvider Paths => paths;
+    public IRunContext RunContext => null!;
+    public IGameStateProbe GameStateProbe => null!;
+    public IEncounterStateProbe EncounterState => null!;
+    public IRunSnapshotProbe RunSnapshot => null!;
+    public IGameBuildInfo GameBuild => new TestBuild();
+}
+
+internal sealed class TestBuild : IGameBuildInfo
+{
+    public string RawVersion => "test";
+    public GameBuildChannel Channel => GameBuildChannel.Online;
+}
+
+/// <summary>
+/// Fixed pipeline inputs. Times sit in the future on purpose: EnsureEligibleJobs derives each
+/// seal job's input deadline from ended_at_ms + 2 minutes, so a past constant would expire every
+/// deadline at once and the screenshot, replay-persistence, and replay-payload waits could not be
+/// observed. A deadline expires only through the explicit ExpireDeadline step.
+/// </summary>
+internal static class PipelineInputs
+{
+    internal static readonly DateTimeOffset Base = new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    internal static Rgba32 ScreenshotPixel(int x, int y) =>
+        new((byte)(x * 2), (byte)(y * 3), (byte)((x + y) % 256), 255);
+}
+
+// The game's NetMessage constructors assign a random MessageId; fixing it keeps the replay
+// uncompressed replay bytes identical across runs.
+internal static class ReplayBytes
+{
+    internal static readonly byte[] Spawn = MessagePackSerializer.Serialize(
+        new NetMessageGameSim(new GameSim()) { MessageId = "spawn" },
+        MessagePackConfig.Options
+    );
+
+    // Frozen online CombatSim input: PTR appends IsDraw to the live serializer's array.
+    // The pipeline golden measures preserved replay bytes; CombatReplayLoader still
+    // decodes this input with the selected game's serializer, including PTR's default IsDraw.
+    internal static readonly byte[] Combat = Convert.FromBase64String(
+        "kpiRlJDAwIAAAZCQgJCQpmNvbWJhdA=="
+    );
+    internal static readonly byte[] Despawn = MessagePackSerializer.Serialize(
+        new NetMessageGameSim(new GameSim()) { MessageId = "despawn" },
+        MessagePackConfig.Options
+    );
+}
+
+// Seal inputs shared by the anchor and BundleSealFailureTests.
+internal static class SealInputs
+{
+    internal static void SaveReplay(CombatReplayPayloadStore replays, string battleId) =>
+        replays.Save(
+            new PvpReplayPayload
+            {
+                BattleId = battleId,
+                SpawnMessageBytes = ReplayBytes.Spawn,
+                CombatMessageBytes = ReplayBytes.Combat,
+                DespawnMessageBytes = ReplayBytes.Despawn,
+            }
+        );
+
+    internal static RunScreenshotRecord Screenshot(
+        string id,
+        string runId,
+        string relativePath,
+        DateTimeOffset capturedAtUtc
+    ) =>
+        new()
+        {
+            ScreenshotId = id,
+            RunId = runId,
+            HeroName = "Vanessa",
+            IsPrimary = true,
+            ImageRelativePath = relativePath,
+            CapturedAtLocal = capturedAtUtc.ToOffset(TimeSpan.FromHours(8)),
+            CapturedAtUtc = capturedAtUtc,
+            Day = 10,
+            PlayerRank = "Legendary",
+            PlayerRating = 1533,
+            PlayerPosition = 41,
+            VictoriesAtCapture = 10,
+        };
+
+    // A fixed gradient; the artifact verifier allows only JPEG's small lossy pixel error.
+    internal static void WritePng(string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var image = new Image<Rgba32>(96, 64);
+        for (var y = 0; y < image.Height; y++)
+        for (var x = 0; x < image.Width; x++)
+            image[x, y] = PipelineInputs.ScreenshotPixel(x, y);
+        image.SaveAsPng(path);
+    }
+
+    internal static void ExpireDeadline(string database, string runId) =>
+        Execute(
+            database,
+            $"UPDATE bundle_seal_jobs SET input_deadline_at_ms={DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeMilliseconds()} WHERE run_id='{runId}';"
+        );
+
+    internal static void Execute(string database, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+}
+
+internal sealed record SealedBundle(byte[] Bytes, OpenedBundleV6 Opened, RunPayloadV6 Payload);

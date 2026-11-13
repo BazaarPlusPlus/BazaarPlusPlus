@@ -11,23 +11,15 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
 using MessagePack;
+using Xunit;
 
 // The desktop's PvP Battle Capture Window: Core's window over the real DesktopPvpBattleReads and
 // Mono net messages. The live player reads need the client's Data statics, which this lane does
 // not have; they must degrade field by field, and their values are left to an in-game run.
-internal static class DesktopPvpBattleCaptureTests
+public sealed class DesktopPvpBattleCaptureTests
 {
-    internal static void Run()
-    {
-        OpeningFieldsComeFromTheOpeningMessage();
-        ANullRunLeavesDayAndHourNullAndStillCaptures();
-        TheOpponentBoardsComeFromTheOpeningEvents();
-        AnEmptyOpponentNameLeavesTheOtherOpponentFields();
-        AMonsterCombatCapturesWithoutAReplayAndStaysCurrentNative();
-        ReplayPartsAreTheConcreteMessagesSerialized();
-    }
-
-    private static void OpeningFieldsComeFromTheOpeningMessage()
+    [Fact]
+    public static void OpeningFieldsComeFromTheOpeningMessage()
     {
         var capture = Capture(Opening(ERunState.PVPCombat));
         var manifest = capture.Manifest;
@@ -62,7 +54,8 @@ internal static class DesktopPvpBattleCaptureTests
         );
     }
 
-    private static void ANullRunLeavesDayAndHourNullAndStillCaptures()
+    [Fact]
+    public static void ANullRunLeavesDayAndHourNullAndStillCaptures()
     {
         var opening = Opening(ERunState.PVPCombat);
         opening.Data.Run = null!;
@@ -79,7 +72,8 @@ internal static class DesktopPvpBattleCaptureTests
         );
     }
 
-    private static void TheOpponentBoardsComeFromTheOpeningEvents()
+    [Fact]
+    public static void TheOpponentBoardsComeFromTheOpeningEvents()
     {
         var opening = Opening(ERunState.PVPCombat);
         opening.Data.Events.Add(Spawned("opp-c", EContainerSocketId.Socket_6));
@@ -122,7 +116,8 @@ internal static class DesktopPvpBattleCaptureTests
         );
     }
 
-    private static void AnEmptyOpponentNameLeavesTheOtherOpponentFields()
+    [Fact]
+    public static void AnEmptyOpponentNameLeavesTheOtherOpponentFields()
     {
         var opening = Opening(ERunState.PVPCombat);
         opening.Data.CurrentState!.PvpOpponent!.Name = "  ";
@@ -136,7 +131,8 @@ internal static class DesktopPvpBattleCaptureTests
         );
     }
 
-    private static void AMonsterCombatCapturesWithoutAReplayAndStaysCurrentNative()
+    [Fact]
+    public static void AMonsterCombatCapturesWithoutAReplayAndStaysCurrentNative()
     {
         var capture = Capture(Opening(ERunState.Combat));
 
@@ -148,7 +144,8 @@ internal static class DesktopPvpBattleCaptureTests
         );
     }
 
-    private static void ReplayPartsAreTheConcreteMessagesSerialized()
+    [Fact]
+    public static void ReplayPartsAreTheConcreteMessagesSerialized()
     {
         var opening = Opening(ERunState.PVPCombat);
         var combat = Combat();

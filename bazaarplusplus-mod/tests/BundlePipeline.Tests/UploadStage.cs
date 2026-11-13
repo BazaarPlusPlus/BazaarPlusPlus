@@ -10,6 +10,7 @@ using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
 using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 /// <summary>
 /// Uploads the sealed outbox through <see cref="BundleUploadFeed.Session"/> against a recording
@@ -219,18 +220,25 @@ internal static class UploadStage
 /// Upload-feed rules the sealed pipeline cannot reach with real files: the 512 MB soft limit,
 /// the outbox root boundary, the live-run gate, and the retry schedule under a manual clock.
 /// </summary>
-internal static class UploadFeedBoundaries
+public sealed class UploadFeedBoundaries : IDisposable
 {
-    internal static async Task RunAsync(string root)
+    // Each scenario writes under its own temporary directory, as the capsule gave each one its
+    // own subdirectory of one root.
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-upload-feed-boundaries-" + Guid.NewGuid().ToString("N")
+    );
+
+    public UploadFeedBoundaries() => Directory.CreateDirectory(_root);
+
+    public void Dispose()
     {
-        await CleanupRetentionAndSoftLimitStopAtThreshold(Path.Combine(root, "cleanup"));
-        ProductionFilePortRejectsPathsOutsideItsRoot(Path.Combine(root, "file-port"));
-        LiveRunDefersUploadAndArmWakesIt();
-        RetryDelayDoublesWithJitterUnderTheCap();
-        await UploadBackoffScenarios.RunAsync(Path.Combine(root, "backoff"));
+        SqliteConnection.ClearAllPools();
+        Directory.Delete(_root, recursive: true);
     }
 
-    private static void RetryDelayDoublesWithJitterUnderTheCap()
+    [Fact]
+    public static void RetryDelayDoublesWithJitterUnderTheCap()
     {
         static double Seconds(int priorFailures, double jitter, int? retryAfter = null) =>
             BundleUploadFeed.RetryDelay(180, priorFailures, jitter, retryAfter).TotalSeconds;
@@ -259,7 +267,8 @@ internal static class UploadFeedBoundaries
         Check.That(Seconds(0, double.NaN) == 180, "A NaN jitter sample counts as no jitter.");
     }
 
-    private static void LiveRunDefersUploadAndArmWakesIt()
+    [Fact]
+    public static void LiveRunDefersUploadAndArmWakesIt()
     {
         var gate = new StartupUploadAttemptGate(20, 180);
         Check.That(
@@ -281,8 +290,10 @@ internal static class UploadFeedBoundaries
         );
     }
 
-    private static void ProductionFilePortRejectsPathsOutsideItsRoot(string root)
+    [Fact]
+    public void ProductionFilePortRejectsPathsOutsideItsRoot()
     {
+        var root = Path.Combine(_root, "file-port");
         var files = new SystemBundleOutboxFiles(root);
         try
         {
@@ -293,8 +304,10 @@ internal static class UploadFeedBoundaries
     }
 
     // Row times are relative to the clock: retention windows are measured from now.
-    private static async Task CleanupRetentionAndSoftLimitStopAtThreshold(string root)
+    [Fact]
+    public async Task CleanupRetentionAndSoftLimitStopAtThreshold()
     {
+        var root = Path.Combine(_root, "cleanup");
         Directory.CreateDirectory(root);
         var database = Path.Combine(root, "queue.db");
         var store = new BundleQueueStore(database);

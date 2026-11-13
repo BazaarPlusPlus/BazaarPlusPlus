@@ -2,14 +2,16 @@ using System.Text.Json;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.TestSupport;
+using Xunit;
 
 // The desktop's Bundle evidence over the game's Mono assemblies, held to the card enum table that
 // AndroidHost.Tests holds the Android host's interop enums to, so both hosts write the same numbers.
-internal static class CardEnumTableTests
+public sealed class CardEnumTableTests
 {
     private const string CardEnumFixture = "tests/Shared/fixtures/pvp-card-enums.json";
 
-    internal static void Run()
+    [Fact]
+    public static void Run()
     {
         using var table = JsonDocument.Parse(TestInputs.Fixture(CardEnumFixture));
         Verify(table, PvpCardEnum.CardType, typeof(ECardType));
