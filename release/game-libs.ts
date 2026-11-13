@@ -315,7 +315,7 @@ export async function cliMain(
         log(
           status
             ? `Game Status: online build ${status.buildid}`
-            : 'The lock does not record this online build yet; the Game Status stays as it is'
+            : 'The lock does not record this online build yet, or Steam gave no update time; the Game Status stays as it is'
         );
         return 0;
       }

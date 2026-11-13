@@ -1269,7 +1269,7 @@ test('game-status leaves the store alone while the lock is behind, and fails wit
   ).toEqual({
     code: 0,
     out: [],
-    err: 'The lock does not record this online build yet; the Game Status stays as it is\n'
+    err: 'The lock does not record this online build yet, or Steam gave no update time; the Game Status stays as it is\n'
   });
   expect(r2.requests).toEqual([]);
   const noState = await runCli(['game-status'], {
