@@ -22,6 +22,7 @@ What `just --list mod` cannot tell you:
 - `just mod::locks-check` runs a locked restore so NuGet graph drift fails in the mod, not later in the installer build.
 - Doc edits are gated by `just mod::test`: `tests/Architecture.Tests/DocsHygieneTests.cs` enforces a byte budget on each always-loaded doc (`AlwaysLoadedBudgets` lists them) and checks that links resolve; stay under a budget by merging entries, not appending.
 - A deletion is proved by deleting: `just mod::build` and `just mod::test` must both pass, because test projects compile fakes and source-shadow capsules that `build` never touches.
+- A test that compares with a golden puts the difference in its assertion message: `dotnet test` does not show console output, so a printed diff is lost.
 
 ## Logs and debugging
 
