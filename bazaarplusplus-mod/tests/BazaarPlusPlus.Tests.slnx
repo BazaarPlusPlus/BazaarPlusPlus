@@ -35,6 +35,9 @@
         <Project Path="StaticCardMapCompatibility.Tests/StaticCardMapCompatibility.Tests.csproj" />
         <Project Path="CollectionCardProjection.Tests/CollectionCardProjection.Tests.csproj" />
         <Project Path="CollectionSourceFiltering.Tests/CollectionSourceFiltering.Tests.csproj" />
+        <Project Path="Supporters.Tests/Supporters.Tests.csproj" />
+        <Project Path="SupporterCatalogModule.Tests/SupporterCatalogModule.Tests.csproj" />
+        <Project Path="LiveBuildRecommendations.Tests/LiveBuildRecommendations.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />

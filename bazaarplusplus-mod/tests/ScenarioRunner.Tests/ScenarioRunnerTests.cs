@@ -11,12 +11,10 @@ namespace ScenarioRunner.Tests;
 /// </summary>
 public sealed partial class ScenarioRunnerTests
 {
-    private const string SeedRunner = "LiveBuildRecommendations.Tests";
-
-    // The seed runner has its own test, and each ParallelScenarioRunner capsule its own class.
+    // Each ParallelScenarioRunner capsule has its own class.
     public static IEnumerable<object[]> DefaultRunners() =>
         RunnerProjects()
-            .Where(name => name != SeedRunner && !ParallelScenarioRunner.Projects.Contains(name))
+            .Where(name => !ParallelScenarioRunner.Projects.Contains(name))
             .Select(name => new object[] { name });
 
     [Theory]
@@ -32,11 +30,6 @@ public sealed partial class ScenarioRunnerTests
             ["--benchmark"],
             new Dictionary<string, string>()
         );
-
-    [Fact]
-    [Trait("TestKind", "ScenarioRunner")]
-    [Trait("TestKind", "EmbeddedSeed")]
-    public Task Live_build_embedded_seed_passes() => RunAsync(SeedRunner);
 
     internal static Task RunAsync(string projectName) =>
         RunAsync(projectName, [], new Dictionary<string, string>());

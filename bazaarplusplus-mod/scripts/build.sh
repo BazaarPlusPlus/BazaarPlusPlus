@@ -138,10 +138,9 @@ run_seed_gates() {
         --filter "TestKind=EmbeddedSeed" \
         "$@"
     step "Validating ${GREEN}live build recommendation embedded seed${CYAN}"
-    dotnet test tests/ScenarioRunner.Tests/ScenarioRunner.Tests.csproj \
+    dotnet test tests/LiveBuildRecommendations.Tests/LiveBuildRecommendations.Tests.csproj \
         -c Release \
         --filter "TestKind=EmbeddedSeed" \
-        -p:BppSeedGateOnly=true \
         "$@"
 }
 

@@ -12,7 +12,7 @@
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(BppSeedGateOnly)' != 'true'">
+  <ItemGroup>
     <_ScenarioRunnerProject Include="$(BppScenarioRunnerProjects)" />
     <ProjectReference
       Include="@(_ScenarioRunnerProject->'../%(Identity)/%(Identity).csproj')"
@@ -20,12 +20,6 @@
     />
     <ProjectReference
       Include="../CombatImpact.CorpusExport/CombatImpact.CorpusExport.csproj"
-      ReferenceOutputAssembly="false"
-    />
-  </ItemGroup>
-  <ItemGroup Condition="'$(BppSeedGateOnly)' == 'true'">
-    <ProjectReference
-      Include="../LiveBuildRecommendations.Tests/LiveBuildRecommendations.Tests.csproj"
       ReferenceOutputAssembly="false"
     />
   </ItemGroup>

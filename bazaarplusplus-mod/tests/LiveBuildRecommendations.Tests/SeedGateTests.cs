@@ -1,32 +1,30 @@
 using System.Reflection;
 using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
+using Xunit;
+
+namespace LiveBuildRecommendations.Tests;
 
 // The embedded-seed gate: the builds.json seed the desktop host bundles must parse with the
-// production corpus parser (`scripts/build.sh` runs this project with -p:BppSeedGateOnly=true).
-// Parser, recall, scoring, and board projection are tested Core-only in
-// LiveBuildRecommendationCore.Tests.
+// production corpus parser (`scripts/build.sh` runs this project with the EmbeddedSeed filter
+// before it promotes fetched data). Parser, recall, scoring, and board projection are tested
+// Core-only in LiveBuildRecommendationCore.Tests.
 
-SeedGateTests.Run();
-
-internal static class SeedGateTests
+public sealed class SeedGateTests
 {
-    public static void Run()
-    {
-        RegisterAssemblyResolution();
+    // The handler must be in place before the test body JITs a host type that names
+    // UnityEngine.CoreModule; the static constructor runs before xUnit creates the instance.
+    static SeedGateTests() => RegisterAssemblyResolution();
 
-        TestEmbeddedSeedResourceIsBundledAndParses();
-
-        Console.WriteLine("LiveBuild embedded seed checks passed.");
-    }
-
-    private static void TestEmbeddedSeedResourceIsBundledAndParses()
+    [Fact]
+    [Trait("TestKind", "EmbeddedSeed")]
+    public async Task TestEmbeddedSeedResourceIsBundledAndParses()
     {
         var source = new AssemblyResourceCatalogSource(
             typeof(TenWinBuildCatalogFactory).Assembly,
             TenWinBuildCatalogSettings.EmbeddedResourceName
         );
-        var json = source.ReadAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+        var json = await source.ReadAsync(CancellationToken.None);
         Assert(
             !string.IsNullOrWhiteSpace(json),
             "The bundled builds.json seed should be embedded in the assembly."
@@ -88,9 +86,6 @@ internal static class SeedGateTests
         };
     }
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 }
