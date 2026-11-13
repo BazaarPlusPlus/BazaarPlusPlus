@@ -68,7 +68,13 @@ jobs:
           echo "buildid=$buildid" >> "$GITHUB_OUTPUT"
           echo "branch=chore/steam-$STEAM_CHANNEL-$buildid" >> "$GITHUB_OUTPUT"
           echo "platforms=$(jq -c .platforms <<< "$state")" >> "$GITHUB_OUTPUT"
-          echo "Steam $STEAM_CHANNEL updated $(date -u -d "@$(jq -r .updatedAt <<< "$state")" '+%F %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
+          # Steam gives 0, or no value, when it does not know the update time.
+          updated_at="$(jq -r '.updatedAt // 0' <<< "$state")"
+          if [ "$updated_at" -gt 0 ]; then
+            echo "Steam $STEAM_CHANNEL updated $(date -u -d "@$updated_at" '+%F %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Steam $STEAM_CHANNEL gave no update time" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "Steam $STEAM_CHANNEL buildid $buildid; behind in the lock: $(jq -r '.platforms | join(", ")' <<< "$state")" >> "$GITHUB_STEP_SUMMARY"
       # An open pull request, not a branch: a run that stopped before opening one
       # leaves a branch the next run can replace.
