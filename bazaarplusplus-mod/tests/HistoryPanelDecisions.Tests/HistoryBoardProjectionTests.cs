@@ -3,17 +3,24 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 // HistoryBoardProjection: a stored battle's hands and skills as the Android boards rent them.
-internal static class HistoryBoardProjectionTests
+public sealed class HistoryBoardProjectionTests
 {
+    // The capsule ran these checks with English installed.
+    public HistoryBoardProjectionTests() =>
+        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
     private static readonly Guid Known = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid Large = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid Loose = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid Unknown = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly Guid Skill = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
-    public static void Run()
+    [Fact]
+    public void ProjectsStoredBattleBoards()
     {
         bool HasTemplate(Guid id) => id != Unknown;
         string? NoSocketEffect(Guid id, CardTier tier) => null;
@@ -282,6 +289,6 @@ internal static class HistoryBoardProjectionTests
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

@@ -2,15 +2,19 @@
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Localization;
+using Xunit;
 
-internal static class PageRangeTests
+public sealed class PageRangeTests
 {
+    // The capsule ran these checks with English installed.
+    public PageRangeTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
     private static readonly HistoryCursor First = new(1789862400000, "first");
     private static readonly HistoryCursor Last = new(1789776000000, "last");
 
-    public static void Run()
+    [Fact]
+    public void FormatsThePageRangeInEveryLanguage()
     {
-        CheckShapes();
         try
         {
             foreach (var language in new[] { "en", "zh-Hans" })
@@ -88,7 +92,8 @@ internal static class PageRangeTests
     }
 
     // The two page shapes reject the combinations a reader could not have produced.
-    private static void CheckShapes()
+    [Fact]
+    public void CheckShapes()
     {
         var page = Page(40, 41, 213);
         Require(
@@ -149,12 +154,12 @@ internal static class PageRangeTests
         {
             return;
         }
-        throw new InvalidOperationException(message);
+        Xunit.Assert.Fail(message);
     }
 
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

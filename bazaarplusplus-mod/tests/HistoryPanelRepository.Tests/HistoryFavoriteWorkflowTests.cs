@@ -10,28 +10,18 @@ using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // Exercise the production workflow, SQLite and compressed files together. Only operations
 // requiring the game process are supplied by the fixture; none of the persistence is mocked.
-internal static class HistoryFavoriteWorkflowTests
+public sealed class HistoryFavoriteWorkflowTests : IDisposable
 {
-    internal static async Task RunAsync(string root)
-    {
-        await CopyOutlivesRunAndRemovalIsIsolated(root);
-        await UnavailableAndBusyLocalReplay(root);
-        await CopyWriteFailureKeepsFavoriteWithoutReplay(root);
-        await InvalidCopyIsRemoved(root);
-        await FailedInsertRemovesVerifiedCopyAndCanRetry(root);
-        await MissingSourceRemovesVerifiedCopy(root);
-        await RepeatedSavePreservesFirstFavorite(root);
-        await OverlappingSavesPreserveFirstCopy(root);
-        await SweepWhileLoadingKeepsFavoritesAndRecentOrphans(root);
-        await SweepWaitsForPendingFavoriteInsert(root);
-        await ReplayRevalidatesCopyAndSelection(root);
-        Console.WriteLine("History favorite workflow tests passed.");
-    }
+    private readonly string root = TestRoot.Create();
 
-    private static async Task CopyOutlivesRunAndRemovalIsIsolated(string root)
+    public void Dispose() => TestRoot.Delete(root);
+
+    [Fact]
+    public async Task CopyOutlivesRunAndRemovalIsIsolated()
     {
         var f = new Fixture(root);
         var callerThread = Environment.CurrentManagedThreadId;
@@ -90,7 +80,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task UnavailableAndBusyLocalReplay(string root)
+    [Fact]
+    public async Task UnavailableAndBusyLocalReplay()
     {
         var f = new Fixture(root);
         f.LocalOutcome = SavedBattleLoadOutcome.Busy;
@@ -111,7 +102,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task CopyWriteFailureKeepsFavoriteWithoutReplay(string root)
+    [Fact]
+    public async Task CopyWriteFailureKeepsFavoriteWithoutReplay()
     {
         var f = new Fixture(root);
         Directory.CreateDirectory(f.CopyPath(Fixture.LocalId));
@@ -127,7 +119,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task InvalidCopyIsRemoved(string root)
+    [Fact]
+    public async Task InvalidCopyIsRemoved()
     {
         foreach (var wrongIdentity in new[] { false, true })
         {
@@ -150,7 +143,8 @@ internal static class HistoryFavoriteWorkflowTests
         }
     }
 
-    private static async Task FailedInsertRemovesVerifiedCopyAndCanRetry(string root)
+    [Fact]
+    public async Task FailedInsertRemovesVerifiedCopyAndCanRetry()
     {
         var f = new Fixture(root);
         f.Execute(
@@ -177,7 +171,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task MissingSourceRemovesVerifiedCopy(string root)
+    [Fact]
+    public async Task MissingSourceRemovesVerifiedCopy()
     {
         var f = new Fixture(root);
         f.AfterLocalLoad = () => f.Repository.DeleteRun(Fixture.RunId);
@@ -191,7 +186,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task RepeatedSavePreservesFirstFavorite(string root)
+    [Fact]
+    public async Task RepeatedSavePreservesFirstFavorite()
     {
         var f = new Fixture(root);
         await f.AddLocal();
@@ -211,7 +207,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task OverlappingSavesPreserveFirstCopy(string root)
+    [Fact]
+    public async Task OverlappingSavesPreserveFirstCopy()
     {
         var f = new Fixture(root);
         var firstLoad = new TaskCompletionSource<GhostReplayLoad>(
@@ -255,7 +252,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task SweepWhileLoadingKeepsFavoritesAndRecentOrphans(string root)
+    [Fact]
+    public async Task SweepWhileLoadingKeepsFavoritesAndRecentOrphans()
     {
         var f = new Fixture(root);
         await f.AddLocal();
@@ -301,7 +299,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task SweepWaitsForPendingFavoriteInsert(string root)
+    [Fact]
+    public async Task SweepWaitsForPendingFavoriteInsert()
     {
         var f = new Fixture(root);
         // Warm schema initialization before taking the SQLite writer lock: subsequent
@@ -389,7 +388,8 @@ internal static class HistoryFavoriteWorkflowTests
         );
     }
 
-    private static async Task ReplayRevalidatesCopyAndSelection(string root)
+    [Fact]
+    public async Task ReplayRevalidatesCopyAndSelection()
     {
         var f = new Fixture(root);
         await f.AddLocal();
@@ -432,7 +432,7 @@ internal static class HistoryFavoriteWorkflowTests
     private static void Check(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private sealed record Playback(

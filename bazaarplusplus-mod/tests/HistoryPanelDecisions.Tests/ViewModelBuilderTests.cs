@@ -1,20 +1,19 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.Supporters;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 // The view model both hosts render. Without a coordinator the panel shows itself unavailable;
 // the board layout and the delete action follow the section (ADR-0002: Ghost shows only the
 // challenger's board).
-internal static class ViewModelBuilderTests
+public sealed class ViewModelBuilderTests
 {
-    public static void Run()
-    {
-        WithoutACoordinatorThePanelIsUnavailableAndNothingActs();
-        GhostShowsOneBoardAndNoDelete();
-        TheHostsSupporterSamplesPassThrough();
-    }
+    // The capsule ran these checks with English installed.
+    public ViewModelBuilderTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
-    private static void WithoutACoordinatorThePanelIsUnavailableAndNothingActs()
+    [Fact]
+    public void WithoutACoordinatorThePanelIsUnavailableAndNothingActs()
     {
         var model = Build(new HistoryPanelState());
 
@@ -32,7 +31,8 @@ internal static class ViewModelBuilderTests
         );
     }
 
-    private static void GhostShowsOneBoardAndNoDelete()
+    [Fact]
+    public void GhostShowsOneBoardAndNoDelete()
     {
         var runs = new HistoryPanelState { SectionMode = HistorySectionMode.Runs };
         var ghost = new HistoryPanelState { SectionMode = HistorySectionMode.Ghost };
@@ -52,7 +52,8 @@ internal static class ViewModelBuilderTests
         Require(ghostModel.SectionMode == HistorySectionMode.Ghost, "The section passes through.");
     }
 
-    private static void TheHostsSupporterSamplesPassThrough()
+    [Fact]
+    public void TheHostsSupporterSamplesPassThrough()
     {
         var supporters = new List<BPPSupporterSample>();
         Require(
@@ -94,6 +95,6 @@ internal static class ViewModelBuilderTests
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }

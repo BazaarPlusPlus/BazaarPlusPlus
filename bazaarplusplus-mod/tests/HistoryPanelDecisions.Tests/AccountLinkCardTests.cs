@@ -1,11 +1,17 @@
 #nullable enable
 using System.Reflection;
 using BazaarPlusPlus.Localization;
+using Xunit;
 
-internal static class AccountLinkCardTests
+public sealed class AccountLinkCardTests
 {
-    public static void Run(Assembly assembly)
+    // The capsule ran these checks with English installed.
+    public AccountLinkCardTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
+    [Fact]
+    public void ResolvesTheCardForEveryGateAndLanguage()
     {
+        var assembly = typeof(BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions).Assembly;
         var decisions = assembly.GetType(
             "BazaarPlusPlus.Game.HistoryPanel.HistoryPanelDecisions",
             true
@@ -128,7 +134,7 @@ internal static class AccountLinkCardTests
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 
     private static void Contains(string value, string expected) =>

@@ -2,10 +2,12 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Ui;
 using BazaarPlusPlus.Game.HistoryPanel.Ui;
+using BazaarPlusPlus.Localization;
+using Xunit;
 
 // HistoryTouchLayout on the screens the Android History panel must fit: a 20:9 phone, a 16:10
 // tablet, a 16:9 phone, a 20:9 phone with a left cutout, and a denser 19.5:9 phone.
-internal static class HistoryTouchLayoutTests
+public sealed class HistoryTouchLayoutTests
 {
     private sealed record Screen(
         string Name,
@@ -28,11 +30,22 @@ internal static class HistoryTouchLayoutTests
         new("1920x1080@560 cutout", 1920f, 1080f, 560f, CutoutLeft: 110f),
     ];
 
-    public static void Run()
+    // The capsule ran these checks with English installed.
+    public HistoryTouchLayoutTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
+
+    public static TheoryData<string> ScreenNames => new(Screens.Select(screen => screen.Name));
+
+    // The capsule's loop over Screens: one row per screen.
+    [Theory]
+    [MemberData(nameof(ScreenNames))]
+    public void ScreenFits(string name) => Check(Screens.Single(screen => screen.Name == name));
+
+    [Fact]
+    public void NarrowHeaderFits() => CheckNarrowHeader();
+
+    [Fact]
+    public void BackReturnsFromDetailAndPreservesTheArchive()
     {
-        foreach (var screen in Screens)
-            Check(screen);
-        CheckNarrowHeader();
         var navigation = new HistoryTouchNavigation();
         Require(!navigation.Back(), "The archive has no detail back step.");
         navigation.ArchiveScrollDp[0] = 120f;
@@ -415,6 +428,6 @@ internal static class HistoryTouchLayoutTests
     private static void Require(bool condition, string message)
     {
         if (!condition)
-            throw new InvalidOperationException(message);
+            Xunit.Assert.Fail(message);
     }
 }
