@@ -45,6 +45,7 @@ Each group gets the same messages, in this order: notes, Win, Mac, Android. `her
 - If the script stops partway, it prints what each group got and the `--groups`, `--platforms` and `--notes` to resume with. Use exactly those, so no group gets a message twice.
 - `40034105`: that group has not allowed proactive messages. The group owner must remove the bot, re-add it from mobile QQ, and enable 「设置主动推送消息能力」 under 「设置权限」.
 - `40093002`: the daily file upload quota is used up. Resume the next day.
+- `40093003` (群文件超过上限): that group's file storage is full. The group owner or an admin deletes old group files in QQ, then resume that group with the printed flags; they leave out `--notes`, because the notes already went out.
 
 ## Adding a group
 
