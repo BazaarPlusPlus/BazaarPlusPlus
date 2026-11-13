@@ -2,37 +2,29 @@
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.CombatReplay.Audio;
 using BazaarPlusPlus.Game.CombatReplay.Video;
+using Xunit;
 
 // Terminal outcomes the recorder's background finalizers report. Each scenario drives the real
 // finalizer with a real encoder drain over a scripted encoder and observes the one terminal the
 // recording lifecycle publishes.
-internal static class RecordingFinalizerScenarios
+public sealed class RecordingFinalizerScenarios : IDisposable
 {
-    internal static void Run()
-    {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "bpp-recording-finalizer-tests",
-            Guid.NewGuid().ToString("N")
-        );
-        Directory.CreateDirectory(root);
-        try
-        {
-            AbortedDrainFailureKeepsAudioAndMetadataOutcomes(root);
-            AbortedWithoutDrainReportsAudioAndMetadataOutcomes(root);
-            BeginExceptionLeavesActiveOperationToAbortFinalizer(root);
-            BeginExceptionClosesOperationTheAbortNeverTook();
-            EndedRecordingReportsRealAudioAndMetadataOutcomes(root);
-            DrainReportsTheVideoTimelineLength(root);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
-    }
+    // Each scenario gets its own scratch directory, as the capsule's one directory held each
+    // scenario's files under its own name.
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-recording-finalizer-tests",
+        Guid.NewGuid().ToString("N")
+    );
 
-    private static void AbortedDrainFailureKeepsAudioAndMetadataOutcomes(string root)
+    public RecordingFinalizerScenarios() => Directory.CreateDirectory(_root);
+
+    public void Dispose() => Directory.Delete(_root, recursive: true);
+
+    [Fact]
+    public void AbortedDrainFailureKeepsAudioAndMetadataOutcomes()
     {
+        var root = _root;
         var harness = new Harness("aborted-drain-throws");
         var encoder = new ScriptedEncoder { DisposeException = new IOException("dispose") };
         var context = harness.Aborted(
@@ -62,8 +54,10 @@ internal static class RecordingFinalizerScenarios
         );
     }
 
-    private static void AbortedWithoutDrainReportsAudioAndMetadataOutcomes(string root)
+    [Fact]
+    public void AbortedWithoutDrainReportsAudioAndMetadataOutcomes()
     {
+        var root = _root;
         var harness = new Harness("aborted-no-drain");
         var tempPath = Path.Combine(root, "aborted-no-drain.tmp.mp4");
         File.WriteAllBytes(tempPath, new byte[] { 1 });
@@ -103,8 +97,10 @@ internal static class RecordingFinalizerScenarios
 
     // The start threw after its operation became active, so the abort dispatched a finalizer
     // that owns the terminal. The start's catch runs while that finalizer is still draining.
-    private static void BeginExceptionLeavesActiveOperationToAbortFinalizer(string root)
+    [Fact]
+    public async Task BeginExceptionLeavesActiveOperationToAbortFinalizer()
     {
+        var root = _root;
         var harness = new Harness("begin-exception-race");
         using var drainRelease = new ManualResetEventSlim(false);
         var encoder = new ScriptedEncoder { CompletionGate = drainRelease };
@@ -134,7 +130,11 @@ internal static class RecordingFinalizerScenarios
         );
 
         drainRelease.Set();
-        Assert(finalizer.Wait(TimeSpan.FromSeconds(5)), "The abort finalizer must finish.");
+        Assert(
+            await Task.WhenAny(finalizer, Task.Delay(TimeSpan.FromSeconds(5))) == finalizer,
+            "The abort finalizer must finish."
+        );
+        await finalizer;
         var terminal = harness.Single();
         Assert(
             terminal.ReasonCode == ReplayVideoRecordingReasonCode.BeginException,
@@ -151,7 +151,8 @@ internal static class RecordingFinalizerScenarios
         );
     }
 
-    private static void BeginExceptionClosesOperationTheAbortNeverTook()
+    [Fact]
+    public static void BeginExceptionClosesOperationTheAbortNeverTook()
     {
         var harness = new Harness("begin-exception-preactive");
 
@@ -171,8 +172,10 @@ internal static class RecordingFinalizerScenarios
         );
     }
 
-    private static void EndedRecordingReportsRealAudioAndMetadataOutcomes(string root)
+    [Fact]
+    public void EndedRecordingReportsRealAudioAndMetadataOutcomes()
     {
+        var root = _root;
         var silent = new Harness("ended-metadata-failed");
         silent.Ended(
             root,
@@ -222,8 +225,10 @@ internal static class RecordingFinalizerScenarios
 
     // The persisted duration is what the History page shows as the video's length, so it comes
     // from the encoded timeline, not from the session span that includes encoder start and drain.
-    private static void DrainReportsTheVideoTimelineLength(string root)
+    [Fact]
+    public void DrainReportsTheVideoTimelineLength()
     {
+        var root = _root;
         var tempPath = Path.Combine(root, "timeline-length.tmp.mp4");
         File.WriteAllBytes(tempPath, new byte[] { 1, 2, 3 });
         var drain = new ReplayVideoEncoderDrain(
@@ -275,11 +280,8 @@ internal static class RecordingFinalizerScenarios
         return new ReplayAudioCaptureResult { WavPath = path, Usable = true };
     }
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private sealed class Harness
     {

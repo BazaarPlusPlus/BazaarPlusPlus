@@ -3,30 +3,12 @@ using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BepInEx.Logging;
+using Xunit;
 
-internal static class EndOfRunCaptureWorkflowBehaviorTests
+public sealed class EndOfRunCaptureWorkflowBehaviorTests
 {
-    internal static void Run()
-    {
-        Missing_surface_is_fail_open();
-        Reveal_and_success_flow();
-        Clean_frame_fallback_persists_artifact_and_reports_degraded();
-        Capture_timeout_starts_when_capture_is_invoked();
-        Retryable_failures_get_one_retry_only();
-        Adapter_non_retryable_failure_fails_open();
-        Reveal_and_capture_timeouts_fail_open_without_retry();
-        Metadata_failure_and_timeout_keep_the_verified_artifact();
-        Unexpected_failure_after_capture_preserves_the_verified_artifact();
-        Unexpected_failure_before_capture_releases_the_active_attempt();
-        Failed_unblock_is_retried_without_blocking_continue();
-        Navigation_after_frame_acquisition_keeps_background_capture();
-        Context_expiry_cancels_and_cleans_up_a_late_artifact();
-        Driver_detach_releases_the_active_attempt();
-        Reset_cancels_the_old_generation_and_allows_a_new_run();
-        Terminal_outcome_is_emitted_once();
-    }
-
-    private static void Capture_timeout_starts_when_capture_is_invoked()
+    [Fact]
+    public static void Capture_timeout_starts_when_capture_is_invoked()
     {
         var fixture = new Fixture();
         fixture.Core.OnEndOfRunInitializing();
@@ -53,7 +35,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         Assert(attempt.CancelCount == 1, "Capture should time out after its own deadline.");
     }
 
-    private static void Clean_frame_fallback_persists_artifact_and_reports_degraded()
+    [Fact]
+    public static void Clean_frame_fallback_persists_artifact_and_reports_degraded()
     {
         using var log = new TestLogCapture();
         var fixture = ReadyFixture();
@@ -86,7 +69,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Missing_surface_is_fail_open()
+    [Fact]
+    public static void Missing_surface_is_fail_open()
     {
         var core = new EndOfRunCaptureWorkflowCore<FakeScreen>(
             new FakePersistence(),
@@ -102,7 +86,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Reveal_and_success_flow()
+    [Fact]
+    public static void Reveal_and_success_flow()
     {
         var fixture = new Fixture();
         fixture.Core.OnEndOfRunInitializing();
@@ -161,7 +146,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         Assert(fixture.Surface.BeginCount == 1, "Repeated frames must not duplicate capture.");
     }
 
-    private static void Adapter_non_retryable_failure_fails_open()
+    [Fact]
+    public static void Adapter_non_retryable_failure_fails_open()
     {
         var fixture = ReadyFixture();
         var attempt = fixture.Surface.LastAttempt!;
@@ -178,7 +164,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         Assert(attempt.RestoreCount == 1, "Failure must restore UI once.");
     }
 
-    private static void Retryable_failures_get_one_retry_only()
+    [Fact]
+    public static void Retryable_failures_get_one_retry_only()
     {
         var fixture = new Fixture();
         fixture.Core.OnEndOfRunInitializing();
@@ -241,7 +228,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Reveal_and_capture_timeouts_fail_open_without_retry()
+    [Fact]
+    public static void Reveal_and_capture_timeouts_fail_open_without_retry()
     {
         var revealFixture = new Fixture();
         revealFixture.Core.OnEndOfRunInitializing();
@@ -277,7 +265,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Metadata_failure_and_timeout_keep_the_verified_artifact()
+    [Fact]
+    public static void Metadata_failure_and_timeout_keep_the_verified_artifact()
     {
         var failed = ReadyFixture();
         AcquireFrame(failed);
@@ -312,7 +301,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Unexpected_failure_after_capture_preserves_the_verified_artifact()
+    [Fact]
+    public static void Unexpected_failure_after_capture_preserves_the_verified_artifact()
     {
         var fixture = ReadyFixture();
         AcquireFrame(fixture);
@@ -330,7 +320,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Unexpected_failure_before_capture_releases_the_active_attempt()
+    [Fact]
+    public static void Unexpected_failure_before_capture_releases_the_active_attempt()
     {
         var fixture = ReadyFixture();
         var attempt = fixture.Surface.LastAttempt!;
@@ -342,7 +333,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         Assert(!fixture.Surface.IsBlocked, "Unexpected failure must fail open Continue.");
     }
 
-    private static void Failed_unblock_is_retried_without_blocking_continue()
+    [Fact]
+    public static void Failed_unblock_is_retried_without_blocking_continue()
     {
         var fixture = ReadyFixture();
         fixture.Surface.UnblockFailuresRemaining = 1;
@@ -367,7 +359,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Navigation_after_frame_acquisition_keeps_background_capture()
+    [Fact]
+    public static void Navigation_after_frame_acquisition_keeps_background_capture()
     {
         var fixture = ReadyFixture();
         var attempt = fixture.Surface.LastAttempt!;
@@ -392,7 +385,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Context_expiry_cancels_and_cleans_up_a_late_artifact()
+    [Fact]
+    public static void Context_expiry_cancels_and_cleans_up_a_late_artifact()
     {
         var fixture = ReadyFixture();
         var attempt = fixture.Surface.LastAttempt!;
@@ -412,7 +406,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         );
     }
 
-    private static void Driver_detach_releases_the_active_attempt()
+    [Fact]
+    public static void Driver_detach_releases_the_active_attempt()
     {
         var fixture = ReadyFixture();
         var attempt = fixture.Surface.LastAttempt!;
@@ -424,7 +419,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         Assert(!fixture.Surface.IsBlocked, "Driver detach must fail open Continue.");
     }
 
-    private static void Reset_cancels_the_old_generation_and_allows_a_new_run()
+    [Fact]
+    public static void Reset_cancels_the_old_generation_and_allows_a_new_run()
     {
         var fixture = ReadyFixture();
         var oldAttempt = fixture.Surface.LastAttempt!;
@@ -440,7 +436,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         Assert(fixture.Surface.BeginCount == 2, "New run should get a fresh capture generation.");
     }
 
-    private static void Terminal_outcome_is_emitted_once()
+    [Fact]
+    public static void Terminal_outcome_is_emitted_once()
     {
         using var log = new TestLogCapture();
         var fixture = ReadyFixture();
@@ -507,11 +504,8 @@ internal static class EndOfRunCaptureWorkflowBehaviorTests
         throw new InvalidOperationException(message);
     }
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private sealed class Fixture
     {

@@ -1,44 +1,26 @@
 using System.Reflection;
 using BepInEx.Logging;
+using Xunit;
 
 // Behavioral unit tests for the design-mandated pure-logic units of the
 // combat-replay audio/video pipeline, reached as internal types via reflection
 // (Type.GetType("Full.Name, BazaarPlusPlus")):
 //   1) WavStreamWriter    -- byte-exact WAV header
 //   2) WallClockCfrPacer  -- wall-clock repeat/drop counting
-// Plus native encoder policy, timing, mux fallback and lifecycle contracts.
-
-WavHeaderTests.Run();
-CfrPacerTests.Run();
-VideoEncoderProfileTests.Run();
-VideoBackendPolicyTests.Run();
-VideoBufferPlanTests.Run();
-CopyTimingTests.Run();
-OutputFileNameTests.Run();
-ZeroDurationMuxGuardTests.Run();
-AudioTapPlanTests.Run();
-RecordingOperationContractTests.Run();
-AudioStopTimeoutTests.Run();
-RecorderIntegrationContractTests.Run();
-
-Console.WriteLine("CombatReplayAudioVideo tests passed.");
+// Plus native encoder policy, timing, mux fallback and lifecycle contracts. Each class is one
+// check of the capsule; a class whose Run() called named checks has one Fact per check.
 
 // ---------------------------------------------------------------------------
 // 1) WavStreamWriter.BuildHeader: byte-exact 44-byte IEEE-float WAV header.
 // ---------------------------------------------------------------------------
-file static class WavHeaderTests
+public sealed class WavHeaderTests
 {
     private static readonly Type WavType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Audio.WavStreamWriter"
     );
 
-    public static void Run()
-    {
-        StereoHeader();
-        MonoEmptyHeader();
-    }
-
-    private static void StereoHeader()
+    [Fact]
+    public static void StereoHeader()
     {
         // 48000 Hz, 2ch, dataByteLength = 8.
         var header = BuildHeader(48000, 2, 8);
@@ -74,7 +56,8 @@ file static class WavHeaderTests
         TestReflection.Assert(U32(header, 40) == 8u, "bytes 40-43 must be LE 8 (dataByteLength).");
     }
 
-    private static void MonoEmptyHeader()
+    [Fact]
+    public static void MonoEmptyHeader()
     {
         // 44100 Hz, 1ch, dataByteLength = 0 (placeholder header on file open).
         var header = BuildHeader(44100, 1, 0);
@@ -125,22 +108,15 @@ file static class WavHeaderTests
 // ---------------------------------------------------------------------------
 // 2) WallClockCfrPacer: wall-clock CFR repeat/drop counting via CfrTickResult.
 // ---------------------------------------------------------------------------
-file static class CfrPacerTests
+public sealed class CfrPacerTests
 {
     private static readonly Type PacerType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.WallClockCfrPacer"
     );
 
-    public static void Run()
-    {
-        NoLeadingPad();
-        SteadyCadenceNoRepeats();
-        RepeatsWhenCaptureStalls();
-        DropOnOvershootResync();
-    }
-
     // First tick with no frame available: nothing emitted, clock not started.
-    private static void NoLeadingPad()
+    [Fact]
+    public static void NoLeadingPad()
     {
         var pacer = New(30);
         long lastEmitted = -1;
@@ -160,7 +136,8 @@ file static class CfrPacerTests
 
     // 30 fps, clock advances exactly one frame interval per tick, a NEW seq each
     // tick: total emits == 30, repeats == 0 over the simulated second.
-    private static void SteadyCadenceNoRepeats()
+    [Fact]
+    public static void SteadyCadenceNoRepeats()
     {
         var pacer = New(30);
         var interval = 1.0 / 30.0;
@@ -197,7 +174,8 @@ file static class CfrPacerTests
 
     // After priming one frame, advance the clock by 3 intervals while keeping
     // latestSeq CONSTANT: the extra slots repeat the last frame.
-    private static void RepeatsWhenCaptureStalls()
+    [Fact]
+    public static void RepeatsWhenCaptureStalls()
     {
         var pacer = New(30);
         var interval = 1.0 / 30.0;
@@ -245,7 +223,8 @@ file static class CfrPacerTests
     // Prime, then jump the clock far past resyncOvershootIntervals*interval in a
     // single tick. EmitCount is clamped by maxEmitsPerTick=3, DroppedCount>0, and
     // the pacer resyncs so the next steady tick emits normally (0 or 1).
-    private static void DropOnOvershootResync()
+    [Fact]
+    public static void DropOnOvershootResync()
     {
         // maxEmitsPerTick=3, resyncOvershootIntervals=5.
         var pacer = New(30, maxEmitsPerTick: 3, resyncOvershootIntervals: 5);
@@ -336,12 +315,13 @@ file static class CfrPacerTests
 // ---------------------------------------------------------------------------
 // 4) ReplayVideoFramePool: optional Rent/Return + cap micro-check.
 // ---------------------------------------------------------------------------
-file static class VideoEncoderProfileTests
+public sealed class VideoEncoderProfileTests
 {
     private static readonly Type ProfileType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoEncoderProfile"
     );
 
+    [Fact]
     public static void Run()
     {
         var bitrate = ProfileType.GetMethod(
@@ -396,8 +376,9 @@ file static class VideoEncoderProfileTests
 // 4b) Platform backend contract: supported desktop platforms are native and
 //     unknown platforms are rejected.
 // ---------------------------------------------------------------------------
-file static class VideoBackendPolicyTests
+public sealed class VideoBackendPolicyTests
 {
+    [Fact]
     public static void Run()
     {
         var policyType = TestReflection.RequireType(
@@ -447,16 +428,15 @@ file static class VideoBackendPolicyTests
 // 5) Byte budget: pool payload is bounded independently from queue references,
 //    and the writer gets one headroom slot (queue = pool - 1).
 // ---------------------------------------------------------------------------
-file static class VideoBufferPlanTests
+public sealed class VideoBufferPlanTests
 {
     private static readonly Type PlanType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoBufferPlan"
     );
 
+    [Fact]
     public static void Run()
     {
-        InvalidDimensionsReportPreciseParameter();
-
         var native = Create(2742, 1624);
         TestReflection.Assert(
             Int(native, "FrameByteLength") == 17_812_032,
@@ -491,7 +471,8 @@ file static class VideoBufferPlanTests
         );
     }
 
-    private static void InvalidDimensionsReportPreciseParameter()
+    [Fact]
+    public static void InvalidDimensionsReportPreciseParameter()
     {
         AssertInvalidDimension(-1, 1080, "width");
         AssertInvalidDimension(1920, 0, "height");
@@ -536,8 +517,9 @@ file static class VideoBufferPlanTests
 // 6) Copy timing: Debug builds keep the samples their diagnostic events report;
 //    Release builds, whose Debug events compile out, keep none.
 // ---------------------------------------------------------------------------
-file static class CopyTimingTests
+public sealed class CopyTimingTests
 {
+    [Fact]
     public static void Run()
     {
         var type = TestReflection.RequireType(
@@ -583,8 +565,9 @@ file static class CopyTimingTests
 // 10) Replay output names include the recording identity, so overlapping drains
 //     for the same battle and wall-clock second cannot share either artifact.
 // ---------------------------------------------------------------------------
-file static class OutputFileNameTests
+public sealed class OutputFileNameTests
 {
+    [Fact]
     public static void Run()
     {
         var type = TestReflection.RequireType(
@@ -627,12 +610,13 @@ file static class OutputFileNameTests
 //    good silent first-pass video. Reproduced sizes: a real 3s recording is
 //    multi-MB; the empty-output stub is ~261 bytes.
 // ---------------------------------------------------------------------------
-file static class ZeroDurationMuxGuardTests
+public sealed class ZeroDurationMuxGuardTests
 {
     private static readonly Type MuxerType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoAudioMuxer"
     );
 
+    [Fact]
     public static void Run()
     {
         // The repro: a ~261-byte empty-output stub against a multi-MB silent video
@@ -702,18 +686,14 @@ file static class ZeroDurationMuxGuardTests
 // 5) ReplayVideoAudioMuxer.BuildArguments: multi-WAV capture must mix the base
 //    bus audio and SFX bus audio into one AAC input via amix.
 // ---------------------------------------------------------------------------
-file static class AudioTapPlanTests
+public sealed class AudioTapPlanTests
 {
     private static readonly Type TapPlanType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoAudioTapPlan"
     );
 
-    public static void Run()
-    {
-        DerivesSingleCoreMasterWavPath();
-    }
-
-    private static void DerivesSingleCoreMasterWavPath()
+    [Fact]
+    public static void DerivesSingleCoreMasterWavPath()
     {
         var path = DeriveAudioWavPath(@"C:\replays\battle.20260530-105445.recording.mp4");
 
@@ -747,7 +727,7 @@ file static class AudioTapPlanTests
 // 8) Native encoder diagnostics remain bounded in terminal records.
 //    chunk-fed tail. A single hostile line must never expand retained memory.
 // ---------------------------------------------------------------------------
-file static class RecordingOperationContractTests
+public sealed class RecordingOperationContractTests
 {
     private static readonly Type OperationType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoRecordingOperation"
@@ -771,6 +751,7 @@ file static class RecordingOperationContractTests
         "BazaarPlusPlus.Game.CombatReplay.Video.ReplayVideoRecordingLifecycle"
     );
 
+    [Fact]
     public static void Run()
     {
         var root = Path.Combine(
@@ -1444,8 +1425,9 @@ file static class RecordingOperationContractTests
 // 11) Audio teardown timeout is a typed result, and never leaves a timed-out
 //     tap eligible for muxing.
 // ---------------------------------------------------------------------------
-file static class AudioStopTimeoutTests
+public sealed class AudioStopTimeoutTests
 {
+    [Fact]
     public static void Run()
     {
         using var release = new ManualResetEventSlim(false);
@@ -1485,8 +1467,9 @@ file static class AudioStopTimeoutTests
 // 12) Resolved final metadata: the persisted recorder status must agree with
 //     the verified artifact and terminal capture outcome.
 // ---------------------------------------------------------------------------
-file static class RecorderIntegrationContractTests
+public sealed class RecorderIntegrationContractTests
 {
+    [Fact]
     public static void Run()
     {
         var resolutionType = TestReflection.RequireType(
@@ -1531,11 +1514,8 @@ file static class RecorderIntegrationContractTests
 // ---------------------------------------------------------------------------
 file static class TestReflection
 {
-    public static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    public static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     // The replay video types live in the host; the playback source enum in Core.
     public static Type RequireType(string fullName) =>

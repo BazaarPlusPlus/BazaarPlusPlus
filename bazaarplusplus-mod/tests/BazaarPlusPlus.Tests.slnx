@@ -38,6 +38,9 @@
         <Project Path="Supporters.Tests/Supporters.Tests.csproj" />
         <Project Path="SupporterCatalogModule.Tests/SupporterCatalogModule.Tests.csproj" />
         <Project Path="LiveBuildRecommendations.Tests/LiveBuildRecommendations.Tests.csproj" />
+        <Project Path="CombatReplayAudioVideo.Tests/CombatReplayAudioVideo.Tests.csproj" />
+        <Project Path="CombatReplayRecording.Tests/CombatReplayRecording.Tests.csproj" />
+        <Project Path="EndOfRunScreenshotGate.Tests/EndOfRunScreenshotGate.Tests.csproj" />
         <Project Path="SteamSnapshot.Tests/SteamSnapshot.Tests.csproj" />
         <Project Path="Updater.Tests/Updater.Tests.csproj" />
         <Project Path="UpgradePreviewValueMath.Tests/UpgradePreviewValueMath.Tests.csproj" />
