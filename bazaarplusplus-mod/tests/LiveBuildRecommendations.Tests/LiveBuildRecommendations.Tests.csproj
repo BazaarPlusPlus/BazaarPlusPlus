@@ -2,13 +2,23 @@
   <!-- The embedded-seed gate over the desktop host assembly. The Core logic it parses with is
        tested Core-only in LiveBuildRecommendationCore.Tests. -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>LiveBuildRecommendations.Tests</AssemblyName>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <BppReferenceGameLibraries>true</BppReferenceGameLibraries>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(RemoteEmbeddedDataPrepared)' == 'true'">
     <DefineConstants>$(DefineConstants);REMOTE_EMBEDDED_DATA_PREPARED</DefineConstants>
