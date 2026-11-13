@@ -2,6 +2,8 @@
 
 状态：已接受（2026-11-12）。"实施顺序"的第 0 步已经通过，结果见"第 0 步的验证结果"。
 
+2026-11-14 注：App 最低 API 改回 30（用户决定），见"最低 API 30（用户决定）"。本记录的相应部分已按此改写。
+
 ## 背景
 
 2026-11-12 在 AVD `bpp_emu_20_9` 与 `bpp_emu_3_2` 上实测：
@@ -136,10 +138,12 @@ downloads["android-aarch64"] = {
 - `game-status/android.json` 仍只写发行商 APK 的游戏，由 watch 写入。下载页拿它和发行商适配包的游戏比较。
 - 下载页也能解析没有 `adaptations` 的清单（本记录之前推广的），这时只列发行商的游戏。
 
-### 最低 API 32（用户决定）
+### 最低 API 30（用户决定）
 
-- App 最低 API 改为 32，与 Play 版游戏相同。
-- 代价：发行商 APK 的 `minSdk` 是 25，所以 Android 11 和 12 上装发行商 APK 的用户用不了 BPP。
+- App 最低 API 是 30（Android 11）：`ResourcesLoader` 从 API 30 起才有。
+- 6.3.0 到 6.3.2 的最低 API 是 32，与 Play 版游戏相同。代价是：发行商 APK 的 `minSdk` 是 25，所以 Android 11 和 12 上装发行商 APK 的用户用不了 BPP。
+- 2026-11-14 改回 30。HarmonyOS 4.2 基于 Android 12，这些设备没有 Google Play，只能装发行商 APK，6.3.0 起装不上 App。与 Play 版一致这个理由不适用于它们。
+- API 30 和 31 的设备上，BPP 只能运行发行商 APK：Play 版在这些设备上装不了。
 
 ### Play 版的事实（2026-11-12 实测）
 
@@ -194,7 +198,7 @@ downloads["android-aarch64"] = {
 - [ADR 0012](0012-android-app.md)：
   - "只支持最新游戏版本"改为"支持维护列表里的每个游戏"。
   - 三档启动规则改为按来源比较。"`versionCode` 相同按较新处理"不变。
-  - App 最低 API 改为 32。
+  - App 最低 API 改为 32（2026-11-14 改回 30）。
   - Play 的未验证项按上面的实测结果更新。
 - [ADR 0016](0016-one-game-compatibility-rule.md)：Android 的"游戏较旧"按同一来源判断；游戏状态只覆盖发行商来源。
 - [ADR 0008](0008-interop-snapshots-in-snapshot-lock.md)：

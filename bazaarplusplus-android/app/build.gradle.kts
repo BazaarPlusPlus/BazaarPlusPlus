@@ -6,7 +6,11 @@ plugins {
 }
 
 @Suppress("UNCHECKED_CAST")
-val lock = JsonSlurper().parse(rootProject.file("toolchain.lock.json")) as Map<String, Any>
+val lock = JsonSlurper().parseText(
+    // Read through a provider: the configuration cache does not see a read that JsonSlurper
+    // makes itself, and would keep the old tool versions after the lock changes.
+    providers.fileContents(rootProject.layout.projectDirectory.file("toolchain.lock.json")).asText.get(),
+) as Map<String, Any>
 @Suppress("UNCHECKED_CAST")
 val sdk = lock["androidSdk"] as Map<String, Any>
 @Suppress("UNCHECKED_CAST")

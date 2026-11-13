@@ -503,7 +503,7 @@ const zh: LocalizedSiteCopy = {
     },
     android: {
       title: 'Android',
-      arch: 'Android 12L+ · arm64',
+      arch: 'Android 11+ · arm64',
       badge: '实验版',
       notice: '功能与桌面版有差异，可能存在尚未发现的问题。',
       sources: { publisher: '发行商官网', play: 'Google Play' },
@@ -857,7 +857,7 @@ const en: LocalizedSiteCopy = {
     },
     android: {
       title: 'Android',
-      arch: 'Android 12L+ · arm64',
+      arch: 'Android 11+ · arm64',
       badge: 'Experimental',
       notice:
         'Features differ from desktop, and undiscovered issues may remain.',

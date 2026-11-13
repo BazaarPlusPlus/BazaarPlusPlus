@@ -128,7 +128,7 @@ async function describeAndroid(page: Page) {
   return {
     badge: await text(card.getByText('Experimental', { exact: true })),
     requirements: await text(
-      card.getByText('Android 12L+ · arm64', { exact: true })
+      card.getByText('Android 11+ · arm64', { exact: true })
     ),
     notice: await text(card.getByText(/^Features differ from desktop/)),
     version: await fact(card, 'Current version'),
