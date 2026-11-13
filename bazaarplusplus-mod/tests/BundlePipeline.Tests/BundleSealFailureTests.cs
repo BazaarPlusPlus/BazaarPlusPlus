@@ -20,40 +20,38 @@ using BazaarPlusPlus.TestSupport;
 using BepInEx.Logging;
 using MessagePack;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // Failure and wait behavior observed through the coordinator, durable queue rows, and structured
 // logs.
-internal static class BundleSealFailureTests
+public sealed class BundleSealFailureTests : IDisposable
 {
     private const string JsonMismatch =
         "Method not found: 'System.String Newtonsoft.Json.Linq.JToken.ToString(Newtonsoft.Json.Formatting)'.";
 
-    internal static async Task RunAsync(string root)
+    // Each scenario writes under its own temporary directory, as the capsule gave each one its
+    // own subdirectory of one root.
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-bundle-seal-failure-tests-" + Guid.NewGuid().ToString("N")
+    );
+
+    public BundleSealFailureTests() => Directory.CreateDirectory(_root);
+
+    public void Dispose()
     {
-        await EnvironmentFailureParksUntilNextLaunchAsync(Path.Combine(root, "environment"));
-        await PoisonRunCannotStarveLaterRunsAsync(Path.Combine(root, "poison"));
-        await MalformedQueueRowCannotStarveLaterRunsAsync(Path.Combine(root, "malformed-row"));
-        await PendingValidationKeepsOutboxOnEnvironmentFailureAsync(Path.Combine(root, "pending"));
-        await PendingValidationRunsOncePerLaunchAsync(Path.Combine(root, "pending-once"));
-        await InvalidReplayDegradesWithLogAsync(Path.Combine(root, "replay"));
-        await InvalidReplayReasonReachesLogAsync(Path.Combine(root, "replay-reason"));
-        await MaintenanceFailureDoesNotBlockSealingAsync(Path.Combine(root, "maintenance"));
-        await EnvironmentFailureKeepsOrphanBundleAsync(Path.Combine(root, "orphan"));
-        await ReplayWaitDefersScreenshotAndCompositionAsync(Path.Combine(root, "replay-wait"));
-        await SizeBudgetTrimDoesNotWaitAsync(Path.Combine(root, "size-budget"));
-        await SizeBudgetKeepsSelectedCandidateAsync(Path.Combine(root, "budget-candidate"));
-        await OversizedTerminalEventRemainsTerminalAsync(Path.Combine(root, "budget-terminal"));
-        await WorkerWakesOnRunCompletionAsync(Path.Combine(root, "worker-wake"));
-        await UploadValidationWakesIdleWorkerAsync(Path.Combine(root, "upload-wake"));
-        await LateDiscoveryKeepsLateInputsAsync(Path.Combine(root, "late-discovery"));
+        SqliteConnection.ClearAllPools();
+        Directory.Delete(_root, recursive: true);
     }
 
     // The input deadline is the Run's end plus two minutes, fixed when the job is created, so a
     // Run first discovered after it (at startup, on resume, or by the safety pass after a missed
     // completion report) seals at once with every input that has landed by then: discovering
     // later can delay a Bundle but never drops an input a timely discovery would have kept.
-    private static async Task LateDiscoveryKeepsLateInputsAsync(string root)
+    [Fact]
+    public async Task LateDiscoveryKeepsLateInputsAsync()
     {
+        var root = Path.Combine(_root, "late-discovery");
         using var fixture = new Fixture(root);
         var passes = 0;
         void Count(BundleSealStage stage, string subject)
@@ -124,8 +122,10 @@ internal static class BundleSealFailureTests
         RequireAllInputs("missed-run", "by the safety pass");
     }
 
-    private static async Task UploadValidationWakesIdleWorkerAsync(string root)
+    [Fact]
+    public async Task UploadValidationWakesIdleWorkerAsync()
     {
+        var root = Path.Combine(_root, "upload-wake");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("reseal-run", endedMinutesAgo: 0);
         fixture.AddBattle("reseal-run", "reseal-battle");
@@ -243,8 +243,10 @@ internal static class BundleSealFailureTests
 
     // The running worker discovers a Run when Run Logging reports it completed, and with nothing
     // waiting it stays asleep: no pass on a five-second timer.
-    private static async Task WorkerWakesOnRunCompletionAsync(string root)
+    [Fact]
+    public async Task WorkerWakesOnRunCompletionAsync()
     {
+        var root = Path.Combine(_root, "worker-wake");
         using var fixture = new Fixture(root);
         var discoveries = 0;
         var passes = 0;
@@ -332,8 +334,10 @@ internal static class BundleSealFailureTests
 
     // A Run waiting on a replay neither encodes its screenshot nor composes again until replay
     // persistence completes or its deadline arrives.
-    private static async Task ReplayWaitDefersScreenshotAndCompositionAsync(string root)
+    [Fact]
+    public async Task ReplayWaitDefersScreenshotAndCompositionAsync()
     {
+        var root = Path.Combine(_root, "replay-wait");
         using var fixture = new Fixture(root);
         var compositions = new Dictionary<string, int>(StringComparer.Ordinal);
         void Count(BundleSealStage stage, string subject)
@@ -403,8 +407,10 @@ internal static class BundleSealFailureTests
     }
 
     // A replay trimmed to fit the size budget is on disk, so it never holds the Run.
-    private static async Task SizeBudgetTrimDoesNotWaitAsync(string root)
+    [Fact]
+    public async Task SizeBudgetTrimDoesNotWaitAsync()
     {
+        var root = Path.Combine(_root, "size-budget");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("budget-run", endedMinutesAgo: 0);
         fixture.AddBattle("budget-run", "budget-large", recordedMinutesAgo: 2);
@@ -449,8 +455,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task SizeBudgetKeepsSelectedCandidateAsync(string root)
+    [Fact]
+    public async Task SizeBudgetKeepsSelectedCandidateAsync()
     {
+        var root = Path.Combine(_root, "budget-candidate");
         foreach (var omitScreenshot in new[] { false, true })
         {
             using var fixture = new Fixture(Path.Combine(root, omitScreenshot.ToString()));
@@ -493,8 +501,10 @@ internal static class BundleSealFailureTests
         }
     }
 
-    private static async Task OversizedTerminalEventRemainsTerminalAsync(string root)
+    [Fact]
+    public async Task OversizedTerminalEventRemainsTerminalAsync()
     {
+        var root = Path.Combine(_root, "budget-terminal");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("terminal-run", endedMinutesAgo: 10);
         var random = new byte[BundleLimitsV6.MaxRunBytes * 2];
@@ -521,8 +531,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task EnvironmentFailureParksUntilNextLaunchAsync(string root)
+    [Fact]
+    public async Task EnvironmentFailureParksUntilNextLaunchAsync()
     {
+        var root = Path.Combine(_root, "environment");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("env-run", endedMinutesAgo: 10);
         var calls = 0;
@@ -581,8 +593,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task PoisonRunCannotStarveLaterRunsAsync(string root)
+    [Fact]
+    public async Task PoisonRunCannotStarveLaterRunsAsync()
     {
+        var root = Path.Combine(_root, "poison");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("poison-run", endedMinutesAgo: 20);
         fixture.AddCompletedRun("healthy-run", endedMinutesAgo: 10);
@@ -621,8 +635,10 @@ internal static class BundleSealFailureTests
         Require(calls == 1, "A failing Run backs off instead of retrying on every pass.");
     }
 
-    private static async Task PendingValidationKeepsOutboxOnEnvironmentFailureAsync(string root)
+    [Fact]
+    public async Task PendingValidationKeepsOutboxOnEnvironmentFailureAsync()
     {
+        var root = Path.Combine(_root, "pending");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("pending-run", endedMinutesAgo: 10);
         using (var sealer = DesktopBundleSealCoordinator.Create(fixture.Services))
@@ -673,8 +689,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task PendingValidationRunsOncePerLaunchAsync(string root)
+    [Fact]
+    public async Task PendingValidationRunsOncePerLaunchAsync()
     {
+        var root = Path.Combine(_root, "pending-once");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("pending-once-run", endedMinutesAgo: 10);
         using (var sealer = DesktopBundleSealCoordinator.Create(fixture.Services))
@@ -701,8 +719,10 @@ internal static class BundleSealFailureTests
         Require(validations == 2, "The next launch validates it again.");
     }
 
-    private static async Task MalformedQueueRowCannotStarveLaterRunsAsync(string root)
+    [Fact]
+    public async Task MalformedQueueRowCannotStarveLaterRunsAsync()
     {
+        var root = Path.Combine(_root, "malformed-row");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("badrow01", endedMinutesAgo: 20);
         fixture.AddCompletedRun("healthy-row", endedMinutesAgo: 10);
@@ -744,8 +764,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task InvalidReplayDegradesWithLogAsync(string root)
+    [Fact]
+    public async Task InvalidReplayDegradesWithLogAsync()
     {
+        var root = Path.Combine(_root, "replay");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("replay-run", endedMinutesAgo: 10);
         fixture.AddBattle("replay-run", "battle-not-gzip");
@@ -797,8 +819,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task InvalidReplayReasonReachesLogAsync(string root)
+    [Fact]
+    public async Task InvalidReplayReasonReachesLogAsync()
     {
+        var root = Path.Combine(_root, "replay-reason");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("reason-run", endedMinutesAgo: 10);
         fixture.AddBattle("reason-run", "empty-replay");
@@ -820,8 +844,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task MaintenanceFailureDoesNotBlockSealingAsync(string root)
+    [Fact]
+    public async Task MaintenanceFailureDoesNotBlockSealingAsync()
     {
+        var root = Path.Combine(_root, "maintenance");
         using var fixture = new Fixture(root);
         fixture.AddCompletedRun("maintained-run", endedMinutesAgo: 10);
         fixture.Queue.EnsureEligibleJobs(TimeSpan.FromMinutes(2));
@@ -853,8 +879,10 @@ internal static class BundleSealFailureTests
         );
     }
 
-    private static async Task EnvironmentFailureKeepsOrphanBundleAsync(string root)
+    [Fact]
+    public async Task EnvironmentFailureKeepsOrphanBundleAsync()
     {
+        var root = Path.Combine(_root, "orphan");
         using var fixture = new Fixture(root);
         var outbox = PathConstants.BundleOutbox(root);
         Directory.CreateDirectory(outbox);

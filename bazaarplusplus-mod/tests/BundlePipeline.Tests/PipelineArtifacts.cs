@@ -185,7 +185,9 @@ internal sealed class PipelineArtifacts
     /// Writes <c>bundle-pipeline.actual.json</c> and compares it with the golden, or rewrites
     /// the golden under <c>BPP_UPDATE_GOLDENS=1</c>. Returns false on a mismatch.
     /// </summary>
-    internal bool CompareWithGolden()
+    // Null when the summary matches the golden (or BPP_UPDATE_GOLDENS=1 rewrote it); otherwise
+    // the failure with its diff, for the test to report.
+    internal string? GoldenMismatch()
     {
         var summary = new JsonObject
         {
@@ -206,25 +208,17 @@ internal sealed class PipelineArtifacts
             Directory.CreateDirectory(Path.GetDirectoryName(goldenPath)!);
             File.WriteAllText(goldenPath, actual, new UTF8Encoding(false));
             Console.WriteLine($"Rewrote {GoldenRelativePath}; review it with git diff.");
-            return true;
+            return null;
         }
         if (!File.Exists(goldenPath))
-        {
-            Console.Error.WriteLine(
-                $"{GoldenRelativePath} is missing; create it with BPP_UPDATE_GOLDENS=1."
-            );
-            return false;
-        }
+            return $"{GoldenRelativePath} is missing; create it with BPP_UPDATE_GOLDENS=1.";
         var expected = TestInputs.Fixture(GoldenRelativePath).Replace("\r\n", "\n");
         if (string.Equals(expected, actual, StringComparison.Ordinal))
-            return true;
-        Console.Error.WriteLine(
-            $"Bundle pipeline output differs from {GoldenRelativePath}; actual output is "
-                + $"artifacts/bundle-pipeline/bundle-pipeline.actual.json. Regenerate with "
-                + "BPP_UPDATE_GOLDENS=1 only if the change is intended."
-        );
-        Console.Error.WriteLine(UnifiedDiff.Render(expected, actual, GoldenRelativePath));
-        return false;
+            return null;
+        return $"Bundle pipeline output differs from {GoldenRelativePath}; actual output is "
+            + "artifacts/bundle-pipeline/bundle-pipeline.actual.json. Regenerate with "
+            + "BPP_UPDATE_GOLDENS=1 only if the change is intended.\n"
+            + UnifiedDiff.Render(expected, actual, GoldenRelativePath);
     }
 
     internal static string Resource(string name)
@@ -352,9 +346,6 @@ internal sealed record RecordedUpload(
 
 internal static class Check
 {
-    internal static void That(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    internal static void That(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 }

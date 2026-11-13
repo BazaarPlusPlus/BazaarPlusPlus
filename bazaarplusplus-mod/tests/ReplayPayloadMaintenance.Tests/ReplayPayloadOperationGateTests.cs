@@ -1,16 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.PvpBattles;
+using Xunit;
 
-internal static class ReplayPayloadOperationGateTests
+public sealed class ReplayPayloadOperationGateTests
 {
-    internal static void Run()
-    {
-        MaintenanceCannotEnterBetweenPayloadAndManifestPersistence();
-        PlaybackLeaseProtectsThePayloadUntilTerminalRelease();
-    }
-
-    private static void PlaybackLeaseProtectsThePayloadUntilTerminalRelease()
+    [Fact]
+    public static void PlaybackLeaseProtectsThePayloadUntilTerminalRelease()
     {
         using var operationGate = new ReplayPayloadOperationGate();
         using var maintenanceEntered = new ManualResetEventSlim();
@@ -34,7 +30,8 @@ internal static class ReplayPayloadOperationGateTests
         maintenance.GetAwaiter().GetResult();
     }
 
-    private static void MaintenanceCannotEnterBetweenPayloadAndManifestPersistence()
+    [Fact]
+    public static void MaintenanceCannotEnterBetweenPayloadAndManifestPersistence()
     {
         using var operationGate = new ReplayPayloadOperationGate();
         using var payloadSaved = new ManualResetEventSlim();
@@ -78,9 +75,6 @@ internal static class ReplayPayloadOperationGateTests
         maintenance.GetAwaiter().GetResult();
     }
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 }

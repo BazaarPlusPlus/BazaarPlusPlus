@@ -8,13 +8,25 @@ using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.Sqlite;
 using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 // The battle_snapshots JSON the desktop writes, pinned byte for byte by
 // fixtures/battle-snapshots.golden.txt. Core's PvpBattleCardSetDocument owns that shape: the
 // Android host writes it directly and the Bundle composer reads it, so a desktop capture must read
 // back through it unchanged and round-trip through the desktop catalog unchanged.
-internal static class BattleSnapshotShapeTests
+public sealed class BattleSnapshotShapeTests : IDisposable
 {
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-battle-snapshots-" + Guid.NewGuid().ToString("N")
+    );
+
+    public void Dispose()
+    {
+        SqliteConnection.ClearAllPools();
+        Directory.Delete(_root, recursive: true);
+    }
+
     private const string GoldenRelativePath =
         "tests/BundlePipeline.Tests/fixtures/battle-snapshots.golden.txt";
 
@@ -26,8 +38,10 @@ internal static class BattleSnapshotShapeTests
         "opponent_skills_json",
     ];
 
-    internal static void Run(string root)
+    [Fact]
+    public void Run()
     {
+        var root = _root;
         Directory.CreateDirectory(root);
         var database = PathConstants.RunLogDatabase(root);
         new RunLogStore(new TestPaths(root)).CreateRun(

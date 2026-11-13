@@ -8,6 +8,7 @@ using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.Storage.BundleQueue;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 /// <summary>
 /// The upload retry schedule against real SQLite rows, a manual clock and a jitter-free sample:
@@ -15,25 +16,31 @@ using Microsoft.Data.Sqlite;
 /// or sending anything; success, an explicit arm or a new session ends that backoff; a failure
 /// about one Bundle backs off that row only.
 /// </summary>
-internal static class UploadBackoffScenarios
+public sealed class UploadBackoffScenarios : IDisposable
 {
     private const int Base = 180;
 
-    internal static async Task RunAsync(string root)
+    // Each scenario writes under its own temporary directory, as the capsule gave each one its
+    // own subdirectory of one root.
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(),
+        "bpp-upload-backoff-scenarios-" + Guid.NewGuid().ToString("N")
+    );
+
+    public UploadBackoffScenarios() => Directory.CreateDirectory(_root);
+
+    public void Dispose()
     {
-        await UnavailableEndpointBacksOffTheWholeQueue(Path.Combine(root, "schedule"));
-        await ExplicitArmEndsTheBackoff(Path.Combine(root, "arm"));
-        await SuccessEndsTheBackoff(Path.Combine(root, "success"));
-        await OneFailingBundleDoesNotStarveTheQueue(Path.Combine(root, "one-bad-bundle"));
-        await RetryAfterFloorsTheWindowAndStaysOnTheRow(Path.Combine(root, "retry-after"));
-        await BundleFailureBacksOffOnlyItsRow(Path.Combine(root, "bundle-failure"));
-        await LongAttemptStillWaitsAfterItsFailure(Path.Combine(root, "long-attempt"));
+        SqliteConnection.ClearAllPools();
+        Directory.Delete(_root, recursive: true);
     }
 
     // The window lines up with the attempt's start, but an attempt that outlasts it (a slow
     // request, then a timeout) still waits the base interval, or Retry-After, after its failure.
-    private static async Task LongAttemptStillWaitsAfterItsFailure(string root)
+    [Fact]
+    public async Task LongAttemptStillWaitsAfterItsFailure()
     {
+        var root = Path.Combine(_root, "long-attempt");
         int? retryAfter = null;
         using var harness = new Harness(root, ["a", "b", "c"], _ => Unavailable503(retryAfter));
         harness.RequestDuration = TimeSpan.FromSeconds(150);
@@ -64,8 +71,10 @@ internal static class UploadBackoffScenarios
         Check.That(harness.Requests.Count == 4, "Retry-After counts from the failure.");
     }
 
-    private static async Task UnavailableEndpointBacksOffTheWholeQueue(string root)
+    [Fact]
+    public async Task UnavailableEndpointBacksOffTheWholeQueue()
     {
+        var root = Path.Combine(_root, "schedule");
         using var harness = new Harness(root, ["a", "b", "c"], _ => Unreachable());
 
         var first = await harness.AttemptAsync();
@@ -110,8 +119,10 @@ internal static class UploadBackoffScenarios
         );
     }
 
-    private static async Task ExplicitArmEndsTheBackoff(string root)
+    [Fact]
+    public async Task ExplicitArmEndsTheBackoff()
     {
+        var root = Path.Combine(_root, "arm");
         using var harness = new Harness(root, ["a", "b", "c"], _ => Unavailable503());
         await harness.AttemptAsync();
         await harness.ExpectWindowAsync(Base);
@@ -135,8 +146,10 @@ internal static class UploadBackoffScenarios
         Check.That(harness.Requests.Count == 5, "UploadArmRequested ends the backoff.");
     }
 
-    private static async Task SuccessEndsTheBackoff(string root)
+    [Fact]
+    public async Task SuccessEndsTheBackoff()
     {
+        var root = Path.Combine(_root, "success");
         using var harness = new Harness(
             root,
             ["a", "b", "c", "d"],
@@ -157,8 +170,10 @@ internal static class UploadBackoffScenarios
 
     // Resilience: a 5xx is service-wide by the API reference, but if one Bundle keeps getting one
     // while the others are accepted, the rest of the queue must still drain.
-    private static async Task OneFailingBundleDoesNotStarveTheQueue(string root)
+    [Fact]
+    public async Task OneFailingBundleDoesNotStarveTheQueue()
     {
+        var root = Path.Combine(_root, "one-bad-bundle");
         using var harness = new Harness(
             root,
             ["a", "b", "c", "d", "e"],
@@ -177,8 +192,10 @@ internal static class UploadBackoffScenarios
         Check.That(harness.Row("a").Status == "pending", "The failing Bundle stays pending.");
     }
 
-    private static async Task RetryAfterFloorsTheWindowAndStaysOnTheRow(string root)
+    [Fact]
+    public async Task RetryAfterFloorsTheWindowAndStaysOnTheRow()
     {
+        var root = Path.Combine(_root, "retry-after");
         var retryAfter = 600;
         using var harness = new Harness(root, ["a", "b"], _ => Unavailable503(retryAfter));
         var openedAt = harness.Now;
@@ -208,8 +225,10 @@ internal static class UploadBackoffScenarios
         Check.That(harness.Requests.Count == 3, "The queue window is clamped to 30 minutes.");
     }
 
-    private static async Task BundleFailureBacksOffOnlyItsRow(string root)
+    [Fact]
+    public async Task BundleFailureBacksOffOnlyItsRow()
     {
+        var root = Path.Combine(_root, "bundle-failure");
         using var harness = new Harness(root, ["a", "b", "c"], _ => WrongReceipt());
         var first = harness.Now;
         await harness.AttemptAsync();

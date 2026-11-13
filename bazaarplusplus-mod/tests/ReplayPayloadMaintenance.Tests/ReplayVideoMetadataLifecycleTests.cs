@@ -2,25 +2,24 @@
 using BazaarPlusPlus.Game.CombatReplay.Video;
 using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
-internal static class ReplayVideoMetadataLifecycleTests
+public sealed class ReplayVideoMetadataLifecycleTests
 {
-    internal static void Run()
-    {
-        AttachmentAndFileStateRemainOrthogonal();
-        ReconcileDoesNotOverwriteAConcurrentFinish();
-        MainThreadReservationGivesUpOnALockedDatabase(enforceTiming: false);
-    }
+    [Fact]
+    public static void MainThreadReservationGivesUpOnALockedDatabase() =>
+        MainThreadReservationGivesUpOnALockedDatabaseTimed(enforceTiming: false);
 
-    // The performance lane (--benchmark) adds the wall-clock bound, which the parallel
-    // functional run cannot hold reliably.
-    internal static void Benchmark() =>
-        MainThreadReservationGivesUpOnALockedDatabase(enforceTiming: true);
+    // `just mod::test-performance` runs the wall-clock budget; `just mod::test` filters it out.
+    [Fact]
+    [Trait("TestKind", "Performance")]
+    public static void Benchmark() =>
+        MainThreadReservationGivesUpOnALockedDatabaseTimed(enforceTiming: true);
 
     // The current-replay arm reserves its row on the Unity main thread: while another writer
     // holds the database it fails with SQLITE_BUSY after about a second (the default store wait
     // is two), reserves nothing, and succeeds once the writer is gone.
-    private static void MainThreadReservationGivesUpOnALockedDatabase(bool enforceTiming)
+    private static void MainThreadReservationGivesUpOnALockedDatabaseTimed(bool enforceTiming)
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-reserve-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -69,7 +68,8 @@ internal static class ReplayVideoMetadataLifecycleTests
         }
     }
 
-    private static void ReconcileDoesNotOverwriteAConcurrentFinish()
+    [Fact]
+    public static void ReconcileDoesNotOverwriteAConcurrentFinish()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-cas-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -103,7 +103,8 @@ internal static class ReplayVideoMetadataLifecycleTests
         }
     }
 
-    private static void AttachmentAndFileStateRemainOrthogonal()
+    [Fact]
+    public static void AttachmentAndFileStateRemainOrthogonal()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-lifecycle-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);

@@ -28,7 +28,7 @@
        incompatible game/runtime shims or mutate process-global state. ScenarioRunner.Tests is the
        only xUnit project that executes them, one child process at a time. -->
   <PropertyGroup>
-    <BppScenarioRunnerProjects>BundlePipeline.Tests;BundleQueueSqliteStore.Tests;CombatImpact.Corpus;RemoteEmbeddedDataPipeline.Tests;ReplayPayloadMaintenance.Tests</BppScenarioRunnerProjects>
+    <BppScenarioRunnerProjects>CombatImpact.Corpus</BppScenarioRunnerProjects>
     <!-- The capsules `just mod::test-core` also runs, in this order, with `dotnet run` and no Managed
          snapshot (scripts/test.sh reads this property). Each one stays in BppScenarioRunnerProjects,
          which `mod::test` runs. Architecture.Tests' TestProjectRegistryTests guards both lists. -->
