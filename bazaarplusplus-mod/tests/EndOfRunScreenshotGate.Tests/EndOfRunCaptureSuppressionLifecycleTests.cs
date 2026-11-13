@@ -1,22 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.GameInterop.Tooltips;
+using Xunit;
 
-internal static class EndOfRunCaptureSuppressionLifecycleTests
+public sealed class EndOfRunCaptureSuppressionLifecycleTests
 {
-    internal static void Run()
-    {
-        Unavailable_native_audit_releases_only_the_native_lease();
-        Unavailable_native_audit_short_circuits_a_throwing_visual_probe();
-        Native_audit_exception_releases_only_the_native_lease();
-        Unavailable_visual_keeps_suppression_until_restore();
-        Visual_exception_uses_the_visual_reason_and_keeps_suppression_until_restore();
-        Cancel_before_capture_restores_each_suppression_once();
-        Frame_acquired_restore_is_exactly_once();
-        Install_after_cancel_restores_new_resources_without_reopening_the_lifecycle();
-    }
-
-    private static void Unavailable_native_audit_short_circuits_a_throwing_visual_probe()
+    [Fact]
+    public static void Unavailable_native_audit_short_circuits_a_throwing_visual_probe()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(NativeTooltipCleanFrameState.Unavailable);
@@ -51,7 +41,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         );
     }
 
-    private static void Unavailable_native_audit_releases_only_the_native_lease()
+    [Fact]
+    public static void Unavailable_native_audit_releases_only_the_native_lease()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(NativeTooltipCleanFrameState.Unavailable);
@@ -78,7 +69,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         );
     }
 
-    private static void Native_audit_exception_releases_only_the_native_lease()
+    [Fact]
+    public static void Native_audit_exception_releases_only_the_native_lease()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(new InvalidOperationException("native audit failed"));
@@ -106,7 +98,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         );
     }
 
-    private static void Unavailable_visual_keeps_suppression_until_restore()
+    [Fact]
+    public static void Unavailable_visual_keeps_suppression_until_restore()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
@@ -129,7 +122,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         Assert(bpp.DisposeCount == 1, "Restore must release BPP chrome.");
     }
 
-    private static void Visual_exception_uses_the_visual_reason_and_keeps_suppression_until_restore()
+    [Fact]
+    public static void Visual_exception_uses_the_visual_reason_and_keeps_suppression_until_restore()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
@@ -155,7 +149,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         Assert(bpp.DisposeCount == 1, "Restore must release BPP chrome after visual failure.");
     }
 
-    private static void Cancel_before_capture_restores_each_suppression_once()
+    [Fact]
+    public static void Cancel_before_capture_restores_each_suppression_once()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
@@ -168,7 +163,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         Assert(bpp.DisposeCount == 1, "Cancel must restore BPP suppression exactly once.");
     }
 
-    private static void Frame_acquired_restore_is_exactly_once()
+    [Fact]
+    public static void Frame_acquired_restore_is_exactly_once()
     {
         var bpp = new CountingDisposable();
         var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
@@ -181,7 +177,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
         Assert(bpp.DisposeCount == 1, "Frame acquisition must restore BPP suppression once.");
     }
 
-    private static void Install_after_cancel_restores_new_resources_without_reopening_the_lifecycle()
+    [Fact]
+    public static void Install_after_cancel_restores_new_resources_without_reopening_the_lifecycle()
     {
         var lifecycle = new EndOfRunCaptureSuppressionLifecycle();
         lifecycle.ReleaseAll();
@@ -232,11 +229,8 @@ internal static class EndOfRunCaptureSuppressionLifecycleTests
             message
         );
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private sealed class CountingDisposable : IDisposable
     {

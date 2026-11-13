@@ -1,27 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.GameInterop.Tooltips;
+using Xunit;
 
-internal static class EndOfRunCleanFramePreparationTests
+public sealed class EndOfRunCleanFramePreparationTests
 {
-    internal static void Run()
-    {
-        Capture_waits_for_a_clean_post_cleanup_pose_window();
-        Pose_change_restarts_the_post_cleanup_window();
-        Changing_pose_at_deadline_falls_back_to_capture();
-        Late_tooltip_visibility_invalidates_the_clean_window();
-        Empty_board_can_capture_after_a_clean_render_boundary();
-        Unavailable_native_suppression_falls_back_to_capture();
-        Dirty_tooltip_at_deadline_falls_back_to_capture();
-        Cached_observations_do_not_advance_the_clean_window();
-        A_skipped_deadline_frame_requests_one_final_fresh_audit();
-        A_cadence_skipped_deadline_still_executes_the_final_audit();
-        Unavailable_visual_falls_back_to_capture();
-        Invalid_visual_observations_fall_back_to_capture();
-        Native_suppression_owners_are_reference_counted_independently();
-    }
-
-    private static void Capture_waits_for_a_clean_post_cleanup_pose_window()
+    [Fact]
+    public static void Capture_waits_for_a_clean_post_cleanup_pose_window()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 10f);
 
@@ -42,7 +27,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Pose_change_restarts_the_post_cleanup_window()
+    [Fact]
+    public static void Pose_change_restarts_the_post_cleanup_window()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         _ = core.Observe(Clean(), Sample(1, 11, 100), 0f);
@@ -60,7 +46,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Changing_pose_at_deadline_falls_back_to_capture()
+    [Fact]
+    public static void Changing_pose_at_deadline_falls_back_to_capture()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         _ = core.Observe(Clean(), Sample(1, 11, 100), 0f);
@@ -75,7 +62,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Late_tooltip_visibility_invalidates_the_clean_window()
+    [Fact]
+    public static void Late_tooltip_visibility_invalidates_the_clean_window()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         _ = core.Observe(Clean(), Sample(1, 12, 200), 0f);
@@ -97,7 +85,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Empty_board_can_capture_after_a_clean_render_boundary()
+    [Fact]
+    public static void Empty_board_can_capture_after_a_clean_render_boundary()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 2f);
         var decision = core.Observe(
@@ -123,7 +112,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Unavailable_native_suppression_falls_back_to_capture()
+    [Fact]
+    public static void Unavailable_native_suppression_falls_back_to_capture()
     {
         var unavailable = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f).Observe(
             new NativeTooltipCleanFrameAudit(NativeTooltipCleanFrameState.Unavailable),
@@ -138,7 +128,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Dirty_tooltip_at_deadline_falls_back_to_capture()
+    [Fact]
+    public static void Dirty_tooltip_at_deadline_falls_back_to_capture()
     {
         var deadlineCore = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         var deadline = deadlineCore.Observe(
@@ -153,7 +144,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Cached_observations_do_not_advance_the_clean_window()
+    [Fact]
+    public static void Cached_observations_do_not_advance_the_clean_window()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         _ = core.Observe(Clean(), Sample(1, 1, 1), nowSeconds: 0f);
@@ -169,7 +161,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void A_skipped_deadline_frame_requests_one_final_fresh_audit()
+    [Fact]
+    public static void A_skipped_deadline_frame_requests_one_final_fresh_audit()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         _ = core.Observe(Clean(), Sample(1, 1, 1), nowSeconds: 4.95f);
@@ -194,7 +187,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void A_cadence_skipped_deadline_still_executes_the_final_audit()
+    [Fact]
+    public static void A_cadence_skipped_deadline_still_executes_the_final_audit()
     {
         var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
         var cadence = new EndOfRunHeavySampleCadence();
@@ -234,7 +228,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Unavailable_visual_falls_back_to_capture()
+    [Fact]
+    public static void Unavailable_visual_falls_back_to_capture()
     {
         var decision = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f).Observe(
             Clean(),
@@ -249,7 +244,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Invalid_visual_observations_fall_back_to_capture()
+    [Fact]
+    public static void Invalid_visual_observations_fall_back_to_capture()
     {
         var invalidTime = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f).Observe(
             Clean(),
@@ -272,7 +268,8 @@ internal static class EndOfRunCleanFramePreparationTests
         );
     }
 
-    private static void Native_suppression_owners_are_reference_counted_independently()
+    [Fact]
+    public static void Native_suppression_owners_are_reference_counted_independently()
     {
         var ownership = new NativeTooltipSuppressionOwnershipCore();
         ownership.Acquire(NativeTooltipSuppressionOwner.ReplayPresentation);
@@ -309,9 +306,6 @@ internal static class EndOfRunCleanFramePreparationTests
             poseFingerprint
         );
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 }

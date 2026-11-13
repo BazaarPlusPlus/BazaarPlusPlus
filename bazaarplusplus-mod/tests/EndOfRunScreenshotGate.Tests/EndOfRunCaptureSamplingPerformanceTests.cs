@@ -1,21 +1,12 @@
 #nullable enable
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.GameInterop.Tooltips;
+using Xunit;
 
-internal static class EndOfRunCaptureSamplingPerformanceTests
+public sealed class EndOfRunCaptureSamplingPerformanceTests
 {
-    internal static void Run()
-    {
-        Heavy_sampling_has_a_wall_clock_frequency_cap();
-        Sampling_plan_reuses_and_invalidates_by_generation();
-        Sampling_plan_prunes_replaced_and_destroyed_entries();
-        Excluded_hierarchy_sentinels_reject_equal_count_replacements();
-        Tooltip_snapshot_reuses_until_generation_or_lifetime_changes();
-        Tooltip_lifecycle_signals_invalidate_equal_count_and_deep_topology_changes();
-        Tooltip_audit_skips_only_inactive_non_authoritative_controllers();
-    }
-
-    private static void Heavy_sampling_has_a_wall_clock_frequency_cap()
+    [Fact]
+    public static void Heavy_sampling_has_a_wall_clock_frequency_cap()
     {
         foreach (var framesPerSecond in new[] { 60, 120, 240 })
         {
@@ -53,7 +44,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
         );
     }
 
-    private static void Sampling_plan_reuses_and_invalidates_by_generation()
+    [Fact]
+    public static void Sampling_plan_reuses_and_invalidates_by_generation()
     {
         var cache = new EndOfRunReusablePlanCache<string, FakePlan>();
         var builds = 0;
@@ -99,7 +91,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
         );
     }
 
-    private static void Sampling_plan_prunes_replaced_and_destroyed_entries()
+    [Fact]
+    public static void Sampling_plan_prunes_replaced_and_destroyed_entries()
     {
         var cache = new EndOfRunReusablePlanCache<string, FakePlan>();
         var live = GetOrCreate(cache, "live", 1, static _ => true, static () => new FakePlan(1, 1));
@@ -118,7 +111,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
         Assert(cache.Count == 1 && live.Alive, "Destroyed and replacement plans must be pruned.");
     }
 
-    private static void Excluded_hierarchy_sentinels_reject_equal_count_replacements()
+    [Fact]
+    public static void Excluded_hierarchy_sentinels_reject_equal_count_replacements()
     {
         var expected = new EndOfRunHierarchySentinelState(
             InstanceId: 20,
@@ -142,7 +136,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
         );
     }
 
-    private static void Tooltip_snapshot_reuses_until_generation_or_lifetime_changes()
+    [Fact]
+    public static void Tooltip_snapshot_reuses_until_generation_or_lifetime_changes()
     {
         var cache = new NativeTooltipControllerCacheCore<FakeController>();
         var scans = 0;
@@ -168,7 +163,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
         Assert(scans == 3, "A native topology generation change must rescan once.");
     }
 
-    private static void Tooltip_lifecycle_signals_invalidate_equal_count_and_deep_topology_changes()
+    [Fact]
+    public static void Tooltip_lifecycle_signals_invalidate_equal_count_and_deep_topology_changes()
     {
         var topology = new NativeTooltipControllerTopologyGeneration();
         var cache = new NativeTooltipControllerCacheCore<FakeController>();
@@ -202,7 +198,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
         Assert(scans == 4, "A further lifecycle signal must invalidate the controller snapshot.");
     }
 
-    private static void Tooltip_audit_skips_only_inactive_non_authoritative_controllers()
+    [Fact]
+    public static void Tooltip_audit_skips_only_inactive_non_authoritative_controllers()
     {
         Assert(
             DecideTooltipAudit(
@@ -267,11 +264,8 @@ internal static class EndOfRunCaptureSamplingPerformanceTests
             )
         );
 
-    private static void Assert(bool condition, string message)
-    {
-        if (!condition)
-            throw new InvalidOperationException(message);
-    }
+    private static void Assert(bool condition, string message) =>
+        Xunit.Assert.True(condition, message);
 
     private static TPlan GetOrCreate<TKey, TPlan>(
         EndOfRunReusablePlanCache<TKey, TPlan> cache,
