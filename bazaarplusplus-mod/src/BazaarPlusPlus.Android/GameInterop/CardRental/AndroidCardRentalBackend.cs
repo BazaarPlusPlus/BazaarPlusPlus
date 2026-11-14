@@ -146,10 +146,15 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             "bpp-rental-" + ++_instanceSerial
         );
         var kept = AndroidNativeCardSetUp.Keep(instance);
+        var boardItem = subject.OnBoard && template.Type == ECardType.Item;
+        // Starts the ammo bar's template while the card sets up.
+        if (boardItem)
+            _ = AndroidCardAmmoBar.Settled;
         return new SetUpOperation(
             card.SetUp(template, false, instance, Il2CppSystem.Threading.CancellationToken.None),
             kept,
-            AndroidNativeCardSetUp.TinySize(template, subject)
+            AndroidNativeCardSetUp.TinySize(template, subject),
+            boardItem
         );
     }
 
@@ -165,6 +170,9 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             failureReason = task.IsCanceled ? "setup_canceled" : "setup_faulted";
             return true;
         }
+        // A board item waits for the ammo bar's template once; a failed load shows no bar.
+        if (setUp.BoardItem && !AndroidCardAmmoBar.Settled)
+            return false;
         setUp.Kept.ShowOn(card);
         if (setUp.TinySize is { } tinySize)
             AndroidNativeCardSetUp.ShowTiny(card, tinySize);
@@ -172,6 +180,7 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         card.Resize();
         Place(card);
         FitSkillMask(card);
+        AndroidCardAmmoBar.Show(card, setUp.BoardItem);
         Group(card).alpha = 1f;
         return true;
     }
@@ -179,7 +188,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
     private sealed record SetUpOperation(
         Il2CppSystem.Threading.Tasks.Task Task,
         AndroidNativeCardSetUp.Kept Kept,
-        ECardSize? TinySize
+        ECardSize? TinySize,
+        bool BoardItem
     );
 
     public void Park(CardPreviewBase card)

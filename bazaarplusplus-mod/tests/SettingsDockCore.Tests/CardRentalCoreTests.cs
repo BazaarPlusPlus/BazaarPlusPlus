@@ -31,6 +31,7 @@ public sealed class CardRentalCoreTests
         Assert.Equal(CardSize.Small, subject.ShownSize(CardSize.Medium));
         Assert.True(subject.IsTinyOn(CardSize.Medium));
         Assert.False(subject.IsTinyOn(CardSize.Small));
+        Assert.True(subject.OnBoard);
     }
 
     [Fact]
@@ -40,6 +41,7 @@ public sealed class CardRentalCoreTests
 
         Assert.Equal(CardSize.Medium, subject.ShownSize(CardSize.Medium));
         Assert.False(subject.IsTinyOn(CardSize.Medium));
+        Assert.False(subject.OnBoard);
     }
 
     [Fact]

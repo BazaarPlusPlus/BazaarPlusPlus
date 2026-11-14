@@ -5,6 +5,7 @@ using BazaarGameShared.Domain.Cards.Skill;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.AssetLoading;
+using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.StaticCards;
 using BazaarPlusPlus.Infrastructure.UiTokens;
 using DG.Tweening;
@@ -409,6 +410,8 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         var prefab = await NativeCardPrefabLoader.LoadPrefabAsync(template, size);
         if (prefab == null)
             throw new InvalidOperationException("Native card prefab is unavailable.");
+        var ammoBar =
+            template.Type == ECardType.Item ? await NativeCardAmmoBar.TemplateAsync() : null;
         var root = await NativeCardPrefabLoader.RentInactiveAsync(template, parent, size: size);
         if (root == null)
             throw new InvalidOperationException("Native card rental failed.");
@@ -424,7 +427,8 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
             await rental.Prepare(
                 template,
                 instance,
-                template.Type == ECardType.Item && size < template.Size ? size : null
+                template.Type == ECardType.Item && size < template.Size ? size : null,
+                ammoBar
             );
             if (card is CardPreviewItem itemCard)
                 _view!._activeCards.Add(itemCard);
