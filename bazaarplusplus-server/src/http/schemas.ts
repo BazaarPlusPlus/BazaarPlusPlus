@@ -127,9 +127,15 @@ export const GhostBattleSummary = z
     opponent: z
       .strictObject({
         account_id: identifier,
-        hero_name: z.string().nullable()
+        hero_name: z.string().nullable(),
+        level: z.int().nullable(),
+        prestige: z.int().nullable(),
+        victories: z.int().nullable()
       })
-      .meta({ description: 'The queried local player' }),
+      .meta({
+        description:
+          'The queried local player, with the progress the challenger fought; null on rows stored before the progress columns'
+      }),
     ...download
   })
   .meta({ id: 'GhostBattleSummary' });

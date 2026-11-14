@@ -55,7 +55,7 @@ bun run wrangler d1 migrations list bazaarplusplus-mod-api-v6-db --remote
 bun run wrangler deploy
 ```
 
-The list must show `0001_v6_baseline.sql` applied and nothing pending. From here `migrations-v6/0001_v6_baseline.sql` is frozen; every schema change is a new numbered file, and a recorded migration is never reapplied.
+The list must show `0001_v6_baseline.sql` applied and nothing pending. From here `migrations-v6/0001_v6_baseline.sql` is frozen; every schema change is a new numbered file, and a recorded migration is never reapplied. A later release that adds a migration runs the same two `migrations` commands before `wrangler deploy`: the new Worker writes the new columns at once, while the Worker still running ignores them.
 
 `wrangler deploy` attaches the custom domain from `[[routes]]` (`custom_domain = true`). The `bazaarplusplus.com` zone must be on this account and `mod-api-v6` must have no existing DNS record; otherwise the deploy fails and names the conflict.
 

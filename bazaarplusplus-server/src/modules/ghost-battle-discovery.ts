@@ -31,6 +31,9 @@ interface GhostRow {
   opponent_hero_name: string | null;
   player_rank: string | null;
   player_rating: number | null;
+  opponent_level: number | null;
+  opponent_prestige: number | null;
+  opponent_victories: number | null;
   object_key: string;
 }
 
@@ -114,6 +117,7 @@ export async function discoverGhostBattles(
          g.day, g.hour, g.result, g.winner_combatant_id,
          g.player_display_name, g.player_hero_name, g.opponent_hero_name,
          g.player_rank, g.player_rating,
+         g.opponent_level, g.opponent_prestige, g.opponent_victories,
          x.object_key
        FROM ghost_battle_summaries AS g INDEXED BY idx_ghost_summaries_query
        JOIN bundles AS x ON x.bundle_id = g.bundle_id
@@ -154,7 +158,10 @@ export async function discoverGhostBattles(
       },
       opponent: {
         account_id: row.opponent_account_id,
-        hero_name: row.opponent_hero_name
+        hero_name: row.opponent_hero_name,
+        level: row.opponent_level,
+        prestige: row.opponent_prestige,
+        victories: row.opponent_victories
       },
       download_url: downloads[index].url,
       download_expires_at_ms: downloads[index].expiresAtMs

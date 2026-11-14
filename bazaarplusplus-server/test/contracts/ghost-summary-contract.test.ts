@@ -80,6 +80,9 @@ test('nullable summary values and a zero challenger rating survive ordinary-colu
       battle.opponent.hero_name = null;
       battle.player.rank = null;
       battle.player.rating = 0;
+      battle.opponent.level = null;
+      battle.opponent.prestige = 0;
+      battle.opponent.victories = null;
     },
     'nullable-uploader'
   );
@@ -87,7 +90,12 @@ test('nullable summary values and a zero challenger rating survive ordinary-colu
     battles: [
       {
         player: { hero_name: null, rank: null, rating: 0 },
-        opponent: { hero_name: null }
+        opponent: {
+          hero_name: null,
+          level: null,
+          prestige: 0,
+          victories: null
+        }
       }
     ]
   });
