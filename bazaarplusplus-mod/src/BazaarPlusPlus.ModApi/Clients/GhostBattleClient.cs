@@ -195,6 +195,11 @@ internal sealed class GhostBattleClient
             OpponentName = string.Empty,
             OpponentAccountId = opponentAccountId,
             OpponentHero = ReadString(opponent, "hero_name"),
+            // The local player's progress as the challenger fought it; a server row stored
+            // before these fields existed sends null.
+            OpponentLevel = ReadNonNegativeInt(opponent, "level"),
+            OpponentPrestige = ReadNonNegativeInt(opponent, "prestige"),
+            OpponentVictories = ReadNonNegativeInt(opponent, "victories"),
             CombatKind = "pvp",
             Result = NormalizeResult(ReadString(battle, "result")),
             WinnerCombatantId = ReadString(battle, "winner_combatant_id"),

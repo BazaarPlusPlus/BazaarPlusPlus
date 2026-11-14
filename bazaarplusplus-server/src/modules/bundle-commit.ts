@@ -136,7 +136,8 @@ function buildStatements(
           `INSERT INTO ghost_battle_summaries (
             uploader_account_id, battle_id, bundle_id, opponent_account_id,
             recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id,
-            player_display_name, player_hero_name, opponent_hero_name, player_rank, player_rating
+            player_display_name, player_hero_name, opponent_hero_name, player_rank, player_rating,
+            opponent_level, opponent_prestige, opponent_victories
           )
           SELECT ?2,
                  json_extract(value, '$.battle_id'),
@@ -152,7 +153,10 @@ function buildStatements(
                  json_extract(value, '$.player.hero_name'),
                  json_extract(value, '$.opponent.hero_name'),
                  json_extract(value, '$.player.rank'),
-                 json_extract(value, '$.player.rating')
+                 json_extract(value, '$.player.rating'),
+                 json_extract(value, '$.opponent.level'),
+                 json_extract(value, '$.opponent.prestige'),
+                 json_extract(value, '$.opponent.victories')
           FROM json_each(?1)
           WHERE ${ELIGIBILITY_PREDICATE}
           ON CONFLICT(uploader_account_id, battle_id) DO NOTHING

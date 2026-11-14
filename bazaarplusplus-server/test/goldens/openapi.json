@@ -1250,14 +1250,53 @@
                   "string",
                   "null"
                 ]
+              },
+              "level": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "prestige": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "victories": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
               "account_id",
-              "hero_name"
+              "hero_name",
+              "level",
+              "prestige",
+              "victories"
             ],
             "additionalProperties": false,
-            "description": "The queried local player"
+            "description": "The queried local player, with the progress the challenger fought; null on rows stored before the progress columns"
           },
           "download_url": {
             "type": "string",

@@ -41,10 +41,20 @@ describe('GET /ghost-battles', () => {
       env
     );
     const { battles } = (await response.json()) as {
-      battles: Array<{ download_url: string; download_expires_at_ms: number }>;
+      battles: Array<{
+        download_url: string;
+        download_expires_at_ms: number;
+        opponent: Record<string, unknown>;
+      }>;
     };
 
     expect(battles).toHaveLength(2);
+    // Rows stored before the progress columns existed carry no local progress.
+    expect(battles[0].opponent).toMatchObject({
+      level: null,
+      prestige: null,
+      victories: null
+    });
     expect(
       battles.map(({ download_expires_at_ms }) => download_expires_at_ms)
     ).toEqual([clock.ms + 604_800_000, clock.ms + 604_800_000]);

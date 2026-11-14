@@ -73,13 +73,16 @@ public sealed class GhostSummaryContractTests
         Expect("PlayerRating", row.PlayerRating, 1234);
         Expect("OpponentAccountId", row.OpponentAccountId, "account-local");
         Expect("OpponentHero", row.OpponentHero, "Pygmalien");
+        Expect("OpponentLevel", row.OpponentLevel, 10);
+        Expect("OpponentPrestige", row.OpponentPrestige, 3);
+        Expect("OpponentVictories", row.OpponentVictories, 8);
         Expect(
             "DownloadExpiresAtUtc",
             row.DownloadExpiresAtUtc,
             DateTimeOffset.FromUnixTimeMilliseconds(1789814800000)
         );
         Expect("DownloadUrl", row.DownloadUrl, goldenDownloadUrl);
-        Console.WriteLine("GhostSummaryContractTests passed (server golden, 17 consumed fields).");
+        Console.WriteLine("GhostSummaryContractTests passed (server golden, 20 consumed fields).");
     }
 
     private static void Expect<T>(string field, T actual, T expected)
