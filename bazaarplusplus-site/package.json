@@ -21,12 +21,12 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",
-    "@tanstack/react-query": "^5.105.1",
+    "@tanstack/react-query": "^5.107.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -36,7 +36,7 @@
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
-    "wrangler": "^4.156.1",
+    "wrangler": "^4.158.0",
     "vite-plus": "1.5.0"
   },
   "overrides": {
