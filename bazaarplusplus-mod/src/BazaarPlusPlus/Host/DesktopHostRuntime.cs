@@ -21,6 +21,7 @@ using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Clients;
 using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.Patches;
+using BazaarPlusPlus.Patches.RandomCosmetics;
 using BazaarPlusPlus.Patches.Tooltips;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.Sqlite;
@@ -120,6 +121,7 @@ internal sealed class DesktopHostRuntime
             phase = PluginInitializationPhase.HarmonyPatches;
             ApplyHarmonyPatches();
             NativeTooltipSuppression.CapturePatchCapabilities();
+            RandomCosmeticPoolPatchCapabilities.Capture();
 
             phase = PluginInitializationPhase.ReplayRuntime;
             // CombatReplayRuntime is constructed before composition.Start() because RunLifecycle
@@ -366,6 +368,7 @@ internal sealed class DesktopHostRuntime
 
         _harmony.UnpatchSelf();
         NativeTooltipSuppression.ClearPatchCapabilities();
+        RandomCosmeticPoolPatchCapabilities.Clear();
         _patchesApplied = false;
     }
 

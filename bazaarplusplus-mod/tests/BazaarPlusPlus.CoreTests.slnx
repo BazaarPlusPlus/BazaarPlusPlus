@@ -11,6 +11,7 @@
         <Project Path="SettingsDockCore.Tests/SettingsDockCore.Tests.csproj" />
         <Project Path="HistorySampler.Tests/HistorySampler.Tests.csproj" />
         <Project Path="MainMenuVersionLabel.Tests/MainMenuVersionLabel.Tests.csproj" />
+        <Project Path="RandomCosmeticPool.Tests/RandomCosmeticPool.Tests.csproj" />
         <Project Path="BundleSealConvergence.Tests/BundleSealConvergence.Tests.csproj" />
         <Project Path="ReleaseManifestClient.Tests/ReleaseManifestClient.Tests.csproj" />
         <Project Path="OverlayPanelLifecycle.Tests/OverlayPanelLifecycle.Tests.csproj" />

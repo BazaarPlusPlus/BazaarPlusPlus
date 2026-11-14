@@ -3,6 +3,7 @@ using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.EncounterPreview;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.PostCombatImpact;
+using BazaarPlusPlus.Game.RandomCosmetics;
 using BazaarPlusPlus.Game.Screenshots;
 using BazaarPlusPlus.Game.SkillDetails;
 
@@ -27,6 +28,7 @@ internal sealed class BppPatchFeatures
 
     internal HistoryPanelMenuEntry HistoryMenu { get; } = new();
     internal CollectionInspectionModule CollectionInspection { get; } = new();
+    internal RandomCosmeticPoolService RandomCosmeticPool { get; } = new();
     internal DesktopSkillOverlayLayout SkillOverlayLayout { get; } = new();
     internal GameInterop.HeroPortraits.NativeHeroPortraitCatalog HeroPortraits { get; } = new();
     internal Game.HeroPortraits.AnimatedHeroPortraitController? PortraitAnimation { get; set; }
