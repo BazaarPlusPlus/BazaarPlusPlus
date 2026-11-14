@@ -110,6 +110,11 @@ _Avoid_: custom font, font selector
 **Cycling Settings Dock Entry**:
 A settings-dock entry that cycles through an ordered value ladder on click; a bool toggle is the two-value case. Features contribute data only. Action buttons and lock toggles are not this concept.
 
+## Loadout
+
+**Random Cosmetic Pool**:
+The cosmetics of one category that the game's Randomize may equip for one hero at run start. The player leaves cosmetics out while Randomize is on (Pool Mode); a default cosmetic is never in it. With nothing left out, the game's own pick stands.
+
 ## Uploads
 
 **Run Bundle Contract**:
@@ -179,7 +184,7 @@ BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that the An
 _Avoid_: Android UI, touch port
 
 **Mobile Platform Port**:
-What the Android host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`), such as the main-thread scope and posting to the main thread, control actions, the game sprites the native skin borrows, the game font, the card rental, game reads (card text and previews, the string table, hero and encounter names and portraits, rank badges and run trophies, the live cards, the settings button and its round art, the vault, popups and play state: in a fight, in a replay, the recap open), the game's mobile skill overlay and overlay registration. A panel's frames, and the HUD's, come from an overlay registration's tick, so no separate frame-driving member exists (ADR-0025).
+What the Android host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`, which lists its members): main-thread work, control actions, borrowed game art and font, the card rental, game reads and overlay registration. A panel's frames, and the HUD's, come from an overlay registration's tick, so no separate frame-driving member exists (ADR-0025).
 _Avoid_: shim, `#if` branch
 
 **Native Adjustment**:
