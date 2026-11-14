@@ -261,13 +261,17 @@ public sealed class LiveBuildTouchLayoutTests
         {
             Near(
                 layout.Scroll.Top + layout.ScrollRowBoard(0).Bottom,
-                layout.Refresh.Bottom,
+                layout.BoardSelector.Bottom,
                 $"{name}: the last sidebar row aligns with the lower board frame."
             );
             Near(
-                layout.Info.Bottom + layout.Gap,
+                layout.Close.Bottom + layout.Gap,
                 layout.Refresh.Top,
-                $"{name}: library maintenance sits last, under the frequent actions."
+                $"{name}: library maintenance sits first, above the frequent actions."
+            );
+            Check.That(
+                layout.Refresh.Bottom + layout.Gap <= layout.Info.Top + 0.01f,
+                $"{name}: the shown build's figures follow the library."
             );
             Check.That(
                 layout.PinnedTitle.Bottom + layout.Gap <= layout.PinnedBoard.Top + 0.01f,
@@ -292,8 +296,8 @@ public sealed class LiveBuildTouchLayoutTests
                 $"{name}: the lower board stands at the bottom of the body."
             );
             Check.That(
-                layout.BoardSelector.Bottom + layout.Gap <= layout.Info.Top + 0.01f,
-                $"{name}: recommendation data must not overlap the lower-board switch."
+                layout.Info.Bottom + layout.Gap <= layout.Previous.Top + 0.01f,
+                $"{name}: paging and the board switch sit at the foot, under the figures."
             );
         }
         Check.That(

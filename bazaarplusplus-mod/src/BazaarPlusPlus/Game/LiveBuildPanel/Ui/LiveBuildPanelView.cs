@@ -221,7 +221,29 @@ internal sealed class LiveBuildPanelView : IDisposable
 
         _supporters = new BPPSupporterNativeAttributionRow(_sidebar, kit);
 
-        // The build on show: which one, how it did, and what narrows the choice.
+        // The library the builds come from: read once and updated rarely, so it is at the top.
+        var library = kit.SectionHeader(_sidebar, " ", " ");
+        _corpusTitle = library.GetComponentsInChildren<TextMeshProUGUI>(true)[0];
+        library.GetComponentsInChildren<TextMeshProUGUI>(true)[1].text = string.Empty;
+        _corpus = kit.Text(_sidebar, string.Empty, KitTextRole.Meta);
+        _corpus.textWrappingMode = TextWrappingModes.Normal;
+        _corpus.overflowMode = TextOverflowModes.Overflow;
+        var refresh = Line(_sidebar, "Refresh", 0);
+        _refreshButton = kit.Button(
+            refresh,
+            string.Empty,
+            KitButtonKind.Secondary,
+            KitSize.Sm,
+            _refresh
+        );
+
+        DesktopKit
+            .Rect(_sidebar, "Spacer")
+            .gameObject.AddComponent<LayoutElement>()
+            .flexibleHeight = 1;
+
+        // The build on show: which one, how it did, and what narrows the choice. Paging is used
+        // most, so it is at the foot of the rail, where the hand rests.
         var browse = kit.SectionHeader(_sidebar, " ", "0 / 0");
         var browseTexts = browse.GetComponentsInChildren<TextMeshProUGUI>(true);
         _navigationLabel = browseTexts[0];
@@ -259,27 +281,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         _guidance.textWrappingMode = TextWrappingModes.Normal;
         _guidance.overflowMode = TextOverflowModes.Overflow;
         _includeTinyButton = kit.Checkbox(_sidebar, string.Empty, _toggleIncludeTiny);
-
-        DesktopKit
-            .Rect(_sidebar, "Spacer")
-            .gameObject.AddComponent<LayoutElement>()
-            .flexibleHeight = 1;
-
-        // The library the builds come from: read once, so it is at the foot of the rail.
-        var library = kit.SectionHeader(_sidebar, " ", " ");
-        _corpusTitle = library.GetComponentsInChildren<TextMeshProUGUI>(true)[0];
-        library.GetComponentsInChildren<TextMeshProUGUI>(true)[1].text = string.Empty;
-        _corpus = kit.Text(_sidebar, string.Empty, KitTextRole.Meta);
-        _corpus.textWrappingMode = TextWrappingModes.Normal;
-        _corpus.overflowMode = TextOverflowModes.Overflow;
-        var refresh = Line(_sidebar, "Refresh", 0);
-        _refreshButton = kit.Button(
-            refresh,
-            string.Empty,
-            KitButtonKind.Secondary,
-            KitSize.Sm,
-            _refresh
-        );
         _skinGeneration = DesktopNativeSkin.Generation;
     }
 

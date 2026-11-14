@@ -97,14 +97,16 @@ public sealed class LiveBuildTouchLayout
                 CardHeight + TagHeight + Gap * 2f
             );
             Close = chrome.CloseAt(Sidebar);
-            // The sidebar reads in the order of use: the pager and the board switch first, the
-            // shown build's figures under them, and the library's update, rarely used, last.
-            var pagerTop = Close.Bottom + Gap;
+            // The hand rests at the foot of the sidebar, so the sidebar puts the least used row
+            // first: the library's update, rarely used, at the top, the shown build's figures
+            // under it, and the pager and the board switch, used most, at the foot.
+            var libraryTop = Close.Bottom + Gap;
             var actionHeight =
-                (body.Bottom - pagerTop - metrics.Dp(InfoDp) - target - Gap * 3f) / 2f;
+                (body.Bottom - libraryTop - metrics.Dp(InfoDp) - target - Gap * 3f) / 2f;
+            LayOverview(chrome, Sidebar, libraryTop);
             Next = PagerFrom(
                 Sidebar.Right,
-                pagerTop,
+                Info.Bottom + Gap,
                 metrics,
                 actionHeight,
                 out var pager,
@@ -122,7 +124,6 @@ public sealed class LiveBuildTouchLayout
             );
             ScrollRowHeight = RowTitleHeight + CardHeight + TagHeight + Gap * 2f;
             _listTop = Math.Max(0f, Scroll.Height - ScrollRowHeight);
-            LayOverview(chrome, Sidebar, Next.Bottom + Gap + actionHeight + Gap);
             ScrollContentHeight = Scroll.Height;
         }
         else
@@ -246,8 +247,8 @@ public sealed class LiveBuildTouchLayout
         else
         {
             Hero = new TouchRect(area.Left, top, area.Width, 0f);
-            Info = new TouchRect(area.Left, top, area.Width, metrics.Dp(InfoDp));
-            LayLibraryAction(area, Info.Bottom + Gap, target);
+            LayLibraryAction(area, top, target);
+            Info = new TouchRect(area.Left, Corpus.Bottom + Gap, area.Width, metrics.Dp(InfoDp));
         }
         MetricCellWidth = (Info.Width - Gap * (MetricColumns - 1)) / MetricColumns;
         MetricCellHeight = Math.Min(
