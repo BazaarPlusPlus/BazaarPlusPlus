@@ -91,6 +91,14 @@ public sealed class HistoryFavoritesTests : IDisposable
                 && page.Rows.Select(row => row.BattleId).SequenceEqual(["fav-ghost", "fav-local"]),
             "Favorites must list newest-favorited first."
         );
+        Check(
+            repository
+                .ListLocalFavoriteBattles(10)
+                .Select(battle => battle.BattleId)
+                .SequenceEqual(["fav-local"])
+                && repository.ListLocalFavoriteBattles(0).Count == 0,
+            "The builds Ghost rows are marked by must come from favorites of the player's own battles."
+        );
         var local = page.Rows[1];
         Check(
             local.Battle.Source == HistoryBattleSource.Local

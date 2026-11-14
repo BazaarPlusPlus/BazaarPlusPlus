@@ -55,6 +55,31 @@ public sealed partial class HistoryPanelRepository
         return ids;
     }
 
+    // The newest favorites of the player's own battles, as their battles read; Ghost-origin
+    // favorites are left out.
+    public IReadOnlyList<HistoryBattleRecord> ListLocalFavoriteBattles(int limit)
+    {
+        var battles = new List<HistoryBattleRecord>();
+        if (!DatabaseExists || limit <= 0)
+            return battles;
+        using var connection = OpenConnection(ensureSchema: true);
+        using var command = connection.CreateCommand();
+        command.CommandTimeout = 2;
+        command.CommandText = $"""
+            SELECT battle_id, source, favorited_at_ms, note, favorite_payload_state,
+                   {FavoriteDisplayColumns}
+            FROM {RunLogSchema.FavoriteBattlesTableName}
+            WHERE source = 'LOCAL'
+            ORDER BY favorited_at_ms DESC, battle_id DESC
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$limit", limit);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+            battles.Add(HistoryPanelRowMapper.ReadFavorite(reader).Battle);
+        return battles;
+    }
+
     // Copies the battle's display columns and board snapshots in one statement. Local snapshots
     // come from battle_snapshots; a Ghost battle has none there, so the caller passes the ones from
     // its payload manifest (recorder perspective, as stored for Ghost rows). Returns false when the

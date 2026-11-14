@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 
@@ -10,8 +11,24 @@ public sealed partial class HistoryPanelCoordinator
     private sealed record ArchivePage(
         HistoryCountedPage<HistoryRunRecord>? Runs,
         HistoryCountedPage<HistoryBattleRecord>? Ghosts,
-        HistoryCountedPage<HistoryFavoriteRecord>? Favorites = null
+        HistoryCountedPage<HistoryFavoriteRecord>? Favorites = null,
+        FavoriteBuilds? Builds = null
     );
+
+    // The marks are a hint: a failed favorites read leaves the Ghost page unmarked, not unread.
+    private static FavoriteBuilds LoadFavoriteBuilds(HistoryFavoriteService? favorites)
+    {
+        if (favorites == null)
+            return FavoriteBuilds.None;
+        try
+        {
+            return favorites.LoadBuilds();
+        }
+        catch (Exception)
+        {
+            return FavoriteBuilds.None;
+        }
+    }
 
     private sealed record MaintenanceResult(int Expired, int Restored);
 
@@ -131,7 +148,7 @@ public sealed partial class HistoryPanelCoordinator
                     if (anchored.Rows.Any(r => r.BattleId == selectedBattle))
                         ghosts = anchored;
                 }
-                return new ArchivePage(null, ghosts);
+                return new ArchivePage(null, ghosts, Builds: LoadFavoriteBuilds(favorites));
             },
             (result, error) =>
             {
@@ -181,6 +198,7 @@ public sealed partial class HistoryPanelCoordinator
                 else if (result?.Ghosts is { } ghosts)
                 {
                     _state.GhostPage = ghosts;
+                    _state.FavoriteBuilds = result.Builds ?? FavoriteBuilds.None;
                     var index = ghosts.FindIndex(r => r.BattleId == selectedBattle);
                     _state.SelectedGhostBattleIndex = index >= 0 ? index : 0;
                     LoadSelectedDetail();

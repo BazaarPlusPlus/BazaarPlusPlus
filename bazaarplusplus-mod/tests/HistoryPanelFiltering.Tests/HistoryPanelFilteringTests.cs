@@ -1491,6 +1491,118 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
+    // The Ghost page reads the player's favorites with it: the Ghost whose challenger fought the
+    // favorited build leads its meta with the mark, a Ghost one victory off does not.
+    [Fact]
+    public void TestGhostPageMarksTheFavoriteBuildItsChallengerFought()
+    {
+        SynchronizationContext.SetSynchronizationContext(uiContext);
+        var databasePath = Path.Combine(
+            Path.GetTempPath(),
+            $"bpp-history-favorite-build-{Guid.NewGuid():N}.sqlite3"
+        );
+        // Ghost maintenance hides rows outside the Ghost window, so the times are recent.
+        var now = DateTimeOffset.UtcNow;
+        var favoriteAt = now.AddHours(-2).ToUnixTimeMilliseconds();
+        var expires = now.AddDays(6).ToUnixTimeMilliseconds();
+        using (var db = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            db.Open();
+            RunLogSchema.EnsureInitialized(db);
+            using var command = db.CreateCommand();
+            command.CommandText = $$"""
+                INSERT INTO runs (run_id,hero,game_mode,status,started_at_ms,last_seen_at_ms)
+                VALUES ('run-fav','Dooley','Ranked','completed',{{favoriteAt}},{{favoriteAt}});
+                INSERT INTO battles (battle_id,run_id,source,recorded_at_ms,day,combat_kind,
+                    local_payload_state,player_hero,player_level,player_prestige,player_victories)
+                VALUES ('battle-fav','run-fav','LOCAL',{{favoriteAt}},11,'PVPCombat','missing',
+                    'Dooley',12,5,6);
+                INSERT INTO battles (battle_id,source,remote_battle_id,uploader_account_id,
+                    local_player_account_id,recorded_at_ms,day,combat_kind,player_name,player_hero,
+                    opponent_hero,opponent_level,opponent_prestige,opponent_victories,
+                    bundle_id,download_url,download_url_expires_at_ms,ghost_replay_state)
+                VALUES ('ghost-fought','GHOST','remote-1','account-uploader','account-local',
+                        {{favoriteAt + 3_600_000}},11,'pvp','Challenger','Vanessa','Dooley',12,5,6,
+                        'bundle-1','https://example.test/1.bundle',{{expires}},'remote_available'),
+                    ('ghost-other','GHOST','remote-2','account-uploader','account-local',
+                        {{favoriteAt + 5_400_000}},11,'pvp','Challenger','Vanessa','Dooley',12,5,7,
+                        'bundle-2','https://example.test/2.bundle',{{expires}},'remote_available');
+                """;
+            command.ExecuteNonQuery();
+        }
+        var repository = new HistoryPanelRepository(databasePath);
+        Assert(
+            repository.AddFavorite("battle-fav", false, null, DateTimeOffset.UtcNow),
+            "The scenario's favorite must insert."
+        );
+        var state = new HistoryPanelState();
+        var dependencies = new HistoryPanelDependencies(
+            new StubRunContext(),
+            new HistoryPanelDataService(repository, null),
+            new AcceptingReplay(),
+            null,
+            null,
+            null,
+            new BazaarDbAccountLinkStore(_ => false, _ => { }),
+            () => 0f,
+            () => "account-local"
+        )
+        {
+            Favorites = new HistoryFavoriteService(
+                repository,
+                string.Empty,
+                (string _, out PvpBattleManifest? _, out PvpReplayPayload? _) =>
+                    throw new InvalidOperationException("This scenario loads no replay."),
+                (_, _, _) =>
+                    throw new InvalidOperationException("This scenario loads no Ghost replay."),
+                (out string _) =>
+                    throw new InvalidOperationException("This scenario replays nothing."),
+                (_, _, _, _) =>
+                    throw new InvalidOperationException("This scenario replays nothing.")
+            ),
+        };
+        var coordinator = new HistoryPanelCoordinator(
+            state,
+            dependencies,
+            () => { },
+            () => { },
+            NoReplayReturn()
+        );
+        try
+        {
+            coordinator.OnPanelShown();
+            coordinator.SetSectionMode(HistorySectionMode.Ghost);
+            uiContext.Until(() => !state.PageLoading && state.GhostBattles.Count == 2);
+            var rows = HistoryPanelViewModelBuilder
+                .Build(
+                    state,
+                    coordinator,
+                    null,
+                    null,
+                    0f,
+                    [],
+                    default,
+                    default,
+                    hero => hero ?? string.Empty,
+                    DateTimeOffset.Parse("2026-06-20T00:00:00Z")
+                )
+                .ArchiveRows.ToDictionary(row => row.Id, row => row.Meta);
+            var mark = HistoryPanelText.FavoriteBuildMark();
+            Assert(
+                rows.Values.Count(meta => meta.StartsWith(mark, StringComparison.Ordinal)) == 1
+                    && rows.Single(row => row.Value.StartsWith(mark, StringComparison.Ordinal))
+                        .Value.EndsWith("Vanessa · D11", StringComparison.Ordinal),
+                $"Only the Ghost that fought the favorite build must carry the mark; got {string.Join(" | ", rows.Values)}."
+            );
+        }
+        finally
+        {
+            DisposeAndDrainReads(coordinator);
+            SqliteConnection.ClearAllPools();
+            File.Delete(databasePath);
+        }
+    }
+
     [Fact]
     public void TestRunRatingShowsItsChangeOnlyWhenKnown()
     {

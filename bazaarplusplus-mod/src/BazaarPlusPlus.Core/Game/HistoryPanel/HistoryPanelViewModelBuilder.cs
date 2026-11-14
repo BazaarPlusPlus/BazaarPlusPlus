@@ -234,7 +234,9 @@ public static class HistoryPanelViewModelBuilder
             ArchiveRows = section switch
             {
                 HistorySectionMode.Ghost => visibleBattles
-                    .Select(b => HistoryPanelRows.Ghost(b, heroName, today))
+                    .Select(b =>
+                        HistoryPanelRows.Ghost(b, heroName, today, state.FavoriteBuilds.Matches(b))
+                    )
                     .ToList(),
                 HistorySectionMode.Favorites => state
                     .Favorites.Select(f => HistoryPanelRows.Favorite(f, heroName, today))

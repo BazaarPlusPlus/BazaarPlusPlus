@@ -1,5 +1,6 @@
 #nullable enable
 using BazaarPlusPlus.Game.HistoryPanel.Data;
+using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
@@ -74,6 +75,9 @@ public sealed class HistoryPanelState
     public string? SelectedRunHero { get; set; }
 
     public bool GhostDayMin10 { get; set; }
+
+    // Read with each Ghost page; the rows that fought one of these show the favorite build mark.
+    public FavoriteBuilds FavoriteBuilds { get; set; } = FavoriteBuilds.None;
 
     public string? StatusMessage { get; set; }
 

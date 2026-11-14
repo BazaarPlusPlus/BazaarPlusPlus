@@ -120,11 +120,27 @@ public static class HistoryPanelRows
         );
     }
 
+    // A Ghost that fought one of the player's favorite builds (FavoriteBuilds) leads its meta
+    // line with the mark, so both hosts show it without new art.
     public static HistoryArchiveRow Ghost(
         HistoryBattleRecord battle,
         Func<string?, string> heroName,
-        DateTimeOffset now
-    ) => Battle(battle, heroName, HistoryPanelFormatter.RowStamp(battle.RecordedAtUtc, now));
+        DateTimeOffset now,
+        bool favoriteBuild = false
+    )
+    {
+        var row = Battle(
+            battle,
+            heroName,
+            HistoryPanelFormatter.RowStamp(battle.RecordedAtUtc, now)
+        );
+        return favoriteBuild
+            ? row with
+            {
+                Meta = $"{HistoryPanelText.FavoriteBuildMark()} · {row.Meta}",
+            }
+            : row;
+    }
 
     // A favorite reads as its battle, with the note's first line, else when it was favorited.
     public static HistoryArchiveRow Favorite(
