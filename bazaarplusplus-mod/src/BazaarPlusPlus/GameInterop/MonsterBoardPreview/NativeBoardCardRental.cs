@@ -4,6 +4,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.GameInterop.AssetLoading;
 using BazaarPlusPlus.GameInterop.Cards;
 using TheBazaar.AppFramework;
+using TheBazaar.Game.CardFrames;
 using TheBazaar.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -45,8 +46,15 @@ internal sealed class NativeBoardCardRental : IDisposable
         }
     }
 
-    // tinySize: the size of an item saved below its template's, else null.
-    internal async Task Prepare(TCardBase template, TCardInstance instance, ECardSize? tinySize)
+    // tinySize: the size of an item saved below its template's, else null. ammoBar: the
+    // template that draws an item's ammo (NativeCardAmmoBar), null for a skill or when the game
+    // cannot give it.
+    internal async Task Prepare(
+        TCardBase template,
+        TCardInstance instance,
+        ECardSize? tinySize,
+        ItemAmmoController? ammoBar
+    )
     {
         RestoreLayout();
         // Native LoadFrame/LoadArt swallow exceptions. Clear their success signals first.
@@ -83,11 +91,14 @@ internal sealed class NativeBoardCardRental : IDisposable
             throw new InvalidOperationException("Frame prefab layout is unavailable.");
         RestoreFrameLayout();
         Card.Resize();
+        NativeCardAmmoBar.Show(Card, ammoBar);
         Ready = true;
     }
 
     private void ResetVisuals()
     {
+        // The game's pool hands this card to its own screens next, so BPP's bar comes off.
+        NativeCardAmmoBar.Remove(Card);
         if (Card._currentFrame != null)
         {
             RestoreFrameLayout();

@@ -8,19 +8,31 @@ namespace BazaarPlusPlus.Core.Cards.CardRental;
 /// card, its attribute values keyed by the game's member name (ADR-0017). The values win over
 /// the template's; without them the card shows its template's own values. A saved size is the
 /// size the card held on its board, one step below its template's when it was Tiny; without one
-/// the card shows at its template's size.
+/// the card shows at its template's size. A card on an item board (<see cref="OnBoard"/>) shows
+/// an item's ammo bar under it, as the game's board does; a catalog card does not.
 /// </summary>
 public readonly record struct CardRentalSubject(
     Guid TemplateId,
     CardTier Tier,
     CardEnchantment? Enchantment = null,
     IReadOnlyDictionary<string, int>? Attributes = null,
-    CardSize? Size = null
+    CardSize? Size = null,
+    bool OnBoard = false
 )
 {
-    /// <summary>A board card as it was saved: its tier, enchantment, attribute values and size.</summary>
+    /// <summary>
+    /// A board card as it was saved: its tier, enchantment, attribute values and size, on its
+    /// board.
+    /// </summary>
     public static CardRentalSubject Of(BppItemBoardCard card) =>
-        new(card.TemplateId, card.Tier, card.EnchantmentType, card.Attributes, card.Size);
+        new(
+            card.TemplateId,
+            card.Tier,
+            card.EnchantmentType,
+            card.Attributes,
+            card.Size,
+            OnBoard: true
+        );
 
     /// <summary>The size an item shows at, which is the size the board gave it a slot for.</summary>
     public CardSize ShownSize(CardSize templateSize) => Size ?? templateSize;
