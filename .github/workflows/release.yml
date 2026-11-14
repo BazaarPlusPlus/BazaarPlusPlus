@@ -116,7 +116,7 @@ jobs:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       - name: Install the repository Rust toolchain and components
@@ -138,7 +138,7 @@ jobs:
         name: Read the Android App toolchain lock
         run: echo "jdk=$(jq -r .jdk.major bazaarplusplus-android/toolchain.lock.json)" >> "$GITHUB_OUTPUT"
       - if: matrix.platform == 'android' && env.STAGE == 'release'
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: ${{ steps.android-lock.outputs.jdk }}

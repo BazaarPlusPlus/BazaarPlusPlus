@@ -98,7 +98,7 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
@@ -121,7 +121,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: package.json
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
@@ -244,7 +244,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           working-directory: bazaarplusplus-analyzer
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       - run: uv sync --locked
@@ -283,7 +283,7 @@ jobs:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       # A null online entry fails here, naming the snapshot to capture.
@@ -356,7 +356,7 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       # A null entry fails here, naming the snapshot to capture.
@@ -395,7 +395,7 @@ jobs:
           persist-credentials: false
       - id: lock
         run: echo "jdk=$(jq -r .jdk.major toolchain.lock.json)" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: ${{ steps.lock.outputs.jdk }}
@@ -405,7 +405,7 @@ jobs:
           cache-dependency-path: |
             bazaarplusplus-android/gradle/wrapper/gradle-wrapper.properties
             bazaarplusplus-android/**/*.gradle.kts
-      - uses: taiki-e/install-action@682ce6c3c696a4cd5168a05f98e51aa02b877941 # v2.89.1
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
         with:
           tool: just@1.58.0
       - name: Install the locked Android SDK packages
