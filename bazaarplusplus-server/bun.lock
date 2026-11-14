@@ -10,7 +10,7 @@
         "zod-openapi": "6.0.2",
       },
       "devDependencies": {
-        "@cfworker/json-schema": "4.1.4",
+        "@cfworker/json-schema": "4.1.6",
         "@cloudflare/vitest-pool-workers": "0.23.0",
         "@cloudflare/workers-types": "5.20261102.1",
         "@types/node": "^26.6.6",
@@ -33,7 +33,7 @@
     "sharp": "0.35.5",
   },
   "packages": {
-    "@cfworker/json-schema": ["@cfworker/json-schema@4.1.4", "", {}, "sha512-20rPE8EX0dSg6JGOVe31HpqsLYZTDSlcFJZA5mpZqQxcZ71vh/SXCMX+UuHO1mMcZBDKeb752z+3L8IWa+0Svg=="],
+    "@cfworker/json-schema": ["@cfworker/json-schema@4.1.6", "", {}, "sha512-YzVGTHXf4bzlyAL5KAvHYCdNbbt6zM5cYkAgxqxQPDQM6aZ4ShIIN5yJ+6q7YeonnevxT8k/LmD2tJi/jOiKkg=="],
 
     "@cloudflare/kv-asset-handler": ["@cloudflare/kv-asset-handler@0.5.0", "", {}, "sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg=="],
 
