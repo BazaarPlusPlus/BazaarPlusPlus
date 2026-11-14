@@ -10,6 +10,10 @@ public static partial class HistoryPanelText
 
     public static string FavoritedBattle() => FormatSimple("Favorited", "已收藏", "已收藏");
 
+    // Leads a Ghost row whose challenger fought one of the player's favorite builds.
+    public static string FavoriteBuildMark() =>
+        FormatSimple("Favorite build", "收藏阵容", "收藏陣容");
+
     public static string EditFavoriteNote() => FormatSimple("Edit note", "编辑备注", "編輯備註");
 
     public static string RemoveFavorite() => FormatSimple("Remove", "移除收藏", "移除收藏");

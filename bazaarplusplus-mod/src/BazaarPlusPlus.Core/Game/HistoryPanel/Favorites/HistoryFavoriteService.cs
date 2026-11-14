@@ -128,6 +128,12 @@ public sealed class HistoryFavoriteService
     public HistoryCountedPage<HistoryFavoriteRecord> LoadPage(HistoryPageRequest request) =>
         _repository.ListFavorites(request);
 
+    // The builds the Ghost list marks: the newest favorites of the player's own battles.
+    internal const int MarkedBuildLimit = 200;
+
+    public FavoriteBuilds LoadBuilds() =>
+        FavoriteBuilds.From(_repository.ListLocalFavoriteBattles(MarkedBuildLimit));
+
     public bool IsFavorite(string battleId) => _repository.IsFavorite(battleId);
 
     public PvpBattleSnapshots? LoadSnapshots(string battleId) =>
