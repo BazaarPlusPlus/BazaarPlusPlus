@@ -2,7 +2,13 @@
 
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
+import {
+  Link,
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation
+} from 'react-router-dom';
 import {
   afterEach,
   beforeEach,
@@ -103,16 +109,21 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render() {
+async function render(historySearch?: string) {
   await act(async () =>
     root.render(
       <StrictMode>
         <LocaleProvider>
           <ModalCoordinatorProvider>
-            <MemoryRouter initialEntries={['/history/run-1']}>
+            <MemoryRouter
+              initialEntries={[
+                { pathname: '/history/run-1', state: { historySearch } }
+              ]}
+            >
               <Link to="/history/run-2">Another run</Link>
               <Routes>
                 <Route path="/history/:runId" element={<RunDetail />} />
+                <Route path="/history" element={<ListRoute />} />
               </Routes>
             </MemoryRouter>
           </ModalCoordinatorProvider>
@@ -122,11 +133,36 @@ async function render() {
   );
 }
 
+function ListRoute() {
+  const location = useLocation();
+  return (
+    <output data-testid="list">{location.pathname + location.search}</output>
+  );
+}
+
 async function click(selector: string) {
   const button = container.querySelector<HTMLButtonElement>(selector);
   expect(button).not.toBeNull();
   await act(async () => button!.click());
 }
+
+describe('Run Detail back link', () => {
+  it('returns to the History List page and filter it came from', async () => {
+    await render('?hero=Vanessa&result=win&page=2');
+    await click('button[aria-label="Back to History"]');
+    expect(container.querySelector('[data-testid="list"]')?.textContent).toBe(
+      '/history?hero=Vanessa&result=win&page=2'
+    );
+  });
+
+  it('returns to the first unfiltered page without a recorded list', async () => {
+    await render();
+    await click('button[aria-label="Back to History"]');
+    expect(container.querySelector('[data-testid="list"]')?.textContent).toBe(
+      '/history'
+    );
+  });
+});
 
 describe('Run Detail workflow binding', () => {
   it('renders new detail after navigation even without a keyed route remount', async () => {

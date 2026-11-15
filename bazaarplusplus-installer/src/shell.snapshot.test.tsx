@@ -132,6 +132,16 @@ const cases: Case[] = [
     }
   },
   {
+    route: '/history?hero=Mak&result=win',
+    page: 'history',
+    state: 'filtered-empty',
+    seed: (c) => {
+      vi.spyOn(c, 'listHistoryRuns').mockResolvedValue(
+        fixtures.historyFilteredEmpty
+      );
+    }
+  },
+  {
     route: '/history',
     page: 'history',
     state: 'read-failed',

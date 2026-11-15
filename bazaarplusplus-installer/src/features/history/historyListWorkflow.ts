@@ -1,11 +1,20 @@
-import type { HistoryRunList, HistoryRunRow } from '../../types/backend';
+import type {
+  HistoryRunFilter,
+  HistoryRunList,
+  HistoryRunRow
+} from '../../types/backend';
 import type { PageRefreshState } from '../shared/pageState';
 import type { CommandAdapter } from '../../api/commandAdapter';
 import {
   historyProblemFromError,
   type HistoryPageProblem
 } from './historyProblems';
-import { HISTORY_PAGE_SIZE, parseHistoryPage } from './pagination';
+import {
+  HISTORY_PAGE_SIZE,
+  parseHistoryPage,
+  sameFilter,
+  UNFILTERED
+} from './pagination';
 
 type HistoryListCommands = Pick<
   CommandAdapter,
@@ -28,11 +37,19 @@ type HistoryListState =
 
 export function createHistoryListWorkflow(
   commands: HistoryListCommands,
-  options: { initialPage: number; replacePage: (page: number) => void }
+  options: {
+    initialPage: number;
+    initialFilter?: HistoryRunFilter;
+    replacePage: (page: number) => void;
+  }
 ) {
   const listeners = new Set<() => void>();
   let active = false;
   let pageNumber = parseHistoryPage(String(options.initialPage));
+  let filter = options.initialFilter ?? UNFILTERED;
+  // The loaded rows belong to a previous filter: shown while the new filter
+  // loads, so the page (and its filter bar) stays mounted, never after a failure.
+  let staleRows = false;
   let state: HistoryListState = { phase: 'initial-loading' };
   let thumbnails: HistoryThumbnails = 'pending';
   let thumbnailProblem: HistoryPageProblem | null = null;
@@ -53,6 +70,7 @@ export function createHistoryListWorkflow(
     const thumbnailsReady = thumbnails === 'ready';
     return {
       state,
+      filter,
       busy,
       endingGameProcess: recovery !== null,
       thumbnails,
@@ -96,7 +114,8 @@ export function createHistoryListWorkflow(
     try {
       const data = await commands.listHistoryRuns(
         HISTORY_PAGE_SIZE,
-        (pageNumber - 1) * HISTORY_PAGE_SIZE
+        (pageNumber - 1) * HISTORY_PAGE_SIZE,
+        filter
       );
       if (!active || historyRequest !== request) return;
       const lastPage = Math.max(
@@ -110,6 +129,7 @@ export function createHistoryListWorkflow(
         await loadHistory();
         return;
       }
+      staleRows = false;
       state = {
         phase: data.runs.length ? 'ready-content' : 'ready-empty',
         data,
@@ -119,7 +139,7 @@ export function createHistoryListWorkflow(
       if (!active || historyRequest !== request) return;
       const problem = historyProblemFromError(caught);
       state =
-        'data' in state
+        'data' in state && !staleRows
           ? { ...state, refresh: { phase: 'failed', problem } }
           : { phase: 'blocking-failure', problem };
     }
@@ -152,12 +172,18 @@ export function createHistoryListWorkflow(
     await Promise.all([loadHistory(), prepareThumbnails()]);
   }
 
-  async function selectPage(page: number): Promise<void> {
+  async function selectPage(
+    page: number,
+    nextFilter: HistoryRunFilter = filter
+  ): Promise<void> {
     const nextPage = parseHistoryPage(String(page));
-    if (pageNumber === nextPage) return;
+    const filterChanged = !sameFilter(filter, nextFilter);
+    if (pageNumber === nextPage && !filterChanged) return;
     pageNumber = nextPage;
+    filter = nextFilter;
     historyRequest = null;
-    state = { phase: 'initial-loading' };
+    if (filterChanged && 'data' in state) staleRows = true;
+    else state = { phase: 'initial-loading' };
     publish();
     await refresh();
   }

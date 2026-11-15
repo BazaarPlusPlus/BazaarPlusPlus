@@ -21,5 +21,10 @@
       "screenshot_id": "shot-1",
       "thumbnail_url": "http://127.0.0.1:17654/history/0/images/shot-1/strip"
     }
+  ],
+  "heroes": [
+    "Mak",
+    "TheDragons",
+    "Vanessa"
   ]
 }

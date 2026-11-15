@@ -12,7 +12,10 @@
 
 use std::path::{Path, PathBuf};
 
+use chrono::{FixedOffset, TimeZone as _};
+
 use crate::goldens::{assert_golden, json};
+use crate::history::filter::{HistoryPeriod, HistoryResultFilter, HistoryRunFilter, RunQuery};
 use crate::history::mod_schema::create_mod_schema;
 use crate::services::detect::InstallEnvironmentSnapshot;
 use crate::services::history::{CleanupPlans, History, StorageCleanupPreset, StorageCleanupScope};
@@ -273,7 +276,7 @@ fn list_history_runs() {
         "ipc/list_history_runs.empty.json",
         &fixture.json(
             &history(&fixture)
-                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
+                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
                 .unwrap(),
         ),
     );
@@ -285,7 +288,7 @@ fn list_history_runs() {
         "ipc/list_history_runs.page-1.json",
         &fixture.json(
             &history
-                .list_runs_for_page(50, 0, &HistoryThumbnails::default())
+                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
                 .unwrap(),
         ),
     );
@@ -293,9 +296,51 @@ fn list_history_runs() {
         "ipc/list_history_runs.page-2-of-2.json",
         &fixture.json(
             &history
-                .list_runs_for_page(2, 2, &HistoryThumbnails::default())
+                .list_runs_for_page(2, 2, &RunQuery::default(), &HistoryThumbnails::default())
                 .unwrap(),
         ),
+    );
+
+    // 2026-01-03 12:00 at UTC+8: "today" starts at 2026-01-02 16:00 UTC.
+    let now = FixedOffset::east_opt(8 * 3600)
+        .unwrap()
+        .with_ymd_and_hms(2026, 1, 3, 12, 0, 0)
+        .unwrap();
+    let filtered = |filter: HistoryRunFilter| {
+        history
+            .list_runs_for_page(50, 0, &filter.query_at(now), &HistoryThumbnails::default())
+            .unwrap()
+    };
+    // The legacy `Hero8` spelling of run-2 matches the canonical id.
+    assert_golden(
+        "ipc/list_history_runs.hero-the-dragons.json",
+        &fixture.json(&filtered(HistoryRunFilter {
+            hero: Some("TheDragons".to_string()),
+            ..HistoryRunFilter::default()
+        })),
+    );
+    // The SQL result rule and the row's derived `result` are one rule.
+    for (result, name) in [
+        (HistoryResultFilter::Win, "win"),
+        (HistoryResultFilter::Loss, "loss"),
+    ] {
+        let list = filtered(HistoryRunFilter {
+            result,
+            ..HistoryRunFilter::default()
+        });
+        assert!(!list.runs.is_empty());
+        assert!(list.runs.iter().all(|run| run.result == name), "{name}");
+        assert_golden(
+            &format!("ipc/list_history_runs.result-{name}.json"),
+            &fixture.json(&list),
+        );
+    }
+    assert_golden(
+        "ipc/list_history_runs.period-today.json",
+        &fixture.json(&filtered(HistoryRunFilter {
+            period: HistoryPeriod::Today,
+            ..HistoryRunFilter::default()
+        })),
     );
 }
 

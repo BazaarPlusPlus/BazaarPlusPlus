@@ -21,6 +21,7 @@ import { ToastProvider } from '../components/ui/Toast';
 import { LocaleProvider } from '../i18n/LocaleProvider';
 import { formatMessage, LOCALE_STORAGE_KEY } from '../i18n/messages';
 import type { LegacyDataPresence } from '../types/backend';
+import { UNFILTERED } from '../features/history/pagination';
 import History from './History';
 
 vi.mock('../api/commandClient', () => ({
@@ -57,7 +58,8 @@ const runs = Array.from({ length: 235 }, (_, index) => ({
 const loadedPage = (offset = 0, total = 235) => ({
   ...emptyHistoryRunList,
   summary: { ...emptyHistoryRunList.summary, runs: total },
-  runs: runs.slice(0, total).slice(offset, offset + 50)
+  runs: runs.slice(0, total).slice(offset, offset + 50),
+  heroes: ['Mak', 'Vanessa']
 });
 let container: HTMLDivElement;
 let root: Root;
@@ -121,6 +123,111 @@ async function click(label: string) {
   expect(button).toBeDefined();
   await act(async () => button!.click());
 }
+
+function route() {
+  return container.querySelector('[data-testid="route"]')?.textContent;
+}
+
+async function choose(label: string, value: string) {
+  const select = container.querySelector<HTMLSelectElement>(
+    `select[aria-label="${label}"]`
+  );
+  expect(select).not.toBeNull();
+  await act(async () => {
+    select!.value = value;
+    select!.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+describe('history filters', () => {
+  it('reads the first page of a new filter and keeps the filter in the URL', async () => {
+    await render('/history?page=3');
+    await choose('英雄', 'Vanessa');
+    expect(route()).toBe('/history?hero=Vanessa');
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
+      hero: 'Vanessa',
+      period: 'all',
+      result: 'all'
+    });
+    await choose('结果', 'win');
+    await choose('时间', 'today');
+    expect(route()).toBe('/history?hero=Vanessa&period=today&result=win');
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
+      hero: 'Vanessa',
+      period: 'today',
+      result: 'win'
+    });
+  });
+
+  it('pages within the filter', async () => {
+    await render('/history?result=win');
+    await click('下一页');
+    expect(route()).toBe('/history?result=win&page=2');
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50, {
+      hero: null,
+      period: 'all',
+      result: 'win'
+    });
+  });
+
+  it('offers to clear a filter that matches no run', async () => {
+    vi.mocked(listHistoryRuns).mockImplementation(
+      async (_limit, offset, filter) =>
+        filter.hero ? loadedPage(offset, 0) : loadedPage(offset)
+    );
+    await render('/history?hero=Mak');
+    expect(container.textContent).toContain('没有符合条件的对局');
+    expect(container.textContent).not.toContain('暂无本地战绩');
+    await click('清除筛选');
+    expect(route()).toBe('/history');
+    expect(container.querySelectorAll('.bpp-history-run-card')).toHaveLength(
+      50
+    );
+  });
+
+  it('keeps the filter bar mounted while a new filter loads', async () => {
+    await render('/history');
+    const heroSelect = container.querySelector('select[aria-label="英雄"]');
+    let finish!: () => void;
+    vi.mocked(listHistoryRuns).mockImplementationOnce(
+      (_limit, offset) =>
+        new Promise((resolve) => {
+          finish = () => resolve(loadedPage(offset, 3));
+        })
+    );
+    await choose('结果', 'win');
+    expect(container.querySelector('select[aria-label="英雄"]')).toBe(
+      heroSelect
+    );
+    await act(async () => finish());
+    expect(container.querySelector('select[aria-label="英雄"]')).toBe(
+      heroSelect
+    );
+    expect(container.querySelectorAll('.bpp-history-run-card')).toHaveLength(3);
+  });
+
+  it('keeps the filter when it corrects a page beyond the filtered runs', async () => {
+    vi.mocked(listHistoryRuns).mockImplementation(async (_limit, offset) =>
+      loadedPage(offset, 52)
+    );
+    await render('/history?result=win&page=5');
+    expect(route()).toBe('/history?result=win&page=2');
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50, {
+      hero: null,
+      period: 'all',
+      result: 'win'
+    });
+  });
+
+  it('ignores filter values the list does not offer', async () => {
+    await render('/history?period=forever&result=draw&hero=');
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
+      hero: null,
+      period: 'all',
+      result: 'all'
+    });
+  });
+});
 
 describe('history pagination', () => {
   it('reaches records beyond 200 and keeps summary totals independent of the page', async () => {
@@ -192,7 +299,7 @@ describe('history pagination', () => {
 
     await act(async () => finishRecovery(true));
 
-    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50, UNFILTERED);
     expect(
       container.querySelector('.bpp-history-run-card')?.getAttribute('href')
     ).toBe('/history/run-51');
@@ -229,7 +336,7 @@ describe('history pagination', () => {
     await act(async () => finishRecovery(true));
 
     expect(listHistoryRuns).toHaveBeenCalledTimes(callsAfterNavigation);
-    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50, UNFILTERED);
     expect(
       container.querySelector('.bpp-history-run-card')?.getAttribute('href')
     ).toBe('/history/run-51');

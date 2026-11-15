@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use crate::history::files::{resolve_stored_path, StoredPathReferences, StoredRelativePath};
+use crate::history::instant::local_day_start;
 use crate::history::queries::{open_cleanup_connection, open_connection};
 use crate::services::game_process::GameProcessProbe;
 
@@ -42,26 +43,9 @@ impl CleanupCutoff {
                     .date_naive()
                     .with_day(1)
                     .expect("day 1 is always a valid day");
-                let month_start = first_of_month
-                    .and_hms_opt(0, 0, 0)
-                    .expect("midnight is always a valid time");
-                // A spring-forward DST gap can make local midnight on the 1st
-                // not exist, so `earliest()` returns None. That must NOT collapse
-                // to `None` here — `None` is the wire meaning of preset `All`
-                // (delete everything). Fall back to local noon (no timezone skips
-                // noon) so a bounded preset always yields a real cutoff.
-                now.timezone()
-                    .from_local_datetime(&month_start)
-                    .earliest()
-                    .or_else(|| {
-                        now.timezone()
-                            .from_local_datetime(
-                                &first_of_month
-                                    .and_hms_opt(12, 0, 0)
-                                    .expect("noon is always a valid time"),
-                            )
-                            .earliest()
-                    })
+                // `None` is the wire meaning of preset `All` (delete everything),
+                // so a bounded preset always yields a real cutoff.
+                local_day_start(&now, first_of_month)
                     .unwrap_or_else(|| now.clone() - Duration::days(31))
             }
         };

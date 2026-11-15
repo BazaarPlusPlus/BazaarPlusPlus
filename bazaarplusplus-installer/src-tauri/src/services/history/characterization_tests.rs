@@ -651,6 +651,7 @@ fn history_reads_name_a_running_game() {
                 .list_runs_for_page(
                     50,
                     0,
+                    &crate::history::RunQuery::default(),
                     &crate::stream::history_thumbnails::HistoryThumbnails::default(),
                 )
                 .unwrap_err(),

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 import { invoke } from '@tauri-apps/api/core';
 import type { CommandAdapter } from './commandAdapter';
+import { UNFILTERED } from '../features/history/pagination';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 const invokeMock = vi.mocked(invoke);
@@ -30,7 +31,9 @@ describe('native command adapter', () => {
     invokeMock.mockRejectedValueOnce('raw backend failure');
     const { commandClient } = await import('./commandClient');
 
-    await expect(commandClient.listHistoryRuns(50, 0)).rejects.toMatchObject({
+    await expect(
+      commandClient.listHistoryRuns(50, 0, UNFILTERED)
+    ).rejects.toMatchObject({
       message: 'raw backend failure'
     });
   });
@@ -38,9 +41,10 @@ describe('native command adapter', () => {
   it.each([
     {
       call: 'listHistoryRuns',
-      run: (client: CommandAdapter) => client.listHistoryRuns(50, 100),
+      run: (client: CommandAdapter) =>
+        client.listHistoryRuns(50, 100, UNFILTERED),
       command: 'list_history_runs',
-      args: { limit: 50, offset: 100 },
+      args: { limit: 50, offset: 100, filter: UNFILTERED },
       problem: {
         code: 'history_read_failed',
         params: { operation: 'list_runs' },

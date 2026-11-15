@@ -1,0 +1,30 @@
+{
+  "summary": {
+    "runs": 1,
+    "videos": 0,
+    "win_rate": 0.0
+  },
+  "runs": [
+    {
+      "run_id": "run-2",
+      "hero": "The Dragons",
+      "game_mode": "Normal",
+      "started_at_utc": "2026-01-02T09:00:00Z",
+      "ended_at_utc": "2026-01-02T09:30:00Z",
+      "result": "loss",
+      "victories": 4,
+      "losses": 5,
+      "final_day": 8,
+      "final_player_rank": null,
+      "final_player_rating": null,
+      "final_player_rating_delta": null,
+      "screenshot_id": "shot-2",
+      "thumbnail_url": "http://127.0.0.1:17654/history/0/images/shot-2/strip"
+    }
+  ],
+  "heroes": [
+    "Mak",
+    "TheDragons",
+    "Vanessa"
+  ]
+}

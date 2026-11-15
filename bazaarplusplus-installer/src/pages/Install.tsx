@@ -28,6 +28,7 @@ import {
 import { ModalSource } from '../components/ui/ModalCoordinator';
 import { useToast } from '../components/ui/Toast';
 import { commandClient } from '../api/commandClient';
+import { UNFILTERED } from '../features/history/pagination';
 import { hasTauriRuntime } from '../api/runtime';
 import { takeGithubStarOffer } from '../features/install/githubStarPrompt';
 
@@ -109,7 +110,7 @@ export default function Install() {
     void takeGithubStarOffer({
       storage: window.localStorage,
       countRuns: async () =>
-        (await commandClient.listHistoryRuns(1, 0)).summary.runs
+        (await commandClient.listHistoryRuns(1, 0, UNFILTERED)).summary.runs
     }).then((offered) => {
       if (!offered) return;
       showToast({

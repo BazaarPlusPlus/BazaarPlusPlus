@@ -19,7 +19,9 @@ import {
   formatRunResultLabel,
   ratingDeltaTrend
 } from '../features/history/format';
+import { HistoryFilters } from '../features/history/HistoryFilters';
 import { HistoryOverview } from '../features/history/HistoryOverview';
+import { isFiltered, UNFILTERED } from '../features/history/pagination';
 import {
   presentHistoryProblem,
   type HistoryPageProblem
@@ -99,8 +101,28 @@ export default function History() {
               />
             )}
 
+          {(page.state.data.heroes.length > 0 || isFiltered(page.filter)) && (
+            <HistoryFilters
+              filter={page.filter}
+              heroes={page.state.data.heroes}
+              onChange={page.setFilter}
+            />
+          )}
+
           <div className="bpp-history-run-list">
-            {page.state.phase === 'ready-empty' ? (
+            {page.state.phase === 'ready-empty' && isFiltered(page.filter) ? (
+              <StatusPanel
+                headingLevel={3}
+                kind="empty"
+                icon={<HistoryIcon />}
+                title={t('historyNoMatchingRuns')}
+                actions={
+                  <Button size="sm" onClick={() => page.setFilter(UNFILTERED)}>
+                    {t('historyClearFilters')}
+                  </Button>
+                }
+              />
+            ) : page.state.phase === 'ready-empty' ? (
               <StatusPanel
                 headingLevel={3}
                 kind="empty"
@@ -134,7 +156,7 @@ export default function History() {
                 <RunRow
                   key={run.run_id}
                   run={run}
-                  pageNumber={pagination.page}
+                  historySearch={page.search}
                   thumbnailUrl={page.thumbnailUrl(run)}
                   thumbnailAttempt={page.thumbnailAttempt}
                   thumbnails={page.thumbnails}
@@ -186,13 +208,13 @@ export default function History() {
 
 function RunRow({
   run,
-  pageNumber,
+  historySearch,
   thumbnailUrl,
   thumbnailAttempt,
   thumbnails
 }: {
   run: HistoryRunRow;
-  pageNumber: number;
+  historySearch: string;
   thumbnailUrl: string | null;
   thumbnailAttempt: number;
   thumbnails: HistoryThumbnails;
@@ -216,7 +238,7 @@ function RunRow({
   return (
     <Link
       to={detailPath}
-      state={{ historyPage: pageNumber }}
+      state={{ historySearch }}
       className="bpp-history-run-card"
     >
       <RunThumbnail

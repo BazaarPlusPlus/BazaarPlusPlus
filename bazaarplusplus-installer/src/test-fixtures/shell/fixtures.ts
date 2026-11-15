@@ -119,10 +119,17 @@ function run(index: number): HistoryRunRow {
 /** 120 runs: the first page of a three-page list. */
 export const historyFirstPage: HistoryRunList = {
   summary: { runs: 120, videos: 7, win_rate: 0.67 },
-  runs: Array.from({ length: 50 }, (_, index) => run(index + 1))
+  runs: Array.from({ length: 50 }, (_, index) => run(index + 1)),
+  heroes: [...heroes].sort()
 };
 
 export const historyEmpty: HistoryRunList = emptyHistoryRunList;
+
+/** A filter that matches none of the local runs. */
+export const historyFilteredEmpty: HistoryRunList = {
+  ...emptyHistoryRunList,
+  heroes: ['Mak', 'Vanessa']
+};
 
 export const historyReadFailed: SemanticProblem = {
   code: 'history_read_failed',
