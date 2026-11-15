@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
+pub(crate) use crate::history::card_names::GameCardNames;
 use crate::history::{
     cleanup::{
         self, RunDataCleanupPlan, RunDataCleanupPreview, RunDataCleanupResult,
@@ -234,6 +235,7 @@ impl History {
         offset: usize,
         query: &RunQuery,
         thumbnails: &HistoryThumbnails,
+        card_names: &GameCardNames,
     ) -> Result<HistoryRunList, SemanticProblem> {
         // The page's thumbnails stay bound to the installation it was read from.
         let source = thumbnails.register(&self.paths.game_path);
@@ -243,6 +245,7 @@ impl History {
             limit.clamp(1, 200),
             offset,
             |screenshot_id| history_thumbnails::url(source, screenshot_id),
+            card_names,
         )
         .map_err(|error| history_read_problem_with("list_runs", error, self.is_game_running))
     }
@@ -587,9 +590,9 @@ mod characterization_tests;
 mod tests {
     use super::{
         history_paths_for_game_path, history_read_problem_with, history_thumbnails,
-        require_video_file_exists, CleanupPlans, History, HistoryReadError, HistoryThumbnails,
-        RunQuery, StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview,
-        StorageCleanupScope,
+        require_video_file_exists, CleanupPlans, GameCardNames, History, HistoryReadError,
+        HistoryThumbnails, RunQuery, StorageCleanupExecution, StorageCleanupPreset,
+        StorageCleanupPreview, StorageCleanupScope,
     };
     use crate::history::cleanup::{RunDataCleanupPlan, ScreenshotCleanupPlan};
     use crate::history::mod_schema::create_mod_schema;
@@ -625,7 +628,13 @@ mod tests {
         std::fs::write(&history.paths.database_path, b"not sqlite").unwrap();
 
         let read_failed = history
-            .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
+            .list_runs_for_page(
+                50,
+                0,
+                &RunQuery::default(),
+                &HistoryThumbnails::default(),
+                &GameCardNames::none(),
+            )
             .unwrap_err();
         assert_eq!(read_failed.code, SemanticProblemCode::HistoryReadFailed);
         assert_eq!(
@@ -661,7 +670,13 @@ mod tests {
 
         for problem in [
             history
-                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
+                .list_runs_for_page(
+                    50,
+                    0,
+                    &RunQuery::default(),
+                    &HistoryThumbnails::default(),
+                    &GameCardNames::none(),
+                )
                 .unwrap_err(),
             history.run_detail_for_page("run-1").unwrap_err(),
         ] {
@@ -865,7 +880,13 @@ mod tests {
         let thumbnails = HistoryThumbnails::default();
         thumbnails.register(Path::new("/another/installation"));
         let list = history
-            .list_runs_for_page(50, 0, &RunQuery::default(), &thumbnails)
+            .list_runs_for_page(
+                50,
+                0,
+                &RunQuery::default(),
+                &thumbnails,
+                &GameCardNames::none(),
+            )
             .unwrap();
         assert_eq!(
             list.runs[0].thumbnail_url,
@@ -949,7 +970,13 @@ mod tests {
         drop(conn);
         let run_count = || {
             history
-                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
+                .list_runs_for_page(
+                    50,
+                    0,
+                    &RunQuery::default(),
+                    &HistoryThumbnails::default(),
+                    &GameCardNames::none(),
+                )
                 .unwrap()
                 .summary
                 .runs
@@ -1186,7 +1213,13 @@ mod tests {
         assert_eq!(result.deleted_runs, 1);
         assert_eq!(
             closed
-                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
+                .list_runs_for_page(
+                    50,
+                    0,
+                    &RunQuery::default(),
+                    &HistoryThumbnails::default(),
+                    &GameCardNames::none()
+                )
                 .unwrap()
                 .summary
                 .runs,

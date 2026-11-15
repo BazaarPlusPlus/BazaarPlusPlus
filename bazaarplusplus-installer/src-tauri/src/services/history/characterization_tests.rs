@@ -653,6 +653,7 @@ fn history_reads_name_a_running_game() {
                     0,
                     &crate::history::RunQuery::default(),
                     &crate::stream::history_thumbnails::HistoryThumbnails::default(),
+                    &crate::history::card_names::GameCardNames::none(),
                 )
                 .unwrap_err(),
         ),

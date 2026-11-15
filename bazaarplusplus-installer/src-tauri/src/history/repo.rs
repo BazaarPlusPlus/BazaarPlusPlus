@@ -4,14 +4,16 @@ use rusqlite::params;
 
 pub use crate::history::dto::{HistoryRunDetail, HistoryRunList, HistorySummary};
 
+use crate::history::card_names::GameCardNames;
+use crate::history::dto::HistoryKeyCard;
 use crate::history::dto::HistoryRunDetail as HistoryRunDetailDto;
 use crate::history::files::{remove_video_file, resolve_screenshot_path, resolve_stored_path};
 use crate::history::filter::RunQuery;
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
     self, list_run_rows, load_battle_rows, load_battle_video_ref, load_hero_spellings,
-    load_run_row, load_summary, local_player_name, open_connection, open_write_connection,
-    HistoryReadError,
+    load_key_card_rows, load_run_row, load_summary, local_player_name, open_connection,
+    open_write_connection, HistoryReadError,
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
@@ -23,6 +25,7 @@ pub fn list_history_runs(
     limit: usize,
     offset: usize,
     thumbnail_url: impl Fn(&str) -> String,
+    card_names: &GameCardNames,
 ) -> Result<HistoryRunList, HistoryReadError> {
     let empty = || HistoryRunList {
         summary: HistorySummary {
@@ -32,6 +35,7 @@ pub fn list_history_runs(
         },
         runs: Vec::new(),
         heroes: Vec::new(),
+        key_cards: Vec::new(),
     };
 
     if !database_path.exists() {
@@ -61,10 +65,37 @@ pub fn list_history_runs(
         })
         .collect();
 
+    let key_card_rows = load_key_card_rows(
+        &conn,
+        &query.any_key_card(),
+        &spellings,
+        query.key_card.as_deref(),
+    )?;
+    let ids = key_card_rows
+        .iter()
+        .map(|row| row.template_id.clone())
+        .collect::<Vec<_>>();
+    let mut titles = card_names.titles(&ids);
+    let key_cards = key_card_rows
+        .into_iter()
+        .map(|row| {
+            let titles = titles.remove(&row.template_id).unwrap_or_default();
+            HistoryKeyCard {
+                name: titles
+                    .en
+                    .or(row.name)
+                    .unwrap_or_else(|| row.template_id.clone()),
+                name_zh: titles.zh,
+                template_id: row.template_id,
+            }
+        })
+        .collect();
+
     Ok(HistoryRunList {
         summary,
         runs,
         heroes: spellings.heroes(),
+        key_cards,
     })
 }
 
@@ -145,6 +176,7 @@ pub fn delete_battle_video(
 mod tests {
     use super::{delete_battle_video, get_history_run_detail, list_history_runs};
     use crate::config::DATABASE_FILE_NAME;
+    use crate::history::card_names::GameCardNames;
     use crate::history::dto::{HistoryBattleRow, HistoryBattleVideo};
     use crate::history::filter::RunQuery;
     use crate::history::mod_schema::create_mod_schema;
@@ -192,9 +224,14 @@ mod tests {
         )
         .unwrap();
 
-        let payload = list_history_runs(&database_path, &RunQuery::default(), 20, 0, |id| {
-            format!("thumbnail:{id}")
-        })
+        let payload = list_history_runs(
+            &database_path,
+            &RunQuery::default(),
+            20,
+            0,
+            |id| format!("thumbnail:{id}"),
+            &GameCardNames::none(),
+        )
         .unwrap();
 
         assert_eq!(payload.summary.runs, 3);
@@ -236,6 +273,7 @@ mod tests {
                 50,
                 offset,
                 str::to_string,
+                &GameCardNames::none(),
             )
             .unwrap();
             assert_eq!(page.summary.runs, 235);
@@ -253,6 +291,7 @@ mod tests {
             50,
             250,
             str::to_string,
+            &GameCardNames::none(),
         )
         .unwrap();
         assert!(beyond_end.runs.is_empty());

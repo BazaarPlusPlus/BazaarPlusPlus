@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Duration, TimeZone};
 use rusqlite::types::Value;
 
+use crate::history::final_board::FINAL_BOARD_ITEMS;
 use crate::history::hero::canonical_hero_id;
 use crate::history::instant::local_day_start;
 
@@ -57,6 +58,9 @@ pub struct HistoryRunFilter {
     pub hero: Option<String>,
     pub period: HistoryPeriod,
     pub result: HistoryResultFilter,
+    /// A card template id from `HistoryRunList::key_cards`: Runs whose Final
+    /// Board holds that item.
+    pub key_card: Option<String>,
 }
 
 impl HistoryRunFilter {
@@ -74,6 +78,7 @@ impl HistoryRunFilter {
             hero: self.hero.clone(),
             since_ms: since.map(|instant| instant.timestamp_millis()),
             result: self.result,
+            key_card: self.key_card.clone(),
         }
     }
 }
@@ -85,11 +90,24 @@ pub(crate) struct RunQuery {
     pub(crate) hero: Option<String>,
     pub(crate) since_ms: Option<i64>,
     pub(crate) result: HistoryResultFilter,
+    pub(crate) key_card: Option<String>,
 }
 
 impl RunQuery {
     pub(crate) fn is_unfiltered(&self) -> bool {
-        self.hero.is_none() && self.since_ms.is_none() && self.result == HistoryResultFilter::All
+        self.hero.is_none()
+            && self.since_ms.is_none()
+            && self.result == HistoryResultFilter::All
+            && self.key_card.is_none()
+    }
+
+    /// The same query with every key card: the Runs whose Final Boards the
+    /// key card options come from.
+    pub(crate) fn any_key_card(&self) -> RunQuery {
+        RunQuery {
+            key_card: None,
+            ..self.clone()
+        }
     }
 
     /// The `where` condition on `runs` and its parameters, in order.
@@ -117,6 +135,12 @@ impl RunQuery {
         }
         if let Some(predicate) = self.result.predicate() {
             clauses.push(format!("({predicate})"));
+        }
+        if let Some(key_card) = &self.key_card {
+            clauses.push(format!(
+                "run_id in (select run_id from ({FINAL_BOARD_ITEMS}) where template_id = ?)"
+            ));
+            params.push(Value::Text(key_card.clone()));
         }
         let condition = if clauses.is_empty() {
             "1".to_string()

@@ -17,7 +17,8 @@ export const HISTORY_RESULTS: HistoryResultFilter[] = ['all', 'win', 'loss'];
 export const UNFILTERED: HistoryRunFilter = {
   hero: null,
   period: 'all',
-  result: 'all'
+  result: 'all',
+  key_card: null
 };
 
 /** A History List selection: one page of the Runs one filter selects. */
@@ -43,7 +44,8 @@ export function parseHistoryQuery(params: URLSearchParams): HistoryListQuery {
     filter: {
       hero: params.get('hero') || null,
       period: oneOf(HISTORY_PERIODS, params.get('period')),
-      result: oneOf(HISTORY_RESULTS, params.get('result'))
+      result: oneOf(HISTORY_RESULTS, params.get('result')),
+      key_card: params.get('card') || null
     }
   };
 }
@@ -57,6 +59,7 @@ export function historySearchParams({
   if (filter.hero) params.hero = filter.hero;
   if (filter.period !== 'all') params.period = filter.period;
   if (filter.result !== 'all') params.result = filter.result;
+  if (filter.key_card) params.card = filter.key_card;
   if (page > 1) params.page = String(page);
   return params;
 }
@@ -67,11 +70,14 @@ export function historyListPath(query: HistoryListQuery): string {
 }
 
 export function isFiltered(filter: HistoryRunFilter): boolean {
-  return (
-    filter.hero !== null || filter.period !== 'all' || filter.result !== 'all'
-  );
+  return !sameFilter(filter, UNFILTERED);
 }
 
 export function sameFilter(a: HistoryRunFilter, b: HistoryRunFilter): boolean {
-  return a.hero === b.hero && a.period === b.period && a.result === b.result;
+  return (
+    a.hero === b.hero &&
+    a.period === b.period &&
+    a.result === b.result &&
+    a.key_card === b.key_card
+  );
 }

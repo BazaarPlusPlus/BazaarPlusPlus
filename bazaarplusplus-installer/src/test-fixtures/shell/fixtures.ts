@@ -120,7 +120,11 @@ function run(index: number): HistoryRunRow {
 export const historyFirstPage: HistoryRunList = {
   summary: { runs: 120, videos: 7, win_rate: 0.67 },
   runs: Array.from({ length: 50 }, (_, index) => run(index + 1)),
-  heroes: [...heroes].sort()
+  heroes: [...heroes].sort(),
+  key_cards: [
+    { template_id: 'card-marlon', name: 'Marlon', name_zh: '马龙鱼' },
+    { template_id: 'card-pufferfish', name: 'Pufferfish', name_zh: null }
+  ]
 };
 
 export const historyEmpty: HistoryRunList = emptyHistoryRunList;

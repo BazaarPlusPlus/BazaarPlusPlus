@@ -86,7 +86,8 @@ export const emptyHistoryRunList: HistoryRunList = {
     win_rate: null
   },
   runs: [],
-  heroes: []
+  heroes: [],
+  key_cards: []
 };
 
 export const emptyScreenshotCleanupPreview: ScreenshotCleanupPreview = {

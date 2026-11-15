@@ -7,6 +7,19 @@ pub struct HistoryRunList {
     pub runs: Vec<HistoryRunRow>,
     /// Canonical ids of every hero with a Run, whatever the filter.
     pub heroes: Vec<String>,
+    /// The items on the Final Boards of the Runs the other filters select,
+    /// held by the most Runs first; a selected key card is always listed.
+    pub key_cards: Vec<HistoryKeyCard>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
+pub struct HistoryKeyCard {
+    pub template_id: String,
+    /// The English title, or the item's internal name when the game's data
+    /// cache does not have it.
+    pub name: String,
+    /// The Simplified Chinese title from the game's data cache.
+    pub name_zh: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]

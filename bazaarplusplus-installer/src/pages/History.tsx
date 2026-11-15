@@ -105,6 +105,7 @@ export default function History() {
             <HistoryFilters
               filter={page.filter}
               heroes={page.state.data.heroes}
+              keyCards={page.state.data.key_cards}
               onChange={page.setFilter}
             />
           )}

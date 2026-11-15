@@ -1,7 +1,9 @@
+pub(crate) mod card_names;
 pub(crate) mod cleanup;
 mod dto;
 pub(crate) mod files;
 pub(crate) mod filter;
+mod final_board;
 pub(crate) mod hero;
 pub(crate) mod instant;
 pub(crate) mod mapper;

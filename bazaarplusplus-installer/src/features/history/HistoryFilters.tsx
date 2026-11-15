@@ -2,6 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type { MessageKey } from '../../i18n/messages';
 import type {
+  HistoryKeyCard,
   HistoryPeriod,
   HistoryResultFilter,
   HistoryRunFilter
@@ -22,18 +23,20 @@ const RESULT_LABELS: Record<HistoryResultFilter, MessageKey> = {
   loss: 'historyResultLoss'
 };
 
-const ALL_HEROES = '';
+const ALL = '';
 
 export function HistoryFilters({
   filter,
   heroes,
+  keyCards,
   onChange
 }: {
   filter: HistoryRunFilter;
   heroes: string[];
+  keyCards: HistoryKeyCard[];
   onChange: (filter: HistoryRunFilter) => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   // A hero from the URL stays selectable even when no Run has it.
   const heroOptions =
     filter.hero && !heroes.includes(filter.hero)
@@ -44,16 +47,16 @@ export function HistoryFilters({
     <div className="bpp-history-filters">
       <FilterSelect
         label={t('historyFilterHero')}
-        value={filter.hero ?? ALL_HEROES}
+        value={filter.hero ?? ALL}
         options={[
-          { value: ALL_HEROES, label: t('historyFilterAllHeroes') },
+          { value: ALL, label: t('historyFilterAllHeroes') },
           ...heroOptions.map((hero) => ({
             value: hero,
             label: formatHero(hero, t)
           }))
         ]}
         onChange={(hero) =>
-          onChange({ ...filter, hero: hero === ALL_HEROES ? null : hero })
+          onChange({ ...filter, hero: hero === ALL ? null : hero })
         }
       />
       <FilterSelect
@@ -76,6 +79,20 @@ export function HistoryFilters({
         }))}
         onChange={(result) =>
           onChange({ ...filter, result: result as HistoryResultFilter })
+        }
+      />
+      <FilterSelect
+        label={t('historyFilterKeyCard')}
+        value={filter.key_card ?? ALL}
+        options={[
+          { value: ALL, label: t('historyFilterAllKeyCards') },
+          ...keyCards.map((card) => ({
+            value: card.template_id,
+            label: (locale === 'zh' && card.name_zh) || card.name
+          }))
+        ]}
+        onChange={(keyCard) =>
+          onChange({ ...filter, key_card: keyCard === ALL ? null : keyCard })
         }
       />
     </div>

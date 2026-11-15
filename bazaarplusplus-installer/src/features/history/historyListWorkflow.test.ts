@@ -58,7 +58,12 @@ function pageData(page = 1, total = 101): HistoryRunList {
   };
 }
 
-const all: HistoryRunFilter = { hero: null, period: 'all', result: 'all' };
+const all: HistoryRunFilter = {
+  hero: null,
+  period: 'all',
+  result: 'all',
+  key_card: null
+};
 const tenWins: HistoryRunFilter = { ...all, result: 'win' };
 
 const readFailure = {

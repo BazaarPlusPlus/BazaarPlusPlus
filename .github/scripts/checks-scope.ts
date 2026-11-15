@@ -182,6 +182,11 @@ export const SHARED_INPUTS: [string, string[]][] = [
     'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/',
     ['installer']
   ],
+  // Battle snapshot JSON (AGENTS.md): installer History reads the mod's golden.
+  [
+    'bazaarplusplus-mod/tests/BundlePipeline.Tests/fixtures/battle-snapshots.golden.txt',
+    ['installer']
+  ],
   [
     'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql',
     ['installer', 'release']
