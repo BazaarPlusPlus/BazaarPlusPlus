@@ -38,17 +38,13 @@ internal sealed class HistoryPanelMount : IBppMountable
         var combatReplayRuntime = _combatReplayRuntime();
         var overlayHost = _overlayHost();
         var modApiSession = _modApiSession();
-        var shouldMount = HistoryPanelMountPlan.ShouldMount(
-            combatReplayRuntime != null,
-            overlayHost != null
-        );
-        if (!shouldMount && combatReplayRuntime == null)
+        if (combatReplayRuntime == null)
         {
             LogMissingDependency(HistoryPanelMountDependency.CombatReplayRuntime);
             return;
         }
 
-        if (!shouldMount)
+        if (overlayHost == null)
         {
             LogMissingDependency(HistoryPanelMountDependency.OverlayPanelHost);
             return;
@@ -77,7 +73,7 @@ internal sealed class HistoryPanelMount : IBppMountable
         panel.Configure(dependencies);
         // Register with the host only once fully configured; an unconfigured panel (skip paths
         // above) must stay invisible to overlay lifecycle routing.
-        panel.AttachToOverlayHost(overlayHost!);
+        panel.AttachToOverlayHost(overlayHost);
     }
 
     private static void LogMissingDependency(HistoryPanelMountDependency dependency)

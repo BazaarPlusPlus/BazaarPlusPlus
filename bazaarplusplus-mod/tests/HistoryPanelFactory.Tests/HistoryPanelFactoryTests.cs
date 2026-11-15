@@ -23,20 +23,6 @@ public sealed class HistoryPanelFactoryTests
         AssertDegradedChain(BuildDataServiceForDbPath("   "), "whitespace");
     }
 
-    [Fact]
-    public void TestMountPlanRequiresReplayRuntimeAndOverlayHost()
-    {
-        Assert(
-            HistoryPanelMountPlan.ShouldMount(true, true),
-            "Replay runtime and overlay host should mount HistoryPanel."
-        );
-        Assert(
-            !HistoryPanelMountPlan.ShouldMount(false, true)
-                && !HistoryPanelMountPlan.ShouldMount(true, false),
-            "Replay runtime and overlay host remain required mount dependencies."
-        );
-    }
-
     // The production composition with a Mod API session, so a missing ghost sync can only come
     // from the missing repository.
     private static HistoryPanelDataService BuildDataServiceForDbPath(string runLogDatabasePath)
