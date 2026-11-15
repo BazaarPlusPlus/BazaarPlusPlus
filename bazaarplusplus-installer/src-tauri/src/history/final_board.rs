@@ -6,32 +6,36 @@
 /// One row per item on a Final Board: `run_id`, `template_id`, `name` (the
 /// item's English internal name). A battle whose board read failed has status
 /// `Missing` and no items, so the board falls back to the battle before it.
-/// Malformed JSON reads as no board rather than failing the query.
+/// Malformed JSON reads as no board rather than failing the query. The last
+/// captured battle is looked up once per Run, newest first along
+/// `idx_battles_run_id_recorded`, so the cost grows with Runs, not battles.
 pub(crate) const FINAL_BOARD_ITEMS: &str = "
     select
-      b.run_id as run_id,
+      final.run_id as run_id,
       json_extract(item.value, '$.template_id') as template_id,
       json_extract(item.value, '$.name') as name
-    from battles b
-    join battle_snapshots s on s.battle_id = b.battle_id,
+    from (
+      select
+        r.run_id as run_id,
+        (
+          select b.battle_id
+          from battles b
+          join battle_snapshots s on s.battle_id = b.battle_id
+          where b.run_id = r.run_id
+            and b.source = 'LOCAL'
+            and case when json_valid(s.player_hand_json)
+              then json_extract(s.player_hand_json, '$.status') end = 'Captured'
+          order by b.recorded_at_ms desc, b.battle_id desc
+          limit 1
+        ) as battle_id
+      from runs r
+    ) as final
+    join battle_snapshots s on s.battle_id = final.battle_id,
     json_each(
       case when json_valid(s.player_hand_json) then s.player_hand_json else '{}' end,
       '$.items'
     ) as item
-    where b.source = 'LOCAL'
-      and b.run_id is not null
-      and b.battle_id = (
-        select b2.battle_id
-        from battles b2
-        join battle_snapshots s2 on s2.battle_id = b2.battle_id
-        where b2.run_id = b.run_id
-          and b2.source = 'LOCAL'
-          and case when json_valid(s2.player_hand_json)
-            then json_extract(s2.player_hand_json, '$.status') end = 'Captured'
-        order by b2.recorded_at_ms desc, b2.battle_id desc
-        limit 1
-      )
-      and json_extract(item.value, '$.type') = 'Item'
+    where json_extract(item.value, '$.type') = 'Item'
       and json_extract(item.value, '$.template_id') is not null
 ";
 

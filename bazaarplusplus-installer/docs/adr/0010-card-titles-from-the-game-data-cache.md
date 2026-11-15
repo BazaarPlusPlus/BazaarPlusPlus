@@ -2,7 +2,7 @@
 
 ## Context
 
-The History List filters runs by a Key Card (#1085), and players search for it by the name the game shows them, mostly in Simplified Chinese. The mod's battle snapshots store each item's template id and its English internal name; no file in the repository or the Data Root has Chinese card titles. The game keeps its card data and translations in its own cache, `Application.persistentDataPath/prod/cache` (`DataManifestType.GetCachePath` in the game's `TheBazaarRuntime.dll`): `GameData.db`, whose `cards` rows hold each card's title key and English title, and `translations/zh-CN.bytes`, a SQLite table of titles by key. [ADR-0008](0008-legacy-data-roots-and-v5-import.md) limits History to the current Data Root, which is inside the game directory; this cache is in the user's profile.
+The History List filters runs by a Key Card (#1085), and players search for it by the name the game shows them, mostly in Simplified Chinese. The mod's battle snapshots store each item's template id and its English internal name; no file in the repository or the Data Root has Chinese card titles. The game keeps its card data and translations in its own cache, `Application.persistentDataPath/prod/cache` (`DataManifestType.GetCachePath` in the game's `TheBazaarRuntime.dll`): `GameData.db`, whose `cards` rows hold each card's title key and English title, and `translations/zh-CN.bytes`, a SQLite table of titles by key. The QQ daily report's `../../../scripts/qqbot/zh-names.ts` already reads the same two files on a maintainer's machine. [ADR-0008](0008-legacy-data-roots-and-v5-import.md) limits History to the current Data Root, which is inside the game directory; this cache is in the user's profile.
 
 ## Decision
 

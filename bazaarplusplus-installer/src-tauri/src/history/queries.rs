@@ -1,10 +1,10 @@
-use std::{path::Path, time::Duration};
+use std::{collections::HashSet, path::Path, time::Duration};
 
 use rusqlite::types::Value;
 use rusqlite::{params, params_from_iter, Connection, OpenFlags, OptionalExtension};
 
 use crate::history::dto::{HistoryBattleRow, HistorySummary};
-use crate::history::filter::{HeroSpellings, RunQuery, RUN_LIST_TIME};
+use crate::history::filter::{BoardItem, FinalBoards, HeroSpellings, RunCondition, RUN_LIST_TIME};
 use crate::history::final_board::FINAL_BOARD_ITEMS;
 use crate::history::instant::{optional_utc_column, utc_column};
 use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
@@ -207,15 +207,46 @@ pub fn load_hero_spellings(conn: &Connection) -> anyhow::Result<HeroSpellings> {
     Ok(HeroSpellings::from_stored(stored))
 }
 
-/// Totals over the Runs `query` selects. Without a filter, `videos` counts
+/// Every Run's Final Board.
+pub fn load_final_boards(conn: &Connection) -> anyhow::Result<FinalBoards> {
+    let mut stmt = conn.prepare(&format!(
+        "select run_id, template_id, name from ({FINAL_BOARD_ITEMS})"
+    ))?;
+    let items = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                BoardItem {
+                    template_id: row.get(1)?,
+                    name: row.get(2)?,
+                },
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(FinalBoards::from_items(items))
+}
+
+/// The ids of the Runs `condition` selects.
+pub fn load_run_ids(
+    conn: &Connection,
+    condition: &RunCondition,
+) -> anyhow::Result<HashSet<String>> {
+    let mut stmt = conn.prepare(&format!("select run_id from runs where {}", condition.sql))?;
+    let ids = stmt
+        .query_map(params_from_iter(condition.params.iter()), |row| row.get(0))?
+        .collect::<Result<HashSet<_>, _>>()?;
+    Ok(ids)
+}
+
+/// Totals over the Runs `condition` selects. Without a filter, `videos` counts
 /// every completed video in the database, Ghost Battle recordings included;
 /// with one, only the videos of the selected Runs' battles.
-pub fn load_summary(
-    conn: &Connection,
-    query: &RunQuery,
-    spellings: &HeroSpellings,
-) -> anyhow::Result<HistorySummary> {
-    let (condition, params) = query.condition(spellings);
+pub fn load_summary(conn: &Connection, condition: &RunCondition) -> anyhow::Result<HistorySummary> {
+    let RunCondition {
+        sql,
+        params,
+        unfiltered,
+    } = condition;
     let (runs, completed_runs, win_runs): (i64, i64, i64) = conn.query_row(
         &format!(
             "
@@ -224,13 +255,13 @@ pub fn load_summary(
               coalesce(sum(case when status = 'completed' then 1 else 0 end), 0) as completed_runs,
               coalesce(sum(case when status = 'completed' and coalesce(victories, 0) >= 10 then 1 else 0 end), 0) as win_runs
             from runs
-            where {condition}
+            where {sql}
             "
         ),
         params_from_iter(params.iter()),
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     )?;
-    let videos = if query.is_unfiltered() {
+    let videos = if *unfiltered {
         conn.query_row(
             "select count(*) from combat_replay_videos where status = 'COMPLETED'",
             [],
@@ -244,7 +275,7 @@ pub fn load_summary(
                 from combat_replay_videos v
                 join battles b on b.battle_id = v.battle_id
                 where v.status = 'COMPLETED'
-                  and b.run_id in (select run_id from runs where {condition})
+                  and b.run_id in (select run_id from runs where {sql})
                 "
             ),
             params_from_iter(params.iter()),
@@ -263,64 +294,13 @@ pub fn load_summary(
     })
 }
 
-/// A key card option before naming: an item's template id, the internal name
-/// its snapshots carry, and how many selected Runs end with it.
-pub struct KeyCardRow {
-    pub template_id: String,
-    pub name: Option<String>,
-}
-
-/// The items on the Final Boards of the Runs `query` selects, held by the most
-/// Runs first, then by name. `selected`, when no such board holds it, follows
-/// last with the name any Final Board gives it.
-pub fn load_key_card_rows(
-    conn: &Connection,
-    query: &RunQuery,
-    spellings: &HeroSpellings,
-    selected: Option<&str>,
-) -> anyhow::Result<Vec<KeyCardRow>> {
-    let (condition, params) = query.condition(spellings);
-    let mut stmt = conn.prepare(&format!(
-        "
-        select template_id, min(name) as name
-        from ({FINAL_BOARD_ITEMS})
-        where run_id in (select run_id from runs where {condition})
-        group by template_id
-        order by count(distinct run_id) desc, min(name), template_id
-        "
-    ))?;
-    let mut rows = stmt
-        .query_map(params_from_iter(params.iter()), |row| {
-            Ok(KeyCardRow {
-                template_id: row.get(0)?,
-                name: row.get(1)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    if let Some(selected) = selected {
-        if !rows.iter().any(|row| row.template_id == selected) {
-            let name = conn.query_row(
-                &format!("select min(name) from ({FINAL_BOARD_ITEMS}) where template_id = ?1"),
-                [selected],
-                |row| row.get(0),
-            )?;
-            rows.push(KeyCardRow {
-                template_id: selected.to_string(),
-                name,
-            });
-        }
-    }
-    Ok(rows)
-}
-
 pub fn list_run_rows(
     conn: &Connection,
-    query: &RunQuery,
-    spellings: &HeroSpellings,
+    condition: &RunCondition,
     limit: i64,
     offset: i64,
 ) -> anyhow::Result<Vec<RunRow>> {
-    let (condition, mut params) = query.condition(spellings);
+    let mut params = condition.params.clone();
     params.push(Value::Integer(limit));
     params.push(Value::Integer(offset));
     let mut stmt = conn.prepare(&format!(
@@ -330,10 +310,11 @@ pub fn list_run_rows(
               status, victories, losses, final_day, final_player_rank, final_player_rating,
               final_player_rating_delta
             from runs
-            where {condition}
+            where {}
             order by {RUN_LIST_TIME} desc, run_id desc
             limit ? offset ?
-            "
+            ",
+        condition.sql
     ))?;
     let rows = stmt.query_map(params_from_iter(params.iter()), map_run_row_from_statement)?;
     rows.collect::<Result<Vec<_>, _>>()

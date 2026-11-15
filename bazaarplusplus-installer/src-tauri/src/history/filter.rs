@@ -1,12 +1,11 @@
 //! The History List filter: what the frontend selects, and the query it
 //! resolves to at one local instant.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, Duration, TimeZone};
 use rusqlite::types::Value;
 
-use crate::history::final_board::FINAL_BOARD_ITEMS;
 use crate::history::hero::canonical_hero_id;
 use crate::history::instant::local_day_start;
 
@@ -110,9 +109,14 @@ impl RunQuery {
         }
     }
 
-    /// The `where` condition on `runs` and its parameters, in order.
-    /// `spellings` maps each canonical hero id to the stored spellings it covers.
-    pub(crate) fn condition(&self, spellings: &HeroSpellings) -> (String, Vec<Value>) {
+    /// The `where` condition on `runs`. `spellings` maps each canonical hero
+    /// id to the stored spellings it covers; `boards` names the Runs a key card
+    /// selects.
+    pub(crate) fn condition(
+        &self,
+        spellings: &HeroSpellings,
+        boards: &FinalBoards,
+    ) -> RunCondition {
         let mut clauses = Vec::new();
         let mut params = Vec::new();
         if let Some(hero) = &self.hero {
@@ -137,17 +141,109 @@ impl RunQuery {
             clauses.push(format!("({predicate})"));
         }
         if let Some(key_card) = &self.key_card {
-            clauses.push(format!(
-                "run_id in (select run_id from ({FINAL_BOARD_ITEMS}) where template_id = ?)"
+            clauses.push("run_id in (select value from json_each(?))".to_string());
+            params.push(Value::Text(
+                serde_json::Value::from(boards.runs_holding(key_card)).to_string(),
             ));
-            params.push(Value::Text(key_card.clone()));
         }
-        let condition = if clauses.is_empty() {
-            "1".to_string()
-        } else {
-            clauses.join(" and ")
-        };
-        (condition, params)
+        RunCondition {
+            sql: if clauses.is_empty() {
+                "1".to_string()
+            } else {
+                clauses.join(" and ")
+            },
+            params,
+            unfiltered: self.is_unfiltered(),
+        }
+    }
+}
+
+/// A `where` condition on `runs` with its parameters, in order.
+pub(crate) struct RunCondition {
+    pub(crate) sql: String,
+    pub(crate) params: Vec<Value>,
+    /// Selects every Run.
+    pub(crate) unfiltered: bool,
+}
+
+/// One item on a Final Board.
+#[derive(Clone, Debug)]
+pub(crate) struct BoardItem {
+    pub(crate) template_id: String,
+    pub(crate) name: Option<String>,
+}
+
+/// Every Run's Final Board, read once per History List read.
+#[derive(Debug, Default)]
+pub(crate) struct FinalBoards(HashMap<String, Vec<BoardItem>>);
+
+impl FinalBoards {
+    pub(crate) fn from_items(items: impl IntoIterator<Item = (String, BoardItem)>) -> Self {
+        let mut boards = HashMap::<String, Vec<BoardItem>>::new();
+        for (run_id, item) in items {
+            boards.entry(run_id).or_default().push(item);
+        }
+        Self(boards)
+    }
+
+    fn runs_holding(&self, template_id: &str) -> Vec<String> {
+        let mut runs = self
+            .0
+            .iter()
+            .filter(|(_, items)| items.iter().any(|item| item.template_id == template_id))
+            .map(|(run_id, _)| run_id.clone())
+            .collect::<Vec<_>>();
+        runs.sort();
+        runs
+    }
+
+    /// The items on the Final Boards of `runs`, held by the most of them first,
+    /// then by name. `selected`, when none of them holds it, follows last with
+    /// the name any Final Board gives it.
+    pub(crate) fn key_card_options(
+        &self,
+        runs: &HashSet<String>,
+        selected: Option<&str>,
+    ) -> Vec<BoardItem> {
+        let mut held = HashMap::<&str, (usize, &BoardItem)>::new();
+        for (run_id, items) in &self.0 {
+            if !runs.contains(run_id) {
+                continue;
+            }
+            let mut seen = HashSet::new();
+            for item in items {
+                if seen.insert(item.template_id.as_str()) {
+                    held.entry(item.template_id.as_str()).or_insert((0, item)).0 += 1;
+                }
+            }
+        }
+        let mut options = held.into_values().collect::<Vec<_>>();
+        options.sort_by(|(a_runs, a), (b_runs, b)| {
+            b_runs
+                .cmp(a_runs)
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.template_id.cmp(&b.template_id))
+        });
+        let mut options = options
+            .into_iter()
+            .map(|(_, item)| item.clone())
+            .collect::<Vec<_>>();
+        if let Some(selected) = selected {
+            if !options.iter().any(|item| item.template_id == selected) {
+                options.push(
+                    self.0
+                        .values()
+                        .flatten()
+                        .find(|item| item.template_id == selected)
+                        .cloned()
+                        .unwrap_or_else(|| BoardItem {
+                            template_id: selected.to_string(),
+                            name: None,
+                        }),
+                );
+            }
+        }
+        options
     }
 }
 

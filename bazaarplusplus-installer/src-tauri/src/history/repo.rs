@@ -11,9 +11,9 @@ use crate::history::files::{remove_video_file, resolve_screenshot_path, resolve_
 use crate::history::filter::RunQuery;
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
-    self, list_run_rows, load_battle_rows, load_battle_video_ref, load_hero_spellings,
-    load_key_card_rows, load_run_row, load_summary, local_player_name, open_connection,
-    open_write_connection, HistoryReadError,
+    self, list_run_rows, load_battle_rows, load_battle_video_ref, load_final_boards,
+    load_hero_spellings, load_run_ids, load_run_row, load_summary, local_player_name,
+    open_connection, open_write_connection, HistoryReadError,
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
@@ -45,12 +45,14 @@ pub fn list_history_runs(
     let conn = open_connection(database_path)?;
 
     let spellings = load_hero_spellings(&conn)?;
-    let summary = load_summary(&conn, query, &spellings)?;
+    let boards = load_final_boards(&conn)?;
+    let condition = query.condition(&spellings, &boards);
+    let summary = load_summary(&conn, &condition)?;
     let effective_limit =
         i64::try_from(limit.max(1)).map_err(|err| HistoryReadError::Failed(err.to_string()))?;
     let effective_offset =
         i64::try_from(offset).map_err(|err| HistoryReadError::Failed(err.to_string()))?;
-    let rows = list_run_rows(&conn, query, &spellings, effective_limit, effective_offset)?;
+    let rows = list_run_rows(&conn, &condition, effective_limit, effective_offset)?;
     let run_ids = rows
         .iter()
         .map(|row| row.run_id.clone())
@@ -65,28 +67,25 @@ pub fn list_history_runs(
         })
         .collect();
 
-    let key_card_rows = load_key_card_rows(
-        &conn,
-        &query.any_key_card(),
-        &spellings,
-        query.key_card.as_deref(),
-    )?;
-    let ids = key_card_rows
+    // The key card options come from the Runs the other filters select.
+    let option_runs = load_run_ids(&conn, &query.any_key_card().condition(&spellings, &boards))?;
+    let options = boards.key_card_options(&option_runs, query.key_card.as_deref());
+    let ids = options
         .iter()
-        .map(|row| row.template_id.clone())
+        .map(|item| item.template_id.clone())
         .collect::<Vec<_>>();
     let mut titles = card_names.titles(&ids);
-    let key_cards = key_card_rows
+    let key_cards = options
         .into_iter()
-        .map(|row| {
-            let titles = titles.remove(&row.template_id).unwrap_or_default();
+        .map(|item| {
+            let titles = titles.remove(&item.template_id).unwrap_or_default();
             HistoryKeyCard {
                 name: titles
                     .en
-                    .or(row.name)
-                    .unwrap_or_else(|| row.template_id.clone()),
+                    .or(item.name)
+                    .unwrap_or_else(|| item.template_id.clone()),
                 name_zh: titles.zh,
-                template_id: row.template_id,
+                template_id: item.template_id,
             }
         })
         .collect();
