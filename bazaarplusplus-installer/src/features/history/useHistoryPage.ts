@@ -39,10 +39,10 @@ export function useHistoryPage() {
     };
   }, [workflow]);
   const { page: routePage, filter: routeFilter } = route;
-  const { hero, period, result } = routeFilter;
+  const { hero, period, result, key_card } = routeFilter;
   useEffect(() => {
-    void workflow.selectPage(routePage, { hero, period, result });
-  }, [workflow, routePage, hero, period, result]);
+    void workflow.selectPage(routePage, { hero, period, result, key_card });
+  }, [workflow, routePage, hero, period, result, key_card]);
   const refresh = useCallback(() => {
     void workflow.intents.refresh();
   }, [workflow]);

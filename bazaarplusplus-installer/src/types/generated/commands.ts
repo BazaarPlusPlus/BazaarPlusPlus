@@ -122,6 +122,17 @@ export type HistoryBattleVideo = {
 	duration_ms: number | null,
 };
 
+export type HistoryKeyCard = {
+	template_id: string,
+	/**
+	 *  The English title, or the item's internal name when the game's data
+	 *  cache does not have it.
+	 */
+	name: string,
+	/**  The Simplified Chinese title from the game's data cache. */
+	name_zh: string | null,
+};
+
 /**  Wire strings are a stable contract with the frontend filter bar. */
 export type HistoryPeriod = "all" | "today" | "last_7_days" | "last_30_days";
 
@@ -162,6 +173,11 @@ export type HistoryRunFilter = {
 	hero: string | null,
 	period: HistoryPeriod,
 	result: HistoryResultFilter,
+	/**
+	 *  A card template id from `HistoryRunList::key_cards`: Runs whose Final
+	 *  Board holds that item.
+	 */
+	key_card: string | null,
 };
 
 export type HistoryRunList = {
@@ -170,6 +186,11 @@ export type HistoryRunList = {
 	runs: HistoryRunRow[],
 	/**  Canonical ids of every hero with a Run, whatever the filter. */
 	heroes: string[],
+	/**
+	 *  The items on the Final Boards of the Runs the other filters select,
+	 *  held by the most Runs first; a selected key card is always listed.
+	 */
+	key_cards: HistoryKeyCard[],
 };
 
 export type HistoryRunRow = {

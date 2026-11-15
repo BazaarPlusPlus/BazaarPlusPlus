@@ -59,7 +59,11 @@ const loadedPage = (offset = 0, total = 235) => ({
   ...emptyHistoryRunList,
   summary: { ...emptyHistoryRunList.summary, runs: total },
   runs: runs.slice(0, total).slice(offset, offset + 50),
-  heroes: ['Mak', 'Vanessa']
+  heroes: ['Mak', 'Vanessa'],
+  key_cards: [
+    { template_id: 'card-marlon', name: 'Marlon', name_zh: '马龙鱼' },
+    { template_id: 'card-pufferfish', name: 'Pufferfish', name_zh: null }
+  ]
 });
 let container: HTMLDivElement;
 let root: Root;
@@ -147,7 +151,8 @@ describe('history filters', () => {
     expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
       hero: 'Vanessa',
       period: 'all',
-      result: 'all'
+      result: 'all',
+      key_card: null
     });
     await choose('结果', 'win');
     await choose('时间', 'today');
@@ -155,7 +160,25 @@ describe('history filters', () => {
     expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
       hero: 'Vanessa',
       period: 'today',
-      result: 'win'
+      result: 'win',
+      key_card: null
+    });
+  });
+
+  it('filters by a key card named in the current language', async () => {
+    await render('/history');
+    expect(
+      [...container.querySelectorAll('select[aria-label="关键卡"] option')].map(
+        (option) => option.textContent
+      )
+    ).toEqual(['全部关键卡', '马龙鱼', 'Pufferfish']);
+    await choose('关键卡', 'card-marlon');
+    expect(route()).toBe('/history?card=card-marlon');
+    expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
+      hero: null,
+      period: 'all',
+      result: 'all',
+      key_card: 'card-marlon'
     });
   });
 
@@ -166,7 +189,8 @@ describe('history filters', () => {
     expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50, {
       hero: null,
       period: 'all',
-      result: 'win'
+      result: 'win',
+      key_card: null
     });
   });
 
@@ -215,7 +239,8 @@ describe('history filters', () => {
     expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 50, {
       hero: null,
       period: 'all',
-      result: 'win'
+      result: 'win',
+      key_card: null
     });
   });
 
@@ -224,7 +249,8 @@ describe('history filters', () => {
     expect(listHistoryRuns).toHaveBeenLastCalledWith(50, 0, {
       hero: null,
       period: 'all',
-      result: 'all'
+      result: 'all',
+      key_card: null
     });
   });
 });

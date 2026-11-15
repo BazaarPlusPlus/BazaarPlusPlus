@@ -14,7 +14,9 @@ BazaarPlusPlus Installer is a Tauri 2 desktop app for installing and managing th
 - **Payload**, **Payload Inventory**, **Release Manifest**, **Platform Release Manifest**, **Mainland Mirror** — product-wide terms defined in [the root glossary](../GLOSSARY.md).
 - **Selected game installation** — the session-scoped The Bazaar installation shared by Install, History, and Stream.
 - **InstallState** — the native contract supplying detected paths, readiness, warnings, and action gates to the Install workflow.
-- **History List** — the paginated view of the local runs a filter (hero, period, result) selects, with totals across every run the filter selects; with no filter, across the complete local history. Its selected page and filter are distinct from the Run Detail view and from thumbnail availability.
+- **History List** — the paginated view of the local runs a filter (hero, period, result, Key Card) selects, with totals across every run the filter selects; with no filter, across the complete local history. Its selected page and filter are distinct from the Run Detail view and from thumbnail availability.
+- **Final Board** — the items on a run's board in its last local battle whose board the mod captured; socket effects are not items. The analyzer's Build Identity is computed from the same board in Bundles.
+- **Key Card** — one item a History List filter asks the Final Board to hold, chosen by template id and shown under the game's own title for it.
 - **History Thumbnail** — the cropped strip of a run's screenshot on a History List card, served under a process-local source bound to the installation the page was read from. Distinct from the OBS overlay's strip, which follows the captured stream installation.
 - **Run Detail** — the view of one history run, its battles, screenshot, and recorded videos.
 - **Stored path** — a path the mod stored relative to one directory of the Data Root, such as a screenshot or video path; History reads every one through one literal rule ([History and storage](docs/history-storage.md#stored-paths)).

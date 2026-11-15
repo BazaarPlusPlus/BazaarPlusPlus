@@ -6,7 +6,7 @@ Root [ADR-0006](../../../docs/adr/0006-v6-data-root.md) moves the mod to `Bazaar
 
 ## Decision
 
-- Reset, History, cleanup, and the OBS overlay read and write only the current Data Root (`BAZAAR_DATA_DIRECTORY`). Reset never touches a Legacy Root. Uninstall preserves every Data Root.
+- Reset, History, cleanup, and the OBS overlay read and write only the current Data Root (`BAZAAR_DATA_DIRECTORY`). Reset never touches a Legacy Root. Uninstall preserves every Data Root. Amended 2026-11-16: History also reads card titles, read-only, from the game's own data cache ([ADR-0010](0010-card-titles-from-the-game-data-cache.md)).
 - Legacy Roots are user-owned. The installer lists those present in the selected game directory with their size, and deletes one only after the user confirms that root. Deletion runs in the native backend through the same path as Reset and returns a typed result. Nothing deletes a Legacy Root automatically, including a successful import.
 - Every destructive data operation (Reset, BepInEx reset, Legacy Root deletion, V5 import) refuses while the game is running, using a fail-closed check. A check that cannot tell is a refusal.
 - `BundleOutbox/` and `bundle_outbox` remain mod-owned: cleanup may read upload status but never deletes outbox files or rows.

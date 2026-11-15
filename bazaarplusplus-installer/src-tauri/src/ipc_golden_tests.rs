@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use chrono::{FixedOffset, TimeZone as _};
 
 use crate::goldens::{assert_golden, json};
+use crate::history::card_names::GameCardNames;
 use crate::history::filter::{HistoryPeriod, HistoryResultFilter, HistoryRunFilter, RunQuery};
 use crate::history::mod_schema::create_mod_schema;
 use crate::services::detect::InstallEnvironmentSnapshot;
@@ -276,7 +277,13 @@ fn list_history_runs() {
         "ipc/list_history_runs.empty.json",
         &fixture.json(
             &history(&fixture)
-                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
+                .list_runs_for_page(
+                    50,
+                    0,
+                    &RunQuery::default(),
+                    &HistoryThumbnails::default(),
+                    &GameCardNames::none(),
+                )
                 .unwrap(),
         ),
     );
@@ -288,7 +295,13 @@ fn list_history_runs() {
         "ipc/list_history_runs.page-1.json",
         &fixture.json(
             &history
-                .list_runs_for_page(50, 0, &RunQuery::default(), &HistoryThumbnails::default())
+                .list_runs_for_page(
+                    50,
+                    0,
+                    &RunQuery::default(),
+                    &HistoryThumbnails::default(),
+                    &GameCardNames::none(),
+                )
                 .unwrap(),
         ),
     );
@@ -296,7 +309,13 @@ fn list_history_runs() {
         "ipc/list_history_runs.page-2-of-2.json",
         &fixture.json(
             &history
-                .list_runs_for_page(2, 2, &RunQuery::default(), &HistoryThumbnails::default())
+                .list_runs_for_page(
+                    2,
+                    2,
+                    &RunQuery::default(),
+                    &HistoryThumbnails::default(),
+                    &GameCardNames::none(),
+                )
                 .unwrap(),
         ),
     );
@@ -308,7 +327,13 @@ fn list_history_runs() {
         .unwrap();
     let filtered = |filter: HistoryRunFilter| {
         history
-            .list_runs_for_page(50, 0, &filter.query_at(now), &HistoryThumbnails::default())
+            .list_runs_for_page(
+                50,
+                0,
+                &filter.query_at(now),
+                &HistoryThumbnails::default(),
+                &GameCardNames::none(),
+            )
             .unwrap()
     };
     // The legacy `Hero8` spelling of run-2 matches the canonical id.
@@ -342,6 +367,140 @@ fn list_history_runs() {
             ..HistoryRunFilter::default()
         })),
     );
+
+    // Final Boards: run-1 ends on battle-2 (Marlon, Pufferfish); run-2 ends on
+    // battle-3, since its later battle-4 has no captured board.
+    seed_final_boards(&fixture);
+    let cache = seed_game_cache(&fixture);
+    let names = GameCardNames::at(cache.clone());
+    let keyed = |key_card: Option<&str>, names: &GameCardNames| {
+        history
+            .list_runs_for_page(
+                50,
+                0,
+                &HistoryRunFilter {
+                    key_card: key_card.map(str::to_string),
+                    ..HistoryRunFilter::default()
+                }
+                .query_at(now),
+                &HistoryThumbnails::default(),
+                names,
+            )
+            .unwrap()
+    };
+    assert_golden(
+        "ipc/list_history_runs.key-cards.json",
+        &fixture.json(&keyed(None, &names)),
+    );
+    assert_golden(
+        "ipc/list_history_runs.key-card-marlon.json",
+        &fixture.json(&keyed(Some(MARLON), &names)),
+    );
+    // Without the game's cache, cards keep the names the snapshots carry.
+    let without_cache = keyed(None, &GameCardNames::at(cache.join("missing")));
+    assert_eq!(
+        without_cache
+            .key_cards
+            .iter()
+            .map(|card| (card.name.as_str(), card.name_zh.as_deref()))
+            .collect::<Vec<_>>(),
+        [("Pufferfish", None), ("Marlon", None)]
+    );
+}
+
+const MARLON: &str = "00000000-0000-4000-8000-00000000a001";
+const PUFFERFISH: &str = "00000000-0000-4000-8000-00000000a002";
+const NOTE: &str = "00000000-0000-4000-8000-00000000a003";
+
+fn board(status: &str, cards: &[(&str, &str, &str)]) -> String {
+    let items = cards
+        .iter()
+        .map(|(id, kind, name)| {
+            format!(
+                r#"{{"instance_id":"itm_{name}","template_id":"{id}","type":"{kind}","size":"Small","section":"Hand","socket":"Socket_0","name":"{name}","tier":"Bronze","enchant":"","tags":[],"attributes":{{}}}}"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(r#"{{"items":[{items}],"status":"{status}","source":"OpeningMessage"}}"#)
+}
+
+/// Snapshots for `seed_history`'s battles, plus a later run-2 battle whose
+/// board read failed.
+fn seed_final_boards(fixture: &Fixture) {
+    let conn = rusqlite::Connection::open(paths::database_path(&fixture.game)).unwrap();
+    conn.execute(
+        "insert into battles (battle_id, source, run_id, recorded_at_ms, combat_kind, result, local_payload_state)
+         values ('battle-4', 'LOCAL', 'run-2', 1767346000000, 'PVP', 'loss', 'missing')",
+        [],
+    )
+    .unwrap();
+    let empty = board("CapturedEmpty", &[]);
+    for (battle, hand) in [
+        (
+            "battle-1",
+            board(
+                "Captured",
+                &[
+                    (MARLON, "Item", "Marlon"),
+                    (NOTE, "SocketEffect", "[A Note] Socket Effect"),
+                ],
+            ),
+        ),
+        (
+            "battle-2",
+            board(
+                "Captured",
+                &[
+                    (MARLON, "Item", "Marlon"),
+                    (PUFFERFISH, "Item", "Pufferfish"),
+                ],
+            ),
+        ),
+        (
+            "battle-3",
+            board("Captured", &[(PUFFERFISH, "Item", "Pufferfish")]),
+        ),
+        ("battle-4", board("Missing", &[])),
+    ] {
+        conn.execute(
+            "insert into battle_snapshots (battle_id, player_hand_json, player_skills_json, opponent_hand_json, opponent_skills_json)
+             values (?1, ?2, ?3, ?3, ?3)",
+            rusqlite::params![battle, hand, empty],
+        )
+        .unwrap();
+    }
+}
+
+/// The game's data cache: Marlon has a Simplified Chinese title, Pufferfish none.
+fn seed_game_cache(fixture: &Fixture) -> PathBuf {
+    let cache = fixture.steam.join("GameCache");
+    std::fs::create_dir_all(cache.join("translations")).unwrap();
+    let cards = rusqlite::Connection::open(cache.join("GameData.db")).unwrap();
+    cards
+        .execute_batch("create table cards (Id text not null primary key, Data blob not null) strict, without rowid;")
+        .unwrap();
+    for (id, key, title) in [
+        (MARLON, "key-marlon", "Marlon"),
+        (PUFFERFISH, "key-pufferfish", "Pufferfish"),
+    ] {
+        let data = format!(
+            r#"{{"$type":"TCardItem","Id":"{id}","InternalName":"{title}","Localization":{{"Title":{{"Key":"{key}","Text":"{title}"}}}}}}"#
+        );
+        cards
+            .execute(
+                "insert into cards (Id, Data) values (?1, ?2)",
+                rusqlite::params![id, data.as_bytes()],
+            )
+            .unwrap();
+    }
+    let zh = rusqlite::Connection::open(cache.join("translations/zh-CN.bytes")).unwrap();
+    zh.execute_batch(
+        "create table translation (hash text primary key, text text not null) strict, without rowid;
+         insert into translation values ('key-marlon', '马龙鱼');",
+    )
+    .unwrap();
+    cache
 }
 
 #[test]

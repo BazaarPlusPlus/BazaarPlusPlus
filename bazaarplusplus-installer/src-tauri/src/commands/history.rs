@@ -1,9 +1,9 @@
 use crate::problem::{run_blocking, SemanticProblem, SemanticProblemCode};
 use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::history::{
-    execute_storage_cleanup_with, CleanupPlans, History, HistoryRunDetail, HistoryRunFilter,
-    HistoryRunList, StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview,
-    StorageCleanupScope,
+    execute_storage_cleanup_with, CleanupPlans, GameCardNames, History, HistoryRunDetail,
+    HistoryRunFilter, HistoryRunList, StorageCleanupExecution, StorageCleanupPreset,
+    StorageCleanupPreview, StorageCleanupScope,
 };
 use crate::stream::history_thumbnails::HistoryThumbnails;
 use tauri::Manager;
@@ -37,6 +37,7 @@ pub async fn list_history_runs(
                 offset,
                 &filter.query_at(chrono::Local::now()),
                 &app.state::<HistoryThumbnails>(),
+                &GameCardNames::installed(),
             )
         },
     )

@@ -124,6 +124,10 @@ test('shared inputs select owners and every contract consumer', () => {
       ['mod', 'installer']
     ],
     [
+      'bazaarplusplus-mod/tests/BundlePipeline.Tests/fixtures/battle-snapshots.golden.txt',
+      ['mod', 'installer']
+    ],
+    [
       'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BundleQueue/BundleQueueStore.cs',
       ['mod', 'installer']
     ],
