@@ -151,6 +151,11 @@ body {
   color: var(--success);
   font-size: var(--type-caption);
 }
+.bpp-history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 /* Each run is a card led by its end-of-run board screenshot. */
 .bpp-history-run-list {
   display: flex;

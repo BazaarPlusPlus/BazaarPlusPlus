@@ -2,7 +2,7 @@
 //! History DTOs and stream records keep RFC 3339 text, so these convert at the
 //! column boundary.
 
-use chrono::{DateTime, FixedOffset, SecondsFormat, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone, Utc};
 use rusqlite::types::Type;
 
 /// RFC 3339 UTC text for a stored instant: `Z`, with milliseconds only when present.
@@ -35,6 +35,20 @@ pub(crate) fn optional_utc_column(
     row.get::<_, Option<i64>>(index)?
         .map(|millis| utc_text(millis).ok_or_else(|| out_of_range(index, millis)))
         .transpose()
+}
+
+/// The start of local `date` in the timezone of `now`: local midnight, or,
+/// when a DST gap skips midnight (zones that switch at 00:00), 01:00, the end
+/// of every such gap. Noon stands in last, since no timezone skips it.
+pub(crate) fn local_day_start<Tz: TimeZone>(
+    now: &DateTime<Tz>,
+    date: NaiveDate,
+) -> Option<DateTime<Tz>> {
+    let zone = now.timezone();
+    [0, 1, 12].into_iter().find_map(|hour| {
+        zone.from_local_datetime(&date.and_hms_opt(hour, 0, 0)?)
+            .earliest()
+    })
 }
 
 fn out_of_range(index: usize, millis: i64) -> rusqlite::Error {

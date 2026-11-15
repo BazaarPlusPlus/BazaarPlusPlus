@@ -85,7 +85,8 @@ export const emptyHistoryRunList: HistoryRunList = {
     videos: 0,
     win_rate: null
   },
-  runs: []
+  runs: [],
+  heroes: []
 };
 
 export const emptyScreenshotCleanupPreview: ScreenshotCleanupPreview = {

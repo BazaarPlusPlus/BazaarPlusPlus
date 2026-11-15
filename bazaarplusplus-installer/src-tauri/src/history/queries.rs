@@ -1,8 +1,10 @@
 use std::{path::Path, time::Duration};
 
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
+use rusqlite::types::Value;
+use rusqlite::{params, params_from_iter, Connection, OpenFlags, OptionalExtension};
 
 use crate::history::dto::{HistoryBattleRow, HistorySummary};
+use crate::history::filter::{HeroSpellings, RunQuery, RUN_LIST_TIME};
 use crate::history::instant::{optional_utc_column, utc_column};
 use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
 
@@ -195,25 +197,59 @@ pub fn sql_placeholders(count: usize) -> String {
         .join(", ")
 }
 
-pub fn load_summary(conn: &Connection) -> anyhow::Result<HistorySummary> {
-    let (runs, completed_runs, win_runs): (i64, i64, i64) = conn
-        .query_row(
+/// The stored hero spelling of every Run, grouped by canonical hero id.
+pub fn load_hero_spellings(conn: &Connection) -> anyhow::Result<HeroSpellings> {
+    let mut stmt = conn.prepare("select distinct hero from runs")?;
+    let stored = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(HeroSpellings::from_stored(stored))
+}
+
+/// Totals over the Runs `query` selects. Without a filter, `videos` counts
+/// every completed video in the database, Ghost Battle recordings included;
+/// with one, only the videos of the selected Runs' battles.
+pub fn load_summary(
+    conn: &Connection,
+    query: &RunQuery,
+    spellings: &HeroSpellings,
+) -> anyhow::Result<HistorySummary> {
+    let (condition, params) = query.condition(spellings);
+    let (runs, completed_runs, win_runs): (i64, i64, i64) = conn.query_row(
+        &format!(
             "
             select
               count(*) as runs,
               coalesce(sum(case when status = 'completed' then 1 else 0 end), 0) as completed_runs,
               coalesce(sum(case when status = 'completed' and coalesce(victories, 0) >= 10 then 1 else 0 end), 0) as win_runs
             from runs
-            ",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )
-        ?;
-    let videos = conn.query_row(
-        "select count(*) from combat_replay_videos where status = 'COMPLETED'",
-        [],
-        |row| row.get(0),
+            where {condition}
+            "
+        ),
+        params_from_iter(params.iter()),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     )?;
+    let videos = if query.is_unfiltered() {
+        conn.query_row(
+            "select count(*) from combat_replay_videos where status = 'COMPLETED'",
+            [],
+            |row| row.get(0),
+        )?
+    } else {
+        conn.query_row(
+            &format!(
+                "
+                select count(*)
+                from combat_replay_videos v
+                join battles b on b.battle_id = v.battle_id
+                where v.status = 'COMPLETED'
+                  and b.run_id in (select run_id from runs where {condition})
+                "
+            ),
+            params_from_iter(params.iter()),
+            |row| row.get(0),
+        )?
+    };
 
     Ok(HistorySummary {
         runs,
@@ -226,19 +262,29 @@ pub fn load_summary(conn: &Connection) -> anyhow::Result<HistorySummary> {
     })
 }
 
-pub fn list_run_rows(conn: &Connection, limit: i64, offset: i64) -> anyhow::Result<Vec<RunRow>> {
-    let mut stmt = conn.prepare(
+pub fn list_run_rows(
+    conn: &Connection,
+    query: &RunQuery,
+    spellings: &HeroSpellings,
+    limit: i64,
+    offset: i64,
+) -> anyhow::Result<Vec<RunRow>> {
+    let (condition, mut params) = query.condition(spellings);
+    params.push(Value::Integer(limit));
+    params.push(Value::Integer(offset));
+    let mut stmt = conn.prepare(&format!(
         "
             select
               run_id, hero, game_mode, started_at_ms, ended_at_ms,
               status, victories, losses, final_day, final_player_rank, final_player_rating,
               final_player_rating_delta
             from runs
-            order by coalesce(ended_at_ms, last_seen_at_ms, started_at_ms) desc, run_id desc
-            limit ?1 offset ?2
-            ",
-    )?;
-    let rows = stmt.query_map([limit, offset], map_run_row_from_statement)?;
+            where {condition}
+            order by {RUN_LIST_TIME} desc, run_id desc
+            limit ? offset ?
+            "
+    ))?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), map_run_row_from_statement)?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(anyhow::Error::from)
 }

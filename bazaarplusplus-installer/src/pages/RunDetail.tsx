@@ -38,7 +38,7 @@ import { useI18n } from '../i18n/LocaleProvider';
 import { ModalSource } from '../components/ui/ModalCoordinator';
 import {
   historyListPath,
-  parseHistoryPage
+  parseHistoryQuery
 } from '../features/history/pagination';
 import {
   VideoDeleteSummary,
@@ -48,8 +48,9 @@ import {
 export default function RunDetail() {
   const navigate = useNavigate();
   const location = useLocation();
-  const historyPage = parseHistoryPage(
-    String(location.state?.historyPage ?? 1)
+  // The History List page and filter this run was opened from.
+  const historyList = parseHistoryQuery(
+    new URLSearchParams(String(location.state?.historySearch ?? ''))
   );
   const page = useRunDetailPage();
   const detail = page.detail;
@@ -86,7 +87,7 @@ export default function RunDetail() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(historyListPath(historyPage))}
+          onClick={() => navigate(historyListPath(historyList))}
           title={t('runDetailBack')}
           aria-label={t('runDetailBack')}
           icon={<ArrowLeft />}

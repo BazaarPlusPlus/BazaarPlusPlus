@@ -6,16 +6,20 @@ pub use crate::history::dto::{HistoryRunDetail, HistoryRunList, HistorySummary};
 
 use crate::history::dto::HistoryRunDetail as HistoryRunDetailDto;
 use crate::history::files::{remove_video_file, resolve_screenshot_path, resolve_stored_path};
+use crate::history::filter::RunQuery;
 use crate::history::mapper::{map_run_to_detail_row, map_run_to_list_row};
 use crate::history::queries::{
-    self, list_run_rows, load_battle_rows, load_battle_video_ref, load_run_row, load_summary,
-    local_player_name, open_connection, open_write_connection, HistoryReadError,
+    self, list_run_rows, load_battle_rows, load_battle_video_ref, load_hero_spellings,
+    load_run_row, load_summary, local_player_name, open_connection, open_write_connection,
+    HistoryReadError,
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
+/// A page of the Runs `query` selects, with totals over all of them.
 /// `thumbnail_url` names the History Thumbnail of a screenshot id.
 pub fn list_history_runs(
     database_path: &Path,
+    query: &RunQuery,
     limit: usize,
     offset: usize,
     thumbnail_url: impl Fn(&str) -> String,
@@ -27,6 +31,7 @@ pub fn list_history_runs(
             win_rate: None,
         },
         runs: Vec::new(),
+        heroes: Vec::new(),
     };
 
     if !database_path.exists() {
@@ -35,12 +40,13 @@ pub fn list_history_runs(
 
     let conn = open_connection(database_path)?;
 
-    let summary = load_summary(&conn)?;
+    let spellings = load_hero_spellings(&conn)?;
+    let summary = load_summary(&conn, query, &spellings)?;
     let effective_limit =
         i64::try_from(limit.max(1)).map_err(|err| HistoryReadError::Failed(err.to_string()))?;
     let effective_offset =
         i64::try_from(offset).map_err(|err| HistoryReadError::Failed(err.to_string()))?;
-    let rows = list_run_rows(&conn, effective_limit, effective_offset)?;
+    let rows = list_run_rows(&conn, query, &spellings, effective_limit, effective_offset)?;
     let run_ids = rows
         .iter()
         .map(|row| row.run_id.clone())
@@ -55,7 +61,11 @@ pub fn list_history_runs(
         })
         .collect();
 
-    Ok(HistoryRunList { summary, runs })
+    Ok(HistoryRunList {
+        summary,
+        runs,
+        heroes: spellings.heroes(),
+    })
 }
 
 pub fn get_history_run_detail(
@@ -136,6 +146,7 @@ mod tests {
     use super::{delete_battle_video, get_history_run_detail, list_history_runs};
     use crate::config::DATABASE_FILE_NAME;
     use crate::history::dto::{HistoryBattleRow, HistoryBattleVideo};
+    use crate::history::filter::RunQuery;
     use crate::history::mod_schema::create_mod_schema;
     use crate::services::paths;
 
@@ -181,8 +192,10 @@ mod tests {
         )
         .unwrap();
 
-        let payload =
-            list_history_runs(&database_path, 20, 0, |id| format!("thumbnail:{id}")).unwrap();
+        let payload = list_history_runs(&database_path, &RunQuery::default(), 20, 0, |id| {
+            format!("thumbnail:{id}")
+        })
+        .unwrap();
 
         assert_eq!(payload.summary.runs, 3);
         assert_eq!(payload.summary.videos, 1);
@@ -217,7 +230,14 @@ mod tests {
 
         let mut ids = Vec::new();
         for offset in [0, 50, 100, 150, 200] {
-            let page = list_history_runs(&database_path, 50, offset, str::to_string).unwrap();
+            let page = list_history_runs(
+                &database_path,
+                &RunQuery::default(),
+                50,
+                offset,
+                str::to_string,
+            )
+            .unwrap();
             assert_eq!(page.summary.runs, 235);
             assert_eq!(page.runs.len(), if offset == 200 { 35 } else { 50 });
             ids.extend(page.runs.into_iter().map(|run| run.run_id));
@@ -227,7 +247,14 @@ mod tests {
             .map(|index| format!("run-{index:03}"))
             .collect();
         assert_eq!(ids, expected);
-        let beyond_end = list_history_runs(&database_path, 50, 250, str::to_string).unwrap();
+        let beyond_end = list_history_runs(
+            &database_path,
+            &RunQuery::default(),
+            50,
+            250,
+            str::to_string,
+        )
+        .unwrap();
         assert!(beyond_end.runs.is_empty());
         assert_eq!(beyond_end.summary.runs, 235);
     }

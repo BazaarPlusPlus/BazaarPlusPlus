@@ -1,8 +1,9 @@
 use crate::problem::{run_blocking, SemanticProblem, SemanticProblemCode};
 use crate::services::data_maintenance::DataMaintenanceLock;
 use crate::services::history::{
-    execute_storage_cleanup_with, CleanupPlans, History, HistoryRunDetail, HistoryRunList,
-    StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview, StorageCleanupScope,
+    execute_storage_cleanup_with, CleanupPlans, History, HistoryRunDetail, HistoryRunFilter,
+    HistoryRunList, StorageCleanupExecution, StorageCleanupPreset, StorageCleanupPreview,
+    StorageCleanupScope,
 };
 use crate::stream::history_thumbnails::HistoryThumbnails;
 use tauri::Manager;
@@ -26,6 +27,7 @@ pub async fn list_history_runs(
     app: tauri::AppHandle,
     limit: usize,
     offset: usize,
+    filter: HistoryRunFilter,
 ) -> Result<HistoryRunList, SemanticProblem> {
     run_blocking(
         task_failed(SemanticProblemCode::HistoryReadFailed, "list_runs"),
@@ -33,6 +35,7 @@ pub async fn list_history_runs(
             History::selected(&app)?.list_runs_for_page(
                 limit,
                 offset,
+                &filter.query_at(chrono::Local::now()),
                 &app.state::<HistoryThumbnails>(),
             )
         },

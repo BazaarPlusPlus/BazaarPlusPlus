@@ -2,8 +2,11 @@
 // snapshot cannot observe, because each depends on the order in which
 // overlapping requests settle. Rendered states are anchored by
 // src/shell.snapshot.test.tsx and pages/History.test.tsx.
-// - A late list read from a previous page or a superseded refresh overwrites
-//   the newer result, or its failure replaces newer data.
+// - A late list read from a previous page, a previous filter or a superseded
+//   refresh overwrites the newer result, or its failure replaces newer data.
+// - A filter change that keeps the page number is taken for no change.
+// - A filter change unmounts the loaded list (and the filter bar on it) while
+//   it loads, or a failed read under the new filter keeps the old rows.
 // - Empty is published before a read succeeds, or a refresh failure drops data
 //   that is still valid.
 // - A page correction after the total shrinks loops, or a failed corrected read
@@ -15,7 +18,7 @@
 //   duplicate lifecycle starts effects.
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { emptyHistoryRunList } from '../../api/previewDefaults';
-import type { HistoryRunList } from '../../types/backend';
+import type { HistoryRunFilter, HistoryRunList } from '../../types/backend';
 import { createHistoryListWorkflow } from './historyListWorkflow';
 
 function deferred<T>() {
@@ -54,6 +57,9 @@ function pageData(page = 1, total = 101): HistoryRunList {
     )
   };
 }
+
+const all: HistoryRunFilter = { hero: null, period: 'all', result: 'all' };
+const tenWins: HistoryRunFilter = { ...all, result: 'win' };
 
 const readFailure = {
   code: 'history_read_failed',
@@ -94,7 +100,7 @@ describe('History List workflow', () => {
     const onCleanupCompleted = workflow.intents.refresh;
     await workflow.selectPage(2);
     await onCleanupCompleted();
-    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50, all);
     expect(workflow.getSnapshot().state).toMatchObject({ data: pageData(2) });
   });
 
@@ -190,14 +196,53 @@ describe('History List workflow', () => {
     }
   );
 
+  it('reads a new filter on the same page and drops a late read under the old one', async () => {
+    const { commands, workflow } = fixture();
+    await workflow.start();
+    const oldRequest = deferred<HistoryRunList>();
+    commands.listHistoryRuns.mockReturnValueOnce(oldRequest.promise);
+    const oldRefresh = workflow.intents.refresh();
+    commands.listHistoryRuns.mockResolvedValueOnce(pageData(1, 3));
+    await workflow.selectPage(1, tenWins);
+    oldRequest.resolve(pageData(1, 120));
+    await oldRefresh;
+    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 0, tenWins);
+    expect(workflow.getSnapshot()).toMatchObject({
+      state: { phase: 'ready-content', data: pageData(1, 3) },
+      pagination: { page: 1, total: 3 }
+    });
+  });
+
+  it('keeps the loaded list while a new filter loads and drops it when that read fails', async () => {
+    const { commands, workflow } = fixture();
+    await workflow.start();
+    const request = deferred<HistoryRunList>();
+    commands.listHistoryRuns.mockReturnValueOnce(request.promise);
+    const changing = workflow.selectPage(1, tenWins);
+    expect(workflow.getSnapshot()).toMatchObject({
+      filter: tenWins,
+      state: {
+        phase: 'ready-content',
+        data: pageData(1),
+        refresh: { phase: 'refreshing' }
+      }
+    });
+    request.reject(readFailure);
+    await changing;
+    expect(workflow.getSnapshot().state).toEqual({
+      phase: 'blocking-failure',
+      problem: expect.objectContaining({ code: 'history_read_failed' })
+    });
+  });
+
   it('returns an emptied history to page 1 without a redirect loop', async () => {
     const { commands, replacePage, workflow } = fixture(3);
     commands.listHistoryRuns.mockResolvedValue(emptyHistoryRunList);
     await workflow.start();
     expect(replacePage).toHaveBeenCalledExactlyOnceWith(1);
     expect(commands.listHistoryRuns.mock.calls).toEqual([
-      [50, 100],
-      [50, 0]
+      [50, 100, all],
+      [50, 0, all]
     ]);
     expect(workflow.getSnapshot()).toMatchObject({
       state: { phase: 'ready-empty' },
@@ -217,7 +262,7 @@ describe('History List workflow', () => {
     });
     commands.listHistoryRuns.mockResolvedValueOnce(pageData(2, 52));
     await workflow.intents.refresh();
-    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50, all);
     expect(workflow.getSnapshot().state).toMatchObject({
       data: pageData(2, 52)
     });
@@ -243,7 +288,7 @@ describe('History List workflow', () => {
       else request.resolve(result);
       await expect(recovery).resolves.toBe(outcome);
       expect(commands.endGameProcess).toHaveBeenCalledOnce();
-      expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 100);
+      expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 100, all);
       expect(workflow.getSnapshot()).toMatchObject({
         state: { data: pageData(3) },
         endingGameProcess: false,
@@ -380,7 +425,7 @@ describe('History List workflow', () => {
     newProcess.resolve(true);
     await newRecovery;
     expect(changed).toHaveBeenCalled();
-    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50);
+    expect(commands.listHistoryRuns).toHaveBeenLastCalledWith(50, 50, all);
     expect(workflow.getSnapshot().endingGameProcess).toBe(false);
     unsubscribe();
     changed.mockClear();

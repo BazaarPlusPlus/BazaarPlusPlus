@@ -43,7 +43,7 @@ export const commands = {
 	saveOverlayDisplayMode: (displayMode: StreamOverlayDisplayMode) => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("save_overlay_display_mode", { displayMode }),
 	applyOverlayCropCode: (code: string) => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("apply_overlay_crop_code", { code }),
 	resetOverlayCrop: () => __TAURI_INVOKE<StreamOverlayCropSettingsPayload>("reset_overlay_crop"),
-	listHistoryRuns: (limit: number, offset: number) => __TAURI_INVOKE<HistoryRunList>("list_history_runs", { limit, offset }),
+	listHistoryRuns: (limit: number, offset: number, filter: HistoryRunFilter) => __TAURI_INVOKE<HistoryRunList>("list_history_runs", { limit, offset, filter }),
 	getHistoryRunDetail: (runId: string) => __TAURI_INVOKE<{
 	run: HistoryRunDetailRow,
 	battles: HistoryBattleRow[],
@@ -122,6 +122,16 @@ export type HistoryBattleVideo = {
 	duration_ms: number | null,
 };
 
+/**  Wire strings are a stable contract with the frontend filter bar. */
+export type HistoryPeriod = "all" | "today" | "last_7_days" | "last_30_days";
+
+/**
+ *  The finished results a Run can be filtered by. `Win` and `Loss` are the
+ *  rows `derive_run_result` (`history/mapper.rs`) names `win` and `loss`;
+ *  abandoned and in-progress Runs show only under `All`.
+ */
+export type HistoryResultFilter = "all" | "win" | "loss";
+
 export type HistoryRunDetail = {
 	run: HistoryRunDetailRow,
 	battles: HistoryBattleRow[],
@@ -146,9 +156,20 @@ export type HistoryRunDetailRow = {
 	player_name: string | null,
 };
 
+/**  The History List filter the frontend sends. */
+export type HistoryRunFilter = {
+	/**  A canonical hero id from `HistoryRunList::heroes`. */
+	hero: string | null,
+	period: HistoryPeriod,
+	result: HistoryResultFilter,
+};
+
 export type HistoryRunList = {
+	/**  Totals over every Run the filter selects, not only this page. */
 	summary: HistorySummary,
 	runs: HistoryRunRow[],
+	/**  Canonical ids of every hero with a Run, whatever the filter. */
+	heroes: string[],
 };
 
 export type HistoryRunRow = {

@@ -2,8 +2,11 @@ use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryRunList {
+    /// Totals over every Run the filter selects, not only this page.
     pub summary: HistorySummary,
     pub runs: Vec<HistoryRunRow>,
+    /// Canonical ids of every hero with a Run, whatever the filter.
+    pub heroes: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { commandClient } from './commandClient';
+import { UNFILTERED } from '../features/history/pagination';
 import {
   defaultCropSettings,
   emptyHistoryRunList,
@@ -17,7 +18,7 @@ describe('browser-preview command adapter', () => {
     expect(await commandClient.setStreamWindow(3)).toBe(idleStreamStatus);
     expect(await commandClient.getOverlaySettings()).toBe(defaultCropSettings);
     expect(await commandClient.resetOverlayCrop()).toBe(defaultCropSettings);
-    expect(await commandClient.listHistoryRuns(50, 0)).toBe(
+    expect(await commandClient.listHistoryRuns(50, 0, UNFILTERED)).toBe(
       emptyHistoryRunList
     );
     expect(
