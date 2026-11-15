@@ -2,6 +2,7 @@
 
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
+using BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Data;
@@ -25,6 +26,9 @@ public sealed class LiveBuildPanelSnapshot
     public LiveBuildMatchesState MatchesState { get; init; }
 
     public string MatchesGuidance { get; init; } = string.Empty;
+
+    /// <summary>The browsed recommendation; null unless <see cref="MatchesState"/> has one.</summary>
+    public BuildRecommendation? Recommendation { get; init; }
 
     /// <summary>
     /// The browsed recommendation's evidence, one label and value per metric cell in display

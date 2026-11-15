@@ -10,6 +10,7 @@ using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.LiveCards;
+using BazaarPlusPlus.GameInterop.TagTypography;
 using BazaarPlusPlus.Infrastructure.Logging;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -150,7 +151,8 @@ internal sealed class LiveBuildPanel : MonoBehaviour
             PreviousRecommendation,
             NextRecommendation,
             TryRefreshFinalBuilds,
-            ToggleIncludeTiny
+            ToggleIncludeTiny,
+            CopyBuild
         );
         _view.RowBoundsChanged += OnRowBoundsChanged;
         _previewRenderer = new LiveBuildPreviewRenderer(
@@ -188,6 +190,24 @@ internal sealed class LiveBuildPanel : MonoBehaviour
     {
         if (_state?.Next() == true)
             RefreshViewAndPreview();
+    }
+
+    private void CopyBuild()
+    {
+        if (_state?.IsVisible != true)
+            return;
+
+        var markdown = LiveBuildPanelText.BuildMarkdown(
+            _state.BuildSnapshot(),
+            DesktopCardFacets.TheDragonsDisplayName,
+            TenWinBuildItemReader.Read,
+            NativeTagTypography.IconLabel
+        );
+        if (markdown == null)
+            return;
+
+        GUIUtility.systemCopyBuffer = markdown;
+        _view?.ShowCopied();
     }
 
     private void TryRefreshFinalBuilds()

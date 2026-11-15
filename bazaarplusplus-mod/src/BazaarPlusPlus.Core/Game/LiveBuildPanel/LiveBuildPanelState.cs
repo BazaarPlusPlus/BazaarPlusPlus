@@ -201,6 +201,7 @@ public sealed class LiveBuildPanelState
             IncludeTiny = _includeTiny,
             MatchesState = matches.State,
             MatchesGuidance = matches.Guidance,
+            Recommendation = matches.Recommendation,
             Metrics = LiveBuildPanelText.MatchMetrics(
                 matches.Recommendation,
                 _candidates.TemplateIds.Count
