@@ -21,7 +21,7 @@
 
 ---
 
-BazaarPlusPlus is an open-source project for _The Bazaar_. It leaves game balance alone and adds information and records: a card collection browser, ten-win build recommendations, run history with combat replays, enchant and upgrade previews, a combat status bar, and more. On the desktop (Windows, macOS) it is a BepInEx mod plus a desktop installer; on Android it is the game APK with BazaarPlusPlus injected, installed directly. This repository also holds the upload backend, the data analyzer, and the public website.
+BazaarPlusPlus is an open-source project for _The Bazaar_. It leaves game balance alone and adds information and records: a card collection browser, ten-win build recommendations, run history with combat replays, enchant and upgrade previews, a combat status bar, and more. On the desktop (Windows, macOS) it is a BepInEx mod plus a desktop installer; on Android it is BazaarPlusPlus's own app, which runs the official game you already have installed and loads BazaarPlusPlus into it. This repository also holds the upload backend, the data analyzer, and the public website.
 
 Most players should get the installer or APK from [bazaarplusplus.com/download](https://bazaarplusplus.com/download?lang=en); this repository is for developers who want to inspect the implementation, contribute changes, or build locally.
 
@@ -39,7 +39,7 @@ Most players should get the installer or APK from [bazaarplusplus.com/download](
 
 The desktop installer also provides repair, uninstall, data reset, and local history cleanup, and can update itself. Compatible mod updates download in game and take effect after restarting. Every desktop release also provides a complete installer with that version of the mod; if in-game updating cannot connect, download the installer and update manually.
 
-After upgrading from 5.x, one click on the installer's Install page imports your old runs, screenshots, and replays into the new 6.0 data folder; imported runs stay local and are never uploaded, the old folder is left unchanged, and you can delete it from the installer later.
+Data folders that earlier versions wrote into the game directory, such as `BazaarPlusPlusV5`, show under **Data from earlier versions** on the installer's Install page. The current version does not read or import them, and the installer deletes each one only after you confirm.
 
 ### Android
 
@@ -54,17 +54,18 @@ Make purchases in the official app. After a game update, wait for a BazaarPlusPl
 
 Desktop includes Windows and macOS. ✅ supported　◐ partial　— not available
 
-| Feature                                               | Desktop |            Android            |
-| ----------------------------------------------------- | :-----: | :---------------------------: |
-| Card collection and ten-win build recommendations     |   ✅    |              ✅               |
-| Run history, favorites, and notes                     |   ✅    |              ✅               |
-| Combat replays and Ghost Battles                      |   ✅    |              ✅               |
-| Combat status bar and speed controls                  |   ✅    |              ✅               |
-| Enchant, upgrade, and detailed previews               |   ✅    | ◐ controls and content differ |
-| Replay recording and automatic end-of-run screenshots |   ✅    |               —               |
-| OBS stream overlay                                    |   ✅    |               —               |
+| Feature                                           | Desktop |            Android             |
+| ------------------------------------------------- | :-----: | :----------------------------: |
+| Card collection and ten-win build recommendations |   ✅    |               ✅               |
+| Run history, favorites, and notes                 |   ✅    |               ✅               |
+| Combat replays and Ghost Battles                  |   ✅    |               ✅               |
+| Combat status bar and speed controls              |   ✅    |               ✅               |
+| Enchant, upgrade, and detailed previews           |   ✅    | ◐ controls and content differ  |
+| Replay recording                                  |   ✅    |               —                |
+| Automatic end-of-run screenshots                  |   ✅    | ◐ only with BazaarDB upload on |
+| OBS stream overlay                                |   ✅    |               —                |
 
-Desktop also offers monster board previews, combat impact, bilingual item names, voice subtitles, and other display aids, plus FSR upscaling and optional BazaarDB screenshot uploads (off by default). All platforms support Mainland Simplified and Taiwan Traditional Chinese terminology.
+Desktop also offers monster board previews, combat impact, bilingual item names, voice subtitles, and other display aids, plus FSR upscaling. All platforms offer optional BazaarDB screenshot uploads (off by default) and support Mainland Simplified and Taiwan Traditional Chinese terminology.
 
 All platforms upload run and replay data in the background while outside a run, powering Ghost Battles and the website's [hero statistics](https://bazaarplusplus.com/heroes?lang=en).
 
