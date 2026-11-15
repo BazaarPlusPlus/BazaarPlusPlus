@@ -190,6 +190,37 @@ internal static class NativeTagTypography
         }
     }
 
+    /// <summary>
+    /// The game's word for the keyword a tooltip icon stands for (<c>&lt;sprite name=Regen&gt;</c>
+    /// is the configured text of the configuration that draws <c>Regen</c>); null while the
+    /// typography is not ready, or when no configuration draws the icon or the table cannot be read.
+    /// </summary>
+    public static string? IconLabel(string iconName)
+    {
+        var typography = Data.TooltipTypography;
+        if (typography == null || string.IsNullOrEmpty(iconName))
+            return null;
+        try
+        {
+            return ConfiguredIconLabel(typography, iconName);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    // Its own method so a game build that renamed the table fails here, inside the guard.
+    private static string? ConfiguredIconLabel(TooltipTypography typography, string iconName)
+    {
+        foreach (var configuration in typography._keywordIconColorDictionary.Values)
+        {
+            if (string.Equals(configuration.IconName, iconName, StringComparison.OrdinalIgnoreCase))
+                return LocalizeConfiguredText(configuration, iconName);
+        }
+        return null;
+    }
+
     internal static bool TryTakeFailure(out NativeTagTypographyFailure failure)
     {
         failure = _pendingFailure!;

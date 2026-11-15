@@ -26,6 +26,9 @@ internal sealed class LiveBuildPanelView : IDisposable
     // The match figures of the shown build: two rows of two.
     private const int MetricCells = 4;
 
+    // Copy build at the right end of the recommendation's title row.
+    private const float CopyButtonWidth = 96;
+
     private sealed class Row
     {
         internal RectTransform Region = null!;
@@ -47,6 +50,7 @@ internal sealed class LiveBuildPanelView : IDisposable
     private readonly Action _next;
     private readonly Action _refresh;
     private readonly Action _toggleIncludeTiny;
+    private readonly Action _copy;
     private readonly Dictionary<BppItemBoardId, Row> _rows = new();
     private readonly List<(Image Image, DesktopSkinPart Part, Color Tint)> _art = new();
     private DesktopKit? _kit;
@@ -79,6 +83,8 @@ internal sealed class LiveBuildPanelView : IDisposable
     private KitButton? _previousButton;
     private KitButton? _nextButton;
     private KitButton? _includeTinyButton;
+    private KitButton? _copyButton;
+    private bool _copied;
     private Image? _portrait;
     private CardHero? _portraitHero;
     private BazaarGameShared.Domain.Core.Types.EHero? _portraitSource;
@@ -96,7 +102,8 @@ internal sealed class LiveBuildPanelView : IDisposable
         Action previous,
         Action next,
         Action refresh,
-        Action toggleIncludeTiny
+        Action toggleIncludeTiny,
+        Action copy
     )
     {
         _parent = parent;
@@ -105,6 +112,7 @@ internal sealed class LiveBuildPanelView : IDisposable
         _next = next;
         _refresh = refresh;
         _toggleIncludeTiny = toggleIncludeTiny;
+        _copy = copy;
     }
 
     internal event Action<BppItemBoardId, Rect>? RowBoundsChanged;
@@ -179,6 +187,14 @@ internal sealed class LiveBuildPanelView : IDisposable
         var recommendationHeader = _rows[BppItemBoardId.FinalBuild].Header;
         _portrait = _kit.Portrait(recommendationHeader, null, 24);
         _portraitWell = (RectTransform)_portrait.transform.parent;
+        // The shown build as text, for a player to paste into a chat with an AI.
+        _copyButton = _kit.Button(
+            recommendationHeader,
+            string.Empty,
+            KitButtonKind.Secondary,
+            KitSize.Sm,
+            _copy
+        );
         _hint = Text(_layout, "", .02f, .969f, .96f, .022f, 12, Muted, true);
         _markerRoot = Rect("CandidateMarkers", _root.transform, 0, 0, 1, 1);
         var foreground = _markerRoot.gameObject.AddComponent<Canvas>();
@@ -333,6 +349,12 @@ internal sealed class LiveBuildPanelView : IDisposable
         _previousButton!.interactable = _nextButton!.interactable = snapshot.CanBrowse;
         var hasRecommendation = snapshot.MatchesState == LiveBuildMatchesState.HasRecommendation;
         _metrics!.gameObject.SetActive(hasRecommendation);
+        _copyButton!.gameObject.SetActive(hasRecommendation);
+        SetButtonText(
+            _copyButton,
+            _copied ? LiveBuildPanelText.CopiedBuild() : LiveBuildPanelText.CopyBuild()
+        );
+        _copied = false;
         _guidance!.gameObject.SetActive(!hasRecommendation);
         _guidance.text = hasRecommendation ? string.Empty : snapshot.MatchesGuidance;
         if (hasRecommendation)
@@ -366,6 +388,14 @@ internal sealed class LiveBuildPanelView : IDisposable
             )
                 _portraitSource = shown;
         }
+    }
+
+    /// <summary>Shows that the build is on the clipboard until the panel next refreshes.</summary>
+    internal void ShowCopied()
+    {
+        _copied = true;
+        if (_snapshot != null)
+            Refresh(_snapshot);
     }
 
     internal void Tick()
@@ -557,18 +587,29 @@ internal sealed class LiveBuildPanelView : IDisposable
             LiveBuildPanelLayout.RowTitleHeight
         );
         var statusLeft = titleLeft + titleWidth + 10;
+        // The recommendation's status ends where Copy build begins.
+        var statusRight = row.Index == 0 ? CopyButtonWidth + 10 : 0;
         Place(
             row.Status.rectTransform,
             statusLeft,
             0,
-            Mathf.Max(1, width - statusLeft),
+            Mathf.Max(1, width - statusLeft - statusRight),
             LiveBuildPanelLayout.RowTitleHeight
         );
         if (row.Index != 0)
             return;
         ApplyHeaderRail(left, width);
         Place(_portraitWell!, 0, 2, 24, 24);
+        Place(
+            (RectTransform)_copyButton!.transform,
+            width - CopyButtonWidth,
+            (LiveBuildPanelLayout.RowTitleHeight - KitHeight) / 2,
+            CopyButtonWidth,
+            KitHeight
+        );
     }
+
+    private static float KitHeight => DesktopKit.Height(KitSize.Sm);
 
     private void ApplyHeaderRail(float left, float width)
     {
