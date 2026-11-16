@@ -89,6 +89,8 @@ test('a known route with the wrong method returns method_not_allowed', async () 
 
 describe('the public route table', () => {
   test.each([
+    ['/bot/players', 'GET'],
+    ['/bot/bundles', 'GET'],
     ['/health', 'GET'],
     ['/bundles', 'GET, POST'],
     ['/ghost-battles', 'GET'],

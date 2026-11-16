@@ -523,7 +523,7 @@ export interface SteamStaleResult {
 /** What a Steam capture changed against the lock before it. */
 export type SteamChangeKind = 'code' | 'content' | 'none';
 
-function steamToolRunner(modRoot: string): SteamToolRunner {
+export function steamToolRunner(modRoot: string): SteamToolRunner {
   return (args) => {
     const output = execFileSync(
       'dotnet',

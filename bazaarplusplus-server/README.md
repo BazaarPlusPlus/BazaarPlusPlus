@@ -8,7 +8,7 @@ A Bundle is the immutable unit of upload, storage, and delivery — exactly one 
 - **Streaming, not buffering.** Ingest buffers only the fixed prefix and the bounded manifest; Run and Screenshot bytes stream through incremental digest validation into a single conditional R2 PUT and are never decompressed.
 - **No download proxy.** Every consumer downloads the same complete Bundle directly from R2 through a seven-day presigned `GET` URL, inside an 8-day R2 lifecycle window.
 
-The public surface is five routes: liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)), plus the generated OpenAPI document at `/openapi.json` and its Scalar reference at `/docs`. The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6); the domain language is [GLOSSARY.md](GLOSSARY.md).
+The public surface includes Bot player lookup and Bundle queries, alongside liveness, public streaming ingest, token-protected analyzer sync, rate-limited Ghost discovery, and the token-protected BazaarDB Feed ([ADR 0004](docs/adr/0004-bazaardb-cursor-feed.md)), plus the generated OpenAPI document at `/openapi.json` and its Scalar reference at `/docs`. The wire contract is [docs/api-reference.md](docs/api-reference.md); the binary Bundle format and its golden vectors are [contracts/v6](contracts/v6); the domain language is [GLOSSARY.md](GLOSSARY.md).
 
 ## Architecture
 
@@ -40,10 +40,12 @@ rerun the full server checks and tests.
 
 ## Production
 
-`src/env.ts` is the sole binding declaration. `wrangler.toml` provisions the D1 database, the R2 bucket, and the Ghost rate limiter. The R2 presign key pair and the two service tokens are set out of band (`.dev.vars` locally, `wrangler secret put` in production). The two service tokens are distinct 32-byte random values encoded as 43-character unpadded base64url strings, and the R2 S3 credential grants Object Read only on the V6 bucket.
+`src/env.ts` is the sole binding declaration. `wrangler.toml` provisions the D1 database, the R2 bucket, and the Ghost rate limiter. The R2 presign key pair and the service tokens are set out of band (`.dev.vars` locally, `wrangler secret put` in production). Service tokens are distinct 32-byte random values encoded as 43-character unpadded base64url strings, and the R2 S3 credential grants Object Read only on the V6 bucket.
 
 Provisioning, migration, lifecycle, deploy, and smoke-test commands are in [docs/deployment-runbook.md](docs/deployment-runbook.md) and require explicit Cloudflare deployment authorization. The V6 D1 is built from `migrations-v6/`; once production has applied a file it is frozen, and schema changes ship as new files.
 
 ## License
 
 Released under the [MIT License](LICENSE).
+
+The optional `BOT_STATS_TOKEN` enables the Bot query routes. Apply migration `0003_bot_queries.sql` before deploying these routes, and set the same token on the Bot consumer. Existing consumers do not require this token.

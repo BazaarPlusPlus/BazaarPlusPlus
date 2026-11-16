@@ -30,7 +30,7 @@ function fixture(t: TestContext) {
   const repository = path.join(directory, 'checkout');
   const scratch = path.join(directory, 'scratch dir');
   const home = path.join(directory, 'config');
-  for (const project of ['analyzer', 'server', 'installer']) {
+  for (const project of ['analyzer', 'server', 'installer', 'bot']) {
     fs.mkdirSync(path.join(repository, `bazaarplusplus-${project}`), {
       recursive: true
     });
@@ -221,7 +221,7 @@ test('scoped environment only injects its section allowlist; explicit environmen
   });
   assert.throws(
     () => env('cloudflare'),
-    /Unknown profile; use server, analyzer, signing, mod, game, release or qqbot/
+    /Unknown profile; use server, analyzer, signing, mod, game, release, bot or qqbot/
   );
 });
 
@@ -471,7 +471,7 @@ test('CLI help lists every section and profile from the section table', (t) => {
     assert.match(result.stdout, new RegExp(`\\[${name}\\]`));
   assert.match(
     result.stdout,
-    /Profiles: server, analyzer, signing, mod, game, release, qqbot\./
+    /Profiles: server, analyzer, signing, mod, game, release, bot, qqbot\./
   );
   assert.match(result.stdout, /secrets push \[--dependabot\]$/m);
 });
@@ -553,7 +553,7 @@ test('CLI refuses an unknown profile naming the profiles the table defines', (t)
   assert.equal(result.status, 1);
   assert.match(
     result.stderr,
-    /Unknown profile; use server, analyzer, signing, mod, game, release or qqbot/
+    /Unknown profile; use server, analyzer, signing, mod, game, release, bot or qqbot/
   );
 });
 

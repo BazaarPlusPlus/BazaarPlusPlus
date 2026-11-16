@@ -1,0 +1,75 @@
+name: Card Art
+
+# Keeps the public Card Art set (root ADR 0020) in step with the game. Every
+# six hours it compares the Steam online buildid and the live GameData ETag
+# with the published card-art/index.json. When either moved, it downloads the
+# art bundles, extracts them and publishes the new set. A failure only fails
+# this workflow; the next run tries again.
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: card-art
+  cancel-in-progress: false
+
+jobs:
+  card-art:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # The environment limits the Steam login to the branches its protection rule names.
+    environment: steam
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: bazaarplusplus-mod/global.json
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        with:
+          tool: just@1.58.0
+      # Only the two Steam steps read the login (ADR 0015).
+      - name: Compare Steam and GameData with the published set
+        id: stale
+        env:
+          STEAM_SNAPSHOT_LOGIN: ${{ secrets.STEAM_SNAPSHOT_LOGIN }}
+        run: |
+          curl -fsS https://cdn.bazaarplusplus.com/card-art/index.json -o "$RUNNER_TEMP/previous.json" || rm -f "$RUNNER_TEMP/previous.json"
+          state="$(just release::card-art stale "$RUNNER_TEMP/previous.json" | tail -n 1)"
+          echo "stale=$(jq -r .stale <<< "$state")" >> "$GITHUB_OUTPUT"
+          echo "Card Art source: $state" >> "$GITHUB_STEP_SUMMARY"
+      - name: Download the art bundles and GameData
+        id: download
+        if: steps.stale.outputs.stale == 'true'
+        env:
+          STEAM_SNAPSHOT_LOGIN: ${{ secrets.STEAM_SNAPSHOT_LOGIN }}
+        run: |
+          source="$(just release::card-art download "$RUNNER_TEMP/game" | tail -n 1)"
+          echo "buildid=$(jq -r .buildid <<< "$source")" >> "$GITHUB_OUTPUT"
+          echo "gamedata=$(jq -r .gameData <<< "$source")" >> "$GITHUB_OUTPUT"
+      - name: Extract
+        if: steps.stale.outputs.stale == 'true'
+        env:
+          BUILDID: ${{ steps.download.outputs.buildid }}
+          GAMEDATA: ${{ steps.download.outputs.gamedata }}
+        run: |
+          previous=()
+          if [ -f "$RUNNER_TEMP/previous.json" ]; then previous=(--previous "$RUNNER_TEMP/previous.json"); fi
+          just bot::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Publish
+        if: steps.stale.outputs.stale == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: just release::card-art publish "$RUNNER_TEMP/card-art" | tee -a "$GITHUB_STEP_SUMMARY"

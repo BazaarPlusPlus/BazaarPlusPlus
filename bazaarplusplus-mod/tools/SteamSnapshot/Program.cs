@@ -3,13 +3,16 @@ using BazaarPlusPlus.SteamSnapshot;
 
 // stdout carries one JSON line for steamToolRunner in release/game-assembly-snapshot.ts; everything else goes to stderr.
 const string Usage = """
-    BazaarPlusPlus.SteamSnapshot, driven by bazaarplusplus-mod/scripts/game.sh:
+    BazaarPlusPlus.SteamSnapshot, driven by bazaarplusplus-mod/scripts/game.sh and release/card-art.ts:
       login --out <file>     Sign in at the terminal and save the login with owner-only access
       state --app <id> --branch <name> --depots <id,id>
                              Print the branch's buildid, update time and each depot's manifest
       download --app <id> --branch <name> --depot <id> --out <dir>
                              Write <dir>/Data/globalgamemanagers and <dir>/Data/Managed/
-    state and download read the login from STEAM_SNAPSHOT_LOGIN, and the access code of a
+      card-art --app <id> --branch <name> --depot <id> --out <dir>
+                             Write <dir>/Data/globalgamemanagers, the Addressables catalog and
+                             the card and skill bundles Card Art is extracted from
+    state, download and card-art read the login from STEAM_SNAPSHOT_LOGIN, and the access code of a
     password-protected branch from STEAM_BETA_PASSWORDS.
     """;
 
@@ -68,6 +71,7 @@ static async Task<int> Run(string[] args)
             return 0;
         }
         case "download":
+        case "card-art":
         {
             var depot = uint.Parse(Required("depot"));
             using var session = await SteamSession.SignIn(SavedLogin());
@@ -76,7 +80,8 @@ static async Task<int> Run(string[] args)
                 uint.Parse(Required("app")),
                 Required("branch"),
                 depot,
-                Required("out")
+                Required("out"),
+                args[0] == "download" ? SnapshotFiles.Select : SnapshotFiles.SelectCardArt
             );
             Print(new { buildid = state.Buildid, manifest = state.Manifests[depot].ToString() });
             return 0;

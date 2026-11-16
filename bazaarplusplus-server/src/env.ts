@@ -9,4 +9,5 @@ export interface Env {
   R2_PRESIGN_SECRET_ACCESS_KEY: string;
   BUNDLE_SYNC_TOKEN: string;
   BAZAARDB_DELIVERY_TOKEN: string;
+  BOT_STATS_TOKEN?: string;
 }

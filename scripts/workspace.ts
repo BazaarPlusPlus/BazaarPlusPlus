@@ -252,7 +252,14 @@ export function doctor(
         : `${command}: ${version}; the checkout pins ${pin}`
     );
   }
-  for (const project of ['', 'installer', 'site', 'server', 'analyzer']) {
+  for (const project of [
+    '',
+    'installer',
+    'site',
+    'server',
+    'bot',
+    'analyzer'
+  ]) {
     const directory = project
       ? path.join(repository, `bazaarplusplus-${project}`)
       : repository;
@@ -420,7 +427,7 @@ export function main(args: string[] = process.argv.slice(2)): void {
     initializeConfig(home);
     refreshProjections(home);
     if (!skipDeps) {
-      for (const project of ['installer', 'site', 'server']) {
+      for (const project of ['installer', 'site', 'server', 'bot']) {
         execute('bun', ['install', '--frozen-lockfile'], {
           cwd: project ? path.join(root, `bazaarplusplus-${project}`) : root
         });

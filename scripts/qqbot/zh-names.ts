@@ -53,13 +53,18 @@ const zh = (english: string) => {
 
 const game = open('GameData.db');
 const english = new Set<string>();
-for (const { name } of game
+const cards: Record<string, string> = {};
+for (const { id, name } of game
   .prepare(
-    `SELECT json_extract(Data, '$.Localization.Title.Text') AS name FROM cards
+    `SELECT Id AS id, json_extract(Data, '$.Localization.Title.Text') AS name FROM cards
      WHERE json_extract(Data, '$."$type"') IN ('TCardItem', 'TCardSkill')`
   )
-  .all() as { name: string | null }[])
-  if (name) english.add(name);
+  .all() as { id: string; name: string | null }[]) {
+  if (name) {
+    english.add(name);
+    cards[id] = name;
+  }
+}
 for (const { name } of game
   .prepare(
     `SELECT DISTINCT e.key AS name FROM cards, json_each(cards.Data, '$.Enchantments') AS e
@@ -80,7 +85,10 @@ for (const [id, name] of Object.entries(HEROES)) {
   heroes[id] = text;
 }
 
-fs.writeFileSync(target, `${JSON.stringify({ heroes, names }, null, 2)}\n`);
+fs.writeFileSync(
+  target,
+  `${JSON.stringify({ heroes, names, cards }, null, 2)}\n`
+);
 console.log(
   `wrote ${Object.keys(heroes).length} heroes and ${Object.keys(names).length} of ${english.size} names`
 );

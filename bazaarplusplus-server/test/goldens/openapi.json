@@ -29,6 +29,318 @@
     }
   ],
   "paths": {
+    "/bot/players": {
+      "get": {
+        "tags": [
+          "Bot"
+        ],
+        "summary": "Find recent uploaders by exact game name",
+        "security": [
+          {
+            "BotStatsToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent named players; Ghost projections do not cover every uploader",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotPlayersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_query`: Missing, repeated, unknown, or invalid query parameter",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `unauthorized`: Missing or invalid service token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `insufficient_scope`: Service token does not grant access to the route",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bot/bundles": {
+      "get": {
+        "tags": [
+          "Bot"
+        ],
+        "summary": "List recent Bundle candidates for one account",
+        "security": [
+          {
+            "BotStatsToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "account_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "description": "Opaque identity"
+            },
+            "required": true,
+            "description": "Opaque identity"
+          },
+          {
+            "in": "query",
+            "name": "stored_from_ms",
+            "schema": {
+              "description": "Inclusive candidate window start, default Beijing midnight two days ago",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Inclusive candidate window start, default Beijing midnight two days ago"
+          },
+          {
+            "in": "query",
+            "name": "stored_before_ms",
+            "schema": {
+              "description": "Exclusive candidate window end, default server now. Repeat the returned window on every page.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Exclusive candidate window end, default server now. Repeat the returned window on every page."
+          },
+          {
+            "in": "query",
+            "name": "after_stored_at_ms",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_bundle_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+              "description": "Canonical uppercase ULID",
+              "example": "01J00000000000000000000001"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A fixed window, keyset-paged in stored time; filter decoded Run end times in the consumer",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotBundlesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_query`: Missing, repeated, unknown, or invalid query parameter",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `unauthorized`: Missing or invalid service token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "- `insufficient_scope`: Service token does not grant access to the route",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -915,23 +1227,37 @@
   },
   "components": {
     "schemas": {
-      "HealthResponse": {
+      "BotPlayersResponse": {
         "type": "object",
         "properties": {
-          "status": {
-            "type": "string",
-            "const": "ok"
+          "players": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "account_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "description": "Opaque identity"
+                },
+                "display_name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "account_id",
+                "display_name"
+              ],
+              "additionalProperties": false
+            }
           },
-          "server_time_ms": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991,
-            "description": "Unix time in milliseconds"
+          "has_more": {
+            "type": "boolean"
           }
         },
         "required": [
-          "status",
-          "server_time_ms"
+          "players",
+          "has_more"
         ],
         "additionalProperties": false
       },
@@ -998,6 +1324,138 @@
         },
         "required": [
           "error"
+        ],
+        "additionalProperties": false
+      },
+      "BotBundlesResponse": {
+        "type": "object",
+        "properties": {
+          "window": {
+            "type": "object",
+            "properties": {
+              "stored_from_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Unix time in milliseconds"
+              },
+              "stored_before_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Unix time in milliseconds"
+              }
+            },
+            "required": [
+              "stored_from_ms",
+              "stored_before_ms"
+            ],
+            "additionalProperties": false
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "bundle_id": {
+                  "type": "string",
+                  "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+                  "description": "Canonical uppercase ULID",
+                  "example": "01J00000000000000000000001"
+                },
+                "run_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "description": "Opaque identity"
+                },
+                "stored_at_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Unix time in milliseconds"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$",
+                  "description": "Lowercase hex SHA-256"
+                },
+                "download_url": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "Seven-day R2 presigned GET URL; a bearer capability for the complete Bundle"
+                },
+                "download_expires_at_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Unix time in milliseconds"
+                }
+              },
+              "required": [
+                "bundle_id",
+                "run_id",
+                "stored_at_ms",
+                "sha256",
+                "download_url",
+                "download_expires_at_ms"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "stored_at_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Unix time in milliseconds"
+                  },
+                  "bundle_id": {
+                    "type": "string",
+                    "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+                    "description": "Canonical uppercase ULID",
+                    "example": "01J00000000000000000000001"
+                  }
+                },
+                "required": [
+                  "stored_at_ms",
+                  "bundle_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "window",
+          "items",
+          "next_after"
+        ],
+        "additionalProperties": false
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "server_time_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          }
+        },
+        "required": [
+          "status",
+          "server_time_ms"
         ],
         "additionalProperties": false
       },
@@ -1404,6 +1862,11 @@
       }
     },
     "securitySchemes": {
+      "BotStatsToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "`BOT_STATS_TOKEN`, a separate 43-character unpadded base64url service token"
+      },
       "BundleSyncToken": {
         "type": "http",
         "scheme": "bearer",

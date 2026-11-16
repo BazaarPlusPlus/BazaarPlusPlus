@@ -46,6 +46,7 @@ const expectScopes = (files: string[], scopes: string[]) =>
 test('root documents, each project and global inputs select their daily gates', () => {
   expectScopes(['README.md', 'AGENTS.md', 'docs/development.md'], ['release']);
   expectScopes(['bazaarplusplus-server/bun.lock'], ['server']);
+  expectScopes(['bazaarplusplus-bot/src/consumer.ts'], ['bot']);
   expectScopes(
     ['bazaarplusplus-installer/src/App.tsx'],
     ['installer-frontend']
@@ -96,28 +97,28 @@ test('shared inputs select owners and every contract consumer', () => {
   for (const [file, consumers] of [
     [
       'bazaarplusplus-server/contracts/v6/fixtures/run-only.bundle.b64',
-      ['server', 'mod', 'analyzer']
+      ['server', 'mod', 'analyzer', 'bot']
     ],
     [
       'bazaarplusplus-server/contracts/mod-api-errors.json',
-      ['server', 'mod', 'analyzer']
+      ['server', 'mod', 'analyzer', 'bot']
     ],
-    ['bazaarplusplus-server/docs/api-reference.md', ['server', 'mod']],
+    ['bazaarplusplus-server/docs/api-reference.md', ['server', 'mod', 'bot']],
     [
       'bazaarplusplus-analyzer/contracts/v6/hero-aliases.json',
-      ['analyzer', 'mod', 'site', 'installer']
+      ['analyzer', 'mod', 'site', 'installer', 'bot']
     ],
     [
       'bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md',
-      ['analyzer', 'mod', 'site', 'installer']
+      ['analyzer', 'mod', 'site', 'installer', 'bot']
     ],
     [
       'bazaarplusplus-mod/docs/contracts/run-payload-v6.md',
-      ['mod-macos', 'server', 'analyzer']
+      ['mod-macos', 'server', 'analyzer', 'bot']
     ],
     [
       'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64',
-      ['mod', 'server', 'analyzer']
+      ['mod', 'server', 'analyzer', 'bot']
     ],
     [
       'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json',
@@ -303,10 +304,11 @@ test('design system inputs select the installer frontend, the site, the Android 
       'design/build.ts',
       'design/README.md'
     ],
-    ['installer-frontend', 'site', 'android', 'release']
+    ['installer-frontend', 'site', 'android', 'bot', 'release']
   );
   assert.deepEqual(selected(classifyChanges(changed('design/design.just'))), [
     'android',
+    'bot',
     'installer-frontend',
     'release',
     'site'

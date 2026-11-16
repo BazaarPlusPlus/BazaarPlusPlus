@@ -89,6 +89,9 @@ The online game of each platform and its Game Code Identity, as two objects in t
 `bazaarplusplus-mod/build/game-libs.lock.json`: the committed binding of the mod source to one snapshot per platform and channel, keys that stay `null` until captured: a Game Assembly Snapshot for each of `macos` and `windows` × `online`, `staging`, `ptr`, and an Interop Snapshot with its Loader Release and official APKs for each Android Source, `android-publisher` and `android-play`, each the newest production build that source ships. After an explicit override, `ManagedPath` resolves only from it: the fetched snapshot, or the local Steam install whose game version and sha256 match the entry; `InteropPath` and `LemonLoaderPath` resolve only from the fetched `android-<source>` entry that `BppAndroidSource` names (default `publisher`). Each desktop product compiles against its `online` entry; `staging` and `ptr` entries feed compatibility builds and tests. It changes only through a pull request; `release/snapshot-lock.ts` owns its schema and the mod recipes capture, publish, fetch, and check it.
 _Avoid_: game-libs manifest, Steam buildid pin
 
+**Card Art** (卡图):
+The game's own item and skill art, one WebP per distinct art, extracted from the Steam online branch's Addressables bundles and keyed by TemplateId through the live GameData (ADR 0020). It is served at `https://cdn.bazaarplusplus.com/card-art/` with an `index.json` that maps each TemplateId to its content-addressed file; `.github/workflows/card-art.yml` replaces the index when the online buildid or the GameData moves. The QQ bot draws boards with it.
+
 ## Mod hosts
 
 **Host** (宿主):

@@ -1,0 +1,37 @@
+{
+  "name": "bazaarplusplus-bot",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": "1.4.4"
+  },
+  "scripts": {
+    "check": "tsc --noEmit && oxlint --type-aware && oxfmt --check .",
+    "test": "vitest run",
+    "format": "oxfmt .",
+    "preview": "bun test/preview.ts",
+    "dev": "wrangler dev -c wrangler.toml -c wrangler.consumer.toml",
+    "build": "wrangler deploy --dry-run --outdir dist/webhook && wrangler deploy -c wrangler.consumer.toml --dry-run --outdir dist/consumer"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "2.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@cloudflare/workers-types": "5.20261107.1",
+    "@types/node": "^26.6.6",
+    "oxfmt": "^0.77.0",
+    "oxlint": "^1.92.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "playwright": "1.65.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12",
+    "wrangler": "4.158.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "7.30.1"
+    }
+  }
+}

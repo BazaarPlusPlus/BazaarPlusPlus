@@ -14,7 +14,7 @@ This Worker receives completed game-run Bundles and makes them discoverable by t
 
 ## Runtime boundaries
 
-The Worker exposes liveness, Bundle ingest, stateless Bundle collection, Ghost discovery, and the BazaarDB Feed. A scheduled handler prunes D1 Bundle metadata older than 15 days every 15 minutes in bounded batches. The analyzer runs independently through GitHub Actions ([`analyzer.yml`](../.github/workflows/analyzer.yml)), triggered by `on.schedule` or manually through `on.workflow_dispatch`; the Worker's `scheduled` handler ([`src/scheduled.ts`](src/scheduled.ts)) only performs D1 retention. Bundle upload retries recover matching R2-only objects.
+The Worker exposes liveness, Bundle ingest, stateless Bundle collection, Ghost discovery, the BazaarDB Feed, and token-protected per-account Bot queries. A scheduled handler prunes D1 Bundle metadata older than 15 days every 15 minutes in bounded batches. The analyzer runs independently through GitHub Actions ([`analyzer.yml`](../.github/workflows/analyzer.yml)), triggered by `on.schedule` or manually through `on.workflow_dispatch`; the Worker's `scheduled` handler ([`src/scheduled.ts`](src/scheduled.ts)) only performs D1 retention. Bundle upload retries recover matching R2-only objects.
 
 Bundle ingest buffers only the fixed prefix and bounded manifest. Run and Screenshot bytes remain compressed/encoded and flow through incremental digest validation into one conditional R2 PUT. The D1 Bundle row, eligible Ghost projections, and uploader record commit in one batch.
 
@@ -25,3 +25,5 @@ All consumers download the same complete Bundle directly from a seven-day R2 pre
 Avoid the V4 and abandoned names: Boundle, Pack, Run artifact, Run Bundle, Snapshot, and Screenshot upload.
 
 Ghost discovery stores eighteen columns in `ghost_battle_summaries`. It reconstructs the uploader/challenger `player` and queried-local-player `opponent` objects, retaining the challenger rank/rating the Mod stores on imported Ghost battles and the local player's level, prestige, and victories the Mod uses to find which of its Runs a Ghost Battle fought. The complete upload manifest and R2 Bundle remain unchanged. The column decision is recorded in [ADR 0003](docs/adr/0003-ghost-summary-columns.md).
+
+Bot queries use stored-time candidates and exact names from eligible Ghost projections. The Bot owns binding visibility and Run end-time filtering; the server stores no player report aggregates.

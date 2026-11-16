@@ -22,3 +22,5 @@
 2026-11-01 注：[ADR 0012](0012-android-app.md) 取代 ADR 0010。公开桶的 `installer/android/apk/` 不再写入，已有对象保留。合作授权允许在公开桶里分发由游戏生成的 interop：interop 包放在 `installer/android/` 下，键由 ADR 0012 定义。游戏本体（官方 APK、`libil2cpp.so`、`global-metadata.dat`）仍不能进公开桶，游戏程序集快照、官方 APK、Loader Release 与工具链仍只在 `bazaarplusplus-game-libs`。
 
 2026-11-09 注：`mod-data/` 也放维护者用 `just release::mod-data zh-names` 上传的 `zh-names/zh-names.json`：游戏简体中文版的英雄、物品、技能和附魔名，供 QQ 日报（`scripts/qqbot/hero-report.ts`）读取。
+
+2026-11-16 注：[ADR 0020](0020-card-art.md) 加入第一层前缀 `card-art/`，由 `.github/workflows/card-art.yml` 通过 `release/card-art.ts` 写入。它放游戏的卡面和技能图标，这是"游戏本体文件不能进公开桶"之外的另一项决定，由 ADR 0020 负责，不属于 ADR 0012 的合作授权。

@@ -94,7 +94,12 @@ describe('the OpenAPI document', () => {
         .filter(([, operation]) => 'security' in operation)
         .map(([method]) => `${method.toUpperCase()} ${path}`)
     );
-    expect(secured.sort()).toEqual(['GET /bazaardb/bundles', 'GET /bundles']);
+    expect(secured.sort()).toEqual([
+      'GET /bazaardb/bundles',
+      'GET /bot/bundles',
+      'GET /bot/players',
+      'GET /bundles'
+    ]);
   });
 });
 

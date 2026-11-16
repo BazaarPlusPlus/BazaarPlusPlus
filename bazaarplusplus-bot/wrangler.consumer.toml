@@ -1,0 +1,30 @@
+name = "bazaarplusplus-bot-consumer"
+main = "src/consumer.ts"
+compatibility_date = "2026-08-02"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[limits]
+cpu_ms = 300000
+
+[vars]
+SERVER_ORIGIN = "https://mod-api-v6.bazaarplusplus.com"
+
+[[queues.consumers]]
+queue = "bazaarplusplus-bot-jobs"
+max_batch_size = 1
+max_batch_timeout = 1
+max_retries = 2
+retry_delay = 5
+max_concurrency = 2
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bazaarplusplus-bot-db"
+database_id = "71eadda1-cf1c-4ea2-9161-18420cd873f5"
+migrations_dir = "migrations"
+
+[browser]
+binding = "BROWSER"

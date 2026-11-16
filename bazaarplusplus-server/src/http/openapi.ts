@@ -31,6 +31,11 @@ const SECURITY_SCHEMES: Record<
   ServiceScope,
   { name: string; description: string }
 > = {
+  bot_stats: {
+    name: 'BotStatsToken',
+    description:
+      '`BOT_STATS_TOKEN`, a separate 43-character unpadded base64url service token'
+  },
   bundle_sync: {
     name: 'BundleSyncToken',
     description:

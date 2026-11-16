@@ -1,5 +1,7 @@
 # 从 Steam depot 自动采集游戏程序集快照
 
+2026-11-16 注：[ADR 0020](0020-card-art.md) 给工具加了 `card-art` 命令，它只下载 Addressables 目录和卡图、技能图标的 bundle。登录现在也给 `.github/workflows/card-art.yml` 的读取步骤使用。
+
 2026-11-07 注：[ADR 0016](0016-one-game-compatibility-rule.md) 取代了末段"下载页不显示桌面版的已适配版本"：桌面平台清单加上已适配的游戏，下载页按同一规则显示。
 
 [ADR 0004](0004-pinned-game-assembly-snapshots.md) 把采集留在挂了对应分支的机器上手工执行，理由是 Steam Guard 在无人值守环境下不可靠，并写明"自动化另起决定"。手工采集的代价已经出现：同一渠道的两个平台会相差很多个版本，发布也要跳过过期的预览渠道。iOS App 的 Service 证明了这个理由已经不成立：操作员登录一次后，保存的 refresh token 可以不经 Steam Guard 再次登录，SteamKit 也能直接从 depot 下载文件。
