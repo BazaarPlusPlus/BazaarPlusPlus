@@ -46,6 +46,11 @@ verify-mirror *args:
 promote *args:
     bun scripts/workspace.ts run release -- bun release/cli.ts promote "$@"
 
+# Card Art (.github/workflows/card-art.yml): stale <previous index.json>, download <dir> or publish <dir>.
+[arg('command', pattern='stale|download|publish')]
+card-art command path:
+    bun scripts/workspace.ts run release -- bun release/card-art.ts "$1" "$2"
+
 # Upload maintainer data (supporters, voice-lines or zh-names) to mod-data/ in the public bucket.
 [arg('name', pattern='supporters|voice-lines|zh-names')]
 mod-data name file:

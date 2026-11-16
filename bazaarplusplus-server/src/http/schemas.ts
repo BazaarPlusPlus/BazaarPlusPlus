@@ -211,3 +211,50 @@ export const IngestHeaders = z.object({
     description: 'Exactly one RFC 9530 value: `sha-256=:<base64 SHA-256>:`'
   })
 });
+
+export const BotPlayersResponse = z
+  .strictObject({
+    players: z.array(
+      z.strictObject({ account_id: identifier, display_name: z.string() })
+    ),
+    has_more: z.boolean()
+  })
+  .meta({ id: 'BotPlayersResponse' });
+export type BotPlayersResponse = z.infer<typeof BotPlayersResponse>;
+export const BotPlayersQuery = z.strictObject({
+  name: z.string().min(1).max(128)
+});
+export const BotBundlesResponse = z
+  .strictObject({
+    window: z.strictObject({
+      stored_from_ms: unixMs,
+      stored_before_ms: unixMs
+    }),
+    items: z.array(
+      z.strictObject({
+        bundle_id: bundleId,
+        run_id: identifier,
+        stored_at_ms: unixMs,
+        sha256: sha256Hex,
+        ...download
+      })
+    ),
+    next_after: z
+      .strictObject({ stored_at_ms: unixMs, bundle_id: bundleId })
+      .nullable()
+  })
+  .meta({ id: 'BotBundlesResponse' });
+export type BotBundlesResponse = z.infer<typeof BotBundlesResponse>;
+export const BotBundlesQuery = z.strictObject({
+  account_id: identifier,
+  stored_from_ms: queryInteger.optional().meta({
+    description:
+      'Inclusive candidate window start, default Beijing midnight two days ago'
+  }),
+  stored_before_ms: queryInteger.optional().meta({
+    description:
+      'Exclusive candidate window end, default server now. Repeat the returned window on every page.'
+  }),
+  after_stored_at_ms: queryInteger.optional(),
+  after_bundle_id: bundleId.optional()
+});

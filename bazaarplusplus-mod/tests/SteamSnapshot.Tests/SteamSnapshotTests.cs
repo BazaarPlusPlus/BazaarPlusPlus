@@ -51,6 +51,44 @@ public sealed class SteamSnapshotTests
         );
     }
 
+    [Fact]
+    public void SelectCardArt_keeps_the_catalog_and_the_card_and_skill_bundles()
+    {
+        const string Data = "TheBazaar_Data";
+        var files = SnapshotFiles.SelectCardArt([
+            $"{Data}/globalgamemanagers",
+            $"{Data}/Managed/Assembly-CSharp.dll",
+            $"{Data}/StreamingAssets/GameData.db.zip",
+            $"{Data}/StreamingAssets/aa/catalog.bin",
+            $"{Data}/StreamingAssets/aa/settings.json",
+            $"{Data}/StreamingAssets/aa/StandaloneWindows64/card_vanessa_assets_all.bundle",
+            $"{Data}/StreamingAssets/aa/StandaloneWindows64/card_vfx_assets_all.bundle",
+            $"{Data}/StreamingAssets/aa/StandaloneWindows64/cardback_spring_assets_all.bundle",
+            $"{Data}/StreamingAssets/aa/StandaloneWindows64/skills_assets_all.bundle",
+        ]);
+
+        Assert.Equal(
+            [
+                "Data/globalgamemanagers",
+                "Data/StreamingAssets/aa/catalog.bin",
+                "Data/StreamingAssets/aa/StandaloneWindows64/card_vanessa_assets_all.bundle",
+                "Data/StreamingAssets/aa/StandaloneWindows64/skills_assets_all.bundle",
+            ],
+            files.Select(file => file.Target)
+        );
+    }
+
+    [Fact]
+    public void SelectCardArt_refuses_a_depot_without_the_catalog()
+    {
+        Assert.Throws<InvalidDataException>(() =>
+            SnapshotFiles.SelectCardArt([
+                "a/globalgamemanagers",
+                "a/StreamingAssets/aa/x/card_mak_assets_all.bundle",
+            ])
+        );
+    }
+
     [Theory]
     [InlineData("a/globalgamemanagers", "b/globalgamemanagers", "a/Managed/Assembly-CSharp.dll")]
     [InlineData("a/Managed/Assembly-CSharp.dll", "a/other", "a/more")]

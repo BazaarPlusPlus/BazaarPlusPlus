@@ -1,6 +1,6 @@
 import type { Env } from '../env';
 
-export type ServiceScope = 'bundle_sync' | 'bazaardb_delivery';
+export type ServiceScope = 'bundle_sync' | 'bazaardb_delivery' | 'bot_stats';
 
 const TOKEN_BYTES = 43;
 
@@ -22,6 +22,7 @@ function constantTimeTokenEquals(
 function configuredTokensAreValid(env: Env): boolean {
   const sync = env.BUNDLE_SYNC_TOKEN;
   const delivery = env.BAZAARDB_DELIVERY_TOKEN;
+  const bot = env.BOT_STATS_TOKEN;
   return (
     typeof sync === 'string' &&
     typeof delivery === 'string' &&
@@ -29,7 +30,11 @@ function configuredTokensAreValid(env: Env): boolean {
     delivery.length === TOKEN_BYTES &&
     /^[A-Za-z0-9_-]{43}$/.test(sync) &&
     /^[A-Za-z0-9_-]{43}$/.test(delivery) &&
-    !constantTimeTokenEquals(sync, delivery)
+    !constantTimeTokenEquals(sync, delivery) &&
+    (bot === undefined ||
+      (/^[A-Za-z0-9_-]{43}$/.test(bot) &&
+        !constantTimeTokenEquals(bot, sync) &&
+        !constantTimeTokenEquals(bot, delivery)))
   );
 }
 
@@ -42,7 +47,10 @@ export function authenticateServiceToken(
   | 'unauthorized'
   | 'insufficient_scope'
   | 'invalid_configuration' {
-  if (!configuredTokensAreValid(env)) {
+  if (
+    !configuredTokensAreValid(env) ||
+    (requiredScope === 'bot_stats' && !env.BOT_STATS_TOKEN)
+  ) {
     return 'invalid_configuration';
   }
 
@@ -54,13 +62,18 @@ export function authenticateServiceToken(
     env.BAZAARDB_DELIVERY_TOKEN
   );
 
+  const botMatches =
+    env.BOT_STATS_TOKEN !== undefined &&
+    constantTimeTokenEquals(candidate, env.BOT_STATS_TOKEN);
+  if (requiredScope === 'bot_stats' && botMatches) return 'authorized';
+
   if (requiredScope === 'bundle_sync' && syncMatches) {
     return 'authorized';
   }
   if (requiredScope === 'bazaardb_delivery' && deliveryMatches) {
     return 'authorized';
   }
-  if (syncMatches || deliveryMatches) {
+  if (syncMatches || deliveryMatches || botMatches) {
     return 'insufficient_scope';
   }
   return 'unauthorized';

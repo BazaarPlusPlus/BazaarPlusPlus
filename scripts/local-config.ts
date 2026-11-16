@@ -94,6 +94,7 @@ export const sections: SectionTable = {
     profile: 'server',
     projection: 'bazaarplusplus-server/.dev.vars',
     keys: serverKeys,
+    projected: [{ from: 'bot', key: 'BOT_STATS_TOKEN' }],
     required: { server: serverKeys }
   },
   analyzer: {
@@ -160,6 +161,16 @@ export const sections: SectionTable = {
     keys: cloudflareKeys,
     inject: cloudflareKeys,
     required: { release: cloudflareKeys }
+  },
+  bot: {
+    profile: 'bot',
+    projection: 'bazaarplusplus-bot/.dev.vars',
+    keys: ['BOT_STATS_TOKEN'],
+    optional: true,
+    projected: [
+      { from: 'qqbot', key: 'QQ_BOT_APP_ID' },
+      { from: 'qqbot', key: 'QQ_BOT_APP_SECRET' }
+    ]
   },
   qqbot: {
     profile: 'qqbot',

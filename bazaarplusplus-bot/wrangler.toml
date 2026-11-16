@@ -1,0 +1,14 @@
+name = "bazaarplusplus-bot-webhook"
+main = "src/webhook.ts"
+compatibility_date = "2026-08-02"
+compatibility_flags = ["nodejs_compat"]
+
+# QQ calls back from mainland China, where workers.dev is often unreachable.
+routes = [{ pattern = "qqbot.bazaarplusplus.com", custom_domain = true }]
+
+[observability]
+enabled = true
+
+[[queues.producers]]
+binding = "JOBS"
+queue = "bazaarplusplus-bot-jobs"

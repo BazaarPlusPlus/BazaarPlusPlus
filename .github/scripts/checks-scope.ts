@@ -5,6 +5,7 @@ import { runGit } from '../../scripts/git-command.ts';
 export type Project =
   | 'site'
   | 'server'
+  | 'bot'
   | 'analyzer'
   | 'installer'
   | 'mod'
@@ -55,6 +56,7 @@ export interface PlanRunResult {
 export const PROJECTS: Project[] = [
   'site',
   'server',
+  'bot',
   'analyzer',
   'installer',
   'mod',
@@ -163,20 +165,26 @@ export function manualScope(inputs?: ManualInputs): ChecksPlan {
 // Path expansions, not another contract definition. Owners are documented in
 // AGENTS.md; executable references are checked below on every classification.
 export const SHARED_INPUTS: [string, string[]][] = [
-  ['bazaarplusplus-server/contracts/', ['mod', 'analyzer']],
-  ['bazaarplusplus-server/docs/api-reference.md', ['mod']],
-  ['bazaarplusplus-analyzer/contracts/', ['site', 'mod', 'installer']],
+  [
+    'bazaarplusplus-analyzer/tests/fixtures/run-payload-v6.projection.json',
+    ['bot']
+  ],
+  ['design/tokens.json', ['bot']],
+  ['release/downloads.ts', ['bot']],
+  ['bazaarplusplus-server/contracts/', ['mod', 'analyzer', 'bot']],
+  ['bazaarplusplus-server/docs/api-reference.md', ['mod', 'bot']],
+  ['bazaarplusplus-analyzer/contracts/', ['site', 'mod', 'installer', 'bot']],
   [
     'bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md',
-    ['site', 'mod', 'installer']
+    ['site', 'mod', 'installer', 'bot']
   ],
-  ['bazaarplusplus-mod/docs/contracts/', ['server', 'analyzer']],
+  ['bazaarplusplus-mod/docs/contracts/', ['server', 'analyzer', 'bot']],
   // Launch Record (AGENTS.md): the mod's Android Host and Updater read the
   // Android App's golden.
   ['bazaarplusplus-android/contracts/', ['mod']],
   [
     'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/',
-    ['server', 'analyzer']
+    ['server', 'analyzer', 'bot']
   ],
   [
     'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/',
@@ -387,6 +395,7 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
         'installer-frontend',
         'site',
         'android',
+        'bot',
         'release'
       ])
         select(consumer, `Design system: ${file}`);

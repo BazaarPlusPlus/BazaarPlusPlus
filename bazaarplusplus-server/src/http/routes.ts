@@ -5,11 +5,16 @@ import {
   collectBazaarDbBundles,
   collectBundles
 } from '../modules/bundle-collection';
+import { collectBotBundles, findBotPlayers } from '../modules/bot-queries';
 import { ingestBundle } from '../modules/bundle-ingest';
 import { discoverGhostBattles } from '../modules/ghost-battle-discovery';
 import { buildOpenApiDocument, scalarPage } from './openapi';
 import type { RouteDefinition } from './route-shell';
 import {
+  BotPlayersQuery,
+  BotPlayersResponse,
+  BotBundlesQuery,
+  BotBundlesResponse,
   BazaarDbBundlePage,
   BundleCollectionPage,
   BundleReceipt,
@@ -32,6 +37,61 @@ const COLLECTION_ERRORS = [
 let openApiDocument: object | undefined;
 
 export const ROUTES = [
+  {
+    path: '/bot/players',
+    method: 'GET',
+    auth: 'bot_stats',
+    handler: async (context) => ({
+      status: 200,
+      body: await findBotPlayers(context.request, context.env)
+    }),
+    docs: {
+      tags: ['Bot'],
+      summary: 'Find recent uploaders by exact game name',
+      requestParams: { query: BotPlayersQuery },
+      responses: {
+        '200': {
+          description:
+            'Recent named players; Ghost projections do not cover every uploader',
+          content: { 'application/json': { schema: BotPlayersResponse } }
+        }
+      },
+      errors: [
+        'invalid_query',
+        'unauthorized',
+        'insufficient_scope',
+        'storage_unavailable'
+      ]
+    }
+  },
+  {
+    path: '/bot/bundles',
+    method: 'GET',
+    auth: 'bot_stats',
+    handler: async (context) => ({
+      status: 200,
+      body: await collectBotBundles(context.request, context.env)
+    }),
+    docs: {
+      tags: ['Bot'],
+      summary: 'List recent Bundle candidates for one account',
+      requestParams: { query: BotBundlesQuery },
+      responses: {
+        '200': {
+          description:
+            'A fixed window, keyset-paged in stored time; filter decoded Run end times in the consumer',
+          content: { 'application/json': { schema: BotBundlesResponse } }
+        }
+      },
+      errors: [
+        'invalid_query',
+        'unauthorized',
+        'insufficient_scope',
+        'storage_unavailable'
+      ]
+    }
+  },
+
   {
     path: '/health',
     method: 'GET',

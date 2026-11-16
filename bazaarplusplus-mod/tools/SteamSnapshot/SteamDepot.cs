@@ -60,13 +60,14 @@ public static class SteamDepot
         return beta.DepotSection;
     }
 
-    /// <summary>Writes the snapshot files under <paramref name="output"/>; returns the branch state read.</summary>
+    /// <summary>Writes the files <paramref name="select"/> picks under <paramref name="output"/>; returns the branch state read.</summary>
     public static async Task<BranchState> Download(
         SteamSession session,
         uint app,
         string branch,
         uint depot,
-        string output
+        string output,
+        Func<IEnumerable<string>, IReadOnlyList<SnapshotFile>> select
     )
     {
         var state = await ReadBranch(session, app, branch, [depot]);
@@ -93,7 +94,7 @@ public static class SteamDepot
         var files = manifest
             .Files.Where(file => (file.Flags & EDepotFileFlag.Directory) == 0)
             .ToDictionary(file => file.FileName);
-        var selected = SnapshotFiles.Select(files.Keys);
+        var selected = select(files.Keys);
         await Parallel.ForEachAsync(
             selected,
             new ParallelOptions { MaxDegreeOfParallelism = 8 },

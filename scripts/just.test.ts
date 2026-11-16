@@ -34,7 +34,15 @@ interface InstallOptions {
 
 const root = path.resolve(import.meta.dirname, '..');
 const just = process.env.JUST_BIN ?? 'just';
-const projects = ['mod', 'installer', 'site', 'server', 'analyzer', 'android'];
+const projects = [
+  'mod',
+  'installer',
+  'site',
+  'server',
+  'bot',
+  'analyzer',
+  'android'
+];
 // Module files as the root JUSTFILE declares them, so the fixture follows it.
 const moduleFiles = [
   ...fs

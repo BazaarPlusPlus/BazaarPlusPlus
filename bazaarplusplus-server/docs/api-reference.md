@@ -15,6 +15,8 @@ The Worker exposes exactly these routes:
 | `GET` | `/bundles` | `BUNDLE_SYNC_TOKEN` |
 | `GET` | `/ghost-battles` | None; per-IP rate limited |
 | `GET` | `/bazaardb/bundles` | `BAZAARDB_DELIVERY_TOKEN` |
+| `GET` | `/bot/players` | `BOT_STATS_TOKEN` |
+| `GET` | `/bot/bundles` | `BOT_STATS_TOKEN` |
 | `GET` | `/openapi.json` | None |
 | `GET` | `/docs` | None |
 
@@ -404,3 +406,13 @@ R2 object deletion is provided only by the separately provisioned 8-day bucket l
 Client timestamps do not extend D1 retention. Bundle identity deduplication ends when its metadata is pruned. The five-day Ghost and eight-day Bundle collection windows, including `GET /bazaardb/bundles`, remain unchanged. The 15-day cutoff is eligibility for asynchronous pruning, not a guarantee of deletion at an exact instant.
 
 A matching retry of `POST /bundles` validates and commits an R2-only object left by a prior D1 failure.
+
+## Bot player queries
+
+`GET /bot/players?name=` resolves an exact, case-sensitive display name among Bundles uploaded since Beijing midnight two days ago. Results are distinct account IDs, not authenticated identities. The name index comes from eligible Ghost projections, so some valid uploaders have no searchable name. At most 20 accounts are returned, with `has_more` indicating ambiguity. The Bot also accepts explicit account IDs and checks their recent Bundles before binding.
+
+`GET /bot/bundles?account_id=` pages 100 candidate Bundles at a time, ordered by `(stored_at_ms, bundle_id)`. The first page defaults to the same Beijing start and server now. Repeat the returned `window.stored_from_ms`, `window.stored_before_ms` and `next_after` fields as `after_stored_at_ms` / `after_bundle_id` to keep subsequent pages fixed. Unknown and duplicate parameters are rejected; requested windows must be within the last three days plus five minutes for already queued requests. This allowance does not extend the Bot’s Run end-time window.
+
+Stored time is only a candidate filter. A yesterday report still requests uploads through now, so a late upload is included. The Bot decodes `RunFactsV6.EndedAtMs` and applies the final Beijing calendar window; the server neither decompresses Runs nor stores derived statistics. Each item includes a complete-object SHA-256 and a presigned download URL. Presigned URLs are private bearer capabilities and must not be placed in group replies or report HTML.
+
+`BOT_STATS_TOKEN` is a distinct optional service token. Until configured, Bot routes fail closed; the existing service routes continue to work. A configured Bot token cannot access the analyzer or BazaarDB feeds. Only the Bot applies its binding visibility policy; the token grants trusted per-account access.

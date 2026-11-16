@@ -93,6 +93,35 @@ updates:
         applies-to: security-updates
         patterns: ['wrangler', 'miniflare', 'undici', '@cloudflare/*']
   - package-ecosystem: 'bun'
+    directory: '/bazaarplusplus-bot'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(bot)'
+    # Coupled toolchain majors need a deliberate compatibility upgrade.
+    ignore:
+      - dependency-name: 'vitest'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@vitest/*'
+        update-types: ['version-update:semver-major']
+    groups:
+      cloudflare:
+        patterns:
+          ['wrangler', 'miniflare', '@cloudflare/*', 'vitest', '@vitest/*']
+        update-types: ['patch']
+      other:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+      cloudflare-security:
+        applies-to: security-updates
+        patterns: ['wrangler', 'miniflare', 'undici', '@cloudflare/*']
+  - package-ecosystem: 'bun'
     directory: '/bazaarplusplus-installer'
     schedule:
       interval: 'weekly'

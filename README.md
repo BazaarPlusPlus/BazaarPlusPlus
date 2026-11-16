@@ -78,6 +78,7 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 | `bazaarplusplus-mod/`                | 游戏内模组：共享 Core、桌面 BepInEx Host、Android MelonLoader Host |
 | `bazaarplusplus-installer/`          | 桌面安装器（Tauri 2 + React）                                      |
 | `bazaarplusplus-server/`             | Cloudflare Worker：Bundle 上传、Ghost 发现与 BazaarDB 投递         |
+| `bazaarplusplus-bot/` | QQ 群命令、账号绑定与最近三天战绩图片 |
 | `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照                                     |
 | `bazaarplusplus-site/`               | bazaarplusplus.com                                                 |
 | `design/`                            | 设计 token、共享样式与品牌规范                                     |

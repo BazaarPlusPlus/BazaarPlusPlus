@@ -78,6 +78,7 @@ See the [tutorial](https://bazaarplusplus.com/tutorial?lang=en) for the full fea
 | `bazaarplusplus-mod/`                | The in-game mod: shared Core, desktop BepInEx Host, Android MelonLoader Host |
 | `bazaarplusplus-installer/`          | The desktop installer (Tauri 2 + React)                                      |
 | `bazaarplusplus-server/`             | Cloudflare Worker: Bundle upload, Ghost discovery, and BazaarDB delivery     |
+| `bazaarplusplus-bot/` | QQ commands, account bindings and three-day player report images |
 | `bazaarplusplus-analyzer/`           | Turns Bundles into hero and build snapshots                                  |
 | `bazaarplusplus-site/`               | bazaarplusplus.com                                                           |
 | `design/`                            | Design tokens, shared styles, and the brand book                             |

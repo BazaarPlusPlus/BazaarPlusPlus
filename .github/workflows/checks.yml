@@ -35,6 +35,7 @@ jobs:
       release: ${{ steps.scope.outputs.release }}
       site: ${{ steps.scope.outputs.site }}
       server: ${{ steps.scope.outputs.server }}
+      bot: ${{ steps.scope.outputs.bot }}
       analyzer: ${{ steps.scope.outputs.analyzer }}
       installer-frontend: ${{ steps.scope.outputs.installer-frontend }}
       installer-macos: ${{ steps.scope.outputs.installer-macos }}
@@ -141,6 +142,8 @@ jobs:
           if-no-files-found: ignore
       - if: env.PROJECT == 'server'
         run: just server::check server::test
+      - if: env.PROJECT == 'bot'
+        run: just bot::check bot::test bot::build
 
   server:
     name: server (full check and test)
@@ -150,6 +153,17 @@ jobs:
     timeout-minutes: 15
     env:
       PROJECT: server
+      WRANGLER_SEND_METRICS: 'false'
+    steps: *bun-steps
+
+  bot:
+    name: bot (check, test and Worker bundles)
+    needs: classify
+    if: needs.classify.outputs.bot == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROJECT: bot
       WRANGLER_SEND_METRICS: 'false'
     steps: *bun-steps
 
@@ -436,6 +450,7 @@ jobs:
         release,
         site,
         server,
+        bot,
         analyzer,
         installer-frontend,
         installer-macos,
