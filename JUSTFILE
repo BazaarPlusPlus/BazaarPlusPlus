@@ -50,6 +50,11 @@ setup *args:
 doctor:
     bun scripts/workspace.ts doctor
 
+# Copy root package.json vite-plus into site and installer and into every vite alias, then reinstall each.
+[group('workspace')]
+vite-plus-sync:
+    bun scripts/vite-plus.ts
+
 # Inventory the Android AVD matrix and its historical login checks.
 [group('workspace')]
 list-devices:
