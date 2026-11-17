@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Prepares a fresh Amp orb (Debian, x86_64) with every project's toolchain and
+# locked dependencies, so `just <project>::check` and `::test` run without a
+# reinstall. Versions come from the files each project already pins; see the
+# "环境与依赖" table in docs/development.md. Idempotent: a warm snapshot skips
+# what is already installed.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+step() {
+  local name="$1"
+  shift
+  local start=$SECONDS
+  echo "==> $name"
+  "$@"
+  echo "<== $name ($((SECONDS - start))s)"
+}
+
+local_bin="$HOME/.local/bin"
+dotnet_root="$HOME/.dotnet"
+android_home="$HOME/android-sdk"
+java_home="/usr/lib/jvm/java-$(jq -r .jdk.major bazaarplusplus-android/toolchain.lock.json)-openjdk-amd64"
+export PATH="$local_bin:$dotnet_root:$dotnet_root/tools:$HOME/.cargo/bin:$android_home/cmdline-tools/latest/bin:$PATH"
+export DOTNET_ROOT="$dotnet_root" ANDROID_HOME="$android_home" JAVA_HOME="$java_home"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+
+apt_packages() {
+  local jdk_major
+  jdk_major="$(jq -r .jdk.major bazaarplusplus-android/toolchain.lock.json)"
+  # Tauri's Linux prerequisites (installer Rust), the locked JDK, and unzip.
+  local wanted=(
+    build-essential curl wget file pkg-config unzip libssl-dev libxdo-dev
+    libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+    "openjdk-${jdk_major}-jdk-headless"
+  )
+  local missing=()
+  for package in "${wanted[@]}"; do
+    dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed' ||
+      missing+=("$package")
+  done
+  if ((${#missing[@]})); then
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
+  fi
+}
+
+install_just() {
+  # Same pin as CI (taiki-e/install-action just@...).
+  local version
+  version="$(grep -oE 'just@[0-9.]+' .github/workflows/checks.yml | head -n 1 | cut -d@ -f2)"
+  if [[ "$("$local_bin/just" --version 2>/dev/null)" == "just $version" ]]; then return; fi
+  mkdir -p "$local_bin"
+  curl -fsSL "https://github.com/casey/just/releases/download/$version/just-$version-x86_64-unknown-linux-musl.tar.gz" |
+    tar -xz -C "$local_bin" just
+}
+
+install_uv() {
+  # The analyzer pins uv with required-version in its pyproject.toml.
+  local version
+  version="$(sed -nE 's/^required-version = "==([0-9.]+)"/\1/p' bazaarplusplus-analyzer/pyproject.toml)"
+  if [[ "$("$local_bin/uv" --version 2>/dev/null)" == "uv $version"* ]]; then return; fi
+  curl -fsSL "https://astral.sh/uv/$version/install.sh" |
+    env UV_INSTALL_DIR="$local_bin" UV_NO_MODIFY_PATH=1 sh >/dev/null
+}
+
+install_dotnet() {
+  # Honors bazaarplusplus-mod/global.json; the script skips an installed SDK.
+  local script="$HOME/.cache/dotnet-install.sh"
+  [[ -f "$script" ]] || { mkdir -p "$(dirname "$script")" && curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$script"; }
+  bash "$script" --jsonfile bazaarplusplus-mod/global.json --install-dir "$dotnet_root" --no-path >/dev/null
+}
+
+install_rust() {
+  if ! command -v rustup >/dev/null; then
+    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none --no-modify-path
+  fi
+  # Installs the channel and components pinned in rust-toolchain.toml.
+  (cd bazaarplusplus-installer && rustup toolchain install --no-self-update && cargo fetch --locked --manifest-path src-tauri/Cargo.toml)
+}
+
+install_android_sdk() {
+  local lock=bazaarplusplus-android/toolchain.lock.json
+  local platform="platforms;android-$(jq -r .androidSdk.compileSdk "$lock")"
+  local tools="build-tools;$(jq -r .androidSdk.buildTools "$lock")"
+  if [[ ! -x "$android_home/cmdline-tools/latest/bin/sdkmanager" ]]; then
+    local zip
+    zip="$(mktemp --suffix .zip)"
+    curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -o "$zip"
+    rm -rf "$android_home/cmdline-tools"
+    mkdir -p "$android_home/cmdline-tools"
+    unzip -q "$zip" -d "$android_home/cmdline-tools"
+    mv "$android_home/cmdline-tools/cmdline-tools" "$android_home/cmdline-tools/latest"
+    rm -f "$zip"
+  fi
+  if [[ ! -d "$android_home/${platform//;//}" || ! -d "$android_home/${tools//;//}" ]]; then
+    (yes || true) | sdkmanager --licenses >/dev/null
+    sdkmanager "$platform" "$tools" >/dev/null
+  fi
+  # Downloads the Gradle wrapper distribution and resolves the build plugins.
+  (cd bazaarplusplus-android && ./gradlew --no-daemon --quiet help >/dev/null)
+}
+
+persist_environment() {
+  local marker="# bazaarplusplus orb toolchains"
+  grep -Fqx "$marker" "$HOME/.bash_profile" 2>/dev/null && return
+  cat >>"$HOME/.bash_profile" <<EOF
+
+$marker
+export DOTNET_ROOT="$dotnet_root" ANDROID_HOME="$android_home" JAVA_HOME="$java_home"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+export PATH="$local_bin:$dotnet_root:$dotnet_root/tools:$HOME/.cargo/bin:$android_home/cmdline-tools/latest/bin:\$PATH"
+EOF
+}
+
+workspace_setup() {
+  # Installs every bun.lock, the analyzer's uv environment, the mod's .NET
+  # tools and the Git hooks, and creates the local config template.
+  just setup
+}
+
+site_browser() {
+  (cd bazaarplusplus-site && bun run playwright install chromium >/dev/null)
+}
+
+step "apt packages" apt_packages
+step "just" install_just
+step "uv" install_uv
+step ".NET SDK" install_dotnet
+step "Rust toolchain" install_rust
+step "Android SDK and Gradle" install_android_sdk
+step "login shell environment" persist_environment
+step "workspace dependencies (just setup)" workspace_setup
+step "site Playwright Chromium" site_browser
+echo 'Mod builds: run `just mod::fetch macos online` in an authorized thread; private game assemblies are not cached in shared setup.'

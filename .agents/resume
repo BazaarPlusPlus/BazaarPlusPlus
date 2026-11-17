@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Runs each time an Amp orb starts or wakes. `just setup` points the repo's
+# core.hooksPath at .git/hooks (lefthook), which hides the hooks Amp installs in
+# the global hooks path for the current user, such as the co-author trailer.
+# Link every global hook the repository does not define itself.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+global_hooks="$(git config --global --get core.hooksPath || true)"
+[[ -n "$global_hooks" && -d "$global_hooks" ]] || exit 0
+repo_hooks="$(git rev-parse --git-path hooks)"
+mkdir -p "$repo_hooks"
+
+for hook in "$global_hooks"/*; do
+  [[ -f "$hook" && -x "$hook" ]] || continue
+  target="$repo_hooks/$(basename "$hook")"
+  [[ -e "$target" && ! -L "$target" ]] && continue
+  ln -sfn "$hook" "$target"
+done
