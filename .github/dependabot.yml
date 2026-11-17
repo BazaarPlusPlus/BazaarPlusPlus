@@ -21,8 +21,8 @@ updates:
         update-types: ['version-update:semver-major']
     groups:
       # Only this entry tracks vite-plus. Dependabot leaves the `vite` alias
-      # (npm:) behind, so its PR fails scripts/vite-plus.test.ts until
-      # `just vite-plus-sync` aligns the alias, site and installer.
+      # (npm:) behind; .github/workflows/vite-plus-sync.yml aligns the alias,
+      # site and installer on its PR.
       vite-plus:
         patterns: ['vite-plus']
       tooling:

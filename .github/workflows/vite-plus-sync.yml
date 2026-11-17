@@ -1,0 +1,86 @@
+name: Operations / vite-plus sync
+
+# Dependabot bumps vite-plus in root package.json only and leaves every `vite`
+# alias on the old core (ADR 0017). This job copies the root version into the
+# aliases, site and installer, and pushes the result to the Dependabot branch
+# with a deploy key, because a GITHUB_TOKEN push starts no checks.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vite-plus-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  align:
+    name: Align vite-plus
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.base.ref == 'master' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/bun/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.sync.outputs.changed }}
+    steps:
+      # The script comes from the base; the PR head is only data.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      # Resolves the lockfiles only: no package is installed and no script runs.
+      - id: sync
+        run: |
+          bun scripts/vite-plus.ts head --lockfile-only --ignore-scripts
+          if [ -n "$(git -C head status --porcelain)" ]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.sync.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vite-plus-sync
+          retention-days: 1
+          path: |
+            head/package.json
+            head/bun.lock
+            head/bazaarplusplus-site/package.json
+            head/bazaarplusplus-site/bun.lock
+            head/bazaarplusplus-installer/package.json
+            head/bazaarplusplus-installer/bun.lock
+
+  push:
+    name: Push the alignment
+    needs: align
+    if: needs.align.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # This job holds the deploy key, so it only copies files and pushes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          ssh-key: ${{ secrets.VITE_PLUS_SYNC_SSH_KEY }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vite-plus-sync
+      # A moved branch rejects this non-fast-forward push; its new event syncs again.
+      - env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am 'build(dev): align vite-plus with root package.json'
+          git push origin "HEAD:refs/heads/$BRANCH"
