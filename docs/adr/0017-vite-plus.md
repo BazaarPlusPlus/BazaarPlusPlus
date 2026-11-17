@@ -20,6 +20,6 @@ server 暂不迁移。它的测试用 `@cloudflare/vitest-pool-workers` 在 work
 ## 后果
 
 - oxlint、oxfmt、`oxlint-tsgolint` 和 Vitest 的版本由 `vite-plus` 决定，不能在项目里单独升。升 TypeScript 主版本时，要换成带对应 `oxlint-tsgolint` 的 `vite-plus`。
-- 三个项目用同一个 `vite-plus` 版本，由根目录 `package.json` 决定；`vite` 别名和 `overrides` 必须指向同一版本的 core，`vp` 发现不一致就拒绝构建。Dependabot 不改 `npm:` 别名，所以只有根目录的 Dependabot 跟踪 `vite-plus`。它的 PR 会让 `scripts/vite-plus.test.ts` 失败，在 PR 分支上运行 `just vite-plus-sync` 把版本写进别名、site 和 installer 后再合并。
+- 三个项目用同一个 `vite-plus` 版本，由根目录 `package.json` 决定；`vite` 别名和 `overrides` 必须指向同一版本的 core，`vp` 发现不一致就拒绝构建。Dependabot 不改 `npm:` 别名，所以只有根目录的 Dependabot 跟踪 `vite-plus`。它开 PR 后，`.github/workflows/vite-plus-sync.yml` 把版本写进别名、site 和 installer，用 deploy key（secret `VITE_PLUS_SYNC_SSH_KEY`）推回 PR 分支，让 PR 的检查重新运行。`GITHUB_TOKEN` 的推送不会触发检查。`scripts/vite-plus.test.ts` 拦住任何不一致；手动升级时改根目录版本，再运行 `just vite-plus-sync`。
 - 仓库没有 Bun workspace。`vp migrate` 要在每个项目目录里分别运行：在根目录运行时，它会改写子项目的导入。
 - server 仍直接用 oxlint、oxfmt 和 Vitest 4，格式选项留在 `.oxfmtrc.json`，和另外三份 `fmt` 块保持一致。
