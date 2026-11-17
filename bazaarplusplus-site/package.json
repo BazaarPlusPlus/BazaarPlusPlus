@@ -35,16 +35,16 @@
     "jsdom": "^31.0.0",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.1",
     "wrangler": "^4.159.0",
-    "vite-plus": "1.5.0"
+    "vite-plus": "1.5.1"
   },
   "overrides": {
     "miniflare": {
       "undici": "7.30.1"
     },
     "sharp": "0.35.5",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.1"
   },
   "engines": {
     "bun": "1.4.4"
