@@ -22,6 +22,9 @@ Thumbs.db
 # Local worktrees
 .worktrees/
 
+# Amp orb portal registrations
+.amp/portals/*
+
 # Installed dependencies
 node_modules/
 .venv/
