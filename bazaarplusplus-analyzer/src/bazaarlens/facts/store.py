@@ -592,12 +592,12 @@ class FactStore:
             return
         source_hour = batch.column("source_hour")
         if (
-            source_hour.null_count or pc.all(pc.equal(source_hour, hour_key)).as_py() is not True  # ty: ignore[unresolved-attribute]
+            source_hour.null_count or pc.all(pc.equal(source_hour, hour_key)).as_py() is not True  # ty: ignore[missing-attribute]
         ):
             raise FactCorrupt(f"{table_name} rows moved outside their Source Hour")
         source_day = batch.column("source_day")
         if (
-            source_day.null_count or pc.all(pc.equal(source_day, day_key)).as_py() is not True  # ty: ignore[unresolved-attribute]
+            source_day.null_count or pc.all(pc.equal(source_day, day_key)).as_py() is not True  # ty: ignore[missing-attribute]
         ):
             raise FactCorrupt(f"{table_name} rows moved outside their Source Day")
 
