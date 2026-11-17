@@ -215,6 +215,8 @@ export const SHARED_INPUTS: [string, string[]][] = [
   ['bazaarplusplus-mod/build/ManagedPath.props', ['release']],
   ['bazaarplusplus-mod/build/InteropPath.props', ['release']],
   ['bazaarplusplus-mod/global.json', ['release']],
+  // scripts/vite-plus.test.ts pins its vite-plus version to root package.json.
+  ['bazaarplusplus-site/package.json', ['release']],
   ['bazaarplusplus-installer/src/styles/tokens.css', ['site']],
   ['bazaarplusplus-installer/static/support/', ['site']],
   ['bazaarplusplus-installer/src-tauri/resources/', ['mod']],

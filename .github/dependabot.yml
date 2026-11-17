@@ -20,9 +20,11 @@ updates:
       - dependency-name: 'vite-plus'
         update-types: ['version-update:semver-major']
     groups:
-      # vite-plus pins vite (an alias of its core), oxlint and oxfmt; move them together.
+      # Only this entry tracks vite-plus. Dependabot leaves the `vite` alias
+      # (npm:) behind, so its PR fails scripts/vite-plus.test.ts until
+      # `just vite-plus-sync` aligns the alias, site and installer.
       vite-plus:
-        patterns: ['vite-plus', 'vite']
+        patterns: ['vite-plus']
       tooling:
         patterns: ['*']
         update-types: ['patch']
@@ -42,12 +44,9 @@ updates:
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
+      # The root entry tracks vite-plus; `just vite-plus-sync` copies it here.
       - dependency-name: 'vite-plus'
-        update-types: ['version-update:semver-major']
     groups:
-      # vite-plus pins vite (an alias of its core), oxlint and oxfmt; move them together.
-      vite-plus:
-        patterns: ['vite-plus', 'vite']
       typescript:
         patterns: ['typescript']
         update-types: ['patch']
@@ -134,12 +133,9 @@ updates:
     ignore:
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
+      # The root entry tracks vite-plus; `just vite-plus-sync` copies it here.
       - dependency-name: 'vite-plus'
-        update-types: ['version-update:semver-major']
     groups:
-      # vite-plus pins vite (an alias of its core), oxlint and oxfmt; move them together.
-      vite-plus:
-        patterns: ['vite-plus', 'vite']
       typescript:
         patterns: ['typescript']
         update-types: ['patch']

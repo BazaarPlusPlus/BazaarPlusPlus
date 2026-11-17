@@ -535,6 +535,7 @@ test('repository metadata and project recipes do not fan out to all platforms', 
   ])
     expectScopes([file], ['release']);
   expectScopes(['bazaarplusplus-site/site.just'], ['site', 'release']);
+  expectScopes(['bazaarplusplus-site/package.json'], ['site', 'release']);
   expectScopes(['bazaarplusplus-site/src/windows.ts'], ['site']);
 });
 
