@@ -11,46 +11,24 @@
 [![Version](https://img.shields.io/badge/version-6.4.0-6dd9a0?style=flat-square)](https://bazaarplusplus.com)
 [![License](https://img.shields.io/badge/license-MIT-e8c87a?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Android-c1875a?style=flat-square)](https://bazaarplusplus.com/download)
-[![BepInEx](https://img.shields.io/badge/BepInEx-5.x-8a6d3b?style=flat-square)](https://github.com/BepInEx/BepInEx)
-[![MelonLoader](https://img.shields.io/badge/MelonLoader-Android-8a6d3b?style=flat-square)](https://github.com/LavaGang/MelonLoader)
-[![.NET](https://img.shields.io/badge/.NET-Standard%202.1%20%7C%2010-512bd4?style=flat-square)](https://learn.microsoft.com/dotnet/)
-[![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8d8?style=flat-square)](https://tauri.app)
-[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square)](https://react.dev)
 
 </div>
 
 ---
 
-BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏平衡，只做信息增强与记录：卡牌图鉴、十胜阵容推荐、对局历史与战斗回放、附魔 / 升级预览、战斗状态栏等。桌面版（Windows、macOS）是 BepInEx 模组加一个桌面安装器；Android 版是 BazaarPlusPlus 自己的 App，运行你已安装的官方游戏并加载 BazaarPlusPlus。同仓库里还有上传后端、数据分析器和官网。
-
-普通玩家请直接到 [下载页](https://bazaarplusplus.com/download) 获取安装器或 APK；本仓库面向想了解实现、提交改动或自行构建的开发者。
+BazaarPlusPlus 不改变游戏平衡，只做信息增强与记录：卡牌图鉴、十胜阵容推荐、对局历史与战斗回放、附魔 / 升级预览、战斗状态栏等。
 
 > [!NOTE]
 > 项目代码主要由 [Codex](https://openai.com/codex) 主导，并由 [Claude Code](https://claude.com/product/claude-code) 协作完成。
 
-## 快速开始
+## 下载与安装
 
-### Windows 与 macOS
+到 [下载页](https://bazaarplusplus.com/download) 获取对应平台的安装包，详细步骤见 [使用教程](https://bazaarplusplus.com/tutorial)。
 
-1. 打开 [bazaarplusplus.com/download](https://bazaarplusplus.com/download)，选择 Windows `.exe` 或 macOS `.dmg`。
-2. 关闭游戏后运行安装器；更新时建议先卸载旧版本，再安装新版本。
-3. 安装完成后启动《The Bazaar》一次，让 BazaarPlusPlus 完成初始化。
-4. 在主菜单确认「卡牌图鉴」按钮出现，且底部版本信息显示 `BPP version` 字样。
+- **Windows / macOS**：关闭游戏后运行安装器，再启动一次游戏；主菜单出现「卡牌图鉴」按钮即安装成功。安装器同时负责修复、卸载和更新。
+- **Android（实验版）**：先安装官方版 The Bazaar，再安装 BazaarPlusPlus 的 APK（arm64，Android 11+），从 BazaarPlusPlus 启动游戏。问题反馈：QQ 群 1083470305。
 
-桌面安装器还提供修复、卸载、数据重置和本地历史清理，并可自动更新。兼容的模组更新会在游戏内下载，重启游戏后生效。每个桌面版本也提供内置当版模组的完整安装器；游戏内更新无法联网时，可手动下载安装器更新。
-
-早期版本写入游戏目录的数据文件夹（如 `BazaarPlusPlusV5`）会显示在安装器安装页的「旧版本数据」里。当前版本不读取也不导入它们，安装器只在你确认后才删除每个文件夹。
-
-### Android
-
-1. 先从 Google Play 或发行商官网安装官方版 The Bazaar。BazaarPlusPlus 运行你已安装的游戏，不修改它，也不需要卸载它。
-2. 在 [下载页](https://bazaarplusplus.com/download) 的 Android 卡片下载 BazaarPlusPlus 的 `.apk`（arm64，需要 Android 11 或更高版本）并安装。Android 版目前是实验版，问题可以在 QQ 群 1083470305 反馈。
-3. 从 BazaarPlusPlus 启动游戏。第一次启动时，在游戏自己的登录界面登录 The Bazaar 账号：登录状态由各个 App 分别保存，和官方 App 不共享。BazaarPlusPlus 本身没有账号，不需要登录。BazaarPlusPlus 的设置在游戏自带的「设置」里。
-4. 模组的更新由 BazaarPlusPlus 自己下载。BazaarPlusPlus 本身要更新时，它会提示你回到下载页下载新的 APK 覆盖安装。
-
-购买请在官方 App 里完成。游戏更新后，请等待适配新版本的 BazaarPlusPlus 发布；在此期间可以打开官方游戏。
-
-## 功能矩阵
+## 功能
 
 桌面版包括 Windows 和 macOS。✅ 支持　◐ 部分支持　— 不支持
 
@@ -65,77 +43,39 @@ BazaarPlusPlus 是一个面向《The Bazaar》的开源项目，不改变游戏�
 | 终局自动截图           |   ✅   | ◐ 仅在开启 BazaarDB 上传时 |
 | OBS 直播叠层           |   ✅   |             —              |
 
-桌面版还提供怪物阵容预览、战斗贡献、双语物品名、语音字幕等显示辅助，以及 FSR 超分辨率。各平台均提供可选的 BazaarDB 截图上传（默认关闭），并支持简体中文与台湾繁体术语。
+各平台会在不处于对局时后台上传对局与回放数据，用于幽灵对战和官网的[英雄统计](https://bazaarplusplus.com/heroes)。完整功能与平台差异见[使用教程](https://bazaarplusplus.com/tutorial)。
 
-各平台会在不处于对局时后台上传对局与回放数据，用于幽灵对战和官网的[英雄统计](https://bazaarplusplus.com/heroes)。
+## 开发
 
-完整功能、平台差异与操作说明见[使用教程](https://bazaarplusplus.com/tutorial)。
-
-## 仓库结构
-
-| 目录                                 | 内容                                                               |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `bazaarplusplus-mod/`                | 游戏内模组：共享 Core、桌面 BepInEx Host、Android MelonLoader Host |
-| `bazaarplusplus-installer/`          | 桌面安装器（Tauri 2 + React）                                      |
-| `bazaarplusplus-server/`             | Cloudflare Worker：Bundle 上传、Ghost 发现与 BazaarDB 投递         |
-| `bazaarplusplus-bot/` | QQ 群命令、账号绑定与最近三天战绩图片 |
-| `bazaarplusplus-analyzer/`           | 把 Bundle 汇总成英雄与阵容快照                                     |
-| `bazaarplusplus-site/`               | bazaarplusplus.com                                                 |
-| `design/`                            | 设计 token、共享样式与品牌规范                                     |
-| `VERSION`、`release/`                | 产品版本与三个平台的发布流程                                       |
-
-每个项目保留自己的工具链，并有各自的 `README.md` 与 `AGENTS.md`；根目录 [`AGENTS.md`](AGENTS.md) 记录跨项目约定和契约归属。
-
-## 从源码构建
-
-按[开发命令](docs/development.md)装好工具链（just、.NET、Node、Rust、Python/uv），然后：
+| 目录                        | 内容                                                               |
+| --------------------------- | ------------------------------------------------------------------ |
+| `bazaarplusplus-mod/`       | 游戏内模组：共享 Core、桌面 BepInEx Host、Android MelonLoader Host |
+| `bazaarplusplus-installer/` | 桌面安装器（Tauri 2 + React）                                      |
+| `bazaarplusplus-android/`   | Android App：启动官方游戏并加载模组                                |
+| `bazaarplusplus-server/`    | Cloudflare Worker：Bundle 上传、Ghost 发现与 BazaarDB 投递         |
+| `bazaarplusplus-bot/`       | QQ 群命令、账号绑定与战绩图片                                      |
+| `bazaarplusplus-analyzer/`  | 把 Bundle 汇总成英雄与阵容快照                                     |
+| `bazaarplusplus-site/`      | bazaarplusplus.com                                                 |
+| `design/`                   | 设计 token、共享样式与品牌规范                                     |
+| `VERSION`、`release/`       | 产品版本与发布流程                                                 |
 
 ```bash
-just setup                  # Shared local config, locked dependencies, Git hooks
-just doctor                 # What is still missing on this machine
-just mod::fetch macos online  # Game assemblies for the mod (Windows: windows)
-just mod::fetch android publisher  # Interop Snapshot and loader for the Android Host (play: the Google Play game)
-just                        # Every command, grouped by project
+just setup    # 本地配置、锁定依赖、Git hooks
+just doctor   # 列出本机还缺什么
+just          # 按项目分组列出全部命令
 ```
 
-mod 对照快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 指向的游戏程序集编译：`mod::fetch` 接受版本一致的本机 Steam 版《The Bazaar》，否则从私有存储取包，细节见[开发命令](docs/development.md#游戏程序集)。单个项目用 `just <project>::check` 和 `just <project>::test` 验证，`just fmt` 格式化全部项目。`just mod::build` 只编译；把开发版 DLL 部署进游戏要显式运行 `just mod::build --deploy`。Android Host 用 `just mod::android-build` 编译、`just mod::android-deploy` 推到连接的设备，设备冒烟见[开发命令](docs/development.md#android-冒烟)。
-
-正式包（桌面安装器与 Android APK）由 GitHub Actions 的 `release.yml` 在托管 runner 上构建、签名并上传，签名、公证、Android 发布密钥和 R2 凭据只存在于 GitHub secrets 和维护者本机配置，不在公开仓库中；游戏程序集快照、游戏反编译输出、`.env`、`.dev.vars` 同样不在此树中。版本发布流程见[产品发布](docs/release.md)。
-
-## 二次开发须知
+工具链、游戏程序集和 Android 冒烟见 [开发命令](docs/development.md)，发版见 [产品发布](docs/release.md)，跨项目约定见 [`AGENTS.md`](AGENTS.md)。各项目目录下也有自己的 `README.md`。
 
 > [!IMPORTANT]
-> 如果你计划基于本项目或本模组进行二次开发，请务必遵循《The Bazaar》官方 [Mod Policy](https://www.playthebazaar.com/mod-policy)。
+> 基于本项目进行二次开发时，请遵循《The Bazaar》官方 [Mod Policy](https://www.playthebazaar.com/mod-policy)。
 
 ## 致谢
 
-|              |                                                                                                                                                                                                                                                                                                                       |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **灵感来源** | [BazaarHelper](https://github.com/Duangi/BazaarHelper) · [BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)                                                                                                                                                                                            |
-| **数据来源** | [bazaardb.gg](https://bazaardb.gg)                                                                                                                                                                                                                                                                                    |
-| **运行依赖** | [BepInEx](https://github.com/BepInEx/BepInEx) · [MelonLoader](https://github.com/LavaGang/MelonLoader) · [Harmony](https://github.com/pardeike/Harmony) · [Tauri](https://tauri.app) · [React](https://react.dev) · [Vite](https://vite.dev) · [Tailwind CSS](https://tailwindcss.com) · [FFmpeg](https://ffmpeg.org) |
-| **共创**     | [Codex](https://openai.com/codex) · [Claude Code](https://claude.com/product/claude-code)                                                                                                                                                                                                                             |
+灵感来源 [BazaarHelper](https://github.com/Duangi/BazaarHelper)、[BazaarPlannerMod](https://github.com/oceanseth/BazaarPlannerMod)；数据来源 [bazaardb.gg](https://bazaardb.gg)；运行依赖 [BepInEx](https://github.com/BepInEx/BepInEx)、[MelonLoader](https://github.com/LavaGang/MelonLoader)、[Harmony](https://github.com/pardeike/Harmony)、[Tauri](https://tauri.app)、[FFmpeg](https://ffmpeg.org) 等。
 
-## 支持者
-
-感谢所有支持 BazaarPlusPlus 的朋友。完整支持者名单见 [bazaarplusplus.com/support](https://bazaarplusplus.com/support)。
-
-如果你愿意支持项目持续维护，可以前往 [Ko-fi](https://ko-fi.com/cauyxy) 或在安装器内查看赞助方式。
+感谢所有[支持者](https://bazaarplusplus.com/support)。如果愿意支持项目持续维护，可以前往 [Ko-fi](https://ko-fi.com/cauyxy)。
 
 ## License
 
-本项目使用 [MIT License](LICENSE)。
-
----
-
-<div align="center">
-
-<img src="bazaarplusplus-installer/src-tauri/icons/icon.png" alt="" width="48" height="48" />
-
-**BazaarPlusPlus** · 因热爱而生
-
-[官网](https://bazaarplusplus.com) · [下载](https://bazaarplusplus.com/download) · [使用教程](https://bazaarplusplus.com/tutorial) · [Ko-fi](https://ko-fi.com/cauyxy)
-
-<sub>历史归档：[mod](https://github.com/BazaarPlusPlus/bazaarplusplus-mod) · [installer](https://github.com/BazaarPlusPlus/bazaarplusplus-installer) · [server](https://github.com/BazaarPlusPlus/bazaarplusplus-server) · [analyzer](https://github.com/BazaarPlusPlus/bazaarplusplus-analyzer) · [site](https://github.com/BazaarPlusPlus/bazaarplusplus-site)</sub>
-
-</div>
+[MIT License](LICENSE)
