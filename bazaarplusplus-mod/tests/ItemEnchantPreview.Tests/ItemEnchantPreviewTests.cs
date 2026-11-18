@@ -276,12 +276,14 @@ public sealed class ItemEnchantPreviewTests
         );
     }
 
-    [Fact]
-    public void Formatting_exposes_the_enchantment_color() =>
-        Assert(
-            ItemEnchantPreviewFormatting.GetEnchantmentColorHex(EEnchantmentType.Icy) == "3FC8F7",
-            "Formatting should expose the configured enchantment color."
-        );
+    [Theory]
+    [InlineData(EEnchantmentType.Icy, "3FC8F7")]
+    [InlineData(EEnchantmentType.Shiny, "FFFFFF")]
+    [InlineData(EEnchantmentType.Mossy, "8FE930")]
+    public void Formatting_exposes_the_enchantment_color(
+        EEnchantmentType enchantment,
+        string hex
+    ) => Xunit.Assert.Equal(hex, ItemEnchantPreviewFormatting.GetEnchantmentColorHex(enchantment));
 
     [Fact]
     public void Quest_only_tooltips_use_their_own_section_layout()
