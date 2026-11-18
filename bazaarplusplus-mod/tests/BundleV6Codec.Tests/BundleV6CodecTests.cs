@@ -426,6 +426,23 @@ public sealed class BundleV6CodecTests
             earlierRun.Run.ServerBuildId == null && earlierRun.Run.GameDataEtag == null,
             "absent game version keys decode as null"
         );
+        graph[3] = run;
+
+        // And for the root: a shipped mod reads a root array longer than its keys, and this one
+        // reads a payload sealed before the Run Message Stream (key 8) existed.
+        var stream = RunPayloadV6Codec.Decode(golden).MessageStream!;
+        Equal(2, stream.Count, "the golden carries a message and its command");
+        Equal(stream[0].Seq, stream[1].RespondsToSeq, "the message names the command it answers");
+        True(stream[1].Message!.Length > 255, "a message uses the 16-bit binary length");
+        var futureRoot = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph.Append("future").ToArray(), untyped))
+        );
+        Equal(2, futureRoot.MessageStream!.Count, "known root keys decode past an unknown one");
+        var earlierRoot = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph.Take(8).ToArray(), untyped))
+        );
+        Equal("battle-000", earlierRoot.ReplayableBattleIds[0], "a root without key 8 decodes");
+        True(earlierRoot.MessageStream == null, "an absent message stream decodes as null");
     }
 
     private static byte[] Ungzip(byte[] bytes)
@@ -763,6 +780,25 @@ public sealed class BundleV6CodecTests
         };
         payload.Degradation.EventsOmitted = 2;
         payload.Degradation.ScreenshotOmitted = true;
+        payload.MessageStream = new List<RunMessageFrameV6>
+        {
+            new()
+            {
+                Seq = 3,
+                TimestampMs = 1_785_716_000_000,
+                Command = "SendSelectItem",
+                CommandArgsJson =
+                    "{\"instanceId\":\"itm_golden\",\"desiredSockets\":[\"Socket_3\"],\"targetSection\":\"Hand\"}",
+            },
+            new()
+            {
+                Seq = 4,
+                TimestampMs = 1_785_716_000_250,
+                // Synthetic bytes, long enough for the bin16 marker real messages use.
+                Message = Enumerable.Range(0, 300).Select(index => (byte)(index * 7)).ToArray(),
+                RespondsToSeq = 3,
+            },
+        };
         return payload;
     }
 

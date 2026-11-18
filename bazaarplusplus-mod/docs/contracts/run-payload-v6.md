@@ -27,6 +27,7 @@ and the compressed-segment SHA-256 are handled before this payload is decompress
 | 5 | `Battles` | `RunBattleV6[]` | Battle facts and optional replay inputs |
 | 6 | `ReplayableBattleIds` | string[] | Battles retaining snapshots and all replay phases |
 | 7 | `Degradation` | `PayloadDegradationV6` | Deterministic size/input degradation record |
+| 8 | `MessageStream` | `RunMessageFrameV6[]` or null | The Run Message Stream; absent before the key existed |
 
 Every time is a Unix millisecond integer (MessagePack int): `RunFactsV6` keys `3` and `4`
 (`StartedAtMs`, nullable `EndedAtMs`), `RunEventV6` key `1` (`TimestampMs`), and `BattleFactsV6`
@@ -59,6 +60,8 @@ A `run_started` or `run_resumed` event also carries `server_build_id` and `game_
 values above as read when that event was written; a field that was not read is omitted. A resumed
 Run can carry a newer game version than its `run_started` event.
 
+Rows of kind `stream_message` and `stream_command` are not events: they make up key `8`, below.
+
 `RunBattleV6` uses keys `0..4` for Battle ID, `BattleFactsV6`, `BattleParticipantsV6`, nullable
 `BattleCardSnapshotsV6`, and nullable `BattleReplayV6`. A Battle is replayable only when both
 nullable fields exist, Spawn, Combat, and Despawn replay byte arrays are non-empty, and snapshots
@@ -89,8 +92,32 @@ Android Host) or the read failed, and absent from a payload sealed before the ke
 not take part in the replayable predicate.
 
 `PayloadDegradationV6` uses keys `0..3` for categories, replay-omitted Battle IDs, omitted event
-count, and whether a requested Screenshot was omitted. It describes the final immutable payload;
+count, and whether a requested Screenshot was omitted. The size budget drops, in order,
+non-projection replays, the whole Run Message Stream (`message_stream_omitted`), projected Battles,
+snapshots without a replay, and non-terminal events. It describes the final immutable payload;
 it is not a retry state.
+
+## Run Message Stream
+
+Key `8` holds what the game received and sent during the Run, in the order the mod observed it
+(ADR-0028): the game's own messages, for following the Run step by step. It is null when nothing
+was recorded (the Android Host, or a Run before the key existed), and dropped whole when the segment
+is over the size limit (`message_stream_omitted` below). `RunMessageFrameV6` uses keys `0..5`; each
+frame sets exactly one of `Message` and `Command`:
+
+| Key | Property | Type | Meaning |
+|---:|---|---|---|
+| 0 | `Seq` | int | The frame's `run_events` sequence; it orders the frames, and shares its numbers with key `4` |
+| 1 | `TimestampMs` | int | When the mod observed the frame; a frame written after the start event can be earlier than it |
+| 2 | `Message` | bin or null | One message the client received, serialized as `INetMessage` with the game's `MessagePackConfig.Options`: a `NetMessageGameSim`, `NetMessageGameStateSync` or `NetMessageRunInitialized`. An aggregate is split into its messages. Read it with the game's types for the Run's `ServerBuildId` |
+| 3 | `RespondsToSeq` | int or null | On a message: the `Seq` of the command whose response carried it; null for a message the server sent on its own, or a response the mod could not pair |
+| 4 | `Command` | string or null | A command the client sent: the `HttpGameClient` method, such as `SendSelectItem` |
+| 5 | `CommandArgsJson` | string or null | On a command: its arguments as a JSON object by parameter name. Instance ids are their text, enums their member name, lists arrays |
+
+A command has no outcome field. A command no message answers failed, was retried, or was never
+sent; a retry appears as a second command. The messages alone carry the Run state: a
+`NetMessageGameSim` carries only what changed, and a `NetMessageGameStateSync` (after a reconnect)
+the whole state.
 
 ## Golden
 

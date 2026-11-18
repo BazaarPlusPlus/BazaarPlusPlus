@@ -27,54 +27,6 @@
           "level": 3,
           "income": 5,
           "gold": 10,
-          "last_seq": 1,
-          "ended_at_ms": null,
-          "final_day": null,
-          "final_hour": null,
-          "victories": null,
-          "losses": null,
-          "final_player_rank": null,
-          "final_player_rating": null,
-          "final_player_rating_delta": null,
-          "reason": null,
-          "build_channel": "Online",
-          "player_account_id": "account-001",
-          "bundle_screenshot_requested": 1,
-          "mod_version": "5.0.0",
-          "upload_policy": "bundle"
-        }
-      ],
-      "run_events": [
-        {
-          "run_id": "run-alpha",
-          "seq": 1,
-          "ts_at_ms": 1784376060000,
-          "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
-        }
-      ],
-      "battles": []
-    },
-    {
-      "step": 3,
-      "name": "pvp-recorded",
-      "runs": [
-        {
-          "run_id": "run-alpha",
-          "started_at_ms": 1784376060000,
-          "last_seen_at_ms": 1784376425000,
-          "status": "active",
-          "hero": "Vanessa",
-          "game_mode": "Ranked",
-          "player_rank": "Gold 2",
-          "player_rating": 1420,
-          "day": 2,
-          "hour": 3,
-          "max_health": 350,
-          "prestige": 20,
-          "level": 4,
-          "income": 6,
-          "gold": 14,
           "last_seq": 3,
           "ended_at_ms": null,
           "final_day": null,
@@ -103,16 +55,106 @@
         {
           "run_id": "run-alpha",
           "seq": 2,
-          "ts_at_ms": 1784376245000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
+        }
+      ],
+      "battles": []
+    },
+    {
+      "step": 3,
+      "name": "pvp-recorded",
+      "runs": [
+        {
+          "run_id": "run-alpha",
+          "started_at_ms": 1784376060000,
+          "last_seen_at_ms": 1784376425000,
+          "status": "active",
+          "hero": "Vanessa",
+          "game_mode": "Ranked",
+          "player_rank": "Gold 2",
+          "player_rating": 1420,
+          "day": 2,
+          "hour": 3,
+          "max_health": 350,
+          "prestige": 20,
+          "level": 4,
+          "income": 6,
+          "gold": 14,
+          "last_seq": 7,
+          "ended_at_ms": null,
+          "final_day": null,
+          "final_hour": null,
+          "victories": null,
+          "losses": null,
+          "final_player_rank": null,
+          "final_player_rating": null,
+          "final_player_rating_delta": null,
+          "reason": null,
+          "build_channel": "Online",
+          "player_account_id": "account-001",
+          "bundle_screenshot_requested": 1,
+          "mod_version": "5.0.0",
+          "upload_policy": "bundle"
+        }
+      ],
+      "run_events": [
+        {
+          "run_id": "run-alpha",
+          "seq": 1,
+          "ts_at_ms": 1784376060000,
+          "kind": "run_started",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 2,
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 3,
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 4,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendSelectItem\",\"command_args\":{\"instanceId\":\"itm_a\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 5,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":5,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_message\",\"message\":\"BAU=\",\"responds_to_seq\":4}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 6,
+          "ts_at_ms": 1784376245000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":6,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 7,
           "ts_at_ms": 1784376425000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":7,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
         }
       ],
       "battles": [
@@ -279,7 +321,7 @@
           "level": 4,
           "income": 6,
           "gold": 14,
-          "last_seq": 4,
+          "last_seq": 8,
           "ended_at_ms": 1784376545000,
           "final_day": 3,
           "final_hour": 2,
@@ -371,23 +413,51 @@
         {
           "run_id": "run-alpha",
           "seq": 2,
-          "ts_at_ms": 1784376245000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
-          "ts_at_ms": 1784376425000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendSelectItem\",\"command_args\":{\"instanceId\":\"itm_a\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 5,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":5,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_message\",\"message\":\"BAU=\",\"responds_to_seq\":4}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 6,
+          "ts_at_ms": 1784376245000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":6,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 7,
+          "ts_at_ms": 1784376425000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":7,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 8,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":8,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-bravo",
@@ -615,7 +685,7 @@
           "level": 4,
           "income": 6,
           "gold": 14,
-          "last_seq": 4,
+          "last_seq": 8,
           "ended_at_ms": 1784376545000,
           "final_day": 3,
           "final_hour": 2,
@@ -771,23 +841,51 @@
         {
           "run_id": "run-alpha",
           "seq": 2,
-          "ts_at_ms": 1784376245000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
-          "ts_at_ms": 1784376425000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendSelectItem\",\"command_args\":{\"instanceId\":\"itm_a\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 5,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":5,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_message\",\"message\":\"BAU=\",\"responds_to_seq\":4}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 6,
+          "ts_at_ms": 1784376245000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":6,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 7,
+          "ts_at_ms": 1784376425000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":7,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 8,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":8,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-bravo",
@@ -1029,7 +1127,7 @@
           "level": 4,
           "income": 6,
           "gold": 14,
-          "last_seq": 4,
+          "last_seq": 8,
           "ended_at_ms": 1784376545000,
           "final_day": 3,
           "final_hour": 2,
@@ -1217,23 +1315,51 @@
         {
           "run_id": "run-alpha",
           "seq": 2,
-          "ts_at_ms": 1784376245000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
-          "ts_at_ms": 1784376425000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendSelectItem\",\"command_args\":{\"instanceId\":\"itm_a\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 5,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":5,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_message\",\"message\":\"BAU=\",\"responds_to_seq\":4}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 6,
+          "ts_at_ms": 1784376245000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":6,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 7,
+          "ts_at_ms": 1784376425000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":7,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 8,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":8,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
@@ -1536,7 +1662,7 @@
           "level": 4,
           "income": 6,
           "gold": 14,
-          "last_seq": 4,
+          "last_seq": 8,
           "ended_at_ms": 1784376545000,
           "final_day": 3,
           "final_hour": 2,
@@ -1756,23 +1882,51 @@
         {
           "run_id": "run-alpha",
           "seq": 2,
-          "ts_at_ms": 1784376245000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
-          "ts_at_ms": 1784376425000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendSelectItem\",\"command_args\":{\"instanceId\":\"itm_a\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 5,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":5,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_message\",\"message\":\"BAU=\",\"responds_to_seq\":4}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 6,
+          "ts_at_ms": 1784376245000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":6,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 7,
+          "ts_at_ms": 1784376425000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":7,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 8,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":8,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
@@ -2089,7 +2243,7 @@
           "level": 4,
           "income": 6,
           "gold": 14,
-          "last_seq": 4,
+          "last_seq": 8,
           "ended_at_ms": 1784376545000,
           "final_day": 3,
           "final_hour": 2,
@@ -2309,23 +2463,51 @@
         {
           "run_id": "run-alpha",
           "seq": 2,
-          "ts_at_ms": 1784376245000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":2,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendInitializeRun\",\"command_args\":{\"playmode\":\"Ranked\"}}"
         },
         {
           "run_id": "run-alpha",
           "seq": 3,
-          "ts_at_ms": 1784376425000,
-          "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+          "ts_at_ms": 1784376060000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":3,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"stream_message\",\"message\":\"AQID\",\"responds_to_seq\":2}"
         },
         {
           "run_id": "run-alpha",
           "seq": 4,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_command",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_command\",\"command\":\"SendSelectItem\",\"command_args\":{\"instanceId\":\"itm_a\"}}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 5,
+          "ts_at_ms": 1784376245000,
+          "kind": "stream_message",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":5,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"stream_message\",\"message\":\"BAU=\",\"responds_to_seq\":4}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 6,
+          "ts_at_ms": 1784376245000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":6,\"ts\":\"2026-07-18T12:04:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":1,\"encounter_id\":\"encounter-battle-alpha-1\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-1\",\"opponent_name\":\"Rival battle-alpha-1\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 7,
+          "ts_at_ms": 1784376425000,
+          "kind": "pvp_combat_recorded",
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":7,\"ts\":\"2026-07-18T12:07:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":2,\"hour\":3,\"encounter_id\":\"encounter-battle-alpha-2\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-2\",\"opponent_name\":\"Rival battle-alpha-2\"}"
+        },
+        {
+          "run_id": "run-alpha",
+          "seq": 8,
           "ts_at_ms": 1784376545000,
           "kind": "pvp_combat_recorded",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":4,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":8,\"ts\":\"2026-07-18T12:09:05.000+00:00\",\"kind\":\"pvp_combat_recorded\",\"day\":3,\"hour\":2,\"encounter_id\":\"encounter-battle-alpha-3\",\"combat_kind\":\"PVPCombat\",\"battle_id\":\"battle-alpha-3\",\"opponent_name\":\"Rival battle-alpha-3\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",

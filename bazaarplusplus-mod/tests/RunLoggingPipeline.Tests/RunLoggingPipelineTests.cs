@@ -46,6 +46,9 @@ using Xunit;
 //    the unfinished run, or returns a run that was abandoned since.
 // 8. Quiescence: Stop leaves the module subscribed, or a handler captured before Stop writes
 //    after the store is disposed.
+// 10. Run Message Stream (ADR-0028), in steps 2 and 3: a frame that arrives before the run's
+//    start event is lost or written before it, a message lacks the seq of the command it
+//    answers, or a frame from before the run's first command is written to the run.
 // 9. Rank refresh (RankedRunWaitsForTheRankRefresh, outside the goldens): a Ranked Run completes
 //    with the starting rating the game still caches at exit instead of the one its end-of-run
 //    screen fetches, waits forever for a refresh that never comes, or makes an unranked Run wait.
@@ -158,6 +161,21 @@ public sealed class RunLoggingPipelineTests : IDisposable
         h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
         // The profile account is not known yet when the run row is created.
         h.PlayerAccountId = null;
+        // Stream frames before the start event: one from before the run's first command, then
+        // that command and its answer.
+        bus.Publish(new RunMessageStreamFrameObserved { Message = [9, 9, 9] });
+        bus.Publish(
+            new RunMessageStreamFrameObserved
+            {
+                CommandNumber = 1,
+                Command = "SendInitializeRun",
+                CommandArgsJson = "{\"playmode\":\"Ranked\"}",
+                StartsRun = true,
+            }
+        );
+        bus.Publish(
+            new RunMessageStreamFrameObserved { Message = [1, 2, 3], RespondsToCommand = 1 }
+        );
         h.Activate(bus, "run-alpha");
         Check.That(
             h.Text("SELECT player_account_id FROM runs WHERE run_id='run-alpha'") == null,
@@ -168,8 +186,19 @@ public sealed class RunLoggingPipelineTests : IDisposable
         h.Activate(bus, "run-alpha");
         h.Record(artifacts, 2, "run-created");
         Check.That(
-            h.Count("SELECT COUNT(*) FROM run_events WHERE run_id='run-alpha'") == 1,
+            h.Count(
+                "SELECT COUNT(*) FROM run_events WHERE run_id='run-alpha' AND kind='run_started'"
+            ) == 1,
             "2: a repeated initialization of the same run appends no second run_started."
+        );
+        Check.That(
+            h.Text(
+                "SELECT group_concat(kind, ',') FROM (SELECT kind FROM run_events WHERE run_id='run-alpha' ORDER BY seq)"
+            ) == "run_started,stream_command,stream_message"
+                && h.Count(
+                    "SELECT json_extract(payload_json, '$.responds_to_seq') FROM run_events WHERE run_id='run-alpha' AND seq=3"
+                ) == 2,
+            "2: the held command and its answer follow the start event; the earlier frame is dropped."
         );
         Check.That(
             h.Text("SELECT player_account_id FROM runs WHERE run_id='run-alpha'") == "account-001",
@@ -182,6 +211,16 @@ public sealed class RunLoggingPipelineTests : IDisposable
         h.Clock.Advance(TimeSpan.FromMinutes(3));
         h.Probe.Basics = Basics(day: 2, hour: 1, victories: 1, losses: 0);
         h.Probe.Stats = Stats(gold: 14);
+        // Once the start event is written, a frame is written as it arrives.
+        bus.Publish(
+            new RunMessageStreamFrameObserved
+            {
+                CommandNumber = 2,
+                Command = "SendSelectItem",
+                CommandArgsJson = "{\"instanceId\":\"itm_a\"}",
+            }
+        );
+        bus.Publish(new RunMessageStreamFrameObserved { Message = [4, 5], RespondsToCommand = 2 });
         h.RecordBattle(bus, "battle-alpha-1", h.Context.CurrentServerRunId, day: 2, hour: 1);
         h.Clock.Advance(TimeSpan.FromMinutes(3));
         // A replay captured before the run id reached the run context carries no run id.
@@ -202,8 +241,11 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "3: the module attaches a run-less PvP battle to the active run and ignores a mismatch."
         );
         Check.That(
-            h.Count("SELECT last_seq FROM runs WHERE run_id='run-alpha'") == 3
-                && h.Count("SELECT MAX(seq) FROM run_events WHERE run_id='run-alpha'") == 3,
+            h.Count("SELECT last_seq FROM runs WHERE run_id='run-alpha'") == 7
+                && h.Count("SELECT MAX(seq) FROM run_events WHERE run_id='run-alpha'") == 7
+                && h.Count(
+                    "SELECT json_extract(payload_json, '$.responds_to_seq') FROM run_events WHERE run_id='run-alpha' AND seq=5"
+                ) == 4,
             "3: run_events.seq counts from 1 and runs.last_seq follows it."
         );
         Check.That(

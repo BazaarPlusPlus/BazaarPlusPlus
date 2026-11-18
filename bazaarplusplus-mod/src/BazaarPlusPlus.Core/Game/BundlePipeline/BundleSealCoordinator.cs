@@ -621,7 +621,13 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
     }
 
-    private void EnsureSealJobs() => _queueStore.EnsureEligibleJobs(InputConvergenceWindow);
+    // Discovery also drops the Run Message Stream rows of Runs that can no longer upload them
+    // (ADR-0028), in the same database pass.
+    private void EnsureSealJobs()
+    {
+        _queueStore.EnsureEligibleJobs(InputConvergenceWindow);
+        _queueStore.DeleteSpentMessageStreams();
+    }
 
     private void ApplyScreenshotTerminals()
     {

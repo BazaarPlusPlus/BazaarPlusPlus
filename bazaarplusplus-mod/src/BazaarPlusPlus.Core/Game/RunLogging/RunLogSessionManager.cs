@@ -79,7 +79,9 @@ public sealed class RunLogSessionManager
         _store.AppendEvent(session.RunId, entry);
 
         session.LastSeq = entry.Seq;
-        session.LastSeenAtUtc = entry.Ts;
+        // A held Run Message Stream frame keeps the earlier time it was observed.
+        if (entry.Ts > session.LastSeenAtUtc)
+            session.LastSeenAtUtc = entry.Ts;
         session.Day = entry.Day ?? session.Day;
         session.Hour = entry.Hour ?? session.Hour;
 

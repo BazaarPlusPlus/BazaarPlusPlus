@@ -96,6 +96,40 @@ public sealed class BundlePipelineTests : IDisposable
                 GameDataEtag = "0123456789abcdef0123456789abcdef",
             }
         );
+        // The Run Message Stream as RunMessageStreamWriter stores it: a command, then the game's
+        // own bytes for the message that answered it.
+        var streamMessage = MessagePackSerializer.Serialize<INetMessage>(
+            // The game draws a random message id; the golden needs a fixed one.
+            new NetMessageRunInitialized("run-seal-001", "server-build-13176", "prod", "Ranked")
+            {
+                MessageId = "m01",
+            },
+            MessagePackConfig.Options
+        );
+        store.AppendEvent(
+            "run-seal-001",
+            new RunLogEvent
+            {
+                RunId = "run-seal-001",
+                Seq = 2,
+                Ts = PipelineInputs.Base,
+                Kind = RunMessageStreamKinds.Command,
+                Command = "SendInitializeRun",
+                CommandArgs = new Newtonsoft.Json.Linq.JObject { ["playmode"] = "Ranked" },
+            }
+        );
+        store.AppendEvent(
+            "run-seal-001",
+            new RunLogEvent
+            {
+                RunId = "run-seal-001",
+                Seq = 3,
+                Ts = PipelineInputs.Base.AddMilliseconds(250),
+                Kind = RunMessageStreamKinds.Message,
+                Message = Convert.ToBase64String(streamMessage),
+                RespondsToSeq = 2,
+            }
+        );
         SaveBattle(database, "battle-seal-001", "run-seal-001", minute: 0);
         SealInputs.SaveReplay(replays, "battle-seal-001");
         var roundTrip = replays.LoadDetailed("battle-seal-001");
@@ -127,6 +161,25 @@ public sealed class BundlePipelineTests : IDisposable
             runOnly.Payload.Run.ServerBuildId == "server-build-13176"
                 && runOnly.Payload.Run.GameDataEtag == "0123456789abcdef0123456789abcdef",
             "The game version travels from the run_started event into the Run facts."
+        );
+        var stream = runOnly.Payload.MessageStream;
+        Check.That(
+            stream is [{ Seq: 2, Command: "SendInitializeRun" } command, { Seq: 3 } answer]
+                && command.CommandArgsJson == "{\"playmode\":\"Ranked\"}"
+                && answer.RespondsToSeq == 2
+                && MessagePackSerializer.Deserialize<INetMessage>(
+                    answer.Message,
+                    MessagePackConfig.Options
+                )
+                    is NetMessageRunInitialized { RunId: "run-seal-001" }
+                && runOnly
+                    .Payload.Events.Select(value => value.Kind)
+                    .SequenceEqual(["run_started"]),
+            "The stream rows travel into the message stream with the game's bytes, not the events."
+        );
+        Check.That(
+            Count(database, "run_events", "run-seal-001") == 3,
+            "A pending Bundle keeps the stream rows a reseal would rebuild it from."
         );
         artifacts.RecordQueue("run-only", database, "run-seal-001");
         SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");

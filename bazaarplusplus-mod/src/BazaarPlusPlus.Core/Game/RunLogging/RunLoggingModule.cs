@@ -47,6 +47,8 @@ public sealed class RunLoggingModule : IBppFeature
     private IDisposable? _runInitializedSubscription;
     private IDisposable? _replayPersistenceDrainedSubscription;
     private IDisposable? _rankRefreshedSubscription;
+    private IDisposable? _messageStreamSubscription;
+    private readonly RunMessageStreamWriter _messageStream = new();
     private RunLogCompletion? _deferredRunCompletion;
     private string? _deferredRunCompletionRunId;
     private bool _deferredRunCompletionAwaitsRank;
@@ -131,6 +133,9 @@ public sealed class RunLoggingModule : IBppFeature
                         OnCombatReplayPersistenceDrained
                     );
                 _rankRefreshedSubscription = TrySubscribeRankRefreshed();
+                _messageStreamSubscription = _eventBus.Subscribe<RunMessageStreamFrameObserved>(
+                    OnMessageStreamFrame
+                );
                 _started = true;
             }
             catch
@@ -213,6 +218,8 @@ public sealed class RunLoggingModule : IBppFeature
 
     private void DisposeSubscriptions()
     {
+        _messageStreamSubscription?.Dispose();
+        _messageStreamSubscription = null;
         _rankRefreshedSubscription?.Dispose();
         _rankRefreshedSubscription = null;
         _replayPersistenceDrainedSubscription?.Dispose();
@@ -289,6 +296,31 @@ public sealed class RunLoggingModule : IBppFeature
                 ("run_id", observed.RunId, BppLogCorrelationPolicy.Short),
                 ("reason_code", RunLoggingReasonCode.RunActivationException)
             );
+        }
+    }
+
+    private void OnMessageStreamFrame(RunMessageStreamFrameObserved frame)
+    {
+        lock (_lifecycleGate)
+        {
+            if (!_started || _stopped)
+                return;
+            try
+            {
+                _messageStream.Observe(frame, RequireSessionManager(), _utcNow());
+            }
+            catch (Exception ex)
+            {
+                BppLog.ErrorEvent(
+                    new BppLogEvent(
+                        BppLogFeatureScope.RunLogging,
+                        "run_logging.message_stream.write_failed",
+                        storm: []
+                    ),
+                    ex,
+                    ("reason_code", RunLoggingReasonCode.MessageStreamException)
+                );
+            }
         }
     }
 
@@ -554,7 +586,12 @@ public sealed class RunLoggingModule : IBppFeature
         }
         sessionManager.SetPlayerAccountIdOnce(_playerAccountIdResolver());
         if (string.Equals(_startedEventRunId, session.RunId, StringComparison.Ordinal))
+        {
+            // A run the game initializes again in the same session writes no second start event;
+            // the frames held since that initialization still belong to it.
+            _messageStream.Attach(session.RunId, sessionManager);
             return session;
+        }
 
         sessionManager.AppendEvent(
             new RunLogEvent
@@ -576,6 +613,7 @@ public sealed class RunLoggingModule : IBppFeature
         );
         sessionManager.SaveCheckpoint();
         _startedEventRunId = session.RunId;
+        _messageStream.Attach(session.RunId, sessionManager);
         return session;
     }
 

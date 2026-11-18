@@ -1,4 +1,6 @@
 #nullable enable
+using Newtonsoft.Json.Linq;
+
 namespace BazaarPlusPlus.Storage.RunLog;
 
 public sealed class RunLogEvent
@@ -38,4 +40,16 @@ public sealed class RunLogEvent
 
     /// <summary>On run_started and run_resumed: the ETag of the GameData.db the game had loaded.</summary>
     public string? GameDataEtag { get; set; }
+
+    /// <summary>On stream_message: the received message, the game's MessagePack bytes in base64.</summary>
+    public string? Message { get; set; }
+
+    /// <summary>On stream_message: the seq of the stream_command whose response carried it.</summary>
+    public long? RespondsToSeq { get; set; }
+
+    /// <summary>On stream_command: the game's command method.</summary>
+    public string? Command { get; set; }
+
+    /// <summary>On stream_command: the method's arguments by parameter name.</summary>
+    public JObject? CommandArgs { get; set; }
 }
