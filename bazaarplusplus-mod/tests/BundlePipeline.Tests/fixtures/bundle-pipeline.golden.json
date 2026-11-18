@@ -411,8 +411,8 @@
       "sha256": "e3dae6527babcc6f35c5f4fa6edda6cf7c3375638abc43b119e5ae4c9f08e19f"
     },
     "size-budget-replays": {
-      "messagepack_bytes": 2411338,
-      "sha256": "5fb9c3166c45ff965a01c77e06af7922b6076e90bc3fbd5f63f9e3a1c6fee9ab"
+      "messagepack_bytes": 2411361,
+      "sha256": "a5b6c53ed2ed809fe921856261f183a71e1422233be927ef895346303caef042"
     },
     "size-budget-events": {
       "messagepack_bytes": 2667360,

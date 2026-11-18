@@ -442,6 +442,18 @@ public sealed class BundlePipelineTests : IDisposable
             SaveBattle(database, battleId, "run-budget-replays", 600 + index);
             replays.Save(BudgetReplay(battleId, ReplayEntropy, seed: 5300 + index));
         }
+        // A Run Message Stream goes whole after the non-projection replay, before any projection.
+        store.AppendEvent(
+            "run-budget-replays",
+            new RunLogEvent
+            {
+                RunId = "run-budget-replays",
+                Seq = 1,
+                Ts = PipelineInputs.Base.AddMinutes(600),
+                Kind = RunMessageStreamKinds.Message,
+                Message = Convert.ToBase64String([1, 2, 3]),
+            }
+        );
         CompleteRun(store, "run-budget-replays", minute: 606);
         await coordinator.ReconcileAsync(CancellationToken.None);
         var trimmedReplays = Sealed(
@@ -452,13 +464,19 @@ public sealed class BundlePipelineTests : IDisposable
         );
         Check.That(
             trimmedReplays.Payload.Degradation.Categories.SequenceEqual(
-                new[] { "non_projection_replay_trimmed", "projection_battle_trimmed" }
+                new[]
+                {
+                    "non_projection_replay_trimmed",
+                    "message_stream_omitted",
+                    "projection_battle_trimmed",
+                }
             )
+                && trimmedReplays.Payload.MessageStream == null
                 && trimmedReplays.Payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
                     new[] { "budget-extra", "budget-projection-1", "budget-projection-2" }
                 )
                 && trimmedReplays.Opened.Manifest.Run.Projection.Battles.Count == 3,
-            "The size budget trims the non-projection replay, then the two oldest projections."
+            "The size budget trims the non-projection replay, the stream, then the two oldest projections."
         );
         ExpectBudgetMargin(trimmedReplays, ReplayEntropy, BudgetMargin, "replay trim");
 
