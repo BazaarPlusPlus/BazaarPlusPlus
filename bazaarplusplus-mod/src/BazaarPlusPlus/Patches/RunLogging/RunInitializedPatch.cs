@@ -22,7 +22,11 @@ internal static class RunInitializedPatch
             return;
 
         BppPatchHost.Services.EventBus.Publish(
-            new RunInitializedObserved { RunId = runInitialized.RunId }
+            new RunInitializedObserved
+            {
+                RunId = runInitialized.RunId,
+                BuildId = runInitialized.BuildId,
+            }
         );
     }
 }

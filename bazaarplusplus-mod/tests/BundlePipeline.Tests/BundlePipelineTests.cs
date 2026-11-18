@@ -82,6 +82,20 @@ public sealed class BundlePipelineTests : IDisposable
 
         // run-only: one replayable PvP battle, no screenshot requested.
         CreateRun(store, "run-seal-001", minute: 0, screenshotRequested: false);
+        store.AppendEvent(
+            "run-seal-001",
+            new RunLogEvent
+            {
+                RunId = "run-seal-001",
+                Seq = 1,
+                Ts = PipelineInputs.Base,
+                Kind = "run_started",
+                Hero = "Vanessa",
+                GameMode = "Ranked",
+                ServerBuildId = "server-build-13176",
+                GameDataEtag = "0123456789abcdef0123456789abcdef",
+            }
+        );
         SaveBattle(database, "battle-seal-001", "run-seal-001", minute: 0);
         SealInputs.SaveReplay(replays, "battle-seal-001");
         var roundTrip = replays.LoadDetailed("battle-seal-001");
@@ -108,6 +122,11 @@ public sealed class BundlePipelineTests : IDisposable
         Check.That(
             runOnly.Payload.Battles[0].Replay?.PlayerAttributes?["HealthRegen"] == 12,
             "The recorded player attributes travel from the Replay Payload into the Bundle."
+        );
+        Check.That(
+            runOnly.Payload.Run.ServerBuildId == "server-build-13176"
+                && runOnly.Payload.Run.GameDataEtag == "0123456789abcdef0123456789abcdef",
+            "The game version travels from the run_started event into the Run facts."
         );
         artifacts.RecordQueue("run-only", database, "run-seal-001");
         SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");

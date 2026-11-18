@@ -33,4 +33,21 @@ internal static class GameBuildProbe
 
         return GameBuildInfoResolver.Resolve(rawVersion, hasServerOption);
     }
+
+    /// <summary>
+    /// The game's data cache directory, which holds the manifest <see cref="GameDataManifest"/>
+    /// reads; null when the game cannot say. Read once on the main thread: it reads
+    /// <c>Application.persistentDataPath</c>.
+    /// </summary>
+    public static string? GameDataCacheDirectory()
+    {
+        try
+        {
+            return TheBazaar.DataManagement.DataManifestActions.GetCachePath();
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

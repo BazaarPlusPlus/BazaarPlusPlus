@@ -32,4 +32,10 @@ public sealed class RunLogEvent
     public string? BattleId { get; set; }
 
     public string? OpponentName { get; set; }
+
+    /// <summary>On run_started and run_resumed: the game server's build id for the run.</summary>
+    public string? ServerBuildId { get; set; }
+
+    /// <summary>On run_started and run_resumed: the ETag of the GameData.db the game had loaded.</summary>
+    public string? GameDataEtag { get; set; }
 }

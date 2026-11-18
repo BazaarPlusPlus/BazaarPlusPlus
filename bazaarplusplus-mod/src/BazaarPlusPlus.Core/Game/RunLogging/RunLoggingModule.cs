@@ -38,6 +38,7 @@ public sealed class RunLoggingModule : IBppFeature
     private readonly Func<string?> _playerAccountIdResolver;
     private readonly Func<bool> _bundleScreenshotRequestedResolver;
     private readonly Func<string?> _modVersionResolver;
+    private readonly Func<string?> _gameDataEtagResolver;
     private readonly Func<Action<RankSnapshot>, IDisposable>? _subscribeRankRefreshed;
     private IDisposable? _storeLifetime;
     private RunLogSessionManager? _sessionManager;
@@ -53,6 +54,8 @@ public sealed class RunLoggingModule : IBppFeature
     private IDisposable? _deferredRunCompletionTimer;
     private string? _pendingInterruptedRunId;
     private string? _startedEventRunId;
+    private string? _observedRunId;
+    private string? _observedBuildId;
     private bool _started;
     private bool _stopped;
 
@@ -61,6 +64,9 @@ public sealed class RunLoggingModule : IBppFeature
     /// saved battle (battle id) to a run (run id) in the host's battle store.
     /// <c>subscribeRankRefreshed</c> calls back on the main thread each time the game replaces its
     /// cached rank; a completed Ranked Run waits for that refresh to record its final rating.
+    /// <c>gameDataEtagResolver</c> reads the ETag of the game's loaded <c>GameData.db</c> when a
+    /// run_started or run_resumed event is written, and must not throw; null where the host does
+    /// not read it.
     /// </summary>
     public RunLoggingModule(
         IBppEventBus eventBus,
@@ -76,7 +82,8 @@ public sealed class RunLoggingModule : IBppFeature
         Func<string?>? playerAccountIdResolver = null,
         Func<bool>? bundleScreenshotRequestedResolver = null,
         Func<string?>? modVersionResolver = null,
-        Func<Action<RankSnapshot>, IDisposable>? subscribeRankRefreshed = null
+        Func<Action<RankSnapshot>, IDisposable>? subscribeRankRefreshed = null,
+        Func<string?>? gameDataEtagResolver = null
     )
     {
         _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
@@ -96,6 +103,7 @@ public sealed class RunLoggingModule : IBppFeature
         _playerAccountIdResolver = playerAccountIdResolver ?? (() => null);
         _bundleScreenshotRequestedResolver = bundleScreenshotRequestedResolver ?? (() => false);
         _modVersionResolver = modVersionResolver ?? (() => null);
+        _gameDataEtagResolver = gameDataEtagResolver ?? (() => null);
         _subscribeRankRefreshed = subscribeRankRefreshed;
     }
 
@@ -260,6 +268,10 @@ public sealed class RunLoggingModule : IBppFeature
     {
         try
         {
+            // The run's start event is often written later, from the lifecycle path, so keep the
+            // build id with the run id it came with.
+            _observedRunId = observed.RunId;
+            _observedBuildId = observed.BuildId;
             if (!_runContext.IsInGameRun)
                 return;
 
@@ -552,6 +564,14 @@ public sealed class RunLoggingModule : IBppFeature
                 Hour = session.Hour ?? request.Hour,
                 Hero = request.Hero,
                 GameMode = request.GameMode,
+                ServerBuildId = string.Equals(
+                    _observedRunId,
+                    request.RunId,
+                    StringComparison.Ordinal
+                )
+                    ? _observedBuildId
+                    : null,
+                GameDataEtag = _gameDataEtagResolver(),
             }
         );
         sessionManager.SaveCheckpoint();

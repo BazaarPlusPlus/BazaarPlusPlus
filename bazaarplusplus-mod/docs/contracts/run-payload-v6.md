@@ -35,8 +35,19 @@ key `0` (`RecordedAtMs`).
 ## Nested objects
 
 `RunFactsV6` records hero, mode, seed, start/end time, terminal status, day/hour, wins/losses,
-starting and final rank/rating, rating delta, final economy/build values, build channel, and mod
-version. Its keys are `0..21` in property declaration order.
+starting and final rank/rating, rating delta, final economy/build values, build channel, mod
+version, and the game version the Run started under. Its keys are `0..23` in property declaration
+order. Keys `22` and `23` are the game version, for statistics split by game patch; each is `null`
+when it was not read, and absent from a payload sealed before the keys existed:
+
+- `22` `ServerBuildId`: the `BuildId` the game server sends in its run-initialized message
+  (`NetMessageRunInitialized`), as text. It is not the Steam build id or the client version.
+- `23` `GameDataEtag`: the ETag of the `GameData.db` the game had loaded, from the manifest the
+  game keeps beside that file, without its HTTP quotes: the form `gameDataEtag` in
+  `release/card-art.ts` reads from the public GameData URL. The Android Host does not read it yet.
+
+Both come from the Run's `run_started` event; `RunPayloadComposer` reads them from the stored
+events, before the size budget can trim any.
 
 `RunEventV6` uses keys `0..3` for sequence, timestamp, kind, and the structured event JSON.
 `PayloadJson` does not repeat `run_id`, `seq`, `ts`, or `kind`: the Run root and the event's keys
@@ -44,6 +55,9 @@ version. Its keys are `0..21` in property declaration order.
 the stored event in stored order; the events carry no version of their own, the run format
 version (`BundleLimitsV6.RunFormatVersion`) covers them.
 `RunPayloadComposer.EventPayloadBody` does the stripping. The Bundle pipeline does not reinterpret it.
+A `run_started` or `run_resumed` event also carries `server_build_id` and `game_data_etag`, the
+values above as read when that event was written; a field that was not read is omitted. A resumed
+Run can carry a newer game version than its `run_started` event.
 
 `RunBattleV6` uses keys `0..4` for Battle ID, `BattleFactsV6`, `BattleParticipantsV6`, nullable
 `BattleCardSnapshotsV6`, and nullable `BattleReplayV6`. A Battle is replayable only when both
