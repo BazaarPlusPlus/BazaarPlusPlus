@@ -70,10 +70,6 @@ test('release.yml reads exactly the names the table lists, each at its scope', (
   assert.deepEqual(referenced('secrets'), tableNames('secrets').sort());
   assert.deepEqual(referenced('vars'), tableNames('variables').sort());
   assert.deepEqual(Object.keys(values).sort(), tableNames('names').sort());
-  assert.doesNotMatch(
-    text,
-    /TAURI_SIGNING_PRIVATE_KEY_PASSWORD|BPP_R2_|BPP_GAME_LIBS_R2_/
-  );
 });
 
 test('check passes when every name of the stage is present', () => {

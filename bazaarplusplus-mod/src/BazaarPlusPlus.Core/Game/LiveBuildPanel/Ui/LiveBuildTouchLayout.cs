@@ -18,9 +18,6 @@ public sealed class LiveBuildTouchLayout
 
     public const int MetricCount = 4;
 
-    /// <summary>The shortest a match metric's cell gets, one value and its label.</summary>
-    public const float MinMetricCellDp = 40f;
-
     // Side by side, the height of the shown build's figures.
     private const float InfoDp = 96f;
 

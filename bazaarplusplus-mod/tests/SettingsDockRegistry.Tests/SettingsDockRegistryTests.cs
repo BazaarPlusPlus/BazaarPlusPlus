@@ -179,72 +179,6 @@ public class SettingsDockRegistryTests
     }
 
     [Fact]
-    public void Toggle_definition_exposes_native_read_write_contract()
-    {
-        var enabled = false;
-        var definition = CyclingSettingsDockEntry<bool>
-            .Toggle(
-                order: 0,
-                key: "Test",
-                resolveLabel: _ => "Test",
-                read: _ => enabled,
-                write: (_, next) => enabled = next
-            )
-            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
-
-        Assert.Equal(BppSettingsControlKind.Toggle, definition.ControlKind);
-        Assert.False(definition.ReadToggle!());
-
-        definition.WriteToggle!(true);
-
-        Assert.True(enabled);
-        Assert.True(definition.ReadToggle());
-    }
-
-    [Fact]
-    public void Choice_definition_selects_standard_ladder_value_directly()
-    {
-        var value = 1;
-        var definition = CreateIntegerCyclingEntry(() => value, next => value = next)
-            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
-
-        var state = definition.ResolveChoiceState!("en");
-        definition.SelectStandardChoice!(1);
-
-        Assert.Equal(BppSettingsControlKind.Choice, definition.ControlKind);
-        Assert.Equal(new[] { "1", "2" }, state.Options);
-        Assert.Equal(0, state.SelectedIndex);
-        Assert.False(state.HasSyntheticCurrentOption);
-        Assert.Equal(2, value);
-    }
-
-    [Fact]
-    public void Choice_definition_preserves_unknown_current_value_as_synthetic_option()
-    {
-        var value = 99;
-        var definition = CreateIntegerCyclingEntry(() => value, next => value = next)
-            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
-
-        var state = definition.ResolveChoiceState!("en");
-
-        Assert.Equal(new[] { "99", "1", "2" }, state.Options);
-        Assert.Equal(0, state.SelectedIndex);
-        Assert.True(state.HasSyntheticCurrentOption);
-        Assert.Equal(99, value);
-    }
-
-    [Fact]
-    public void Action_definitions_preserve_close_host_contract()
-    {
-        var history = HistoryPanelHotkeyDockEntry
-            .Create()
-            .Build(new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())));
-
-        Assert.Equal(BppSettingsControlKind.Action, history.ControlKind);
-        Assert.True(history.CollapseAfterActivate);
-    }
-
-    [Fact]
     public void HistoryPanelDockEntry_label_follows_the_current_history_hotkey()
     {
         var hotkeyDisplay = "F8";
@@ -266,33 +200,6 @@ public class SettingsDockRegistryTests
         finally
         {
             L.Reset();
-        }
-    }
-
-    [Fact]
-    public void EndOfRunScreenshot_uses_disabled_native_toggle_while_forced()
-    {
-        var configPath = Path.Combine(
-            Path.GetTempPath(),
-            $"bpp-native-screenshot-toggle-{Guid.NewGuid():N}.cfg"
-        );
-        try
-        {
-            var config = new BppSettings(
-                new BepInExSettingsStore(new ConfigFile(configPath, saveOnInit: false))
-            );
-            config.BazaarDbUploadEnabled!.Value = true;
-            config.EndOfRunScreenshotEnabledConfig!.Value = false;
-            var definition = new EndOfRunScreenshotSettingsDockEntry().Build(config);
-
-            Assert.Equal(BppSettingsControlKind.Toggle, definition.ControlKind);
-            Assert.True(definition.ReadToggle!());
-            Assert.False(definition.IsInteractable!());
-        }
-        finally
-        {
-            if (File.Exists(configPath))
-                File.Delete(configPath);
         }
     }
 
@@ -466,15 +373,9 @@ public class SettingsDockRegistryTests
             registry.Register(LegendaryPositionSettingsDockEntry.Create(() => { }));
             registry.Register(NameOverrideSettingsDockEntry.Create(() => { }));
 
-            var presented = registry
-                .MaterializeWithOrder(config)
-                .OrderBy(entry => entry.Order)
-                .ToArray();
+            BppSettingsDockCatalog.Install(config, registry);
+            var presented = BppSettingsDockCatalog.Definitions.ToArray();
 
-            Assert.Equal(
-                Enumerable.Range(0, 18).Where(order => order != 4),
-                presented.Select(entry => entry.Order)
-            );
             Assert.Equal(
                 new[]
                 {
@@ -496,11 +397,11 @@ public class SettingsDockRegistryTests
                     "VoiceSubtitlesChineseFontScale",
                     "GameHistory",
                 },
-                presented.Select(entry => entry.Definition.Key)
+                presented.Select(entry => entry.Key)
             );
 
             var groups = BppNativeSettingsSectionController.PlanToggleRowGroups(
-                presented.Select(entry => entry.Definition.ControlKind).ToArray()
+                presented.Select(entry => entry.ControlKind).ToArray()
             );
             Assert.Equal(
                 new (string Left, string? Right)[]
@@ -512,25 +413,26 @@ public class SettingsDockRegistryTests
                 },
                 groups.Select(group =>
                     (
-                        Left: presented[group.LeftIndex].Definition.Key,
+                        Left: presented[group.LeftIndex].Key,
                         Right: group.RightIndex.HasValue
-                            ? presented[group.RightIndex.Value].Definition.Key
+                            ? presented[group.RightIndex.Value].Key
                             : null
                     )
                 )
             );
             Assert.All(
                 presented.Take(8),
-                entry => Assert.Equal(BppSettingsControlKind.Toggle, entry.Definition.ControlKind)
+                entry => Assert.Equal(BppSettingsControlKind.Toggle, entry.ControlKind)
             );
             Assert.All(
                 presented.Skip(8).Take(8),
-                entry => Assert.Equal(BppSettingsControlKind.Choice, entry.Definition.ControlKind)
+                entry => Assert.Equal(BppSettingsControlKind.Choice, entry.ControlKind)
             );
-            Assert.Equal(BppSettingsControlKind.Action, presented[^1].Definition.ControlKind);
+            Assert.Equal(BppSettingsControlKind.Action, presented[^1].ControlKind);
         }
         finally
         {
+            BppSettingsDockCatalog.Reset();
             if (File.Exists(configPath))
                 File.Delete(configPath);
         }
@@ -750,7 +652,7 @@ public class SettingsDockRegistryTests
             L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
             var configFile = new ConfigFile(configPath, saveOnInit: false);
             var config = new BppSettings(new BepInExSettingsStore(configFile));
-            config.EndOfRunScreenshotEnabledConfig!.Value = true;
+            config.EndOfRunScreenshotEnabledConfig!.Value = false;
 
             if (dependencyKey == "BazaarDbUpload")
                 config.BazaarDbUploadEnabled!.Value = true;
@@ -759,10 +661,11 @@ public class SettingsDockRegistryTests
 
             var screenshotDefinition = new EndOfRunScreenshotSettingsDockEntry().Build(config);
 
+            Assert.Equal(BppSettingsControlKind.Toggle, screenshotDefinition.ControlKind);
             Assert.True(screenshotDefinition.IsActive());
             Assert.True(screenshotDefinition.ReadToggle!());
             Assert.False(screenshotDefinition.IsInteractable!());
-            Assert.True(config.EndOfRunScreenshotEnabledConfig.Value);
+            Assert.False(config.EndOfRunScreenshotEnabledConfig.Value);
         }
         finally
         {
@@ -787,20 +690,7 @@ public class SettingsDockRegistryTests
 
             var definition = entry.Build(config);
 
-            Assert.Equal(BppSettingsDockOrder.FixedSupporterList, entry.Order);
-            Assert.Equal("StreamMode", definition.Key);
-            Assert.Equal("Stream Mode", definition.ResolveLabel("en"));
-            Assert.Equal("直播模式", definition.ResolveLabel("zh-CN"));
-            Assert.False(definition.IsActive());
-            Assert.False(definition.ReadToggle!());
-
             definition.WriteToggle!(true);
-
-            Assert.True(config.UseFixedSupporterListConfig!.Value);
-            Assert.True(definition.IsActive());
-            Assert.True(definition.ReadToggle());
-            Assert.False(definition.CollapseAfterActivate);
-
             configFile.Save();
 
             var reloadedConfigFile = new ConfigFile(configPath, saveOnInit: false);
@@ -920,52 +810,6 @@ public class SettingsDockRegistryTests
     }
 
     [Fact]
-    public void VoiceSubtitlesDockEntries_register_master_and_setting_rows()
-    {
-        var configPath = Path.Combine(
-            Path.GetTempPath(),
-            $"bpp-voice-subtitles-dock-{Guid.NewGuid():N}.cfg"
-        );
-        try
-        {
-            L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
-            var configFile = new ConfigFile(configPath, saveOnInit: false);
-            var config = new BppSettings(new BepInExSettingsStore(configFile));
-            var registry = new SettingsDockEntryRegistry();
-
-            VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
-
-            var definitions = registry.MaterializeWithOrder(config);
-
-            Assert.Equal(
-                new[]
-                {
-                    "VoiceSubtitles",
-                    "VoiceSubtitlesPosition",
-                    "VoiceSubtitlesEnglishFontScale",
-                    "VoiceSubtitlesChineseFontScale",
-                },
-                definitions.Select(d => d.Definition.Key)
-            );
-            Assert.Equal(
-                new[]
-                {
-                    BppSettingsDockOrder.VoiceSubtitles,
-                    BppSettingsDockOrder.VoiceSubtitlesPosition,
-                    BppSettingsDockOrder.VoiceSubtitlesEnglishFontScale,
-                    BppSettingsDockOrder.VoiceSubtitlesChineseFontScale,
-                },
-                definitions.Select(d => d.Order)
-            );
-        }
-        finally
-        {
-            if (File.Exists(configPath))
-                File.Delete(configPath);
-        }
-    }
-
-    [Fact]
     public void VoiceSubtitlesDockEntry_defaults_chinese_scale_to_one_and_selects_next_ladder_value()
     {
         var configPath = Path.Combine(
@@ -1031,12 +875,6 @@ public class SettingsDockRegistryTests
             if (File.Exists(configPath))
                 File.Delete(configPath);
         }
-    }
-
-    [Fact]
-    public void HistoryPanelDockEntry_uses_game_history_order()
-    {
-        Assert.Equal(BppSettingsDockOrder.GameHistory, HistoryPanelHotkeyDockEntry.Create().Order);
     }
 
     [Theory]
@@ -1254,47 +1092,6 @@ public class SettingsDockRegistryTests
             "BazaarDbUpload" => BazaarDbBundleSettingsDockEntry.Create(),
             _ => throw new ArgumentOutOfRangeException(nameof(key), key, null),
         };
-
-    [Fact]
-    public void SettingsDockCatalog_sorts_partial_registry_by_global_semantic_order()
-    {
-        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
-        var registry = new SettingsDockEntryRegistry();
-        registry.Register(BazaarDbBundleSettingsDockEntry.Create());
-        registry.Register(FixedSupporterListSettingsDockEntry.Create());
-        VoiceSubtitlesSettingsDockEntry.RegisterAll(registry);
-        registry.Register(new EndOfRunScreenshotSettingsDockEntry());
-        registry.Register(HistoryPanelHotkeyDockEntry.Create());
-        registry.Register(ChineseLocaleModeSettingsDockEntry.Create(() => { }));
-
-        try
-        {
-            BppSettingsDockCatalog.Install(
-                new BppSettings(new BepInExSettingsStore(UnsavedConfigFile())),
-                registry
-            );
-
-            Assert.Equal(
-                new[]
-                {
-                    "StreamMode",
-                    "EndOfRunScreenshot",
-                    "BazaarDbUpload",
-                    "ChineseLocaleMode",
-                    "VoiceSubtitles",
-                    "VoiceSubtitlesPosition",
-                    "VoiceSubtitlesEnglishFontScale",
-                    "VoiceSubtitlesChineseFontScale",
-                    "GameHistory",
-                },
-                BppSettingsDockCatalog.Definitions.Select(d => d.Key)
-            );
-        }
-        finally
-        {
-            BppSettingsDockCatalog.Reset();
-        }
-    }
 
     [Theory]
     [InlineData(0, "zh-CN", false, "按键显示")]

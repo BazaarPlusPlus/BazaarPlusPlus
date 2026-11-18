@@ -135,7 +135,6 @@ public class BppLaunchTest {
         File target = existing(STALE, SOURCE_TIME);
         assertEquals(target, BppLaunch.readOnlyCopy(source, target));
         assertArrayEquals("same length and modification time: the bytes are not compared", STALE, read(target));
-        assertTrue("a reused copy is not made read-only", target.canWrite());
 
         assertTrue(target.setLastModified(SOURCE_TIME + 60_000));
         BppLaunch.readOnlyCopy(source, target);
@@ -170,16 +169,6 @@ public class BppLaunchTest {
         BppLaunch.readOnlyCopy(source, target);
         assertArrayEquals(INTEROP, read(target));
         assertFalse("the tmp file became the copy", tmpOf(target).exists());
-    }
-
-    @Test
-    public void aLeftoverTmpStaysWhenTheCopyIsReused() throws Exception {
-        File source = source();
-        File target = existing(INTEROP, SOURCE_TIME);
-        byte[] partial = "partial".getBytes(StandardCharsets.UTF_8);
-        Files.write(tmpOf(target).toPath(), partial);
-        BppLaunch.readOnlyCopy(source, target);
-        assertArrayEquals(partial, read(tmpOf(target)));
     }
 
     // ---- prepare ------------------------------------------------------------------------------
@@ -690,8 +679,8 @@ public class BppLaunchTest {
         assertFalse(copy.canWrite());
         assertTrue("the stale record is deleted only after the game is prepared", recordAtPrepare[0]);
         assertFalse("no Launch Record", record().exists());
-        assertEquals("no statement, no source, no record", List.of("gamePrepared", "appVersionCode", "prepareGame"),
-                host.events);
+        assertEquals("no source", List.of(), host.sources());
+        assertFalse("no statement", host.events.contains("verify"));
         assertEquals("staging is not touched", "6.0.9\n", new String(read(dirs().stagedVersion), StandardCharsets.UTF_8));
         assertEquals("nor the staged game", GAME + "\n", text(dirs().stagedGame));
     }
@@ -717,8 +706,8 @@ public class BppLaunchTest {
             atPrepare.add("record " + new String(readQuietly(record()), StandardCharsets.UTF_8));
         };
         prepare(host, inputs(host, "6.0.0"));
-        assertEquals(List.of("gamePrepared", "appVersionCode", "verify", "source interop", "open interop",
-                "source managed", "open managed", "prepareGame", "processId", "app"), host.events);
+        List<String> steps = List.of("verify", "open interop", "open managed", "prepareGame");
+        assertEquals(steps, host.events.stream().filter(steps::contains).toList());
         String interopSha256 = sha256(host.release.interop);
         assertEquals("staged, pruned and the loader deployment reset before the game is prepared; the record after",
                 List.of("updates [" + RELEASE + "]", "staged true",

@@ -558,7 +558,7 @@ export function lockWarnings(
   return warnings;
 }
 
-export function lockedEntries(lock: GameLibsLock): LockedEntry[] {
+function lockedEntries(lock: GameLibsLock): LockedEntry[] {
   return lockKeys()
     .filter((key) => lock.entries[key] !== null)
     .map((key) => {

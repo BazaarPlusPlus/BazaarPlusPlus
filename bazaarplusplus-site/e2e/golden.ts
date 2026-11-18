@@ -15,7 +15,7 @@ export const siteRoot = resolve(import.meta.dirname, '..');
 
 export const METRICS_URL =
   'https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json';
-export const SUPPORTERS_URL =
+const SUPPORTERS_URL =
   'https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json';
 export const WINDOWS_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('windows-x86_64')}`;
 export const MAC_MANIFEST_URL = `${RELEASE_BASE_URL}/${platformManifestPath('darwin-aarch64')}`;

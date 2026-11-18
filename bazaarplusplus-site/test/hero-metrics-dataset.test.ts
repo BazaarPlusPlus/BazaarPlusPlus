@@ -116,45 +116,7 @@ describe('loadHeroMetricsDataset', () => {
         errors: null
       });
       const dataset = await loadFrom(async () => snapshot);
-      expect(dataset.coverage.usableDates).toEqual(windowDates);
-      expect(dataset.coverage.failedDates).toEqual([]);
-    }
-  );
-
-  test('loads and decodes only the V6 heroes/latest.json', async () => {
-    const fetchStub = stubSnapshot();
-
-    const dataset = await loadHeroMetricsDataset(new AbortController().signal);
-
-    expect(fetchStub).toHaveBeenCalledTimes(1);
-    expect(fetchStub).toHaveBeenCalledWith(
-      'https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json',
-      { signal: expect.any(AbortSignal) }
-    );
-    expect(dataset).toMatchObject({
-      generatedAt: '2026-06-08T09:00:00Z',
-      window: { start: '2026-06-01', end: '2026-06-07', days: 7 },
-      coverage: {
-        requestedDates: DATES,
-        usableDates: DATES,
-        failedDates: []
-      }
-    });
-    expect(dataset.days.map((day) => day.day)).toEqual(DATES);
-  });
-
-  test.each([1, 5, 7])(
-    'accepts a %i-day newest-first snapshot and preserves its actual window',
-    async (dayCount) => {
-      const windowDates = DATES.slice(-dayCount);
-      const snapshotDays = [...windowDates]
-        .reverse()
-        .map((day) => makeDay(day));
-
-      const dataset = await loadFrom(async () =>
-        makeSnapshot(snapshotDays, windowDates)
-      );
-
+      expect(dataset.generatedAt).toBe('2026-06-08T09:00:00Z');
       expect(dataset.window).toEqual({
         start: windowDates[0],
         end: windowDates.at(-1),

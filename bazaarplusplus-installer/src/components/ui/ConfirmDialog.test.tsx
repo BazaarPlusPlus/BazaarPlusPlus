@@ -55,10 +55,11 @@ describe('ConfirmDialog', () => {
 
   it('maps danger and primary tones to distinct confirm actions', () => {
     const d = render();
-    expect(d).toContain('data-tone="danger"');
-    expect(d).not.toContain('data-tone="primary"');
+    expect(d).toContain('bpp-btn-danger');
+    expect(d).not.toContain('bpp-btn-primary');
     const p = render({ tone: 'primary' });
-    expect(p).toContain('data-tone="primary"');
+    expect(p).toContain('bpp-btn-primary');
+    expect(p).not.toContain('bpp-btn-danger');
   });
 
   it('busy WITHOUT busyLabel: spinner + same label; confirm disabled', () => {

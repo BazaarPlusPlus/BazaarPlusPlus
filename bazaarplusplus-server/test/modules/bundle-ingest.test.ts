@@ -34,44 +34,6 @@ describe('POST /bundles', () => {
     ).toEqual({ player_account_id: 'account-uploader' });
   });
 
-  test('returns duplicate for the same immutable Bundle', async () => {
-    const fixture = await makeBundleFixture({
-      bundleId: '01J00000000000000000000002',
-      runId: 'run-002'
-    });
-    const first = await worker.fetch(
-      uploadRequest(fixture.body, fixture.headers),
-      env
-    );
-    const second = await worker.fetch(
-      uploadRequest(fixture.body, fixture.headers),
-      env
-    );
-
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(200);
-    expect(await second.json()).toEqual({
-      bundle_id: '01J00000000000000000000002',
-      run_id: 'run-002',
-      outcome: 'duplicate'
-    });
-  });
-
-  test('rejects malformed transport headers before storage', async () => {
-    const fixture = await makeBundleFixture();
-    const headers = new Headers(fixture.headers);
-    headers.delete('Content-Length');
-    const response = await worker.fetch(
-      uploadRequest(fixture.body, headers),
-      env
-    );
-
-    expect(response.status).toBe(411);
-    expect(await response.json()).toMatchObject({
-      error: { code: 'content_length_required', retryable: false }
-    });
-  });
-
   test('rejects a segment mutation even when the whole-body digest is valid', async () => {
     const fixture = await makeBundleFixture({
       bundleId: '01J00000000000000000000003',

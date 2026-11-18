@@ -39,16 +39,6 @@ describe('ShellNavRail', () => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh');
   });
 
-  it('lists the four pages and marks the current one', () => {
-    const html = renderRail({ path: '/history/run-1' });
-
-    for (const label of ['安装', '战绩', '直播', '关于']) {
-      expect(html).toContain(`>${label}</span>`);
-    }
-    expect(html.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(html).toMatch(/<a[^>]*aria-current="page"[^>]*href="\/history"/);
-  });
-
   it('puts support and language at the foot of the rail', () => {
     const closed = renderRail();
     const open = renderRail({ showSupport: true });

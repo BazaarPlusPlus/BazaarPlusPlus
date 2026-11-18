@@ -12,20 +12,6 @@ public sealed class DataPipelineArchitectureTests
     private const string Clients = "BazaarPlusPlus.ModApi.Clients";
 
     [Fact]
-    public void ModApi_has_no_multipart_wire()
-    {
-        Holds(
-            "The mod API speaks MessagePack, never multipart.",
-            build =>
-            {
-                var modApi = build.Assembly(ModApi).Types;
-                return Literals(modApi, StringComparison.OrdinalIgnoreCase, "multipart")
-                    .Concat(References(modApi, Is(typeof(MultipartFormDataContent).FullName!)));
-            }
-        );
-    }
-
-    [Fact]
     public void Run_bundle_writer_and_ghost_reader_share_one_replayability_contract()
     {
         Holds(

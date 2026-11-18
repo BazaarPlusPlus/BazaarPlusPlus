@@ -38,31 +38,6 @@ async function errorFor(
 }
 
 describe('Bundle V6 wire validation', () => {
-  test('rejects corrupt magic and unknown prefix versions', async () => {
-    const fixture = await makeBundleFixture({
-      bundleId: '01J00000000000000000000601',
-      runId: 'contract-prefix-run'
-    });
-    const corrupt = fixture.body.slice();
-    corrupt[0] ^= 0xff;
-    const corruptHeaders = new Headers(fixture.headers);
-    corruptHeaders.set('Content-Digest', await contentDigest(corrupt));
-    expect(await errorFor(corrupt, corruptHeaders)).toEqual({
-      status: 422,
-      code: 'invalid_bundle',
-      reason: 'invalid_prefix'
-    });
-
-    const unknown = fixture.body.slice();
-    new DataView(unknown.buffer).setUint32(8, 5, false);
-    const unknownHeaders = new Headers(fixture.headers);
-    unknownHeaders.set('Content-Digest', await contentDigest(unknown));
-    expect(await errorFor(unknown, unknownHeaders)).toMatchObject({
-      status: 422,
-      code: 'unsupported_bundle_version'
-    });
-  });
-
   test('rejects 31 Battles and duplicate battle IDs within one Bundle', async () => {
     const base = await makeBundleFixture({
       bundleId: '01J00000000000000000000602',

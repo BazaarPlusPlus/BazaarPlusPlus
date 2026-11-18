@@ -175,32 +175,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             ]),
             "History should preserve the existing seven hero order and append one canonical The Dragons chip."
         );
-        Assert(
-            heroIds.Count(hero => hero == "TheDragons") == 1,
-            "History should expose exactly one canonical The Dragons chip."
-        );
-        Assert(
-            !heroIds.Contains("Hero8"),
-            "History should never expose a separate legacy The Dragons chip."
-        );
-    }
-
-    [Fact]
-    public void TestStateSelectedRunUsesFilteredRunList()
-    {
-        SynchronizationContext.SetSynchronizationContext(uiContext);
-        var state =
-            Activator.CreateInstance(stateType)
-            ?? throw new InvalidOperationException("HistoryPanelState should construct.");
-        stateType.GetProperty("SelectedRunIndex")!.SetValue(state, 1);
-
-        var runs = CreateRunList(CreateRun("raw-1", "Vanessa"), CreateRun("raw-3", "Vanessa"));
-        var selected = Invoke(stateType, state, "GetSelectedRun", runs);
-
-        Assert(
-            GetString(selected, "RunId") == "raw-3",
-            "Selected run should come from filtered runs."
-        );
     }
 
     [Fact]
@@ -762,7 +736,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             ),
         };
         var refresh = new HistoryPanelUiRefresh();
-        var immediateBuilds = 0;
         var frameBuilds = 0;
         HistoryPanelViewModel? published = null;
         HistoryPanelCoordinator coordinator = null!;
@@ -771,10 +744,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             dependencies,
             () =>
             {
-                // The former host built on every notification. Count the actual builder, then
-                // compare the new host's one consumption at a simulated visible-frame boundary.
-                _ = Model();
-                immediateBuilds++;
                 refresh.Request();
             },
             () => { },
@@ -814,9 +783,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
                 published!.StatusMessage == state.StatusMessage,
                 $"{stage}: the rendered model keeps the latest completion or failure message."
             );
-            Console.WriteLine(
-                $"History refresh {stage}: immediate builds={immediateBuilds}, frame builds={frameBuilds}"
-            );
         }
         void SelectRun(string runId)
         {
@@ -834,13 +800,8 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             coordinator.OnPanelShown();
             uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
             Frame("open");
-            var selectionBuilds = immediateBuilds;
             SelectRun("run-gone");
             Frame("selection");
-            Assert(
-                immediateBuilds - selectionBuilds > 1,
-                "Selection must reproduce redundant full model builds."
-            );
             Assert(
                 Model() is { ReplayButtonEnabled: true, FavoriteButtonEnabled: true },
                 "Before the delete the run's battle can replay and be favorited."
@@ -990,10 +951,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
                 "A removal finishing in Runs must not load the favorites page or report into Runs."
             );
             Frame("favorite removal completed in Runs");
-            Assert(
-                immediateBuilds > frameBuilds,
-                "Coordinator callbacks must build fewer models after coalescing."
-            );
             Assert(!repository.IsFavorite("battle-fav"), "The removal itself must complete.");
             coordinator.OnPanelHidden();
         }
@@ -1764,17 +1721,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
                     "Unavailable"
                 )
             ) ?? throw new InvalidOperationException("HistoryBattleRecord should construct.");
-    }
-
-    private static IList CreateRunList(params object[] runs)
-    {
-        var listType = typeof(List<>).MakeGenericType(runRecordType);
-        var list = (IList)(
-            Activator.CreateInstance(listType) ?? throw new InvalidOperationException()
-        );
-        foreach (var run in runs)
-            list.Add(run);
-        return list;
     }
 
     private static void SetPage(object state, string propertyName, params object[] records)

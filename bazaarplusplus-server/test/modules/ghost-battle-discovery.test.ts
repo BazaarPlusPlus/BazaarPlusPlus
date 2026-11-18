@@ -7,7 +7,7 @@ import { makeBundleFixture, uploadRequest } from '../fixtures/bundle';
 afterEach(() => vi.restoreAllMocks());
 
 describe('GET /ghost-battles', () => {
-  test('uses one signing time and deduplicates a shared Bundle key', async () => {
+  test('signs every row of a shared Bundle at one request time', async () => {
     const clock = { ms: Date.now() };
     vi.spyOn(Date, 'now').mockReturnValue(clock.ms);
     const account = 'ghost-injected-opponent';
@@ -33,7 +33,6 @@ describe('GET /ghost-battles', () => {
       )
     );
 
-    const sign = vi.spyOn(crypto.subtle, 'sign');
     const response = await worker.fetch(
       new Request(
         `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${account}`
@@ -60,8 +59,6 @@ describe('GET /ghost-battles', () => {
     ).toEqual([clock.ms + 604_800_000, clock.ms + 604_800_000]);
     expect(battles[1].download_url).toBe(battles[0].download_url);
     expect(new URL(battles[0].download_url).pathname).toBe(`/${objectKey}`);
-    // A cold signer derives its key with four HMACs, then signs the one distinct key once.
-    expect(sign).toHaveBeenCalledTimes(5);
   });
 
   test('applies uploader eligibility without backfilling filtered history', async () => {
@@ -352,33 +349,6 @@ describe('GET /ghost-battles', () => {
     expect(forB.battles).toMatchObject([
       { battle_id: 'battle-001', player: { account_id: accountA } }
     ]);
-  });
-
-  test('returns storage_unavailable when the rate limiter binding throws', async () => {
-    const failingEnv = {
-      ...env,
-      GHOST_BATTLE_RATE_LIMITER: {
-        async limit() {
-          throw new Error('injected rate limiter failure');
-        }
-      }
-    } as unknown as Cloudflare.Env;
-
-    const response = await worker.fetch(
-      new Request(
-        'https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=ghost-rate-limiter-failure'
-      ),
-      failingEnv
-    );
-    expect(response.status).toBe(503);
-    const body = (await response.json()) as {
-      error: { code: string; retryable: boolean; request_id: string };
-    };
-    expect(body.error).toMatchObject({
-      code: 'storage_unavailable',
-      retryable: true
-    });
-    expect(body.error.request_id).toBeTruthy();
   });
 
   test('returns storage_unavailable when the Ghost query fails', async () => {

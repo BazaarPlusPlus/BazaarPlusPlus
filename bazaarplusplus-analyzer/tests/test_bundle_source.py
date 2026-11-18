@@ -1,5 +1,3 @@
-import hashlib
-import json
 import threading
 import time
 from datetime import UTC, datetime
@@ -415,14 +413,6 @@ def test_hour_index_exhausts_keyset_pages_and_returns_ordered_deduplicated_index
     assert len(requests) == 2
     assert requests[1].url.params["after_available_at_ms"] == str(int(HOUR.timestamp() * 1_000) + 1)
     assert requests[1].url.params["after_bundle_id"] == "bundle-a"
-    expected_identity = [
-        {"available_at_ms": int(HOUR.timestamp() * 1_000) + 1, "bundle_id": "bundle-a"},
-        {"available_at_ms": int(HOUR.timestamp() * 1_000) + 2, "bundle_id": "bundle-b"},
-    ]
-    canonical = (
-        json.dumps(expected_identity, sort_keys=True, separators=(",", ":")) + "\n"
-    ).encode()
-    assert index.raw_commit_sha256 == hashlib.sha256(canonical).hexdigest()
     # Every committed _commit.json recorded this digest; a change re-heals into FactConflict.
     assert (
         index.raw_commit_sha256

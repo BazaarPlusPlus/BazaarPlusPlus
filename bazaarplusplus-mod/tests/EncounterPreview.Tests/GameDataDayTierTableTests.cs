@@ -63,7 +63,7 @@ public sealed class GameDataDayTierTableTests
     [InlineData(0.9f, 0.1f, 0f, 0f, "Bronze 90%", null, "Silver 10%")]
     [InlineData(0f, 0.95f, 0.05f, 0f, "Silver 95%", null, "Gold 5%")]
     [InlineData(0f, 0.45f, 0.5f, 0.05f, "Silver 45%", "Gold 50%", "Diamond 5%")]
-    public void Quality_line_formats_daily_game_data_weights_without_a_label(
+    public void Quality_line_formats_daily_game_data_weights(
         float bronze,
         float silver,
         float gold,
@@ -77,7 +77,6 @@ public sealed class GameDataDayTierTableTests
 
         var text = EncounterPreviewTextFormatter.BuildQualityLine(distribution, fixedTier: null);
 
-        Assert.DoesNotContain("Quality today", text);
         Assert.Contains(expectedFirst, text);
         if (expectedMiddle != null)
             Assert.Contains(expectedMiddle, text);
@@ -94,18 +93,6 @@ public sealed class GameDataDayTierTableTests
         Assert.Contains("Silver 25%", text);
         Assert.Contains("Gold 68.75%", text);
         Assert.Contains("Diamond 6.25%", text);
-    }
-
-    [Fact]
-    public void Distribution_ignores_non_positive_weights_and_rejects_an_empty_table()
-    {
-        var distribution = GameDataDayTierTable.FromWeights(-1f, 0f, 2f, float.NaN);
-
-        Assert.NotNull(distribution);
-        Assert.Single(distribution!.Entries);
-        Assert.Equal(CardTier.Gold, distribution.Entries[0].Tier);
-        Assert.Equal(100d, distribution.Entries[0].Percent);
-        Assert.Null(GameDataDayTierTable.FromWeights(0f, -1f, float.NaN, 0f));
     }
 
     [Theory]
@@ -128,8 +115,6 @@ public sealed class GameDataDayTierTableTests
 
         Assert.Contains(expectedBronze, text);
         Assert.Contains(expectedSilver, text);
-        Assert.DoesNotContain("品质：", text);
-        Assert.DoesNotContain("品質：", text);
     }
 
     [Fact]

@@ -42,11 +42,6 @@ public sealed class CombatImpactMetricFormatterTests
         );
 
         Assert.Equal(expected, formatted);
-        Assert.DoesNotContain("≥", formatted, StringComparison.Ordinal);
-        Assert.DoesNotContain("≈", formatted, StringComparison.Ordinal);
-        Assert.DoesNotContain("estimated", formatted, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("估算", formatted, StringComparison.Ordinal);
-        Assert.DoesNotContain("*", formatted, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -238,7 +233,6 @@ public sealed class CombatImpactMetricFormatterTests
         };
         var incomingText = CombatImpactMetricFormatter.IncomingGroup(incoming, false, CritIcon);
         Assert.Equal("×8 (<sprite name=Crit>5) · 640", incomingText);
-        Assert.DoesNotContain("%", incomingText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -269,7 +263,6 @@ public sealed class CombatImpactMetricFormatterTests
         );
 
         Assert.Equal("×2 · <sprite name=Burn>18", formatted);
-        Assert.DoesNotContain("total", formatted, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

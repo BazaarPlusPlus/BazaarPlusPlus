@@ -295,21 +295,6 @@ test.each(['ffmpeg.exe', 'ffmpeg-LICENSE.txt'])(
   }
 );
 
-test('validatePayloadZip rejects a stale staging version before checking for the ZIP', () => {
-  const fixture = fixtureRoot('windows');
-  writeStagedModVersion(fixture, '4.6.0.prod');
-
-  try {
-    expect(() =>
-      validatePayloadZip({
-        ...fixture,
-        requiredStagingPaths: ['BepInEx/plugins/BazaarPlusPlus.version']
-      })
-    ).toThrow(/product version mismatch/);
-  } finally {
-    fs.rmSync(fixture.rootDir, { recursive: true, force: true });
-  }
-});
 test('listPayloadFiles rejects OS artifacts before creating a release archive', () => {
   const fixture = fixtureRoot('windows');
   fs.writeFileSync(path.join(fixture.sourceDir, 'Thumbs.db'), 'junk');

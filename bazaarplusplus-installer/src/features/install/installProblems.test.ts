@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { formatMessage } from '../../i18n/messages';
+import { formatMessage, type MessageKey } from '../../i18n/messages';
 import { createUiProblem } from '../shared/problems';
 import {
   installFailurePaths,
@@ -8,94 +8,125 @@ import {
 } from './installProblems';
 
 const warnings = [
-  { code: 'game_missing', params: {} },
-  { code: 'steam_config_unavailable', params: {} },
-  { code: 'launch_options_not_empty', params: {} },
-  { code: 'trampoline_not_ready', params: {} },
-  { code: 'obsolete_macos_artifacts', params: {} }
-] as const;
+  [{ code: 'game_missing', params: {} }, 'installWarningGameMissing'],
+  [
+    { code: 'steam_config_unavailable', params: {} },
+    'installWarningSteamConfigUnavailable'
+  ],
+  [
+    { code: 'launch_options_not_empty', params: {} },
+    'installWarningLaunchOptionsNotEmpty'
+  ],
+  [
+    { code: 'trampoline_not_ready', params: {} },
+    'installWarningTrampolineNotReady'
+  ],
+  [
+    { code: 'obsolete_macos_artifacts', params: {} },
+    'installWarningObsoleteMacosArtifacts'
+  ]
+] as const satisfies readonly (readonly [unknown, MessageKey])[];
 
 const problems = [
-  createUiProblem('install_detection_failed', {
-    params: { operation: 'detect_state' }
-  }),
-  createUiProblem('install_action_failed', {
-    params: { operation: 'choose_directory' }
-  }),
-  createUiProblem('install_action_failed', {
-    params: { operation: 'install' }
-  }),
-  createUiProblem('install_action_failed', {
-    params: { operation: 'uninstall' }
-  }),
-  createUiProblem('install_action_failed', {
-    params: { operation: 'launch' }
-  }),
-  createUiProblem('install_blocked_by_game'),
-  createUiProblem('reset_blocked_by_game'),
-  createUiProblem('bepinex_reset_blocked_by_game'),
-  createUiProblem('legacy_delete_blocked_by_game'),
-  createUiProblem('install_partial_failure', {
-    params: { operation: 'reset_bpp_data', count: '2' }
-  }),
-  createUiProblem('install_partial_failure', {
-    params: { operation: 'reset_bepinex', count: '2' }
-  }),
-  createUiProblem('install_action_failed', {
-    params: { operation: 'get_legacy_data_state' }
-  }),
-  createUiProblem('install_action_failed', {
-    params: { operation: 'delete_legacy_root' }
-  }),
-  createUiProblem('install_partial_failure', {
-    params: { operation: 'delete_legacy_root', count: '2' }
-  }),
-  createUiProblem('install_unexpected')
-] as const;
+  [
+    createUiProblem('install_detection_failed', {
+      params: { operation: 'detect_state' }
+    }),
+    'installProblemDetectionFailed'
+  ],
+  [
+    createUiProblem('install_action_failed', {
+      params: { operation: 'choose_directory' }
+    }),
+    'installProblemChooseDirectoryFailed'
+  ],
+  [
+    createUiProblem('install_action_failed', {
+      params: { operation: 'install' }
+    }),
+    'installProblemInstallFailed'
+  ],
+  [
+    createUiProblem('install_action_failed', {
+      params: { operation: 'uninstall' }
+    }),
+    'installProblemUninstallFailed'
+  ],
+  [
+    createUiProblem('install_action_failed', {
+      params: { operation: 'launch' }
+    }),
+    'installProblemLaunchFailed'
+  ],
+  [createUiProblem('install_blocked_by_game'), 'installBlockedByGame'],
+  [createUiProblem('reset_blocked_by_game'), 'resetDataBlockedByGame'],
+  [
+    createUiProblem('bepinex_reset_blocked_by_game'),
+    'resetBepinexBlockedByGame'
+  ],
+  [
+    createUiProblem('legacy_delete_blocked_by_game'),
+    'legacyDeleteBlockedByGame'
+  ],
+  [
+    createUiProblem('install_partial_failure', {
+      params: { operation: 'reset_bpp_data', count: '2' }
+    }),
+    'resetDataPartialFailure'
+  ],
+  [
+    createUiProblem('install_partial_failure', {
+      params: { operation: 'reset_bepinex', count: '2' }
+    }),
+    'resetBepinexPartialFailure'
+  ],
+  [
+    createUiProblem('install_action_failed', {
+      params: { operation: 'get_legacy_data_state' }
+    }),
+    'installProblemLegacyDataFailed'
+  ],
+  [
+    createUiProblem('install_action_failed', {
+      params: { operation: 'delete_legacy_root' }
+    }),
+    'installProblemLegacyDeleteFailed'
+  ],
+  [
+    createUiProblem('install_partial_failure', {
+      params: { operation: 'delete_legacy_root', count: '2' }
+    }),
+    'legacyDeletePartialFailure'
+  ],
+  [createUiProblem('install_unexpected'), 'installProblemUnexpected']
+] as const satisfies readonly (readonly [unknown, MessageKey])[];
 
 describe('Install semantic presentation', () => {
   it.each(warnings)(
-    'localizes warning $code in Chinese and English',
-    (warning) => {
-      const zh = presentInstallWarning(warning, (key, params) =>
-        formatMessage('zh', key, params)
-      );
-      const en = presentInstallWarning(warning, (key, params) =>
-        formatMessage('en', key, params)
-      );
-
-      expect(zh).not.toBe(warning.code);
-      expect(en).not.toBe(warning.code);
-      expect(en).not.toBe(zh);
+    'localizes warning %o with %s in Chinese and English',
+    (warning, key) => {
+      for (const locale of ['zh', 'en'] as const) {
+        expect(
+          presentInstallWarning(warning, (k, params) =>
+            formatMessage(locale, k, params)
+          )
+        ).toBe(formatMessage(locale, key));
+      }
     }
   );
 
   it.each(problems)(
-    'localizes problem $code $params with recovery copy',
-    (problem) => {
-      const zh = presentInstallProblem(problem, (key, params) =>
-        formatMessage('zh', key, params)
-      );
-      const en = presentInstallProblem(problem, (key, params) =>
-        formatMessage('en', key, params)
-      );
-
-      expect(zh).not.toBe(problem.code);
-      expect(en).not.toBe(problem.code);
-      expect(en).not.toBe(zh);
+    'localizes problem %o with %s in Chinese and English',
+    (problem, key) => {
+      for (const locale of ['zh', 'en'] as const) {
+        expect(
+          presentInstallProblem(problem, (k, params) =>
+            formatMessage(locale, k, params)
+          )
+        ).toBe(formatMessage(locale, key, problem.params));
+      }
     }
   );
-
-  it('names the legacy folder, not local data, when its deletion partly fails', () => {
-    expect(
-      presentInstallProblem(
-        createUiProblem('install_partial_failure', {
-          params: { operation: 'delete_legacy_root', count: '2' }
-        }),
-        (key, params) => formatMessage('en', key, params)
-      )
-    ).toBe(formatMessage('en', 'legacyDeletePartialFailure', { count: '2' }));
-  });
 
   it('recovers partial-failure paths from semantic parameters', () => {
     expect(

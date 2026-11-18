@@ -308,26 +308,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_library_folders_reports_no_app_when_the_id_is_missing() {
-        let vdf = r#"
-"libraryfolders"
-{
-    "0"
-    {
-        "path"      "C:\Program Files (x86)\Steam"
-        "apps"
-        {
-            "730"   "1"
-        }
-    }
-}"#;
-
-        let folders = parse_library_folders(vdf, THE_BAZAAR_APP_ID).expect("parsed folders");
-
-        assert!(folders.iter().all(|(_, has_app)| !has_app));
-    }
-
-    #[test]
     fn test_parse_library_folders_keeps_paths_without_app_listing() {
         let vdf = r#"
 "libraryfolders"

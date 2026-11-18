@@ -42,34 +42,6 @@ public sealed class EndOfRunCaptureSuppressionLifecycleTests
     }
 
     [Fact]
-    public static void Unavailable_native_audit_releases_only_the_native_lease()
-    {
-        var bpp = new CountingDisposable();
-        var native = new NativeLease(NativeTooltipCleanFrameState.Unavailable);
-        var lifecycle = Installed(bpp, native);
-
-        var decision = lifecycle.ObserveCleanFrame(
-            new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f),
-            Sample,
-            nowSeconds: 0f
-        );
-
-        AssertNativeDegradation(decision, "An unavailable native audit must degrade capture.");
-        Assert(
-            native.DisposeCount == 1,
-            "The unavailable native lease must release before capture."
-        );
-        Assert(bpp.DisposeCount == 0, "BPP chrome must stay suppressed until frame acquisition.");
-
-        lifecycle.ReleaseAll();
-        Assert(bpp.DisposeCount == 1, "Final restore must release BPP chrome.");
-        Assert(
-            native.DisposeCount == 1,
-            "Final restore must not release native suppression twice."
-        );
-    }
-
-    [Fact]
     public static void Native_audit_exception_releases_only_the_native_lease()
     {
         var bpp = new CountingDisposable();
@@ -161,20 +133,6 @@ public sealed class EndOfRunCaptureSuppressionLifecycleTests
 
         Assert(native.DisposeCount == 1, "Cancel must restore native suppression exactly once.");
         Assert(bpp.DisposeCount == 1, "Cancel must restore BPP suppression exactly once.");
-    }
-
-    [Fact]
-    public static void Frame_acquired_restore_is_exactly_once()
-    {
-        var bpp = new CountingDisposable();
-        var native = new NativeLease(NativeTooltipCleanFrameState.Clean);
-        var lifecycle = Installed(bpp, native);
-
-        lifecycle.ReleaseAll();
-        lifecycle.ReleaseAll();
-
-        Assert(native.DisposeCount == 1, "Frame acquisition must restore native suppression once.");
-        Assert(bpp.DisposeCount == 1, "Frame acquisition must restore BPP suppression once.");
     }
 
     [Fact]

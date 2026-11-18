@@ -1,5 +1,4 @@
 #nullable enable
-using System.Diagnostics;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -78,7 +77,6 @@ public sealed class HistoryPaginationTests : IDisposable
         db.Open();
         RunLogSchema.EnsureInitialized(db);
         Execute(db, "DROP INDEX idx_runs_history_recent; DROP INDEX idx_runs_history_hero;");
-        var build = Stopwatch.StartNew();
         Execute(
             db,
             $$"""
@@ -97,10 +95,7 @@ public sealed class HistoryPaginationTests : IDisposable
                 '{"Items":[],"Status":"CapturedEmpty","Source":"Unknown"}' FROM battles;
             """
         );
-        var seedMs = build.Elapsed.TotalMilliseconds;
-        build.Restart();
         RunLogSchema.EnsureInitialized(db);
-        var indexMs = build.Elapsed.TotalMilliseconds;
         var repository = new HistoryPanelRepository(path);
         var expected = Enumerable.Range(0, count).Reverse().Select(i => $"r{i:00000}").ToArray();
         var visited = new List<string>();
@@ -202,13 +197,6 @@ public sealed class HistoryPaginationTests : IDisposable
             "Deep page must seek the recency index: " + plan
         );
         CheckRunCountPlans(db);
-        var times = Measure(() => repository.ListRuns(new()), 30);
-        var deep = Measure(() => repository.ListRuns(new(pages[^1].First, Inclusive: true)), 30);
-        using var version = db.CreateCommand();
-        version.CommandText = "SELECT sqlite_version()";
-        Console.WriteLine(
-            $"History benchmark SQLite={version.ExecuteScalar()} runs={count} battles={count * 10} bytes={new FileInfo(path).Length} seed_ms={seedMs:F1} index_ms={indexMs:F1} n=30 warm_p50_ms={times.P50:F3} warm_p95_ms={times.P95:F3} deep_p50_ms={deep.P50:F3} deep_p95_ms={deep.P95:F3} plan={plan}"
-        );
         if (count == 1000)
             CheckGhosts(db, repository);
         Execute(db, "DELETE FROM runs WHERE run_id='r00000';");
@@ -470,9 +458,6 @@ public sealed class HistoryPaginationTests : IDisposable
                     filteredTotal.Contains("idx_runs_history_hero", StringComparison.Ordinal),
                     "Hero totals must use the canonical-hero index."
                 );
-            Console.WriteLine(
-                $"History count plan hero={hero}: total={filteredTotal}; newer={newer}"
-            );
         }
     }
 
@@ -577,24 +562,7 @@ public sealed class HistoryPaginationTests : IDisposable
                 newer.Contains("SEARCH battles USING INDEX " + index, StringComparison.Ordinal),
                 "Ghost positions must use the matching partial index: " + newer
             );
-            Console.WriteLine(
-                $"Ghost count plan day={day} outcome={outcome}: total={total}; newer={newer}"
-            );
         }
-    }
-
-    private static (double P50, double P95) Measure(Action action, int repetitions)
-    {
-        action();
-        var times = new double[repetitions];
-        for (var i = 0; i < repetitions; i++)
-        {
-            var watch = Stopwatch.StartNew();
-            action();
-            times[i] = watch.Elapsed.TotalMilliseconds;
-        }
-        Array.Sort(times);
-        return (times[repetitions / 2], times[(int)(repetitions * .95)]);
     }
 
     private static string Plan(

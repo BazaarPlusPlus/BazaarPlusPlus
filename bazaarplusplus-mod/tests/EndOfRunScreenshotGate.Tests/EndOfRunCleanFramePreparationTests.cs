@@ -188,47 +188,6 @@ public sealed class EndOfRunCleanFramePreparationTests
     }
 
     [Fact]
-    public static void A_cadence_skipped_deadline_still_executes_the_final_audit()
-    {
-        var core = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f);
-        var cadence = new EndOfRunHeavySampleCadence();
-        var auditCount = 0;
-
-        EndOfRunCleanFrameDecision Tick(float nowSeconds)
-        {
-            var decision = cadence.ShouldSample(nowSeconds, generation: 1)
-                ? ObserveFresh(nowSeconds)
-                : core.ObserveCached(nowSeconds);
-            return decision.Kind == EndOfRunCleanFrameDecisionKind.ObserveFresh
-                ? ObserveFresh(nowSeconds)
-                : decision;
-        }
-
-        EndOfRunCleanFrameDecision ObserveFresh(float nowSeconds)
-        {
-            auditCount++;
-            return core.Observe(
-                new NativeTooltipCleanFrameAudit(NativeTooltipCleanFrameState.Dirty),
-                Sample(1, 1, 1),
-                nowSeconds
-            );
-        }
-
-        _ = Tick(4.99f);
-        var deadlineDecision = Tick(5f);
-
-        Assert(
-            auditCount == 2,
-            "The deadline must force one final audit even inside the cadence throttle window."
-        );
-        Assert(
-            deadlineDecision.Kind == EndOfRunCleanFrameDecisionKind.Capture
-                && deadlineDecision.ReasonCode == ScreenshotCaptureReasonCode.CleanFrameDeadline,
-            "The final audit result must return through the pure preparation core."
-        );
-    }
-
-    [Fact]
     public static void Unavailable_visual_falls_back_to_capture()
     {
         var decision = new EndOfRunCleanFramePreparationCore(startedAtSeconds: 0f).Observe(

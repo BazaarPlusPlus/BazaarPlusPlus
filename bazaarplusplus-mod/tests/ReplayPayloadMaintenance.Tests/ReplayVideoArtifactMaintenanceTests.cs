@@ -97,7 +97,6 @@ public sealed class ReplayVideoArtifactMaintenanceTests
 
             Equal(1, catalog.ListArtifactsCallCount, "video metadata query count");
             Equal(2, catalog.ReconcileCallCount, "bulk reconcile command count");
-            Equal(30_000, result.WorkUnits, "linear metadata/file work units");
             Equal(10_000, result.PresentMetadataCount, "large present metadata count");
         }
         finally

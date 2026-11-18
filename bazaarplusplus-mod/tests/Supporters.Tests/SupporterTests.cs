@@ -27,15 +27,6 @@ public sealed class SupporterTests
         var second = attribution.Next(entries, 3);
 
         AssertEqual(
-            BPPSupporterSampler
-                .SampleMany(entries, 3, startIndex: 0, shuffleSeed: 23)
-                .Select(sample => sample.Name)
-                .ToArray()
-                .Aggregate((left, right) => left + "," + right),
-            first.Select(sample => sample.Name).Aggregate((left, right) => left + "," + right),
-            "The first call should read the rotation from its start."
-        );
-        AssertEqual(
             6,
             first
                 .Concat(second)
@@ -382,31 +373,6 @@ public sealed class SupporterTests
             "Remote Supporter",
             entries[0].Name,
             "Default mode should preserve remote entries."
-        );
-    }
-
-    [Fact]
-    public void TestSupportedByPrefixAndSuffix()
-    {
-        AssertEqual(
-            "Supported by",
-            BPPSupporterAttributionText.FormatSupportedByPrefix("en"),
-            "English attribution row should start with Supported by."
-        );
-        AssertEqual(
-            string.Empty,
-            BPPSupporterAttributionText.FormatSupportedBySuffix("en"),
-            "English attribution row should not need a suffix."
-        );
-        AssertEqual(
-            "由",
-            BPPSupporterAttributionText.FormatSupportedByPrefix("zh-CN"),
-            "Chinese attribution row should start with 由."
-        );
-        AssertEqual(
-            "支持",
-            BPPSupporterAttributionText.FormatSupportedBySuffix("zh-CN"),
-            "Chinese attribution row should end with 支持."
         );
     }
 

@@ -67,30 +67,4 @@ describe('confirmed operation controller', () => {
     expect(controller.dismiss()).toBe(true);
     expect(controller.getSnapshot()).toBeNull();
   });
-
-  it.each([
-    ['cleanup', { kind: 'cleanup', target: 'run_data:before_this_month' }],
-    ['reset', { kind: 'reset-data', target: '/game/BazaarPlusPlusV6' }],
-    ['delete', { kind: 'delete-video', target: 'battle-2/video-3' }]
-  ])(
-    '%s feature uses the shared success/failure lifecycle',
-    async (_, target) => {
-      const controller = createConfirmedOperationController<
-        { kind: string; target: string },
-        string
-      >();
-      controller.request(target);
-      await controller.run(
-        async () => ({ ok: false, problem: 'failed' }),
-        String
-      );
-      expect(controller.getSnapshot()).toEqual({
-        phase: 'failed',
-        target,
-        problem: 'failed'
-      });
-      await controller.run(async () => ({ ok: true }), String);
-      expect(controller.getSnapshot()).toBeNull();
-    }
-  );
 });

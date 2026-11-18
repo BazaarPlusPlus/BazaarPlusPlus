@@ -13,7 +13,7 @@ from bazaarlens.object_store import ObjectStoreError
 from bazaarlens.products import BUILDS, HEROES
 from bazaarlens.products.base import ContractViolation, ProductData
 from bazaarlens.products.builds import BuildRank, select_build_identities
-from bazaarlens.snapshots import LatestPublisher, SnapshotRunner
+from bazaarlens.snapshots import SnapshotRunner
 from tests.fakes import MemoryObjectStore
 
 
@@ -25,32 +25,11 @@ def _seal(day: date) -> DaySeal:
     return DaySeal(day.isoformat(), (), {}, day.isoformat(), reused=True)
 
 
-@pytest.mark.parametrize("count", (1, 5, 7))
-def test_analysis_window_grows_from_one_to_seven_complete_source_days(count: int) -> None:
-    start = date(2026, 8, 1)
-    seals = tuple(_seal(start + timedelta(days=offset)) for offset in range(count))
+def test_analysis_window_rejects_a_duplicate_complete_source_day() -> None:
+    seal = _seal(date(2026, 8, 1))
 
-    selected = select_analysis_window(seals)
-
-    assert selected is not None
-    assert selected.start == start
-    assert selected.end == start + timedelta(days=count - 1)
-    assert len(selected.seals) == count
-    assert selected.value["days"] == count
-
-
-def test_analysis_window_keeps_only_the_latest_seven_consecutive_days() -> None:
-    start = date(2026, 8, 1)
-    seals = tuple(_seal(start + timedelta(days=offset)) for offset in range(9))
-
-    selected = select_analysis_window(seals)
-
-    assert selected is not None
-    assert selected.start == date(2026, 8, 3)
-    assert selected.end == date(2026, 8, 9)
-    assert len(selected.seals) == 7
     with pytest.raises(AnalysisWindowError, match="Duplicate"):
-        select_analysis_window((*seals, seals[0]))
+        select_analysis_window((seal, seal))
 
 
 def test_explicit_window_anchor_uses_the_available_consecutive_suffix() -> None:
@@ -102,30 +81,6 @@ def test_heroes_schema_requires_days_length_to_equal_window_days(
     assert list(Draft202012Validator(schema).iter_errors(payload))
 
 
-def test_latest_publisher_only_writes_the_two_public_keys(canonical_fact_store) -> None:
-    _root, store = canonical_fact_store
-    window = select_analysis_window(store.seals())
-    assert window is not None
-    runner = _runner(store)
-    heroes = runner.build(HEROES, window)
-    builds = runner.build(BUILDS, window)
-    objects = MemoryObjectStore()
-    publisher = LatestPublisher(objects)
-
-    assert publisher.replace(HEROES, heroes) is True
-    assert publisher.replace(BUILDS, builds) is True
-
-    assert objects.put_keys() == [
-        HEROES.public_key,
-        BUILDS.public_key,
-    ]
-    for key in (HEROES.public_key, BUILDS.public_key):
-        observed = objects.get(key)
-        assert observed is not None
-        assert observed.stat.cache_control == "public,max-age=60,must-revalidate"
-        assert observed.stat.content_type == "application/json"
-
-
 def test_product_validation_failure_preserves_old_object_and_does_not_block_other_product(
     nine_sealed_days: Path,
 ) -> None:
@@ -158,27 +113,6 @@ def test_product_validation_failure_preserves_old_object_and_does_not_block_othe
     assert objects.get(HEROES.public_key).body == previous
     assert succeeded.error is None and succeeded.remote_confirmed
     assert objects.get(BUILDS.public_key).body == (store.root / BUILDS.local_relpath).read_bytes()
-
-
-def test_identical_snapshot_is_remotely_confirmed_without_another_upload(
-    nine_sealed_days: Path,
-) -> None:
-    store = FactStore(nine_sealed_days)
-    window = select_analysis_window(store.seals())
-    assert window is not None
-    objects = MemoryObjectStore()
-    runner = _runner(store, object_store=objects, clock=lambda: datetime(2026, 8, 16, tzinfo=UTC))
-
-    first = runner.ensure(HEROES, window)
-    repeated = runner.ensure(HEROES, window)
-
-    assert first.error is None and first.uploaded
-    assert repeated.error is None and not repeated.uploaded
-    assert first.remote_confirmed and repeated.remote_confirmed
-    assert first.local_saved and repeated.local_saved
-    assert repeated.phase == "complete"
-    assert first.counts == repeated.counts
-    assert objects.put_keys() == [HEROES.public_key]
 
 
 def test_publication_failure_preserves_successful_local_save_and_counts(
@@ -291,6 +225,7 @@ def test_unchanged_inputs_reuse_bytes_across_clocks_and_recover_remote(
     assert recovered.local_saved and recovered.remote_confirmed
     repeated = runner.ensure(product, window)
     assert repeated.error is None and repeated.reused and not repeated.uploaded
+    assert repeated.remote_confirmed and repeated.local_saved and repeated.phase == "complete"
     assert repeated.counts == first.counts
     assert path.read_bytes() == original and path.stat().st_mtime_ns == original_mtime
     assert objects.put_keys() == [product.public_key]

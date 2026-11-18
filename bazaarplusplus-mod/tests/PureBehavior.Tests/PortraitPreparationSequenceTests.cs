@@ -115,28 +115,17 @@ public sealed class PortraitPreparationSequenceTests
     }
 
     [Fact]
-    public async Task Supersession_during_breakout_discards_result_and_keeps_captured_images()
+    public async Task Supersession_during_breakout_discards_the_result()
     {
         var breakout = new TaskCompletionSource<string>(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
-        var capturedImages = new object();
-        object? handedOffImages = null;
-        object? stagedImages = null;
         var stale = false;
         var checks = 0;
         var preparation = PortraitPreparationSequence.RunAsync(
-            () =>
-            {
-                stagedImages = capturedImages;
-                return Task.FromResult<string?>("fit");
-            },
+            () => Task.FromResult<string?>("fit"),
             () => "frame",
-            (_, _) =>
-            {
-                handedOffImages = stagedImages;
-                return breakout.Task;
-            },
+            (_, _) => breakout.Task,
             () =>
             {
                 checks++;
@@ -146,7 +135,6 @@ public sealed class PortraitPreparationSequenceTests
         );
 
         Assert.False(preparation.IsCompleted);
-        Assert.Same(capturedImages, handedOffImages);
         stale = true;
         breakout.SetResult("plan");
 

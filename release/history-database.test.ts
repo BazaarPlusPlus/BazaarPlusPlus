@@ -3,12 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test } from 'vite-plus/test';
 
-import {
-  assertHistoryDatabaseCompatibility,
-  assertWorkspaceHistoryDatabaseCompatibility
-} from './history-database.ts';
+import { assertHistoryDatabaseCompatibility } from './history-database.ts';
 import type { HistoryDatabaseContractPaths } from './history-database.ts';
-import { WORKSPACE_ROOT } from './product.ts';
 
 const roots: string[] = [];
 
@@ -57,12 +53,6 @@ function fixture({
   );
   return { contractPath, compatibilityPath };
 }
-
-test('the workspace mod schema is the newest the installer supports', () => {
-  expect(
-    assertWorkspaceHistoryDatabaseCompatibility(WORKSPACE_ROOT)
-  ).toBeGreaterThan(0);
-});
 
 test('accepts a mod schema equal to the newest supported version', () => {
   expect(

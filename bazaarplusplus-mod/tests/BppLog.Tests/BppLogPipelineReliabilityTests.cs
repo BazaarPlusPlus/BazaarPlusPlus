@@ -98,7 +98,6 @@ public sealed class BppLogPipelineReliabilityTests
         var fields = new[] { Value("offline") };
 
         pipeline.Emit(BppLogSeverity.Warning, GuardedEvent, fields);
-        Assert.Equal(0, pipeline.ActiveStormKeyCount);
         pipeline.Emit(BppLogSeverity.Warning, GuardedEvent, fields);
         pipeline.Emit(BppLogSeverity.Warning, GuardedEvent, fields);
         pipeline.Flush();

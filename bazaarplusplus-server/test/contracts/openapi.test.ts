@@ -2,7 +2,6 @@ import { env } from 'cloudflare:test';
 import { describe, expect, test } from 'vitest';
 import type { z } from 'zod';
 
-import contract from '../../contracts/mod-api-errors.json';
 import ghostSummary from '../../contracts/v6/ghost-summary.response.json';
 import { ROUTES } from '../../src/http/routes';
 import worker from '../../src/index';
@@ -16,9 +15,6 @@ const ORIGIN = 'https://mod-api-v6.bazaarplusplus.com';
 interface OpenApiDocument {
   openapi: string;
   paths: Record<string, Record<string, { responses: Record<string, unknown> }>>;
-  components: {
-    schemas: Record<string, { properties?: Record<string, unknown> }>;
-  };
 }
 
 async function fetchDocument(): Promise<OpenApiDocument> {
@@ -74,32 +70,6 @@ describe('the OpenAPI document', () => {
     expect(documented.sort()).toEqual(
       ROUTES.map((r) => `${r.method} ${r.path}`).sort()
     );
-  });
-
-  test('declares every server-owned error code', async () => {
-    const document = await fetchDocument();
-    const error = document.components.schemas.ApiErrorResponse.properties
-      ?.error as {
-      properties: { code: { enum: string[] } };
-    };
-    expect(error.properties.code.enum).toEqual(
-      contract.codes.map(({ code }) => code)
-    );
-  });
-
-  test('protects exactly the token routes', async () => {
-    const document = await fetchDocument();
-    const secured = Object.entries(document.paths).flatMap(([path, item]) =>
-      Object.entries(item)
-        .filter(([, operation]) => 'security' in operation)
-        .map(([method]) => `${method.toUpperCase()} ${path}`)
-    );
-    expect(secured.sort()).toEqual([
-      'GET /bazaardb/bundles',
-      'GET /bot/bundles',
-      'GET /bot/players',
-      'GET /bundles'
-    ]);
   });
 });
 

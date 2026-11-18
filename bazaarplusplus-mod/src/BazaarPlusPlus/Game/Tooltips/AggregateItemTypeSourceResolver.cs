@@ -12,9 +12,6 @@ namespace BazaarPlusPlus.Game.Tooltips;
 
 internal static class AggregateItemTypeSourceResolver
 {
-    internal static bool TryResolve(TCardBase template, out AggregateItemTypeSource source) =>
-        TryResolve(template, null, out source);
-
     internal static bool TryResolve(
         TCardBase template,
         EEnchantmentType? activeEnchantment,

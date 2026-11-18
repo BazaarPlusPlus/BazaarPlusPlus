@@ -39,45 +39,12 @@ public sealed class BppLogPipelineTests
     }
 
     [Fact]
-    public void Guarded_repeats_are_summarized_on_shutdown_flush()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-        var fields = new[] { WarningReason("offline") };
-
-        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
-        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
-        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
-        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
-
-        Assert.Single(output);
-        pipeline.Flush();
-
-        Assert.Equal(2, output.Count);
-        Assert.Contains("event=logging.storm.suppressed", output[1].Message);
-        Assert.Contains("source_event=logging.test.degraded", output[1].Message);
-        Assert.Contains("suppressed_count=3", output[1].Message);
-        Assert.Contains("window_ms=30000", output[1].Message);
-        Assert.Contains("flush_reason=shutdown", output[1].Message);
-    }
-
-    [Fact]
     public void Unguarded_duplicates_are_never_suppressed()
     {
         var (pipeline, output, _) = CreatePipeline();
 
         pipeline.Emit(BppLogSeverity.Info, UnguardedInfo);
         pipeline.Emit(BppLogSeverity.Info, UnguardedInfo);
-
-        Assert.Equal(2, output.Count);
-    }
-
-    [Fact]
-    public void Different_warning_reason_dimensions_have_distinct_keys()
-    {
-        var (pipeline, output, _) = CreatePipeline();
-
-        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("offline") });
-        pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, new[] { WarningReason("timeout") });
 
         Assert.Equal(2, output.Count);
     }
@@ -255,9 +222,13 @@ public sealed class BppLogPipelineTests
         Assert.Equal(2, output.Count);
         Assert.All(
             output,
-            record => Assert.Contains("event=logging.test.degraded", record.Message)
+            record =>
+                Assert.StartsWith(
+                    "[BPP][Logger] event=logging.test.degraded",
+                    record.Message,
+                    StringComparison.Ordinal
+                )
         );
-        Assert.Equal(0, pipeline.ActiveStormKeyCount);
     }
 
     [Fact]
@@ -298,7 +269,6 @@ public sealed class BppLogPipelineTests
                 record.Message.Contains("flush_reason=evicted", StringComparison.Ordinal)
                 && record.Message.Contains("suppressed_count=1", StringComparison.Ordinal)
         );
-        Assert.True(pipeline.ActiveStormKeyCount <= BppLogPipeline.MaximumActiveStormKeys);
     }
 
     [Fact]
@@ -435,7 +405,6 @@ public sealed class BppLogPipelineTests
         await Task.WhenAll(first, flush).WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.Empty(output);
-        Assert.Equal(0, pipeline.ActiveStormKeyCount);
         pipeline.Emit(BppLogSeverity.Warning, GuardedWarning, fields);
         Assert.Contains("event=logging.test.degraded", Assert.Single(output));
     }

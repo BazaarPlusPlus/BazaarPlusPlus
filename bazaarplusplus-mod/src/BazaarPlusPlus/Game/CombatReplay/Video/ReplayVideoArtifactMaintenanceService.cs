@@ -51,8 +51,7 @@ internal readonly record struct ReplayVideoMaintenanceResult(
     int TempCandidateCount,
     int TempDeletedCount,
     int DeleteFailureCount,
-    int UnmanagedMetadataCount,
-    int WorkUnits
+    int UnmanagedMetadataCount
 );
 
 internal sealed class ReplayVideoArtifactMaintenanceService
@@ -83,11 +82,9 @@ internal sealed class ReplayVideoArtifactMaintenanceService
         var artifacts = _catalog.ListArtifacts();
         var files = ReplayVideoArtifactFiles.ListFiles(_rootDirectory);
         var comparer = PathComparer;
-        var workUnits = 0;
         var inventory = new Dictionary<string, ReplayVideoFileRecord>(comparer);
         foreach (var file in files)
         {
-            workUnits++;
             inventory[Normalize(file.FullPath)] = file;
         }
         var protectedPaths = new HashSet<string>(_protectedPaths().Select(Normalize), comparer);
@@ -98,7 +95,6 @@ internal sealed class ReplayVideoArtifactMaintenanceService
 
         foreach (var artifact in artifacts)
         {
-            workUnits++;
             cancellationToken.ThrowIfCancellationRequested();
             if (
                 !ReplayVideoManagedPath.TryResolve(
@@ -128,7 +124,6 @@ internal sealed class ReplayVideoArtifactMaintenanceService
         var tempCandidates = new List<ReplayVideoFileRecord>();
         foreach (var file in files)
         {
-            workUnits++;
             cancellationToken.ThrowIfCancellationRequested();
             var path = Normalize(file.FullPath);
             if (!IsManagedInventoryPath(path))
@@ -166,8 +161,7 @@ internal sealed class ReplayVideoArtifactMaintenanceService
             tempCandidates.Count,
             deleted,
             failures,
-            unmanagedCount,
-            workUnits
+            unmanagedCount
         );
     }
 

@@ -10,7 +10,7 @@ import type {
 } from './dependabot-auto-merge.ts';
 
 interface FixtureState {
-  pr: PullRequest & { title?: string; commits?: number; auto_merge?: object };
+  pr: PullRequest & { auto_merge?: object };
   node: PullRequestNode;
   writes: { kind: string; [field: string]: unknown }[];
   summaries: string[];
@@ -19,20 +19,7 @@ interface FixtureState {
   mergeError?: unknown;
 }
 
-// The github-script globals plus the old validation API some tests attach.
-interface FixtureArgs extends GithubScriptArgs {
-  github: GithubScriptArgs['github'] & {
-    rest: {
-      pulls: GithubScriptArgs['github']['rest']['pulls'] & {
-        listFiles?: string;
-        listCommits?: string;
-      };
-    };
-    paginate?: (method: string) => Promise<unknown[]>;
-  };
-}
-
-function apiFixture(): { state: FixtureState; args: FixtureArgs } {
+function apiFixture(): { state: FixtureState; args: GithubScriptArgs } {
   const pr: FixtureState['pr'] = {
     number: 7,
     node_id: 'PR7',
@@ -55,7 +42,7 @@ function apiFixture(): { state: FixtureState; args: FixtureArgs } {
     summaries: [],
     logs: []
   };
-  const github: FixtureArgs['github'] = {
+  const github: GithubScriptArgs['github'] = {
     rest: {
       pulls: {
         get: async () => ({ data: pr }),
@@ -119,26 +106,6 @@ test('Dependabot approval and auto-merge depend only on PR identity, not update 
     head: 'head'
   });
   assert.match(state.summaries.join(''), /Auto-merge enabled/);
-});
-
-test('Actions major updates and PRs with human branch-update commits are eligible', async () => {
-  const { state, args } = apiFixture();
-  state.pr.title = 'build(dev): bump actions/checkout from 6 to 7';
-  state.pr.commits = 2;
-  // Returning these through the old validation API reproduces its rejection.
-  args.github.rest.pulls.listFiles = 'files';
-  args.github.rest.pulls.listCommits = 'commits';
-  args.github.paginate = async (method) => {
-    if (method === 'files')
-      return [{ filename: '.github/workflows/checks.yml', status: 'modified' }];
-    if (method === 'commits') return [{ author: { login: 'maintainer' } }];
-    assert.fail('Auto-merge must defer to GitHub branch rules');
-  };
-  await run(args);
-  assert.deepEqual(
-    state.writes.map(({ kind }) => kind),
-    ['review', 'enable']
-  );
 });
 
 test('human PRs, forks, other base branches, drafts and closed PRs are skipped', async () => {

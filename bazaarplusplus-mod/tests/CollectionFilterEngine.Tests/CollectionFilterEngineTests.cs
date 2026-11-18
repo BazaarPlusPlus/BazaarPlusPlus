@@ -1,5 +1,6 @@
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
+using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
 using Xunit;
@@ -152,19 +153,6 @@ public sealed class CollectionFilterEngineTests
             CardHero.Dooley,
             allHeroesDifferentHeroState.SelectedHero,
             "Selecting a different hero from all-heroes should use that hero as the scope."
-        );
-    }
-
-    [Fact]
-    public void Active_hero_toggled_twice_clears_the_scope()
-    {
-        var normalHeroToggleState = new CollectionFilterState();
-        normalHeroToggleState.ToggleHero(CardHero.Vanessa);
-        normalHeroToggleState.ToggleHero(CardHero.Vanessa);
-        AssertEqual(
-            null,
-            normalHeroToggleState.SelectedHero,
-            "Selecting the active hero twice outside all-heroes should clear the hero scope."
         );
     }
 
@@ -467,10 +455,6 @@ public sealed class CollectionFilterEngineTests
                 CollectionHeroSelectionRoster.BaseConcreteHeroes
             ),
             "Only an accepted roster may normalize an unavailable concrete selection to neutral."
-        );
-        AssertTrue(
-            new CollectionFilterState().UseRunDayFilter,
-            "New filter state should start with the day filter selected."
         );
         var selectionState = new CollectionFilterState();
         selectionState.SelectedSourceKey = "trainer:old";
@@ -1768,36 +1752,24 @@ public sealed class CollectionFilterEngineTests
             queryFilter.SelectedSourceKey,
             "CollectionQuery should not mutate the selected source key."
         );
-        AssertEqual(
-            1,
-            queryResolver.ResolveCount,
-            "CollectionQuery should resolve a valid selected source once."
-        );
 
         var neutralSelectedHeroSource = Source(
             "merchant:query:neutral",
             CollectionSourceKind.Merchant,
             heroMode: CollectionSourceHeroMode.SelectedHero
         );
-        var neutralSelectedHeroResolver = new FakeOfferPoolResolver(
-            new Dictionary<string, CollectionSourceOfferPoolResult>
-            {
-                [neutralSelectedHeroSource.SourceKey] = CollectionSourceOfferPoolResult.Ready(
-                    new[] { queryCatalogCards[0].Id }
-                ),
-            }
-        );
-        CollectionQuery.Run(
-            queryCatalogCards,
+        var commonItem = Card("Query Common Item", CardTier.Bronze);
+        var neutralSelectedHeroResult = CollectionQuery.Run(
+            new[] { queryCatalogCards[0], commonItem },
             new CollectionFilterState { SelectedSourceKey = neutralSelectedHeroSource.SourceKey },
             queryAvailability,
             new DictionarySourceCatalog(neutralSelectedHeroSource),
-            neutralSelectedHeroResolver
+            new CollectionSourceOfferPoolCache()
         );
-        AssertEqual(
-            CardHero.Common,
-            neutralSelectedHeroResolver.LastEffectiveHero,
-            "A SelectedHero source should receive Common when no concrete hero chip is selected."
+        AssertSequence(
+            neutralSelectedHeroResult.Cards,
+            new[] { commonItem.Id },
+            "A SelectedHero source should resolve for Common when no concrete hero chip is selected."
         );
         var neutralHeroSpecificSourceResult = CollectionQuery.Run(
             queryCatalogCards,
@@ -2137,24 +2109,6 @@ public sealed class CollectionFilterEngineTests
             exclusiveSkillSourceResult,
             new[] { sharedHeroSkill.Id, vanessaExclusiveSkill.Id },
             "Trainer/source pools AND with the widened skill hero scope, so shared skills surface in trainer pools too."
-        );
-
-        var commonSkillFilter = new CollectionFilterState { ActiveType = CardType.Skill };
-        var commonSkillResult = CollectionFilterEngine.Apply(
-            new[]
-            {
-                sharedHeroSkill,
-                commonSkill,
-                commonSharedSkill,
-                missingHeroSkill,
-                vanessaExclusiveSkill,
-            },
-            commonSkillFilter
-        );
-        AssertSequence(
-            commonSkillResult,
-            new[] { commonSkill.Id },
-            "Common skill filtering should only show skills explicitly scoped to Common/global — the general-shared bucket is empty by definition for Common."
         );
     }
 
@@ -2752,18 +2706,12 @@ internal sealed class FakeOfferPoolResolver : ICollectionOfferPoolResolver
         _results = results;
     }
 
-    public int ResolveCount { get; private set; }
-
-    public CardHero? LastEffectiveHero { get; private set; }
-
     public CollectionSourceOfferPoolResult GetOrResolve(
         CollectionSourceEntry source,
         CardHero effectiveHero,
         IReadOnlyList<CollectionCardVm> catalogCards
     )
     {
-        ResolveCount++;
-        LastEffectiveHero = effectiveHero;
         return _results.TryGetValue(source.SourceKey, out var result)
             ? result
             : CollectionSourceOfferPoolResult.NoneSelected();

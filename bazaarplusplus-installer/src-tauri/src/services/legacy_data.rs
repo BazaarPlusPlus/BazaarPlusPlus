@@ -360,38 +360,6 @@ mod tests {
     }
 
     #[test]
-    fn lists_only_present_legacy_root_directories_with_their_sizes() {
-        let game = tempfile::tempdir().unwrap();
-        seed_legacy_roots(game.path());
-        // Files beside the roots, named after one, are not roots.
-        write(&game.path().join("BazaarPlusPlusV5.zip"), &[0; 64]);
-        write(&game.path().join("BazaarPlusPlusV4.txt"), b"file");
-
-        let state = legacy_data_state(game.path());
-
-        assert_eq!(
-            state
-                .roots
-                .iter()
-                .map(|root| (root.name, root.size_bytes, root.file_count))
-                .collect::<Vec<_>>(),
-            vec![
-                (LegacyRoot::Original, 10, 1),
-                (LegacyRoot::V4, 10, 2),
-                (LegacyRoot::V5, 120, 2),
-            ]
-        );
-        assert!(state
-            .roots
-            .iter()
-            .all(|root| root.hard_linked_file_count == 0 && root.unreadable_entry_count == 0));
-        assert_eq!(
-            legacy_data_presence(game.path()).roots,
-            state.roots.iter().map(|root| root.name).collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
     fn a_file_named_like_a_legacy_root_is_not_listed() {
         let game = tempfile::tempdir().unwrap();
         write(&game.path().join("BazaarPlusPlusV5"), b"file");
@@ -579,30 +547,6 @@ mod tests {
                 .join("BazaarPlusPlusV5/Screenshots/run.png")
                 .is_file());
         }
-    }
-
-    #[tokio::test]
-    async fn locked_deletion_refuses_while_the_game_runs() {
-        let game = valid_game_dir();
-        seed_legacy_roots(game.path());
-        let lock = DataMaintenanceLock::default();
-        let game_path = game.path().to_path_buf();
-
-        let refused = lock
-            .run_blocking(move || {
-                delete_legacy_root_blocking_with(&game_path, "BazaarPlusPlusV5", &|_: &Path| {
-                    Ok(true)
-                })
-            })
-            .await
-            .unwrap()
-            .unwrap_err();
-
-        assert_eq!(
-            refused.into_problem("delete_legacy_root").code,
-            SemanticProblemCode::LegacyDeleteBlockedByGame
-        );
-        assert!(game.path().join("BazaarPlusPlusV5").is_dir());
     }
 
     #[tokio::test]

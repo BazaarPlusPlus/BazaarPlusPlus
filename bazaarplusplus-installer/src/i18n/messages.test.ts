@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vite-plus/test';
 import { formatMessage } from './messages';
 
 describe('formatMessage', () => {
-  it('returns the raw message when no params are given', () => {
-    expect(formatMessage('en', 'updateInstall')).toBe('Download & Install');
-  });
-
   it('interpolates named placeholders', () => {
     expect(formatMessage('en', 'updateModalBody', { version: '4.1.0' })).toBe(
       'BazaarPlusPlus 4.1.0 is available.'

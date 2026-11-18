@@ -49,7 +49,7 @@ const lineAt = (content: string, index: number) =>
 
 // A missing directory lists nothing: a tree, such as a test fixture, need not
 // have docs/ or docs/adr/.
-export function listDocs(rootDir: string, relDir: string): string[] {
+function listDocs(rootDir: string, relDir: string): string[] {
   const dirPath = absolute(rootDir, relDir);
   if (!fs.statSync(dirPath, { throwIfNoEntry: false })?.isDirectory())
     return [];

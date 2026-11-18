@@ -1,9 +1,7 @@
-using System.Reflection;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.CombatStatusBar;
 using BazaarPlusPlus.Game.ItemEnchantPreview;
 using BazaarPlusPlus.Game.NameOverride;
-using BazaarPlusPlus.Game.Settings;
 using Xunit;
 
 namespace BazaarPlusPlus.Tests;
@@ -97,20 +95,6 @@ public sealed class CombatStatusBarStateTests
     }
 
     [Fact]
-    public void FrameDisplayText_IsNotPartOfCombatStatusBarState()
-    {
-        var frameTextMethod = typeof(CombatStatusBarState).GetMethod(
-            "GetDisplayedFrameText",
-            BindingFlags.Public
-                | BindingFlags.NonPublic
-                | BindingFlags.Static
-                | BindingFlags.Instance
-        );
-
-        Assert.Null(frameTextMethod);
-    }
-
-    [Fact]
     public void DisplayedTimeText_StillUsesLogicalFrameIndex()
     {
         _state.BeginCombatPlayback();
@@ -165,18 +149,9 @@ public sealed class CombatStatusBarStateTests
         Assert.True(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
     }
 
-    [Fact]
-    public void ShouldRenderForState_ShowsDuringReplay_WhenProbeReportsInGameRun()
-    {
-        // Replay's start guard forces the cached flag to false, and entering ReplayState never
-        // fires RunStarted, so the cache stays false throughout playback...
-        _runContext.IsInGameRun = false;
-        // ...but the live probe reports ReplayState as in-game-run.
-        _probe.Result = true;
-
-        Assert.True(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
-    }
-
+    // Replay's start guard forces the cached flag to false, and entering ReplayState never
+    // fires RunStarted, so the cache stays false throughout playback; the live probe reports
+    // ReplayState as in-game-run (row inRun: false, inReplay: true).
     [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -203,32 +178,6 @@ public sealed class CombatStatusBarStateTests
         Assert.False(_state.IsCombatPaused);
         Assert.True(_state.IsCombatPlaybackActive);
         Assert.Equal(0.67f, _state.CombatSpeedMultiplier);
-    }
-
-    [Fact]
-    public void DockDefinition_ActionRow_InvokesAction_AndTracksActiveState()
-    {
-        var open = false;
-        var activationCount = 0;
-        var definition = new BppSettingsDockDefinition(
-            "GameHistory",
-            _ => "Game History",
-            () => open,
-            () =>
-            {
-                activationCount++;
-                open = true;
-            },
-            collapseAfterActivate: true
-        );
-
-        Assert.False(definition.IsActive());
-
-        definition.Activate!();
-
-        Assert.Equal(1, activationCount);
-        Assert.True(definition.IsActive());
-        Assert.True(definition.CollapseAfterActivate);
     }
 
     [Theory]

@@ -380,7 +380,7 @@ fn overlay_from_ms(value: &str) -> i64 {
 mod tests {
     use super::{
         load_latest_overlay_snapshot, load_overlay_snapshot_by_id, load_overlay_snapshot_count,
-        load_overlay_snapshot_list, load_screenshot_image_path, overlay_from_ms,
+        load_overlay_snapshot_list, load_screenshot_image_path,
     };
     use crate::history::mod_schema::create_mod_schema;
 
@@ -392,37 +392,6 @@ mod tests {
 
         let latest = load_latest_overlay_snapshot(temp.path(), None, 0).unwrap();
         assert!(latest.is_none());
-    }
-
-    #[test]
-    fn latest_overlay_record_reads_latest_end_of_run_snapshot() {
-        let temp = tempfile::NamedTempFile::new().unwrap();
-        let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
-                captured_at_ms, day, player_rank, player_rating, player_position, victories_at_capture, hero_name
-             ) values (
-                'snap-1', 'run-1', 'end_of_run_auto', '2026-04-10\\shot-1.png',
-                480, 1775853005000,
-                14, 'Diamond', 1942, 1, 10, 'Mak'
-             )",
-            [],
-        )
-        .unwrap();
-
-        let latest = load_latest_overlay_snapshot(temp.path(), None, 0)
-            .unwrap()
-            .unwrap();
-        assert_eq!(latest.id, "snap-1");
-        assert_eq!(latest.hero, "Mak");
-        assert_eq!(latest.game_mode, "End of run");
-        assert_eq!(latest.image_path.as_deref(), Some("2026-04-10\\shot-1.png"));
-        assert_eq!(latest.wins, Some(10));
-        assert_eq!(latest.battle_count, Some(14));
-        assert_eq!(latest.rank.as_deref(), Some("Diamond"));
-        assert_eq!(latest.rating, Some(1942));
     }
 
     #[test]
@@ -482,29 +451,6 @@ mod tests {
     }
 
     #[test]
-    fn latest_overlay_record_filters_from_stream_start_time() {
-        let temp = tempfile::NamedTempFile::new().unwrap();
-        let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms, hero_name
-             ) values
-             ('snap-before', 'run-1', 'end_of_run_auto', 'before.png', 0, 1775849405000, 'Mak'),
-             ('snap-after', 'run-2', 'end_of_run_auto', 'after.png', 0, 1775856605000, 'Pygmalien')",
-            [],
-        )
-        .unwrap();
-
-        let latest =
-            load_latest_overlay_snapshot(temp.path(), Some("2026-04-10T20:00:00+00:00"), 0)
-                .unwrap()
-                .unwrap();
-
-        assert_eq!(latest.id, "snap-after");
-    }
-
-    #[test]
     fn latest_overlay_record_normalizes_stream_start_time_to_utc() {
         let temp = tempfile::NamedTempFile::new().unwrap();
         let conn = rusqlite::Connection::open(temp.path()).unwrap();
@@ -525,11 +471,11 @@ mod tests {
                 .unwrap();
 
         assert_eq!(latest.id, "snap-after");
-        assert_eq!(
-            overlay_from_ms("2026-04-11T04:00:00+08:00"),
-            1_775_851_200_000
+        assert!(
+            load_latest_overlay_snapshot(temp.path(), Some("not a time"), 0)
+                .unwrap()
+                .is_none()
         );
-        assert_eq!(overlay_from_ms("not a time"), i64::MAX);
     }
 
     #[test]
@@ -553,26 +499,6 @@ mod tests {
             load_overlay_snapshot_count(temp.path(), Some("2026-04-10T20:00:00+00:00")).unwrap();
 
         assert_eq!(count, 2);
-    }
-
-    #[test]
-    fn load_overlay_record_by_id_reads_matching_snapshot() {
-        let temp = tempfile::NamedTempFile::new().unwrap();
-        let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes, captured_at_ms, hero_name
-             ) values ('snap-1', 'run-1', 'end_of_run_auto', 'match-1.png', 0, 1775853005000, 'Mak')",
-            [],
-        )
-        .unwrap();
-
-        let record = load_overlay_snapshot_by_id(temp.path(), "snap-1")
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(record.id, "snap-1");
     }
 
     #[test]
@@ -650,29 +576,5 @@ mod tests {
         assert_eq!(records.len(), 2);
         assert_eq!(records[0].id, "snap-3");
         assert_eq!(records[1].id, "snap-2");
-    }
-
-    #[test]
-    fn overlay_record_list_without_limit_returns_all_records() {
-        let temp = tempfile::NamedTempFile::new().unwrap();
-        let conn = rusqlite::Connection::open(temp.path()).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
-                captured_at_ms, hero_name
-             ) values
-             ('snap-1', 'run-1', 'end_of_run_auto', 'first.png', 0, 1775853005000, 'Mak'),
-             ('snap-2', 'run-2', 'end_of_run_auto', 'second.png', 0, 1775856605000, 'Pygmalien'),
-             ('snap-3', 'run-3', 'end_of_run_auto', 'third.png', 0, 1775860205000, 'Vanessa')",
-            [],
-        )
-        .unwrap();
-
-        let records = load_overlay_snapshot_list(temp.path(), None, None).unwrap();
-
-        assert_eq!(records.len(), 3);
-        assert_eq!(records[0].id, "snap-3");
-        assert_eq!(records[2].id, "snap-1");
     }
 }

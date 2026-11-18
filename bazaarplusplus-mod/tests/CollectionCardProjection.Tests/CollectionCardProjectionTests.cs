@@ -428,43 +428,6 @@ public sealed class CollectionCardProjectionTests
     }
 
     [Fact]
-    public void Multicast_should_sort_in_the_primary_keyword_area_before_the_Related_subsection()
-    {
-        var primaryMulticastOrder = CollectionFacetAvailability.SnapshotFor(
-            new[]
-            {
-                new CollectionCardVm
-                {
-                    Id = Guid.NewGuid(),
-                    Type = CardType.Item,
-                    Size = CardSize.Medium,
-                    StartingTier = CardTier.Bronze,
-                    DisplayName = "Damage Multicast Related",
-                    HiddenTags = new[] { CardHiddenTag.Damage, CardHiddenTag.DamageReference },
-                    Mechanics = CollectionMechanic.Multicast,
-                },
-            }
-        );
-        AssertValues(
-            primaryMulticastOrder
-                .KeywordOptionsFor(CardType.Item)
-                .Select(option => option.ToString())
-                .ToArray(),
-            new[]
-            {
-                nameof(CardHiddenTag.Damage),
-                nameof(CollectionMechanic.Multicast),
-                nameof(CardHiddenTag.DamageReference),
-            },
-            "Multicast should sort in the primary keyword area before the Related subsection."
-        );
-        AssertFalse(
-            CollectionKeywordWhitelist.IsRelatedKeyword(CardHiddenTag.Multicast),
-            "The legacy Multicast hidden tag should no longer be classified as Related."
-        );
-    }
-
-    [Fact]
     public void A_root_TActionCardDestroy_projects_Destroy_and_availability_stays_per_tab()
     {
         var rootDestroyTemplate = MechanicItemTemplate(
@@ -1282,16 +1245,6 @@ public sealed class CollectionCardProjectionTests
             ),
             Array.Empty<Guid>(),
             "GuidOnly package templates remain hidden by the existing package visibility rule."
-        );
-        var packageNameWithoutTagTemplate = new TCardItem
-        {
-            Type = ECardType.Item,
-            ArtKey = "Assets/Cards/Package.png",
-            InternalName = "Vanessa Starter Package",
-        };
-        AssertFalse(
-            CollectionCardClassifier.Classify(packageNameWithoutTagTemplate).IsPackage,
-            "Package-like names no longer mark packages without HiddenTag.Package."
         );
     }
 

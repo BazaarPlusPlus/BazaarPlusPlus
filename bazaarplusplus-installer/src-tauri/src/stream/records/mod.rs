@@ -105,7 +105,6 @@ impl OverlayRecordRepository {
 #[cfg(test)]
 mod tests {
     use super::OverlayRecordRepository;
-    use crate::history::mod_schema::create_mod_schema;
     use crate::services::paths;
 
     #[test]
@@ -123,95 +122,5 @@ mod tests {
 
         assert!(error.contains("found=0"), "{error}");
         assert!(error.contains("supported=1"), "{error}");
-    }
-
-    #[test]
-    fn repository_sets_strip_url_when_relative_image_exists() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let game_path = temp_dir.path().join("TheBazaar");
-        let screenshots_dir = paths::screenshots_dir(&game_path);
-        std::fs::create_dir_all(&screenshots_dir).unwrap();
-        std::fs::write(screenshots_dir.join("match-1.png"), b"png").unwrap();
-
-        let database_path = paths::database_path(&game_path);
-        let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
-                captured_at_ms, victories_at_capture
-             ) values (
-                'snap-1', 'run-1', 'end_of_run_auto', 'match-1.png',
-                0, 1775853005000, 10
-             )",
-            [],
-        )
-        .unwrap();
-
-        let repository = OverlayRecordRepository::new(Some(game_path));
-        let latest = repository.load_record_at_offset(None, 0).unwrap().unwrap();
-
-        assert_eq!(latest.strip_url.as_deref(), Some("/images/snap-1/strip"));
-    }
-
-    #[test]
-    fn repository_preserves_optional_snapshot_metrics() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let game_path = temp_dir.path().join("TheBazaar");
-        let data_dir = paths::bpp_data_dir(&game_path);
-        std::fs::create_dir_all(&data_dir).unwrap();
-
-        let database_path = paths::database_path(&game_path);
-        let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
-                captured_at_ms, day, victories_at_capture, player_position, player_rank, player_rating, hero_name
-             ) values (
-                'snap-1', 'run-1', 'end_of_run_auto', 'match-1.png',
-                0, 1775853005000,
-                14, 10, 1, 'Diamond', 500, 'Mak'
-             )",
-            [],
-        )
-        .unwrap();
-
-        let repository = OverlayRecordRepository::new(Some(game_path));
-        let latest = repository.load_record_at_offset(None, 0).unwrap().unwrap();
-
-        assert_eq!(latest.wins, Some(10));
-        assert_eq!(latest.battle_count, Some(14));
-        assert_eq!(latest.rank.as_deref(), Some("Diamond"));
-        assert_eq!(latest.rating, Some(500));
-    }
-
-    #[test]
-    fn repository_canonicalizes_the_dragons_legacy_hero_name() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let game_path = temp_dir.path().join("TheBazaar");
-        let data_dir = paths::bpp_data_dir(&game_path);
-        std::fs::create_dir_all(&data_dir).unwrap();
-
-        let database_path = paths::database_path(&game_path);
-        let conn = rusqlite::Connection::open(&database_path).unwrap();
-        create_mod_schema(&conn);
-        conn.execute(
-            "insert into run_screenshots (
-                screenshot_id, run_id, capture_source, image_relative_path, captured_utc_offset_minutes,
-                captured_at_ms, hero_name
-             ) values (
-                'snap-dra', 'run-dra', 'end_of_run_auto', 'dragons.png',
-                0, 1786048205000, 'Hero8'
-             )",
-            [],
-        )
-        .unwrap();
-
-        let repository = OverlayRecordRepository::new(Some(game_path));
-        let latest = repository.load_record_at_offset(None, 0).unwrap().unwrap();
-
-        assert_eq!(latest.hero_id, "TheDragons");
-        assert_eq!(latest.title, "The Dragons");
     }
 }

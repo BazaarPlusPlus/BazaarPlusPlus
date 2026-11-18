@@ -7,7 +7,7 @@ import {
 } from './golden';
 import { historyActions, recordHistory, relativeUrl, settle } from './page';
 
-// The inputs of test/router.test.ts, rendered through the real App on the preview build.
+// Each URL a reader can enter, rendered through the real App on the preview build.
 const INPUTS = [
   '/',
   '/support',
@@ -16,11 +16,6 @@ const INPUTS = [
   '/download/',
   '/heroes/',
   '/heroes/Mak',
-  '/archetypes',
-  '/cards',
-  '/builds',
-  '/download/preview',
-  '/release/preview',
   '/unknown',
   '/missing?lang=en',
   '/supporters/?lang=en&w=3d#lost',

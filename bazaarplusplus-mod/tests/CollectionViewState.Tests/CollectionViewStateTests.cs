@@ -170,9 +170,9 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Available-sources cache hit / invalidation ---
+    // --- Available sources follow the effective hero ---
     [Fact]
-    public void Available_sources_cache_hits_and_invalidates()
+    public void Available_sources_follow_the_effective_hero()
     {
         grid.Reset();
         prefs.Reset();
@@ -183,18 +183,17 @@ public sealed class CollectionViewStateTests
                 Card("Item", CardTier.Bronze, heroes: new[] { CardHero.Vanessa, CardHero.Dooley }),
             }
         );
-        var first = state.Rebuild().Model.AvailableSources;
-        var second = state.Rebuild().Model.AvailableSources;
-        AssertTrue(
-            ReferenceEquals(first, second),
-            "AvailableSources must reuse the cached projection for the same (kind, hero)."
+        AssertEqual(
+            "merchant:common-all",
+            string.Join("|", state.Rebuild().Model.AvailableSources.Select(s => s.SourceKey)),
+            "The neutral hero should list only the sources available to Common."
         );
 
         state.ToggleHero(CardHero.Vanessa);
-        var afterHero = state.Rebuild().Model.AvailableSources;
-        AssertFalse(
-            ReferenceEquals(first, afterHero),
-            "Changing effective hero must invalidate the available-sources cache."
+        AssertEqual(
+            "merchant:common-all|merchant:vanessa-only",
+            string.Join("|", state.Rebuild().Model.AvailableSources.Select(s => s.SourceKey)),
+            "Changing the effective hero must change the available sources."
         );
     }
 
@@ -526,23 +525,6 @@ public sealed class CollectionViewStateTests
             "The accepted roster normalizes an unavailable hero away."
         );
         AssertEqual(0, prefs.SaveCount, "Normalizing on accept must not save the preference.");
-    }
-
-    [Fact]
-    public void Invalid_remembered_hero_opens_on_the_default_selection()
-    {
-        grid.Reset();
-        prefs.Reset();
-        prefs.Stored = "NotARealHero";
-        var opened = CreateState()
-            .Open(
-                CollectionOpenFacts.OutOfRun(cachedCatalog: null, Array.Empty<BPPSupporterSample>())
-            );
-        AssertEqual(
-            CollectionPanelSelectionState.Default,
-            opened.Selection,
-            "An invalid remembered hero opens on the default selection."
-        );
     }
 
     // --- A throwing preference store: Open still opens, on the default hero ---

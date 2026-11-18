@@ -146,7 +146,7 @@ internal sealed class EncounterPreviewGameRuntime(
             && facet != CardHero.Common;
     }
 
-    private static void AddCards(List<EncounterInventoryCard> cards, IEnumerable? source)
+    internal static void AddCards(List<EncounterInventoryCard> cards, IEnumerable? source)
     {
         if (source == null)
             return;

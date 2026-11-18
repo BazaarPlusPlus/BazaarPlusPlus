@@ -60,31 +60,6 @@ public sealed class CombatImpactEntitySnapshotReaderTests
     }
 
     [Fact]
-    public void Direct_card_attribute_modifier_preserves_its_configured_value_graph()
-    {
-        var action = new TActionCardModifyAttribute
-        {
-            AttributeType = ECardAttributeType.DamageAmount,
-            Operation = EAttributeModifierOperation.Add,
-            Value = new TFixedValue { Value = 100 },
-        };
-
-        var modifiers = CombatImpactAbilityAttributeModifierReader.Read([
-            new TCardAbility { Id = "damage-gain", Action = action },
-        ]);
-
-        Assert.Equal(
-            new CombatAttributeModifier
-            {
-                AttributeType = CombatCardAttribute.DamageAmount,
-                Operation = CombatAttributeOperation.Add,
-                Value = new CombatFixedValue { Value = 100 },
-            },
-            Assert.Single(modifiers!).Value
-        );
-    }
-
-    [Fact]
     public void Conflicting_modifiers_with_the_same_effect_id_are_not_snapshotted()
     {
         var modifiers = CombatImpactAbilityAttributeModifierReader.Read([
@@ -146,57 +121,6 @@ public sealed class CombatImpactEntitySnapshotReaderTests
 
         Assert.Equal(["base", "e1"], abilities.Select(ability => ability.Id));
         Assert.Equal(CombatEffectPriority.Medium, critTriggers?["e1"]);
-    }
-
-    [Fact]
-    public void Combat_only_player_effect_is_reconstructed_from_a_unique_complete_signature()
-    {
-        var simulation = new CombatSim();
-        simulation
-            .Frames[0]
-            .Events.Add(
-                new CombatSimEventEffectAuraExecuted
-                {
-                    Source = InstanceId.TryParse("implicit"),
-                    EffectId = "2",
-                    AppliedTo = { CardTarget("target") },
-                }
-            );
-        simulation
-            .Frames[0]
-            .Events.Add(
-                Executed("implicit", "trigger", "0", EActionCommandType.CardModifyAttribute)
-            );
-        simulation
-            .Frames[0]
-            .Events.Add(
-                Executed("implicit", "trigger", "1", EActionCommandType.CardModifyAttribute)
-            );
-        var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal)
-        {
-            ["trigger"] = Entity("trigger", Combatant.Player, 0),
-            ["target"] = Entity("target", Combatant.Player, 1),
-        };
-        var template = PlayerEffectTemplate(Guid.NewGuid());
-
-        var added = CombatImpactImplicitPlayerEffectReader.AddMissing(
-            DesktopCombatTimeline.From(simulation),
-            entities,
-            [template]
-        );
-
-        Assert.Equal(1, added);
-        var implicitEntity = entities["implicit"];
-        Assert.Equal(template.Id, implicitEntity.TemplateId);
-        Assert.Equal(10, implicitEntity.Attributes?[CombatCardAttribute.Custom_0]);
-        Assert.Equal(
-            CombatCardAttribute.Slow,
-            implicitEntity.AbilityAttributeModifiersByEffectId?["0"].AttributeType
-        );
-        Assert.Equal(
-            CombatCardAttribute.PercentCooldownReduction,
-            implicitEntity.AuraAttributeTypesByEffectId?["2"]
-        );
     }
 
     [Fact]

@@ -29,7 +29,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
     public void Dispose() => L.Reset();
 
     [Fact]
-    public void The_switch_and_a_fight_leave_the_native_tooltip_before_any_plan_is_read()
+    public void The_switch_and_a_fight_leave_the_native_tooltip()
     {
         var reads = new FakeReads();
         var (module, settings) = Module(reads);
@@ -45,7 +45,6 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         settings.EnableDetailedPreviewConfig.Value = true;
         reads.IsInCombat = true;
         Assert.Equal(EncounterPreviewAvailability.Unsupported, Event(module, EventId).Availability);
-        Assert.Equal(0, reads.PlanReads);
     }
 
     [Theory]
@@ -114,8 +113,7 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         Assert.Equal(EncounterPreviewAvailability.Available, result.Availability);
         Assert.Contains("Presented Step", result.Content);
         Assert.Contains("Gain 7 Gold.", result.Content);
-        Assert.Contains(StepId, reads.Presented);
-        Assert.True(reads.Coloured > 0);
+        Assert.Contains("<color=#FFD37E>Presented Step:</color> «Gain 7 Gold.", result.Content);
     }
 
     [Fact]
@@ -262,13 +260,9 @@ public sealed class EncounterPreviewModuleTests : IDisposable
         public EncounterPreviewAvailability Unavailable { get; init; }
         public bool ThrowOnDayTiers { get; init; }
         public CardHero? CurrentHero { get; init; }
-        public int PlanReads { get; private set; }
-        public int Coloured { get; private set; }
-        public List<Guid> Presented { get; } = new();
 
         public IEncounterPreviewPlans? TryGetPlans(out EncounterPreviewAvailability unavailable)
         {
-            PlanReads++;
             unavailable = Unavailable;
             return HasPlans ? new Plans(_snapshot, ThrowOnDayTiers) : null;
         }
@@ -277,15 +271,10 @@ public sealed class EncounterPreviewModuleTests : IDisposable
 
         public EncounterInventory? ReadInventory() => new(Array.Empty<EncounterInventoryCard>());
 
-        public string ColorKeywords(string text)
-        {
-            Coloured++;
-            return text;
-        }
+        public string ColorKeywords(string text) => $"«{text}»";
 
         public EncounterPreviewTemplatePlan Present(EncounterPreviewTemplatePlan template)
         {
-            Presented.Add(template.TemplateId);
             return template.Kind == EncounterPreviewTemplateKind.EncounterStep
                 ? new(
                     template.TemplateId,

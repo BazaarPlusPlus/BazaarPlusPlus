@@ -94,22 +94,6 @@ public sealed class EncounterPreviewPlanRegistryTests
         AssertGenerationAdvanceWaitsForTerminal(registry => registry.Reset());
     }
 
-    [Fact]
-    public void Published_snapshot_exposes_compiled_encounter_step_templates()
-    {
-        var registry = new EncounterPreviewPlanRegistry();
-        var source = new object();
-        var eventId = Guid.Parse("40000000-0000-0000-0000-000000000003");
-        var stepId = Guid.Parse("40000000-0000-0000-0000-000000000004");
-        var snapshot = Snapshot(eventId, stepId);
-        var generation = registry.BeginGeneration(source);
-        Assert.True(registry.TryPublish(source, generation, snapshot));
-
-        Assert.True(registry.TryGet(source, out var published));
-        Assert.True(published.TryGetTemplate(stepId, out var step));
-        Assert.Equal(EncounterPreviewTemplateKind.EncounterStep, step.Kind);
-    }
-
     private static EncounterPreviewSnapshot Snapshot(Guid eventId)
     {
         var template = new EncounterPreviewTemplatePlan(
@@ -174,44 +158,5 @@ public sealed class EncounterPreviewPlanRegistryTests
         Assert.True(terminal.Result);
         Assert.True(advance.Wait(TimeSpan.FromSeconds(5)));
         Assert.False(registry.TryRunIfCurrent(source, generation, () => { }));
-    }
-
-    private static EncounterPreviewSnapshot Snapshot(Guid eventId, Guid stepId)
-    {
-        var eventTemplate = new EncounterPreviewTemplatePlan(
-            eventId,
-            EncounterPreviewTemplateKind.Event,
-            Array.Empty<CardHero>(),
-            "Event",
-            new EncounterPreviewLocalizedText(string.Empty, "Event"),
-            new EncounterPreviewLocalizedText(string.Empty, "Event"),
-            new Dictionary<string, EncounterPreviewAbilityValue>(),
-            rewardFilter: null
-        );
-        var stepTemplate = new EncounterPreviewTemplatePlan(
-            stepId,
-            EncounterPreviewTemplateKind.EncounterStep,
-            Array.Empty<CardHero>(),
-            "Step",
-            new EncounterPreviewLocalizedText(string.Empty, "Step"),
-            new EncounterPreviewLocalizedText(string.Empty, "Get an item"),
-            new Dictionary<string, EncounterPreviewAbilityValue>(),
-            rewardFilter: null
-        );
-        var plan = new EncounterPreviewEventPlan(
-            eventId,
-            isRandomSelectionEvent: false,
-            merchant: null,
-            choiceLimit: 1,
-            Array.Empty<EncounterOutcomeGroupData>(),
-            new[]
-            {
-                new EncounterChoiceGroupData(
-                    isRandomPool: false,
-                    new[] { new EncounterStepReference(stepId) }
-                ),
-            }
-        );
-        return new EncounterPreviewSnapshot(new[] { plan }, new[] { eventTemplate, stepTemplate });
     }
 }

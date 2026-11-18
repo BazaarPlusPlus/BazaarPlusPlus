@@ -77,10 +77,6 @@ def test_invalid_overrides_are_rejected(tmp_path: Path, extra: str, message: str
     (
         "BPP_API_BASE_URL",
         "BPP_SOURCE_EPOCH",
-        "BPP_BUNDLE_RETENTION_DAYS",
-        "BPP_FACT_RETENTION_DAYS",
-        "BPP_DOWNLOAD_CONCURRENCY",
-        "BPP_DOWNLOAD_LOOKAHEAD",
         "BPP_METRICS_R2_BUCKET",
         "BPP_METRICS_R2_PREFIX",
     ),

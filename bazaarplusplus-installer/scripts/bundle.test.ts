@@ -233,9 +233,11 @@ test('release prechecks require the product build lock before verification', () 
     }
     run_release_prechecks windows
   `);
-  expect(output).not.toContain('release/cli.ts check');
   expect(output).toContain('release/cli.ts assert-build-owner');
   expect(output).toContain('bun run verify --release-platform windows');
+  expect(output.indexOf('assert-build-owner')).toBeLessThan(
+    output.indexOf('bun run verify --release-platform windows')
+  );
 });
 
 test('updater signing env requires the key and defaults the password to empty', () => {

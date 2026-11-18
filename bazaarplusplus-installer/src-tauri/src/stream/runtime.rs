@@ -312,15 +312,6 @@ impl StreamRuntime {
             .status
             .last_error = None;
     }
-
-    #[cfg(test)]
-    fn has_task(&self) -> bool {
-        self.inner
-            .lock()
-            .expect("stream runtime poisoned")
-            .task
-            .is_some()
-    }
 }
 
 fn production_server(app: &tauri::AppHandle) -> ProductionServer {
@@ -533,7 +524,6 @@ mod tests {
         let stopped = runtime.stop().await.unwrap();
         assert!(!stopped.running);
         assert_eq!(server.stops.load(Ordering::SeqCst), 2);
-        assert!(!runtime.has_task());
     }
 
     #[tokio::test]
@@ -552,7 +542,6 @@ mod tests {
             runtime.snapshot().last_error.as_deref(),
             Some("bind failed")
         );
-        assert!(!runtime.has_task());
     }
 
     #[tokio::test]
@@ -613,6 +602,6 @@ mod tests {
         release.notify_one();
         maintenance.await.unwrap().unwrap();
         assert!(!runtime.snapshot().running);
-        assert!(!runtime.has_task());
+        assert_eq!(server.stops.load(Ordering::SeqCst), 1);
     }
 }

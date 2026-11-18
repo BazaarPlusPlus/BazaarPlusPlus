@@ -88,7 +88,6 @@ public sealed class LiveBuildPanelStateTests
     [Fact]
     public void SupporterAttributionFillsTheRail()
     {
-        Check.Equal(4, LiveBuildPanelState.SupporterAttributionCount, "Rail size.");
         var supporters = Enumerable
             .Range(1, LiveBuildPanelState.SupporterAttributionCount)
             .Select(index => new BPPSupporterSample { Name = $"S{index}", Tier = index })

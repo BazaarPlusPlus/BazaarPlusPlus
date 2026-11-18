@@ -160,7 +160,6 @@ test.each([
   ['prepare', '--platform', 'android', '--', managed],
   ['build', '--platform', 'android', '--', '-p:InteropPath=a;Version=1'],
   ['prepare', '--platform', 'macos', '--', '-p:InteropPath=/interop/'],
-  ['build', '--platform', 'android', '--rebuild-apk'],
   ['upload', '--platform', 'android', '--', '-p:InteropPath=/interop/'],
   ['promote', '--platform'],
   ['promote', '--allow-unverified-mirror'],
@@ -184,21 +183,18 @@ test.each([
 );
 
 test('android prepare and build take the Interop Snapshot overrides', () => {
-  const interop = '-p:InteropPath=/game-libs/android-publisher-13113/interop/';
   const loader = '-p:LemonLoaderPath=/game-libs/loader-v0.7.4-android.4/';
-  expect(
-    parseReleaseArgs(['prepare', '--platform', 'android', '--', interop])
-  ).toMatchObject({
+  expect(parseReleaseArgs(['prepare', '--platform', 'android'])).toMatchObject({
     command: 'prepare',
     platform: 'android',
-    msbuildArgs: [interop]
+    msbuildArgs: []
   });
   expect(
-    parseReleaseArgs(['build', '--platform', 'android', '--', interop, loader])
+    parseReleaseArgs(['build', '--platform', 'android', '--', loader])
   ).toMatchObject({
     command: 'build',
     platform: 'android',
-    msbuildArgs: [interop, loader]
+    msbuildArgs: [loader]
   });
   expect(parseReleaseArgs(['upload', '--platform', 'android'])).toMatchObject({
     command: 'upload',
@@ -765,12 +761,15 @@ test('check warns on empty and stale Snapshot Lock entries and still passes', as
   const lines = options.log.mock.calls.map(([line]) => line);
   const warnings = lines.filter((line) => line.startsWith('WARNING: '));
   expect(warnings).toHaveLength(7);
+  expect(
+    warnings.filter((line) => line.includes('no snapshot captured'))
+  ).toHaveLength(4);
   expect(warnings).toContainEqual(
     expect.stringMatching(/^WARNING: macos-online: no snapshot captured/)
   );
   expect(warnings).toContainEqual(
     expect.stringMatching(
-      /^WARNING: android-play: no Interop Snapshot captured; run 'just mod::snapshot-android <APK>\.\.\.'/
+      /^WARNING: android-play: no Interop Snapshot captured; run 'just mod::snapshot-android <APK>\.\.\.', then 'just mod::publish android play'/
     )
   );
   expect(warnings).toContainEqual(

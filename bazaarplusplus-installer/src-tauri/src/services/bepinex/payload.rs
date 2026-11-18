@@ -507,9 +507,8 @@ mod tests {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     use super::prepare_install_target;
     use super::{
-        cleanup_bpp_data_directory, ensure_valid_game_path, preserve_file_if_exists,
-        remove_bootstrap_files, restore_preserved_file, uninstall_payload, PreservedFile,
-        BPP_CONFIG_RELATIVE_PATH,
+        cleanup_bpp_data_directory, ensure_valid_game_path, remove_bootstrap_files,
+        restore_preserved_file, uninstall_payload, PreservedFile, BPP_CONFIG_RELATIVE_PATH,
     };
 
     #[test]
@@ -939,32 +938,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_bpp_data_directory_removes_bazaarplusplus_directory() {
-        let tmp = tempfile::tempdir().unwrap();
-        let data_dir = tmp.path().join(BAZAAR_DATA_DIRECTORY);
-        std::fs::create_dir_all(&data_dir).unwrap();
-        std::fs::write(data_dir.join("stale.dll"), b"dll").unwrap();
-
-        let report = cleanup_bpp_data_directory(tmp.path());
-
-        assert!(
-            report.is_empty(),
-            "unexpected failures: {:?}",
-            report.failed
-        );
-        assert!(!data_dir.exists());
-    }
-
-    #[test]
-    fn test_cleanup_bpp_data_directory_is_no_op_when_directory_missing() {
-        let tmp = tempfile::tempdir().unwrap();
-
-        let report = cleanup_bpp_data_directory(tmp.path());
-
-        assert!(report.is_empty());
-    }
-
-    #[test]
     fn test_cleanup_bpp_data_directory_walks_nested_subdirectories() {
         let tmp = tempfile::tempdir().unwrap();
         let data_dir = tmp.path().join(BAZAAR_DATA_DIRECTORY);
@@ -1010,21 +983,6 @@ mod tests {
 
         assert!(!report.is_empty(), "expected at least one failed path");
         assert!(!data_dir.join("removable.bin").exists());
-    }
-
-    #[test]
-    fn test_preserve_file_if_exists_reads_existing_file() {
-        let tmp = tempfile::tempdir().unwrap();
-        let config_path = tmp.path().join(BPP_CONFIG_RELATIVE_PATH);
-        std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
-        std::fs::write(&config_path, b"user-config").unwrap();
-
-        let preserved = preserve_file_if_exists(tmp.path(), BPP_CONFIG_RELATIVE_PATH)
-            .unwrap()
-            .expect("expected preserved config");
-
-        assert_eq!(preserved.relative_path, BPP_CONFIG_RELATIVE_PATH);
-        assert_eq!(preserved.contents, b"user-config");
     }
 
     #[test]

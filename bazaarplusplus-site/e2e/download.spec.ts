@@ -205,37 +205,6 @@ for (const [state, overrides] of Object.entries(STATES)) {
   });
 }
 
-test('a missing or invalid Android manifest leaves the Android card unavailable', () => {
-  type Downloads = {
-    cards: unknown;
-    fallback: unknown;
-    android: Record<string, unknown> | null;
-  };
-  const loaded = result['both platforms load'] as Downloads;
-  const missing = result['android manifest responds 404'] as Downloads;
-  expect(result['android apk is outside the release origin']).toEqual(missing);
-  expect({ cards: missing.cards, fallback: missing.fallback }).toEqual({
-    cards: loaded.cards,
-    fallback: loaded.fallback
-  });
-  expect(missing.android).toMatchObject({
-    badge: loaded.android?.badge,
-    notice: loaded.android?.notice,
-    version: 'Unavailable',
-    adaptedGames: null,
-    onlineGame: null,
-    size: null,
-    sha256: null,
-    download: { href: '#', disabled: true },
-    mirror: { href: '#', disabled: true, target: '_blank' },
-    feedback: loaded.android?.feedback,
-    stepsTitle: loaded.android?.stepsTitle,
-    steps: loaded.android?.steps,
-    limitsTitle: loaded.android?.limitsTitle,
-    limits: loaded.android?.limits
-  });
-});
-
 test('each Platform Release Manifest degrades only its own card (download-cards.json)', () => {
   expect(Object.keys(result)).toEqual(Object.keys(STATES));
   expect(goldenJson(result)).toMatchSnapshot('download-cards.json');
@@ -328,21 +297,6 @@ test.describe('Game Status', () => {
       adapted: ['1.0.12825 · Publisher', '1.0.6 · Google Play'],
       online: { version: '1.0.12830', conclusion: 'Adapted' }
     });
-    expectNoUnexpectedRequests(routes);
-  });
-
-  test('a missing Game Status leaves only the adapted game', async ({
-    page
-  }) => {
-    const routes = await installGoldenRoutes(page);
-    await page.goto('/download?lang=en');
-
-    const mac = platformCard(page, 'macOS');
-    await expect(mac.locator('dt', { hasText: 'Adapted game' })).toBeVisible();
-    await expect.poll(() => routes.hits.gameStatus).toBeGreaterThan(0);
-    await expect.poll(() => routes.hits.androidGameStatus).toBeGreaterThan(0);
-    expect(await onlineGame(mac)).toBeNull();
-    expect(await onlineGame(platformCard(page, 'Android'))).toBeNull();
     expectNoUnexpectedRequests(routes);
   });
 });

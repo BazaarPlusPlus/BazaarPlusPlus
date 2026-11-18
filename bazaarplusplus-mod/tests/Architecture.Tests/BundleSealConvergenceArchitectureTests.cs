@@ -1,5 +1,4 @@
 #nullable enable
-using BazaarPlusPlus.TestSupport;
 using Xunit;
 using static Architecture.Tests.ArchitectureRules;
 
@@ -31,23 +30,5 @@ public sealed class BundleSealConvergenceArchitectureTests
                     );
                 }
             );
-
-        var project = TestInputs.MsBuild(
-            "tests/BundleSealConvergence.Tests/BundleSealConvergence.Tests.csproj"
-        );
-        Assert.DoesNotContain(
-            project.Descendants(),
-            element =>
-                element.Name.LocalName == "ManagedPath"
-                || (
-                    !element.HasElements
-                    && element.Value.Contains("$(ManagedPath)", StringComparison.Ordinal)
-                )
-                || element
-                    .Attributes()
-                    .Any(attribute =>
-                        attribute.Value.Contains("$(ManagedPath)", StringComparison.Ordinal)
-                    )
-        );
     }
 }

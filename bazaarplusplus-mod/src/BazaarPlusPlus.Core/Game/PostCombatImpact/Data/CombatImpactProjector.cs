@@ -2740,7 +2740,7 @@ public static class CombatImpactProjector
     internal static bool HasExplicitDisplayClassification(CombatActionType action) =>
         TryResolveKind(action, out _) || IsExplicitlyIgnoredAction(action);
 
-    internal static bool TryResolveKind(CombatActionType action, out CombatImpactKind kind)
+    private static bool TryResolveKind(CombatActionType action, out CombatImpactKind kind)
     {
         CombatImpactKind? resolved = action switch
         {

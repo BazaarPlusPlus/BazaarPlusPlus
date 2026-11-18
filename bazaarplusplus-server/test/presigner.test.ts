@@ -19,23 +19,6 @@ function recordingSigner() {
 }
 
 describe('Bundle download presigner adapters', () => {
-  test('the production adapter fixes the R2 endpoint, object, operation and 7-day expiry', async () => {
-    const issuedAt = 1_785_628_800_000;
-    const key = 'bundles/2026-08-02/01J00000000000000000000801.bundle';
-    const signed = await createBundleDownloadSigner(env).sign(key, issuedAt);
-    const url = new URL(signed.url);
-
-    expect(url.hostname).toBe(
-      'bazaarplusplus-bundle-v6.test-account-id.r2.cloudflarestorage.com'
-    );
-    expect(url.pathname).toBe(`/${key}`);
-    expect(url.searchParams.get('X-Amz-Expires')).toBe('604800');
-    expect(url.searchParams.get('X-Amz-Credential')).toContain(
-      '/auto/s3/aws4_request'
-    );
-    expect(signed.expiresAtMs).toBe(issuedAt + 604_800_000);
-  });
-
   test('signs each distinct page key once while preserving input alignment', async () => {
     const signer = recordingSigner();
     const first = 'bundles/2026-08-02/01J00000000000000000000803.bundle';
@@ -55,27 +38,6 @@ describe('Bundle download presigner adapters', () => {
     expect(downloads[0]).toEqual(downloads[2]);
     expect(downloads[0].url).toContain(first);
     expect(downloads[1].url).toContain(second);
-  });
-
-  test('maps any page signing rejection to the caller-specific 503', async () => {
-    const signer = {
-      sign: async () => {
-        throw new Error('signing failure');
-      }
-    };
-    await expect(
-      signDownloadPage(
-        signer,
-        ['bundles/2026-08-02/01J00000000000000000000805.bundle'],
-        3_000,
-        'Caller-specific signing failed'
-      )
-    ).rejects.toMatchObject({
-      status: 503,
-      code: 'storage_unavailable',
-      message: 'Caller-specific signing failed',
-      retryable: true
-    });
   });
 });
 

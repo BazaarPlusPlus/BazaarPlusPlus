@@ -141,7 +141,6 @@ export function ConfirmDialog({
           <Button
             variant={tone === 'danger' ? 'danger' : 'primary'}
             data-confirm-submit
-            data-tone={tone}
             disabled={
               (acknowledge ? !acknowledge.checked : false) ||
               Boolean(confirmDisabled)

@@ -22,6 +22,13 @@ test('resolveBundleCleanupPath returns the macOS bundle root', () => {
   );
 });
 
+test('resolveBundleCleanupPath returns the Windows NSIS root for win32', () => {
+  const rootDir = '/tmp/bpp';
+  expect(resolveBundleCleanupPath(rootDir, 'win32')).toBe(
+    path.join(rootDir, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
+  );
+});
+
 test('cleanupBundleArtifacts removes stale macOS bundle outputs', () => {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-cleanup-'));
   const bundleDir = path.join(

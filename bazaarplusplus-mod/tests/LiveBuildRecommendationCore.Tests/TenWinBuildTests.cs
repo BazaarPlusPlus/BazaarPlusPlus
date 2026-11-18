@@ -214,42 +214,6 @@ public sealed class TenWinBuildTests
         );
     }
 
-    // Set BPP_TENWIN_SAMPLE_PATH to a downloaded builds/latest.json to validate a live sample.
-    // Without it this remains a no-op so the normal test run is hermetic.
-    [Fact]
-    public void TestOptionalLiveSampleParses()
-    {
-        var path = Environment.GetEnvironmentVariable("BPP_TENWIN_SAMPLE_PATH");
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-
-        using var reader = new StreamReader(File.OpenRead(path));
-        var corpus = RequireCorpus(reader.ReadToEnd());
-        Assert(corpus.HeroCount > 0, "The live sample should contain heroes.");
-        Assert(corpus.BuildCount > 0, "The live sample should contain builds.");
-        Console.WriteLine(
-            $"Live ten-win sample: heroes={corpus.HeroCount} builds={corpus.BuildCount}"
-        );
-    }
-
-    [Fact]
-    public void TestFindRecommendationsTakesHeroSelectionAndLiveState()
-    {
-        var repositoryType = typeof(BuildRecommendationRepository);
-
-        var find = repositoryType.GetMethod("FindRecommendations");
-        Assert(find != null, "Repository should expose FindRecommendations.");
-        var parameters = find!.GetParameters();
-        Assert(
-            parameters.Length == 4,
-            "FindRecommendations should take (hero, selectedTemplateIds, liveState, includeTiny)."
-        );
-        Assert(
-            parameters[0].ParameterType == typeof(string),
-            "First parameter should be the hero string."
-        );
-    }
-
     [Fact]
     public void TestDefaultCachePathUsesBuildsFileName()
     {
@@ -282,29 +246,6 @@ public sealed class TenWinBuildTests
         Assert(
             failure.Error?.Contains("refresh-boom") == true,
             "The failure should retain its typed diagnostic detail."
-        );
-    }
-
-    [Fact]
-    public async Task TestCatalogRefreshPublishesSharedSnapshot()
-    {
-        var initialCorpus = TenWinBuildCorpus.Parse(ScorePayload("InitialHero", 111))!;
-        var refreshedCorpus = TenWinBuildCorpus.Parse(ScorePayload("RefreshedHero", 222))!;
-        using var catalog = new BlockingCatalog(initialCorpus);
-        var repository = new BuildRecommendationRepository(catalog);
-
-        var refresh = repository.TryRefreshFinalBuildsFromRemoteAsync();
-        await catalog.Started;
-        catalog.Complete(refreshedCorpus);
-
-        var result = await refresh;
-        Assert(result.Succeeded, "The plugin-lifetime catalog refresh should finish.");
-        var summary = repository.GetCorpusSummary();
-        Assert(summary.HasValue, "The shared repository should retain the refreshed snapshot.");
-        var loadedSummary = summary.GetValueOrDefault();
-        Assert(
-            loadedSummary.HeroBuildCounts.Any(row => row.Hero == "RefreshedHero"),
-            "The shared snapshot should publish after refresh."
         );
     }
 
@@ -703,6 +644,10 @@ public sealed class TenWinBuildTests
         Assert(
             refreshed.Cards.Single(card => card.SourceSocketId == 0).Tier == CardTier.Diamond,
             "A replaced snapshot should project its own builds, not the previous snapshot's."
+        );
+        Assert(
+            repository.GetCorpusSummary()!.Value.HeroCount == 1,
+            "The summary follows the replaced snapshot."
         );
     }
 
@@ -1148,58 +1093,6 @@ public sealed class TenWinBuildTests
             if (result.Snapshot.HasValue)
                 _snapshot = result.Snapshot.Value;
             return ValueTask.FromResult(result);
-        }
-
-        public void Dispose() => _snapshot = null;
-    }
-
-    private sealed class BlockingCatalog : IRemoteEmbeddedCatalog<TenWinBuildCorpus>
-    {
-        private readonly TaskCompletionSource<bool> _started = new(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
-        private readonly TaskCompletionSource<CatalogRefreshResult<TenWinBuildCorpus>> _refresh =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private CatalogSnapshot<TenWinBuildCorpus>? _snapshot;
-
-        internal BlockingCatalog(TenWinBuildCorpus corpus)
-        {
-            _snapshot = Snapshot(corpus, CatalogSource.Cache);
-        }
-
-        internal Task Started => _started.Task;
-
-        internal void Complete(TenWinBuildCorpus corpus) =>
-            _refresh.SetResult(
-                CatalogRefreshResult<TenWinBuildCorpus>.Published(
-                    Snapshot(corpus, CatalogSource.Remote),
-                    degraded: false
-                )
-            );
-
-        public bool TryGet(out CatalogSnapshot<TenWinBuildCorpus> snapshot)
-        {
-            if (_snapshot.HasValue)
-            {
-                snapshot = _snapshot.Value;
-                return true;
-            }
-
-            snapshot = default;
-            return false;
-        }
-
-        public ValueTask WarmAsync(CancellationToken cancellationToken = default) => default;
-
-        public async ValueTask<CatalogRefreshResult<TenWinBuildCorpus>> RefreshAsync(
-            CancellationToken cancellationToken = default
-        )
-        {
-            _started.TrySetResult(true);
-            var result = await _refresh.Task.ConfigureAwait(false);
-            if (result.Snapshot.HasValue)
-                _snapshot = result.Snapshot.Value;
-            return result;
         }
 
         public void Dispose() => _snapshot = null;

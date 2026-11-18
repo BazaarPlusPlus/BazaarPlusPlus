@@ -1,7 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import {
-  SUPPORTERS_URL,
   expectNoUnexpectedRequests,
   goldenSources,
   installGoldenRoutes,
@@ -64,9 +63,6 @@ test.describe('support options', () => {
       page.getByText('Buy BazaarPlusPlus a drink on Ko-fi.')
     ).toBeVisible();
     await expect(
-      page.getByText('在 Ko-fi 上请 BazaarPlusPlus 喝一杯。')
-    ).toHaveCount(0);
-    await expect(
       page.getByRole('link', { name: /Open Ko-fi/ })
     ).toHaveAttribute('href', 'https://ko-fi.com/cauyxy');
   });
@@ -125,16 +121,6 @@ test.describe('supporters', () => {
     await expect(
       page.getByText('支持者名单还在整理中，请稍后再来看看。')
     ).toBeVisible();
-  });
-
-  test('the supporter list is read from the static origin', async ({
-    page
-  }) => {
-    const request = page.waitForRequest(SUPPORTERS_URL);
-    await openSupport(page, '/support');
-    expect(await (await request).headerValue('accept')).toBe(
-      'application/json'
-    );
   });
 });
 

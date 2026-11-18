@@ -4,12 +4,13 @@ using Xunit;
 public sealed class NativeMonsterBoardLayoutTests
 {
     [Theory]
-    [InlineData(1600, 170)]
-    [InlineData(900, 120)]
-    [InlineData(700, 300)]
+    [InlineData(1600, 170, 0.261818)]
+    [InlineData(900, 120, 0.170909)]
+    [InlineData(700, 300, 0.269231)]
     public void Item_only_boards_preserve_native_aspect_and_reserve_badge_space(
         float width,
-        float height
+        float height,
+        double expectedScale
     )
     {
         var layout = NativeMonsterBoardLayout.Calculate(
@@ -25,7 +26,7 @@ public sealed class NativeMonsterBoardLayoutTests
         );
         Assert.True(2600 * layout.BoardScale <= width + .001f);
         Assert.True(550 * layout.BoardScale + 26 <= height + .001f);
-        Assert.Equal(Math.Min(width / 2600, (height - 26) / 550), layout.BoardScale);
+        Assert.Equal(expectedScale, layout.BoardScale, precision: 5);
     }
 
     [Fact]

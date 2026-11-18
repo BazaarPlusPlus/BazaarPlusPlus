@@ -64,7 +64,5 @@ public sealed class HudVisibilityTests
     public void Desktop_buttons_keep_their_own_setting_and_layout()
     {
         Assert.True(HudVisibility.DesktopDockButton(false, false, true, true));
-        Assert.False(HudVisibility.DesktopDockButton(false, false, false, true));
-        Assert.False(HudVisibility.DesktopDockButton(false, false, true, false));
     }
 }

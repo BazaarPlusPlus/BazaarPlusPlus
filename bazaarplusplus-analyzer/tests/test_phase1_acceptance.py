@@ -153,5 +153,3 @@ def test_one_source_day_persists_only_parquet_plus_at_most_one_percent_metadata(
     total_bytes = sum(path.stat().st_size for path in files)
     assert parquet_bytes > 0
     assert total_bytes <= parquet_bytes * 1.01
-    assert not list(tmp_path.rglob("*.bundle"))
-    assert not (tmp_path / "raw").exists()

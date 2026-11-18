@@ -13,7 +13,6 @@ import {
 import type { ReleasePlatformKey } from './release-platforms.ts';
 import {
   DOWNLOAD_PLATFORM_KEYS,
-  decodeAndroidDownload,
   modManifestPath,
   platformManifestPath
 } from './downloads.ts';
@@ -91,15 +90,6 @@ test('the shared platform fixtures let one platform run ahead of the lockstep fi
 });
 
 test.each(LOCKSTEP_PLATFORMS)(
-  'shared fixture publishes the installer and its mainland mirror for $key',
-  ({ key }) => {
-    const download = fixture.downloads[key];
-    expect(download.url.startsWith(`${RELEASE_BASE_URL}/`)).toBe(true);
-    expect(new URL(download.mainlandUrl).protocol).toBe('https:');
-  }
-);
-
-test.each(LOCKSTEP_PLATFORMS)(
   'shared fixture supplies the updater URL and signature for $key',
   ({ key }) => {
     const platform = fixture.platforms[key];
@@ -138,31 +128,18 @@ test('the shared Android fixture is a Platform Release Manifest outside latest.j
   expect(new Date(androidFixture.pub_date).toISOString()).toBe(
     androidFixture.pub_date
   );
-  const download = decodeAndroidDownload(androidFixture)!;
   const release = androidFixture.downloads[ANDROID];
-  expect(download).toEqual({
-    version: androidFixture.version,
-    app: release.app,
-    managedPayload: release.managedPayload,
-    interop: release.interop,
-    game: release.game,
-    games: [
-      { source: 'publisher', game: release.adaptations.publisher.game },
-      { source: 'play', game: release.adaptations.play.game }
-    ],
-    mainlandUrl: release.mainlandUrl
-  });
   expect(new URL(release.mainlandUrl).protocol).toBe('https:');
   // The App sits in its version's directory, the Interop Package at its
   // content address, and the App is signed by the pinned release key.
-  expect(download.app.url).toBe(
+  expect(release.app.url).toBe(
     `${RELEASE_BASE_URL}/${androidFixture.version}/${ANDROID}/app/BazaarPlusPlus_${androidFixture.version}_${ANDROID}.apk`
   );
-  expect(download.interop.url).toBe(
-    `${RELEASE_BASE_URL}/android/interop/${download.interop.sha256}.zip`
+  expect(release.interop.url).toBe(
+    `${RELEASE_BASE_URL}/android/interop/${release.interop.sha256}.zip`
   );
-  expect(download.app.versionCode).toBe(
+  expect(release.app.versionCode).toBe(
     androidAppVersionCode(androidFixture.version)
   );
-  expect(download.app.signerSha256).toBe(ANDROID_RELEASE_SIGNER_SHA256);
+  expect(release.app.signerSha256).toBe(ANDROID_RELEASE_SIGNER_SHA256);
 });

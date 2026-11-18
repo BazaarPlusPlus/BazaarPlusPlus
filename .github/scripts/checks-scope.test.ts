@@ -392,36 +392,65 @@ test('Installer build inputs request Windows while ordinary source uses macOS', 
 });
 
 test('manual scopes select exactly the requested native platforms and their source gates', () => {
-  for (const scope of ['full', 'installer', 'mod']) {
-    for (const platform of ['all', 'macos', 'windows', 'android']) {
-      const expected =
-        scope === 'full'
-          ? [...SCOPES]
-          : scope === 'installer'
-            ? [...nativeInstaller, 'macos-icon']
-            : ['mod-macos', 'mod-windows', 'mod-android'];
-      const native = (lane: string) =>
-        lane === 'macos-icon'
-          ? 'macos'
-          : lane === 'android'
-            ? 'android'
-            : ['macos', 'windows', 'android'].find((name) =>
-                lane.endsWith(`-${name}`)
-              );
-      const filtered = expected.filter(
-        (lane) =>
-          platform === 'all' || !native(lane) || native(lane) === platform
-      );
-      assert.deepEqual(
-        selected(
-          planRun({
-            eventName: 'workflow_dispatch',
-            event: { inputs: { scope, platform } }
-          })
-        ),
-        filtered.sort()
-      );
-    }
+  const expected: Record<string, string[]> = {
+    'full/all': [...SCOPES].sort(),
+    'full/macos': [
+      'analyzer',
+      'bot',
+      'installer-frontend',
+      'installer-macos',
+      'macos-icon',
+      'mod-macos',
+      'release',
+      'server',
+      'site'
+    ],
+    'full/windows': [
+      'analyzer',
+      'bot',
+      'installer-frontend',
+      'installer-windows',
+      'mod-windows',
+      'release',
+      'server',
+      'site'
+    ],
+    'full/android': [
+      'analyzer',
+      'android',
+      'bot',
+      'installer-frontend',
+      'mod-android',
+      'release',
+      'server',
+      'site'
+    ],
+    'installer/all': [
+      'installer-frontend',
+      'installer-macos',
+      'installer-windows',
+      'macos-icon'
+    ],
+    'installer/macos': ['installer-frontend', 'installer-macos', 'macos-icon'],
+    'installer/windows': ['installer-frontend', 'installer-windows'],
+    'installer/android': ['installer-frontend'],
+    'mod/all': ['mod-android', 'mod-macos', 'mod-windows'],
+    'mod/macos': ['mod-macos'],
+    'mod/windows': ['mod-windows'],
+    'mod/android': ['mod-android']
+  };
+  for (const [selection, lanes] of Object.entries(expected)) {
+    const [scope, platform] = selection.split('/');
+    assert.deepEqual(
+      selected(
+        planRun({
+          eventName: 'workflow_dispatch',
+          event: { inputs: { scope, platform } }
+        })
+      ),
+      lanes,
+      selection
+    );
   }
   assert.deepEqual(selected(manualScope()), [...SCOPES].sort());
   for (const inputs of [

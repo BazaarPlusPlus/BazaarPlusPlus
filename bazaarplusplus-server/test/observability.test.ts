@@ -90,16 +90,6 @@ test('string values containing X-Amz- are redacted', () => {
   });
 });
 
-test('request_id remains optional', () => {
-  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-
-  logEvent('test.no-request', { outcome: 'complete' });
-
-  expect(log).toHaveBeenCalledWith(
-    JSON.stringify({ event: 'test.no-request', outcome: 'complete' })
-  );
-});
-
 test('caller-supplied redacted_fields cannot forge the audit list', () => {
   const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 

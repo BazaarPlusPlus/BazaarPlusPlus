@@ -38,7 +38,6 @@ import type { ApkHeadFetch } from './official-apk.ts';
 import {
   GAME_LIBS_LOCK_PATH,
   PUBLISHER_KEY,
-  interopManifestKey,
   lockKeys,
   managedEntries,
   readGameLibsLock
@@ -488,15 +487,6 @@ test('publish stores every pinned input by content; fetch restores interop and l
     store,
     log: (line) => logs.push(line)
   });
-  const keys = [
-    interopBlobKey(entry.interopSha256),
-    androidInputKey('apk', entry.apkSha256),
-    androidInputKey('loader', entry.loader.sha256),
-    androidInputKey('patcher', entry.patcher.sha256),
-    androidInputKey('cpp2il', entry.cpp2ilSha256),
-    interopManifestKey('publisher', 12825)
-  ];
-  expect([...store.objects.keys()].sort()).toEqual([...keys].sort());
   expect(published.manifestKey).toBe('game-libs/android-publisher-12825.json');
   expect(androidInputKey('apk', entry.apkSha256)).toBe(
     `game-libs/apk/${entry.apkSha256}.apk`

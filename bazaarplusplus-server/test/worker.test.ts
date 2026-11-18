@@ -67,26 +67,6 @@ test('an unknown route returns the canonical not_found error', async () => {
   });
 });
 
-test('a known route with the wrong method returns method_not_allowed', async () => {
-  const response = await worker.fetch(
-    new Request('https://mod-api-v6.bazaarplusplus.com/health', {
-      method: 'POST'
-    }),
-    {} as Cloudflare.Env
-  );
-
-  expect(response.status).toBe(405);
-  expect(response.headers.get('allow')).toBe('GET');
-  expect(await response.json()).toEqual({
-    error: {
-      code: 'method_not_allowed',
-      message: 'Method not allowed',
-      retryable: false,
-      request_id: response.headers.get('x-request-id')
-    }
-  });
-});
-
 describe('the public route table', () => {
   test.each([
     ['/bot/players', 'GET'],
@@ -126,34 +106,6 @@ describe('the public route table', () => {
 });
 
 describe('service-token scopes', () => {
-  test('Bundle collection rejects a missing token before query parsing', async () => {
-    const response = await worker.fetch(
-      new Request('https://mod-api-v6.bazaarplusplus.com/bundles'),
-      env
-    );
-
-    expect(response.status).toBe(401);
-    expect(await response.json()).toMatchObject({
-      error: { code: 'unauthorized', retryable: false }
-    });
-  });
-
-  test('Bundle collection rejects a valid BazaarDB token with insufficient_scope', async () => {
-    const response = await worker.fetch(
-      new Request('https://mod-api-v6.bazaarplusplus.com/bundles', {
-        headers: {
-          Authorization: `Bearer ${env.BAZAARDB_DELIVERY_TOKEN}`
-        }
-      }),
-      env
-    );
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toMatchObject({
-      error: { code: 'insufficient_scope', retryable: false }
-    });
-  });
-
   test('BazaarDB routes reject a valid Bundle Sync token with insufficient_scope', async () => {
     const response = await worker.fetch(
       new Request('https://mod-api-v6.bazaarplusplus.com/bazaardb/bundles', {

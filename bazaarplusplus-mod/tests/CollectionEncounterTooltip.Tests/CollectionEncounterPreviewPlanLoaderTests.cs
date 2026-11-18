@@ -59,7 +59,7 @@ public sealed class EncounterPreviewPlanLoaderTests : IDisposable
             (_, _) =>
             {
                 compileCalls++;
-                return new EncounterPreviewCompileResult(snapshot, Array.Empty<Guid>());
+                return new EncounterPreviewCompileResult(snapshot);
             }
         );
 

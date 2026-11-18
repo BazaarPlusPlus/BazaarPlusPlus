@@ -12,8 +12,7 @@
 // - A page correction after the total shrinks loops, or a failed corrected read
 //   retries a different page.
 // - Leftover-game recovery refreshes a page other than the current one.
-// - A superseded thumbnail preparation sets or clears the image-service notice,
-//   or a non-service failure raises that notice.
+// - A superseded thumbnail preparation sets or clears the image-service notice.
 // - A restarted lifecycle accepts completions from the old one, or a stopped or
 //   duplicate lifecycle starts effects.
 import { describe, expect, it, vi } from 'vite-plus/test';
@@ -323,18 +322,6 @@ describe('History List workflow', () => {
     await retrying;
     expect(workflow.getSnapshot()).toMatchObject({
       thumbnails: 'ready',
-      thumbnailsUnavailable: false
-    });
-  });
-
-  it('keeps other preparation failures to the card fallback', async () => {
-    const { commands, workflow } = fixture();
-    commands.prepareHistoryThumbnails.mockRejectedValueOnce(
-      new Error('port occupied')
-    );
-    await workflow.start();
-    expect(workflow.getSnapshot()).toMatchObject({
-      thumbnails: 'unavailable',
       thumbnailsUnavailable: false
     });
   });

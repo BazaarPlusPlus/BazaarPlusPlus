@@ -6,25 +6,25 @@ import {
 } from './storageCleanupProblems';
 
 describe('storage cleanup problems', () => {
-  it.each(['preview_storage_cleanup', 'execute_storage_cleanup'])(
-    'preserves %s semantics and localizes without exposing diagnostics',
-    (operation) => {
-      const problem = storageCleanupProblemFromError({
-        code: 'history_action_failed',
-        params: { operation },
-        diagnostic: 'database is locked'
-      });
-      const zh = presentStorageCleanupProblem(problem, (key, params) =>
-        formatMessage('zh', key, params)
-      );
-      const en = presentStorageCleanupProblem(problem, (key, params) =>
-        formatMessage('en', key, params)
-      );
+  it.each([
+    ['preview_storage_cleanup', '无法预览清理范围，请重试。'],
+    [
+      'execute_storage_cleanup',
+      '清理未完成，目标和范围已保留；请确认游戏已关闭，并查看诊断后重试或安全关闭。'
+    ]
+  ])('presents a failed %s with its own copy', (operation, copy) => {
+    const input = {
+      code: 'history_action_failed',
+      params: { operation },
+      diagnostic: 'database is locked'
+    };
+    const problem = storageCleanupProblemFromError(input);
 
-      expect(problem.params.operation).toBe(operation);
-      expect(zh).not.toContain('database is locked');
-      expect(en).not.toContain('database is locked');
-      expect(zh).not.toBe(en);
-    }
-  );
+    expect(problem).toEqual(input);
+    expect(
+      presentStorageCleanupProblem(problem, (key, params) =>
+        formatMessage('zh', key, params)
+      )
+    ).toBe(copy);
+  });
 });

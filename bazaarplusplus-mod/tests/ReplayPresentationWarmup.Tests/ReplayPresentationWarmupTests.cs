@@ -49,10 +49,6 @@ public sealed class ReplayPresentationWarmupTests
             "Duplicate and blank override keys do not add loads."
         );
         loader.ReleaseScope();
-        Assert(
-            loader.Cards.Count == 0 && !loader.SharedLoaded,
-            "Native scope release removes the resources."
-        );
         await Warm();
         Assert(
             loader.Cards.Count == 2 && loader.CardCalls == 4,

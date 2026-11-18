@@ -12,8 +12,6 @@ public sealed class CollectionCardMaterialLru
         _capacity = Math.Max(1, capacity);
     }
 
-    public int Count => _entries.Count;
-
     public IReadOnlyList<string> Acquire(string key)
     {
         if (string.IsNullOrEmpty(key))
@@ -41,8 +39,6 @@ public sealed class CollectionCardMaterialLru
         if (_entries.TryGetValue(key, out var entry))
             entry.RefCount = Math.Max(0, entry.RefCount - 1);
     }
-
-    public bool Contains(string key) => _entries.ContainsKey(key);
 
     public void Clear()
     {

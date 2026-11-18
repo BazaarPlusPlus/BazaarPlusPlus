@@ -555,17 +555,6 @@ describe('install workflow notices, lifecycle, and availability', () => {
       operation: 'install'
     },
     {
-      name: 'platform bootstrap needs repair',
-      state: installedState({
-        mod_state: {
-          installed: true,
-          ready: false
-        }
-      }),
-      mode: 'repair',
-      operation: 'install'
-    },
-    {
       name: 'current installed state',
       state: installedState(),
       mode: 'launch',
