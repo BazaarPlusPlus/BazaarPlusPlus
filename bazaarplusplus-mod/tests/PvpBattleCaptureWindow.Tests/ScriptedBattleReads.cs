@@ -112,6 +112,9 @@ internal sealed class ScriptedBattleReads : IPvpBattleReads<FakeMessage>
     public Func<IReadOnlyDictionary<string, int>?> PlayerAttributeMap { get; set; } =
         () => new Dictionary<string, int> { ["Health"] = 400, ["HealthRegen"] = 3 };
 
+    public Func<IReadOnlyList<PvpBattleCardSnapshot>?> PlayerStashCards { get; set; } =
+        () => [Card("stash-1")];
+
     /// <summary>The part for each stage; by default the stage's message name, serialized.</summary>
     public Func<PvpReplayStage, FakeMessage, string, PvpReplayPart> Part { get; set; } =
         (_, message, _) => PvpReplayPart.Serialized(Bytes(message.Name));
@@ -165,6 +168,8 @@ internal sealed class ScriptedBattleReads : IPvpBattleReads<FakeMessage>
         Touch(opening, "player attributes");
         return PlayerAttributeMap();
     }
+
+    public IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash() => PlayerStashCards();
 
     public PvpReplayPart KeepReplayPart(PvpReplayStage stage, FakeMessage message, string battleId)
     {

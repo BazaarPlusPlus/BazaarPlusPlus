@@ -312,6 +312,20 @@ public sealed class PvpBattleCaptureWindowTests
         AssertOneUnreadable(h, "player", "Attributes", capture);
     }
 
+    [Fact]
+    public void AStashThatThrowsLeavesTheReplayWithoutIt()
+    {
+        using var h = new WindowHarness();
+        h.Reads.PlayerStashCards = () => throw new InvalidOperationException("unreadable");
+
+        var capture = h.Battle();
+
+        var replay = Assert.IsType<PvpReplayPayload>(capture.Replay);
+        Assert.Null(replay.PlayerStash);
+        Assert.NotNull(replay.PlayerAttributes);
+        AssertOneUnreadable(h, "player", "Stash", capture);
+    }
+
     [Theory]
     [InlineData(PvpOpeningText.EncounterId, "battle")]
     [InlineData(PvpOpeningText.OpponentName, "opponent")]
@@ -501,6 +515,7 @@ public sealed class PvpBattleCaptureWindowTests
             new Dictionary<string, int> { ["Health"] = 400, ["HealthRegen"] = 3 },
             replay.PlayerAttributes
         );
+        Assert.Equal(["stash-1"], replay.PlayerStash!.Select(card => card.InstanceId));
     }
 
     [Fact]

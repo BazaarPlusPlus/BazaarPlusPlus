@@ -387,7 +387,8 @@ public sealed class BundleV6CodecTests
         );
         var graph = (object[])MessagePackSerializer.Deserialize<object>(Ungzip(golden), untyped);
         var futureBattle = (object[])((object[])graph[5])[0];
-        futureBattle[4] = ((object[])futureBattle[4]).Append("future").ToArray();
+        var replaySlots = (object[])futureBattle[4];
+        futureBattle[4] = replaySlots.Append("future").ToArray();
         var future = RunPayloadV6Codec.Decode(
             Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
         );
@@ -398,7 +399,7 @@ public sealed class BundleV6CodecTests
         Equal(12, future.Battles[0].Replay!.PlayerAttributes!["HealthRegen"], "known keys decode");
 
         // And the other way: a Ghost Bundle from a mod that predates key 4 has the shorter array.
-        futureBattle[4] = ((object[])futureBattle[4]).Take(4).ToArray();
+        futureBattle[4] = replaySlots.Take(4).ToArray();
         var earlier = RunPayloadV6Codec.Decode(
             Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
         );
@@ -407,6 +408,25 @@ public sealed class BundleV6CodecTests
             "a replay without the player attributes stays replayable"
         );
         True(earlier.Battles[0].Replay!.PlayerAttributes == null, "an absent key decodes as null");
+        True(earlier.Battles[0].Replay!.PlayerStash == null, "an absent stash decodes as null");
+
+        // A Ghost Bundle from a mod that predates key 5 has attributes but no stash.
+        futureBattle[4] = replaySlots.Take(5).ToArray();
+        var beforeStash = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
+        );
+        True(
+            RunBundleV6Contract.IsReplayable(beforeStash.Battles[0])
+                && beforeStash.Battles[0].Replay!.PlayerStash == null
+                && beforeStash.Battles[0].Replay!.PlayerAttributes!["HealthRegen"] == 12,
+            "a replay without the stash stays replayable and decodes the stash as null"
+        );
+        Equal(
+            "itm_stash",
+            future.Battles[0].Replay!.PlayerStash![0].InstanceId,
+            "the stash decodes past an unknown trailing key"
+        );
+        futureBattle[4] = replaySlots;
 
         // The same holds for the Run facts: a shipped mod reads a Run array longer than its keys,
         // and this one reads a Run sealed before keys 22 and 23 existed.
@@ -702,6 +722,21 @@ public sealed class BundleV6CodecTests
             ["Health"] = 2500,
             ["HealthRegen"] = 12,
         };
+        battle.Replay.PlayerStash =
+        [
+            new BattleCardV6
+            {
+                InstanceId = "itm_stash",
+                TemplateId = "00000000-0000-0000-0000-000000000077",
+                Type = 1,
+                Size = 1,
+                Section = 1,
+                Name = "Golden stash card",
+                Tier = "Bronze",
+                Tags = new List<string> { "Quest" },
+                Attributes = new Dictionary<string, int> { ["Quest_1"] = 2 },
+            },
+        ];
         battle.Facts = new BattleFactsV6
         {
             RecordedAtMs = 1_785_716_940_000,

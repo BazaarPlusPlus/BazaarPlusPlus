@@ -91,6 +91,14 @@ consumer does not overlay them again. It is `null` when the recording host does 
 Android Host) or the read failed, and absent from a payload sealed before the key existed. It does
 not take part in the replayable predicate.
 
+Key `5`, `PlayerStash`, is the cards in the recording player's stash as the combat opened, as
+`BattleCardV6` values read from the live game state like the `player_hand` set. Stash cards can act
+in a combat (quest progress, auras) though no board set holds them. They are not a fifth card set:
+the replayable predicate requires exactly the four sets, so a shipped mod would treat a fifth as
+not replayable. Like key `4` it is `null` when not read (the Android Host) or the read failed, absent
+from a payload sealed before the key existed, outside the replayable predicate, and trimmed with the
+replay by the size budget.
+
 `PayloadDegradationV6` uses keys `0..3` for categories, replay-omitted Battle IDs, omitted event
 count, and whether a requested Screenshot was omitted. The size budget drops, in order,
 non-projection replays, the whole Run Message Stream (`message_stream_omitted`), projected Battles,

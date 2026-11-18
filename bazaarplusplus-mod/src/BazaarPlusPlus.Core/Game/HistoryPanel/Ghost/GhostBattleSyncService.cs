@@ -334,6 +334,7 @@ public sealed class GhostBattleSyncService
                 CombatMessageBytes = battle.Replay.CombatMessageBytes.ToArray(),
                 DespawnMessageBytes = battle.Replay.DespawnMessageBytes.ToArray(),
                 PlayerAttributes = battle.Replay.PlayerAttributes,
+                // The stash stays in the Bundle: a Ghost Battle is played back, never sealed again.
             };
             evidence.VerifyReplay(replay);
             var manifest = GhostManifestProjection.BuildRecorderPerspectiveManifest(
