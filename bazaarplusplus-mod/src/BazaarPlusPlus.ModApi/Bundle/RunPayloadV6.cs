@@ -29,6 +29,9 @@ public sealed class RunPayloadV6
 
     [Key(7)]
     public PayloadDegradationV6 Degradation { get; set; } = new();
+
+    [Key(8)]
+    public List<RunMessageFrameV6>? MessageStream { get; set; }
 }
 
 [MessagePackObject]
@@ -121,6 +124,32 @@ public sealed class RunEventV6
 
     [Key(3)]
     public string PayloadJson { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// One frame of the Run Message Stream: a message the game received, or a command it sent.
+/// Exactly one of <see cref="Message"/> and <see cref="Command"/> is set.
+/// </summary>
+[MessagePackObject]
+public sealed class RunMessageFrameV6
+{
+    [Key(0)]
+    public long Seq { get; set; }
+
+    [Key(1)]
+    public long TimestampMs { get; set; }
+
+    [Key(2)]
+    public byte[]? Message { get; set; }
+
+    [Key(3)]
+    public long? RespondsToSeq { get; set; }
+
+    [Key(4)]
+    public string? Command { get; set; }
+
+    [Key(5)]
+    public string? CommandArgsJson { get; set; }
 }
 
 [MessagePackObject]

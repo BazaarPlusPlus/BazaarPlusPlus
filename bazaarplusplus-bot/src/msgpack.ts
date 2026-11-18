@@ -1,5 +1,6 @@
-// Selective streaming reader for the Run V6 MessagePack graph. Replay bytes
-// and event JSON are consumed without retaining them in the 128 MiB isolate.
+// Selective streaming reader for the Run V6 MessagePack graph. Replay bytes,
+// event JSON and the Run Message Stream are consumed without retaining them in
+// the 128 MiB isolate.
 const MAX_BYTES = 64 * 1024 * 1024;
 export class MessagePack {
   private chunk: Uint8Array = new Uint8Array(0);
@@ -101,7 +102,7 @@ export class MessagePack {
       for (let i = 0; i < count; i++) {
         const retain =
           keep &&
-          !(path.length === 0 && [4, 6, 7].includes(i)) &&
+          !(path.length === 0 && [4, 6, 7, 8].includes(i)) &&
           !(path.length === 2 && path[0] === 5 && i === 4);
         const value = await this.one(retain, [...path, i], depth + 1);
         if (keep) values.push(retain ? value : null);

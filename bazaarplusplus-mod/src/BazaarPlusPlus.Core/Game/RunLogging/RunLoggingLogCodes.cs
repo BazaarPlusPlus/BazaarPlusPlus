@@ -20,6 +20,7 @@ public enum RunLoggingReasonCode
     QueueShutdownDrainTimeout,
     QueueWriteException,
     QueueWorkerTerminatedUnexpectedly,
+    MessageStreamException,
 }
 
 public enum RunLoggingTransition

@@ -66,12 +66,20 @@ public sealed class RunPayloadComposer
     public RunPayloadComposition Compose(string runId, string playerAccountId)
     {
         var events = _runs.ReadEvents(runId);
+        var stream = events
+            .Where(stored => RunMessageStreamKinds.Contains(stored.Kind))
+            .Select(MapStreamFrame)
+            .ToList();
         var payload = new RunPayloadV6
         {
             RunId = runId,
             PlayerAccountId = playerAccountId,
             Run = ReadRunFacts(runId, events),
-            Events = events.Select(MapEvent).ToList(),
+            Events = events
+                .Where(stored => !RunMessageStreamKinds.Contains(stored.Kind))
+                .Select(MapEvent)
+                .ToList(),
+            MessageStream = stream.Count == 0 ? null : stream,
         };
         var manifests = _battles
             .ListByRunId(runId)
@@ -161,6 +169,22 @@ public sealed class RunPayloadComposer
             Kind = stored.Kind,
             PayloadJson = EventPayloadBody(stored.PayloadJson),
         };
+
+    // The stored row is the frame as the writer recorded it (RunMessageStreamWriter).
+    private static RunMessageFrameV6 MapStreamFrame(RunLogStoredEvent stored)
+    {
+        var body = LoadEventJson(stored.PayloadJson);
+        var message = body.Value<string>("message");
+        return new RunMessageFrameV6
+        {
+            Seq = stored.Seq,
+            TimestampMs = stored.TimestampMs,
+            Message = message == null ? null : Convert.FromBase64String(message),
+            RespondsToSeq = body.Value<long?>("responds_to_seq"),
+            Command = body.Value<string>("command"),
+            CommandArgsJson = body["command_args"]?.ToString(Formatting.None),
+        };
+    }
 
     // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
     // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
@@ -384,8 +408,8 @@ public sealed class RunPayloadComposer
         };
 
     // Trims a Run segment over BundleLimitsV6.MaxRunBytes in a fixed order: non-projection replays,
-    // then projected battles oldest first, then snapshots without a replay, then non-terminal
-    // events oldest first. Each ordered phase keeps the fewest leading trims that fit, found by
+    // then the whole Run Message Stream (part of one cannot be followed), then projected battles
+    // oldest first, then snapshots without a replay, then non-terminal events oldest first. Each ordered phase keeps the fewest leading trims that fit, found by
     // probing 1, 2, 4, ... trims and bisecting, so a large Run is encoded a logarithmic number of
     // times instead of once per trim. This assumes another trim never grows the gzip size; while
     // that holds, the result is exactly what trimming one step at a time produced.
@@ -410,6 +434,16 @@ public sealed class RunPayloadComposer
         encoded = RunPayloadV6Codec.Encode(payload);
         if (encoded.Length <= BundleLimitsV6.MaxRunBytes)
             return encoded;
+
+        // Before the trims below snapshot the categories they restore.
+        if (payload.MessageStream != null)
+        {
+            payload.MessageStream = null;
+            payload.Degradation.Categories.Add("message_stream_omitted");
+            encoded = RunPayloadV6Codec.Encode(payload);
+            if (encoded.Length <= BundleLimitsV6.MaxRunBytes)
+                return encoded;
+        }
 
         if (projections.Count > 0)
         {

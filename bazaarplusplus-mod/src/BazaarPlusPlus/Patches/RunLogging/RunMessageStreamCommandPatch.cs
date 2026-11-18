@@ -1,0 +1,146 @@
+#nullable enable
+#pragma warning disable CS0436
+using System.Collections;
+using System.Reflection;
+using BazaarGameShared.Core;
+using BazaarGameShared.Domain.Core;
+using BazaarGameShared.Infra.Messages;
+using BazaarPlusPlus.Infrastructure;
+using BazaarPlusPlus.Infrastructure.Logging;
+using HarmonyLib;
+using Networking;
+using Newtonsoft.Json;
+
+namespace BazaarPlusPlus.Patches.RunLogging;
+
+/// <summary>
+/// Records each command the client sends through <c>HttpGameClient</c> for the Run Message Stream
+/// (ADR-0028). The prefix records the command; the postfix wraps the returned task so the response
+/// is paired with it before the game handles the response. The game's message ids repeat, so the
+/// pairing is by object identity. Recording never changes the command or its outcome.
+/// </summary>
+[HarmonyPatch]
+internal static class RunMessageStreamCommandPatch
+{
+    // ReestablishSession's response never passes the dispatch seam.
+    private const string ReestablishSession = nameof(HttpGameClient.ReestablishSession);
+
+    private static readonly string[] Methods =
+    {
+        "SendInitializeRun",
+        "SendSelectItem",
+        "SendMoveItem",
+        "SendSelectSkill",
+        "SendSelectEncounter",
+        "SendReRollSelection",
+        "SendExitCurrentState",
+        "SendSellCard",
+        "SendCommitToPedestal",
+        "SendAbandonRun",
+        ReestablishSession,
+    };
+
+    // A method a game build does not have is not recorded; the others still patch.
+    private static IEnumerable<MethodBase> TargetMethods() =>
+        Methods
+            .Select(name => AccessTools.Method(typeof(HttpGameClient), name))
+            .Where(method => method != null)
+            .Cast<MethodBase>();
+
+    [HarmonyPrefix]
+    private static void Prefix(MethodBase __originalMethod, object[] __args, out int? __state)
+    {
+        __state = null;
+        try
+        {
+            var parameters = __originalMethod.GetParameters();
+            var args = new Dictionary<string, object?>();
+            for (var index = 0; index < parameters.Length && index < __args.Length; index++)
+                args[parameters[index].Name] = Describe(__args[index]);
+            __state = RunMessageStreamTap.OnCommand(
+                __originalMethod.Name,
+                JsonConvert.SerializeObject(args)
+            );
+        }
+        catch (Exception ex)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.message_stream.command_failed",
+                    storm: []
+                ),
+                ex
+            );
+        }
+    }
+
+    [HarmonyPostfix]
+    private static void Postfix(
+        MethodBase __originalMethod,
+        int? __state,
+        ref Task<Result<INetMessage>> __result
+    )
+    {
+        try
+        {
+            if (__state is not { } number || __result == null)
+                return;
+            __result = Observe(
+                __result,
+                number,
+                reachesSeam: __originalMethod.Name != ReestablishSession
+            );
+        }
+        catch (Exception ex)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.message_stream.command_failed",
+                    storm: []
+                ),
+                ex
+            );
+        }
+    }
+
+    private static async Task<Result<INetMessage>> Observe(
+        Task<Result<INetMessage>> inner,
+        int number,
+        bool reachesSeam
+    )
+    {
+        var result = await inner;
+        try
+        {
+            if (result is { IsOk: true, Value: { } response })
+                RunMessageStreamTap.OnResponse(number, response, reachesSeam);
+        }
+        catch (Exception ex)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.RunLogging,
+                    "run_logging.message_stream.response_failed",
+                    storm: []
+                ),
+                ex
+            );
+        }
+        return result;
+    }
+
+    // The game's argument types (instance ids, enums, socket lists) as plain JSON values.
+    private static object? Describe(object? value) =>
+        value switch
+        {
+            null => null,
+            string text => text,
+            InstanceId id => id.Value,
+            Enum member => member.ToString(),
+            IEnumerable list => list.Cast<object?>().Select(Describe).ToList(),
+            _ when value.GetType().IsPrimitive => value,
+            _ => value.ToString(),
+        };
+}

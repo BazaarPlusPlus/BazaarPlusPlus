@@ -205,6 +205,7 @@ Ignore unknown manifest fields. Fields may be added without notice; breaking cha
 - The end-of-run image is the Screenshot segment. The manifest's `screenshot` entry gives its offset, length, type, dimensions, and digest.
 - The player identity and run summary are in the manifest: `run.player_account_id` and the per-battle `player` blocks. The battle with `is_final_battle: true` reflects the end-of-run state.
 - Take an item's board width from its card `size` in the Run segment, not from its template. A Tiny item keeps its `template_id` and records a `size` one step below the template's, with `Tiny` = 1 in its attributes.
+- A desktop Run may carry the Run Message Stream in its root key `8`: the game messages the client received and the commands the player sent during the run, in order. It is null when not recorded. A decoder that needs only the earlier keys ignores it, as it ignores any trailing key.
 
 ## Data Handling
 

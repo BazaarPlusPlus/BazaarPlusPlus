@@ -387,40 +387,40 @@
   },
   "run_payloads": {
     "run-only": {
-      "messagepack_bytes": 719,
-      "sha256": "5a2939b2464060f63469680f5df8b34304c1c02f46ac93c55aaeacd3bbc2096a"
+      "messagepack_bytes": 844,
+      "sha256": "9b0b1d3ec678dac62a6ceb971d6eb6bcce3dbee2c77c39907f8b977025bb6cbb"
     },
     "screenshot": {
-      "messagepack_bytes": 107,
-      "sha256": "f1af163dbd7f727ed9d8a764d74254e4d47908457faa6102f9dc8334f0d6ed86"
+      "messagepack_bytes": 108,
+      "sha256": "2e526196060a6076902e993bef6b4d020c21d4e7905698fb7d8b6f84665c5547"
     },
     "screenshot-deadline": {
-      "messagepack_bytes": 117,
-      "sha256": "8f0a2419bbe15d5ba4e2fac730476633a7944cff2dee782c50ae3a159d70874b"
+      "messagepack_bytes": 118,
+      "sha256": "ffcc5d1fe1402eff4c1c854902dd673edfc21d5927da1612263667afc3587abe"
     },
     "replay-free": {
-      "messagepack_bytes": 108,
-      "sha256": "99eeff21a2338746675878a530cb55a51d65d157c9ba57bd56fb6ed48797b897"
+      "messagepack_bytes": 109,
+      "sha256": "f6054cb60ad251dcee3ee1293e58c64ae2a5ad3e42344e324b1615c750179fe8"
     },
     "replay-held": {
-      "messagepack_bytes": 108,
-      "sha256": "590b3c1348c19d0b80d54c31a22a3162e7354dfa19491969794395bcb2a63744"
+      "messagepack_bytes": 109,
+      "sha256": "d6c3ea799e252371d03206d61efd556d8e91070ebe3a809678dbf00b01d0142b"
     },
     "corrupt-replay": {
-      "messagepack_bytes": 420,
-      "sha256": "96d71c090956feb0334cfb922bc739d0db7d1ffa2a8f284bdd97a79f868b9500"
+      "messagepack_bytes": 421,
+      "sha256": "e3dae6527babcc6f35c5f4fa6edda6cf7c3375638abc43b119e5ae4c9f08e19f"
     },
     "size-budget-replays": {
-      "messagepack_bytes": 2411337,
-      "sha256": "77ca5107663469eee3479c4e29946834f2a00be980ee274fce183b4d2942bf56"
+      "messagepack_bytes": 2411361,
+      "sha256": "a5b6c53ed2ed809fe921856261f183a71e1422233be927ef895346303caef042"
     },
     "size-budget-events": {
-      "messagepack_bytes": 2667359,
-      "sha256": "c39270705ae8e950c2b672240b8f7fa7dc2c4cf95c9b3bcb73fdc95506a099d9"
+      "messagepack_bytes": 2667360,
+      "sha256": "e50420bb2362b59720ed89189777fd4a25ef295b093dd7ec2fc72d29a8308c50"
     },
     "size-budget-mixed": {
-      "messagepack_bytes": 2667696,
-      "sha256": "53f5e000d27aa218e97fc171dfa1858eb8f4b9d5aa3311110ad2eb3968e8bdad"
+      "messagepack_bytes": 2667697,
+      "sha256": "b1be10fd2c3c6c8c9405bfc1facd37fcda88d698ec755b06ea92499ca6754f34"
     }
   },
   "run_screenshots": {
