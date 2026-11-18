@@ -276,14 +276,32 @@ public sealed class ItemEnchantPreviewTests
         );
     }
 
-    [Theory]
-    [InlineData(EEnchantmentType.Icy, "3FC8F7")]
-    [InlineData(EEnchantmentType.Shiny, "FFFFFF")]
-    [InlineData(EEnchantmentType.Mossy, "8FE930")]
-    public void Formatting_exposes_the_enchantment_color(
-        EEnchantmentType enchantment,
-        string hex
-    ) => Xunit.Assert.Equal(hex, ItemEnchantPreviewFormatting.GetEnchantmentColorHex(enchantment));
+    [Fact]
+    public void Every_game_enchantment_uses_its_native_label_color()
+    {
+        var nativeColors = new Dictionary<EEnchantmentType, string>
+        {
+            [EEnchantmentType.Deadly] = "F4523C",
+            [EEnchantmentType.Ethereal] = "2177E2",
+            [EEnchantmentType.Fiery] = "FB943E",
+            [EEnchantmentType.Golden] = "F5D021",
+            [EEnchantmentType.Heavy] = "CDA06E",
+            [EEnchantmentType.Icy] = "3EC8F8",
+            [EEnchantmentType.Mystical] = "FF6DFA",
+            [EEnchantmentType.Obsidian] = "B44177",
+            [EEnchantmentType.Radiant] = "A5FF82",
+            [EEnchantmentType.Restorative] = "8FE930",
+            [EEnchantmentType.Shielded] = "F5D021",
+            [EEnchantmentType.Shiny] = "FFFFFF",
+            [EEnchantmentType.Tiny] = "F09FFF",
+            [EEnchantmentType.Toxic] = "0EBE4E",
+            [EEnchantmentType.Turbo] = "00EAC2",
+            [EEnchantmentType.Mossy] = "8FE930",
+        };
+        var previewColors = Enum.GetValues<EEnchantmentType>()
+            .ToDictionary(type => type, ItemEnchantPreviewFormatting.GetEnchantmentColorHex);
+        Xunit.Assert.Equal(nativeColors, previewColors);
+    }
 
     [Fact]
     public void Quest_only_tooltips_use_their_own_section_layout()
