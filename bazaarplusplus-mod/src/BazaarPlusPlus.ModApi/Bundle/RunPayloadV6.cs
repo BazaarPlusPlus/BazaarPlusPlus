@@ -329,6 +329,9 @@ public sealed class BattleReplayV6
 
     [Key(4)]
     public Dictionary<string, int>? PlayerAttributes { get; set; }
+
+    [Key(5)]
+    public List<BattleCardV6>? PlayerStash { get; set; }
 }
 
 [MessagePackObject]

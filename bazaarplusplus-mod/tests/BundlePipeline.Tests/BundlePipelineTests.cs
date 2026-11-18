@@ -154,8 +154,11 @@ public sealed class BundlePipelineTests : IDisposable
             "The sealed replayable battle should resolve through the shared contract."
         );
         Check.That(
-            runOnly.Payload.Battles[0].Replay?.PlayerAttributes?["HealthRegen"] == 12,
-            "The recorded player attributes travel from the Replay Payload into the Bundle."
+            runOnly.Payload.Battles[0].Replay?.PlayerAttributes?["HealthRegen"] == 12
+                && runOnly.Payload.Battles[0].Replay?.PlayerStash
+                    is [{ InstanceId: "itm_stash", Tier: "Bronze" } stashCard]
+                && stashCard.Attributes["Quest_1"] == 2,
+            "The recorded player attributes and stash travel from the Replay Payload into the Bundle."
         );
         Check.That(
             runOnly.Payload.Run.ServerBuildId == "server-build-13176"
@@ -1263,6 +1266,19 @@ internal static class SealInputs
                 CombatMessageBytes = ReplayBytes.Combat,
                 DespawnMessageBytes = ReplayBytes.Despawn,
                 PlayerAttributes = new Dictionary<string, int> { ["HealthRegen"] = 12 },
+                PlayerStash =
+                [
+                    new PvpBattleCardDocument
+                    {
+                        InstanceId = "itm_stash",
+                        TemplateId = "00000000-0000-0000-0000-000000000077",
+                        Type = "Item",
+                        Size = "Small",
+                        Section = "Stash",
+                        Tier = "Bronze",
+                        Attributes = new Dictionary<string, int> { ["Quest_1"] = 2 },
+                    },
+                ],
             }
         );
 

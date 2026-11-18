@@ -113,6 +113,9 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
     // proved yet.
     public IReadOnlyDictionary<string, int>? PlayerAttributes(INetMessage opening) => null;
 
+    // Not read on this host either: no device run has proved the stash read.
+    public IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash() => null;
+
     // The proxy is serialized now, so the window keeps bytes, never the message.
     public PvpReplayPart KeepReplayPart(PvpReplayStage stage, INetMessage message, string battleId)
     {

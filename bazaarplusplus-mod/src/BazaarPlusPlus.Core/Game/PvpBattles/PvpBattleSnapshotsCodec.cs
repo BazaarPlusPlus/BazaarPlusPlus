@@ -83,6 +83,11 @@ public static class PvpBattleSnapshotsCodec
         };
     }
 
+    /// <summary>Cards outside a board set (the player's stash), as the history stores a set's.</summary>
+    public static List<PvpBattleCardDocument> ToCardDocuments(
+        IEnumerable<PvpBattleCardSnapshot> cards
+    ) => cards.Select(ToDocument).ToList();
+
     private static PvpBattleCardDocument ToDocument(PvpBattleCardSnapshot card) =>
         new()
         {

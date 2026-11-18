@@ -43,6 +43,13 @@ public interface IPvpBattleReads<TMessage>
     IReadOnlyDictionary<string, int>? PlayerAttributes(TMessage opening);
 
     /// <summary>
+    /// The cards in the player's stash from the live game state, as the combat opens. Stash cards
+    /// can act in a combat (quest progress, auras) though no board set holds them. Null when the
+    /// host does not read them. Asked only for a PvP combat.
+    /// </summary>
+    IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash();
+
+    /// <summary>
     /// The replay part of <paramref name="stage"/>: the opening game sim for
     /// <see cref="PvpReplayStage.Spawn"/>, the combat sim for <see cref="PvpReplayStage.Combat"/>,
     /// the closing game sim for <see cref="PvpReplayStage.Despawn"/>. Asked only for a PvP combat.

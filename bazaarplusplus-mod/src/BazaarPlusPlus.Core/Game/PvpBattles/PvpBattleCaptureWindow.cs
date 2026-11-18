@@ -244,7 +244,10 @@ public sealed class PvpBattleCaptureWindow<TMessage>
 
         KeepPart(battle, PvpReplayStage.Spawn, opening);
         if (battle.Pvp)
+        {
             battle.PlayerAttributes = PlayerAttributes(opening, battleId);
+            battle.PlayerStash = PlayerStash(battleId);
+        }
         return battle;
     }
 
@@ -369,6 +372,21 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         catch (Exception exception)
         {
             ReportUnreadable(PvpBattleReadSide.Player, "Attributes", battleId, exception);
+            return null;
+        }
+    }
+
+    // Like the attributes: a failed read leaves the replay without the stash.
+    private List<PvpBattleCardDocument>? PlayerStash(string battleId)
+    {
+        try
+        {
+            var stash = _reads.PlayerStash();
+            return stash == null ? null : PvpBattleSnapshotsCodec.ToCardDocuments(stash);
+        }
+        catch (Exception exception)
+        {
+            ReportUnreadable(PvpBattleReadSide.Player, "Stash", battleId, exception);
             return null;
         }
     }
@@ -595,6 +613,7 @@ public sealed class PvpBattleCaptureWindow<TMessage>
             CombatMessageBytes = bytes[(int)PvpReplayStage.Combat],
             DespawnMessageBytes = bytes[(int)PvpReplayStage.Despawn],
             PlayerAttributes = battle.PlayerAttributes,
+            PlayerStash = battle.PlayerStash,
         };
     }
 
@@ -641,6 +660,8 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         public bool CombatSeen { get; set; }
 
         public Dictionary<string, int>? PlayerAttributes { get; set; }
+
+        public List<PvpBattleCardDocument>? PlayerStash { get; set; }
 
         public PvpBattleParticipants Participants { get; } = new();
 

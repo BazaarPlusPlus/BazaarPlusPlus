@@ -212,6 +212,7 @@ public sealed class RunPayloadComposer
                     CombatMessageBytes = loaded.Payload.CombatMessageBytes.ToArray(),
                     DespawnMessageBytes = loaded.Payload.DespawnMessageBytes.ToArray(),
                     PlayerAttributes = loaded.Payload.PlayerAttributes,
+                    PlayerStash = loaded.Payload.PlayerStash?.Select(MapCard).ToList(),
                 };
             }
             catch (Exception ex)

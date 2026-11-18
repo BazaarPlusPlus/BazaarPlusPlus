@@ -71,6 +71,7 @@ public sealed class PvpBattleReadsRehearsal<TMessage>
             foreach (var field in Values<PvpOpeningNumber>())
                 reads.OpeningNumber(message, field);
             reads.PlayerAttributes(message);
+            reads.PlayerStash();
             return true;
         });
         _messageSteps.Add(message => Done(reads.OpponentBoard(message, PvpSnapshotSection.Skills)));

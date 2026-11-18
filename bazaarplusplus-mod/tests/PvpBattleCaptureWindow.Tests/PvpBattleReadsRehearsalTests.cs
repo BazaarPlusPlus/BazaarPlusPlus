@@ -85,6 +85,7 @@ public sealed class PvpBattleReadsRehearsalTests
                 "opening OpponentPrestige",
                 "opening OpponentVictories",
                 "player Attributes",
+                "player Stash",
                 "opponent Skills",
                 "serialize",
                 "opponent Hand",
@@ -259,6 +260,12 @@ public sealed class PvpBattleReadsRehearsalTests
         {
             reads.Add("player Attributes");
             return inner.PlayerAttributes(opening);
+        }
+
+        public IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash()
+        {
+            reads.Add("player Stash");
+            return inner.PlayerStash();
         }
 
         public PvpReplayPart KeepReplayPart(

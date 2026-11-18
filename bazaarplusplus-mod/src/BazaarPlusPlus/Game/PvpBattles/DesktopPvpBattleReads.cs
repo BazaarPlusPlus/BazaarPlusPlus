@@ -129,6 +129,12 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
         return PvpReplayPart.Deferred(() => Serialize(gameSim));
     }
 
+    public IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash() =>
+        Data.GetCards<Card>(ECombatantId.Player, EInventorySection.Stash)
+            .Where(card => card != null)
+            .Select(CreateSnapshot)
+            .ToList();
+
     // A copy: the live dictionary moves on through the combat, and the window keeps this one.
     public IReadOnlyDictionary<string, int>? PlayerAttributes(INetMessage opening)
     {

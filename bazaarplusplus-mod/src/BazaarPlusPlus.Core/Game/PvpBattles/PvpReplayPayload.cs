@@ -18,4 +18,10 @@ public sealed class PvpReplayPayload
     /// null in a payload recorded without them.
     /// </summary>
     public Dictionary<string, int>? PlayerAttributes { get; set; }
+
+    /// <summary>
+    /// The cards in the recording player's stash as the combat opened; null in a payload recorded
+    /// without them.
+    /// </summary>
+    public List<PvpBattleCardDocument>? PlayerStash { get; set; }
 }
