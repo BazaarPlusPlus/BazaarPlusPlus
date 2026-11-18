@@ -43,7 +43,7 @@ BazaarPlusPlus 不改变游戏平衡，只做信息增强与记录：卡牌图�
 | 终局自动截图           |   ✅   | ◐ 仅在开启 BazaarDB 上传时 |
 | OBS 直播叠层           |   ✅   |             —              |
 
-各平台会在不处于对局时后台上传对局与回放数据，用于幽灵对战和官网的[英雄统计](https://bazaarplusplus.com/heroes)。完整功能与平台差异见[使用教程](https://bazaarplusplus.com/tutorial)。
+各平台会在不处于对局时后台上传对局与回放数据，用于幽灵对战和官网的[英雄统计](https://bazaarplusplus.com/heroes)。去掉账号和昵称后的对战数据可能会保存更久，用于分析和研究。完整功能与平台差异见[使用教程](https://bazaarplusplus.com/tutorial)。
 
 ## 开发
 
