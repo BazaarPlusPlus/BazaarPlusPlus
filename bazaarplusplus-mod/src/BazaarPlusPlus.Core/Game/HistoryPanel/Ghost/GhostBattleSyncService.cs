@@ -333,6 +333,7 @@ public sealed class GhostBattleSyncService
                 SpawnMessageBytes = battle.Replay.SpawnMessageBytes.ToArray(),
                 CombatMessageBytes = battle.Replay.CombatMessageBytes.ToArray(),
                 DespawnMessageBytes = battle.Replay.DespawnMessageBytes.ToArray(),
+                PlayerAttributes = battle.Replay.PlayerAttributes,
             };
             evidence.VerifyReplay(replay);
             var manifest = GhostManifestProjection.BuildRecorderPerspectiveManifest(

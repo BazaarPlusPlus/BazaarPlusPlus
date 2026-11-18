@@ -109,6 +109,10 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
     public IReadOnlyList<PvpBattleCardSnapshot> PlayerBoard(PvpSnapshotSection section) =>
         section == PvpSnapshotSection.Hand ? PlayerHand() : PlayerSkills();
 
+    // Not read on this host: it would enumerate two IL2CPP dictionaries, which no device run has
+    // proved yet.
+    public IReadOnlyDictionary<string, int>? PlayerAttributes(INetMessage opening) => null;
+
     // The proxy is serialized now, so the window keeps bytes, never the message.
     public PvpReplayPart KeepReplayPart(PvpReplayStage stage, INetMessage message, string battleId)
     {

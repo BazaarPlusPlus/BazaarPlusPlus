@@ -177,6 +177,7 @@ public sealed class RunPayloadComposer
                     SpawnMessageBytes = loaded.Payload.SpawnMessageBytes.ToArray(),
                     CombatMessageBytes = loaded.Payload.CombatMessageBytes.ToArray(),
                     DespawnMessageBytes = loaded.Payload.DespawnMessageBytes.ToArray(),
+                    PlayerAttributes = loaded.Payload.PlayerAttributes,
                 };
             }
             catch (Exception ex)

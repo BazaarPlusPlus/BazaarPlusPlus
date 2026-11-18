@@ -105,6 +105,10 @@ public sealed class BundlePipelineTests : IDisposable
                 .Value!.TryGetReplayableBattle("battle-seal-001", out _),
             "The sealed replayable battle should resolve through the shared contract."
         );
+        Check.That(
+            runOnly.Payload.Battles[0].Replay?.PlayerAttributes?["HealthRegen"] == 12,
+            "The recorded player attributes travel from the Replay Payload into the Bundle."
+        );
         artifacts.RecordQueue("run-only", database, "run-seal-001");
         SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");
         Check.That(
@@ -1168,6 +1172,7 @@ internal static class SealInputs
                 SpawnMessageBytes = ReplayBytes.Spawn,
                 CombatMessageBytes = ReplayBytes.Combat,
                 DespawnMessageBytes = ReplayBytes.Despawn,
+                PlayerAttributes = new Dictionary<string, int> { ["HealthRegen"] = 12 },
             }
         );
 

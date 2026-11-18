@@ -291,6 +291,9 @@ public sealed class BattleReplayV6
 
     [Key(3)]
     public byte[] DespawnMessageBytes { get; set; } = Array.Empty<byte>();
+
+    [Key(4)]
+    public Dictionary<string, int>? PlayerAttributes { get; set; }
 }
 
 [MessagePackObject]

@@ -526,7 +526,7 @@ def _replay_available(battle: tuple[Any, ...], replayable_ids: Sequence[str]) ->
     if battle_id not in replayable_ids or battle[3] is None or battle[4] is None:
         return False
     replay = _slots(battle[4], 4, "battle.replay")
-    if not all(isinstance(value, bytes) and value for value in replay[1:]):
+    if not all(isinstance(value, bytes) and value for value in replay[1:4]):
         return False
     sets = _card_sets(battle)
     required = {"player_hand", "player_skills", "opponent_hand", "opponent_skills"}

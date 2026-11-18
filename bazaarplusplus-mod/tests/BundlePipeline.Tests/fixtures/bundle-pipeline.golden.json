@@ -387,8 +387,8 @@
   },
   "run_payloads": {
     "run-only": {
-      "messagepack_bytes": 497,
-      "sha256": "28148cd95e121166be8b31b0ecf9a486be6abd462d574252d4a6c0c920f48db0"
+      "messagepack_bytes": 511,
+      "sha256": "70583aaaaa194a1f56d258f4d80ee306280e7520fc01b24f2a1e61f50286d590"
     },
     "screenshot": {
       "messagepack_bytes": 105,
@@ -411,8 +411,8 @@
       "sha256": "a3d0ff6dc6921b44b0225c2f5f778f394e4ee9898b4036c8aeb5b3687f47054d"
     },
     "size-budget-replays": {
-      "messagepack_bytes": 2411332,
-      "sha256": "b254fa92f84f9bc27dccca3728463ac0914e49b53f96c4d97f8547c9c06d16ec"
+      "messagepack_bytes": 2411335,
+      "sha256": "b496951cc25067ca23d078050624acccac5cacb1a73f52f3040b9f238867bf12"
     },
     "size-budget-events": {
       "messagepack_bytes": 2667357,

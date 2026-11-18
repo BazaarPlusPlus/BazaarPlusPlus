@@ -66,7 +66,13 @@ its `TemplateId`, records a `Size` one step below its template's, and carries `T
 attributes. A consumer takes the card's width from `Size`.
 
 `BattleReplayV6` uses keys `0..3` for replay version and the native Spawn, Combat, and Despawn
-MessagePack byte sequences.
+MessagePack byte sequences. Key `4`, `PlayerAttributes`, is the recording player's attributes as the
+combat opened, keyed by the game's `EPlayerAttributeType` member name. The Spawn message carries
+only the attributes that changed for that player (the game merges them into its own state), so the
+map is the game's live player state with the Spawn message's player changes already applied; a
+consumer does not overlay them again. It is `null` when the recording host does not read it (the
+Android Host) or the read failed, and absent from a payload sealed before the key existed. It does
+not take part in the replayable predicate.
 
 `PayloadDegradationV6` uses keys `0..3` for categories, replay-omitted Battle IDs, omitted event
 count, and whether a requested Screenshot was omitted. It describes the final immutable payload;

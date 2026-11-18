@@ -137,6 +137,7 @@ internal sealed class SampleStore
                         SpawnMessageBytes = replayable.Replay.SpawnMessageBytes.ToArray(),
                         CombatMessageBytes = replayable.Replay.CombatMessageBytes.ToArray(),
                         DespawnMessageBytes = replayable.Replay.DespawnMessageBytes.ToArray(),
+                        PlayerAttributes = replayable.Replay.PlayerAttributes,
                     }
                 );
                 result.Replays++;

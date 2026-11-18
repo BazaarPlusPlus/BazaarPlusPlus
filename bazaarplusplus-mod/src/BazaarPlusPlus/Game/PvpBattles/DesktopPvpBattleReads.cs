@@ -129,6 +129,20 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
         return PvpReplayPart.Deferred(() => Serialize(gameSim));
     }
 
+    // A copy: the live dictionary moves on through the combat, and the window keeps this one.
+    public IReadOnlyDictionary<string, int>? PlayerAttributes(INetMessage opening)
+    {
+        var live = Data.Run?.Player?.Attributes;
+        if (live == null)
+            return null;
+        var attributes = live.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value);
+        var changes = AsGameSim(opening).Data?.Player?.Attributes;
+        if (changes != null)
+            foreach (var change in changes)
+                attributes[change.Key.ToString()] = change.Value;
+        return attributes;
+    }
+
     // Runs once per part when the window closes, inside the call that delivered the closing
     // message; a throw is left to the window, which fails the part.
     private static byte[] Serialize<T>(T message) =>
