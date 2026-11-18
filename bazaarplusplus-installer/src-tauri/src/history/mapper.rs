@@ -139,10 +139,8 @@ pub(super) fn map_battle_row(
 #[cfg(test)]
 mod tests {
     use super::{
-        map_battle_result, map_battle_row, map_run_to_detail_row, map_run_to_list_row,
-        BattleFields, BattleVideoFields,
+        map_battle_result, map_battle_row, map_run_to_detail_row, map_run_to_list_row, BattleFields,
     };
-    use crate::history::dto::{HistoryBattleRow, HistoryBattleVideo};
     use crate::history::queries::RunRow;
 
     fn run_row(hero: &str) -> RunRow {
@@ -193,67 +191,6 @@ mod tests {
         assert_eq!(the_dragons.opponent_hero.as_deref(), Some("The Dragons"));
         assert_eq!(unknown.opponent_hero, None);
         assert_eq!(dooley.opponent_hero.as_deref(), Some("Dooley"));
-    }
-
-    #[test]
-    fn map_battle_row_preserves_battle_and_video_fields_with_default_status() {
-        let mapped = map_battle_row(
-            BattleFields {
-                battle_id: "battle-1".to_string(),
-                day: Some(8),
-                hour: Some(1),
-                result: Some("Won".to_string()),
-                opponent_hero: Some("Dooley".to_string()),
-                opponent_name: Some("Opponent A".to_string()),
-                opponent_rank: Some("Diamond III".to_string()),
-                opponent_rating: Some(1410),
-            },
-            Some(BattleVideoFields {
-                video_id: "video-1".to_string(),
-                status: None,
-                file_size_bytes: Some(2200),
-                duration_ms: Some(1200),
-            }),
-        );
-
-        assert_eq!(
-            mapped,
-            HistoryBattleRow {
-                battle_id: "battle-1".to_string(),
-                day: Some(8),
-                hour: Some(1),
-                result: "win".to_string(),
-                opponent_hero: Some("Dooley".to_string()),
-                opponent_name: Some("Opponent A".to_string()),
-                opponent_rank: Some("Diamond III".to_string()),
-                opponent_rating: Some(1410),
-                video: Some(HistoryBattleVideo {
-                    video_id: "video-1".to_string(),
-                    status: "COMPLETED".to_string(),
-                    file_size_bytes: Some(2200),
-                    duration_ms: Some(1200),
-                }),
-            }
-        );
-    }
-
-    #[test]
-    fn map_battle_row_omits_video_without_video_id() {
-        let mapped = map_battle_row(
-            BattleFields {
-                battle_id: "battle-1".to_string(),
-                day: None,
-                hour: None,
-                result: None,
-                opponent_hero: None,
-                opponent_name: None,
-                opponent_rank: None,
-                opponent_rating: None,
-            },
-            None,
-        );
-
-        assert_eq!(mapped.video, None);
     }
 
     #[test]

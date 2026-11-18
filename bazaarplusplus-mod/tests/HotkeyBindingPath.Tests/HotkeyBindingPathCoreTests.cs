@@ -10,13 +10,6 @@ namespace HotkeyBindingPath.Tests;
 public sealed class HotkeyBindingPathCoreTests
 {
     [Fact]
-    public void CheckPrefixConstants()
-    {
-        CheckEqual("<Keyboard>/", HotkeyBindingPathCore.KeyboardPrefix, "Keyboard prefix constant");
-        CheckEqual("<Mouse>/", HotkeyBindingPathCore.MousePrefix, "Mouse prefix constant");
-    }
-
-    [Fact]
     public void CheckBindingFailureGate()
     {
         var gate = new HotkeyBindingFailureGate<string>();

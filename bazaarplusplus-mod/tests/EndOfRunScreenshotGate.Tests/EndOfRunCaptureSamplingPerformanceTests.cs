@@ -65,19 +65,6 @@ public sealed class EndOfRunCaptureSamplingPerformanceTests
         );
         Assert(ReferenceEquals(first, reused) && builds == 1, "A valid plan must be reused.");
 
-        first.HierarchyGeneration = 2;
-        var rebuiltForHierarchy = GetOrCreate(
-            cache,
-            "card",
-            generation: 1,
-            plan => plan.Alive && plan.HierarchyGeneration == 1,
-            () => new FakePlan(++builds, hierarchyGeneration: 1)
-        );
-        Assert(
-            !ReferenceEquals(first, rebuiltForHierarchy) && builds == 2,
-            "A dynamic hierarchy generation must rebuild the cached traversal plan."
-        );
-
         var rebuiltForCollection = GetOrCreate(
             cache,
             "card",
@@ -86,7 +73,7 @@ public sealed class EndOfRunCaptureSamplingPerformanceTests
             () => new FakePlan(++builds, hierarchyGeneration: 1)
         );
         Assert(
-            !ReferenceEquals(rebuiltForHierarchy, rebuiltForCollection) && builds == 3,
+            !ReferenceEquals(first, rebuiltForCollection) && builds == 2,
             "A loaded-card collection replacement must invalidate the old plan generation."
         );
     }

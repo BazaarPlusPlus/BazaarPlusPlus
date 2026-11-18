@@ -42,27 +42,11 @@ describe('ShellUpdateModal', () => {
     });
 
     expect(html).toContain('BazaarPlusPlus 5.1.0 已可用。');
-    expect(html).not.toContain('BazaarPlusPlus Installer');
     expect(html).toContain('中国大陆下载');
     expect(html).toContain('自动更新较慢时，可通过大陆渠道手动下载。');
     expect(html).toContain('打开下载页');
     expect(html).toContain('https://cauyxy.lanzout.com/bppmac510');
     expect(html).toContain('tabindex="-1"');
-  });
-
-  it('renders no mirror block when the manifest published none', () => {
-    const html = renderModal({
-      phase: 'available',
-      version: '5.1.0',
-      notes: '',
-      mainlandDownloadUrl: null,
-      progress: null,
-      problem: null
-    });
-
-    expect(html).toContain('BazaarPlusPlus 5.1.0 已可用。');
-    expect(html).not.toContain('中国大陆下载');
-    expect(html).not.toContain('lanzout.com');
   });
 
   it('keeps the mainland mirror reachable while the automatic download runs', () => {
@@ -156,7 +140,6 @@ describe('ShellUpdateModal', () => {
     expect(html).toContain(
       '自动重启失败，但 BazaarPlusPlus 5.1.0 已安装完成。请退出 BazaarPlusPlus，再从“应用程序”中重新打开。'
     );
-    expect(html).not.toContain('BazaarPlusPlus Installer');
     expect(html).toContain('再次尝试重启');
     expect(html).toContain('查看诊断信息');
     expect(html).toContain('native relaunch detail');

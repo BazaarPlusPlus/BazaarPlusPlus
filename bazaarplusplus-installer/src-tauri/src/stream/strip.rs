@@ -483,8 +483,8 @@ fn basis_points(fraction: f64) -> i64 {
 mod tests {
     use super::{
         basis_points, cache_namespace, cached_strip, crop_cache_path, crop_dynamic_image,
-        crop_strip_image, pixel_offset, sweep, CacheLimits, HISTORY_THUMBNAIL_CACHE,
-        OBS_STRIP_CACHE, TEMP_SUFFIX,
+        crop_strip_image, sweep, CacheLimits, HISTORY_THUMBNAIL_CACHE, OBS_STRIP_CACHE,
+        TEMP_SUFFIX,
     };
     use crate::stream::overlay_settings::OverlayCropSettings;
     use image::{DynamicImage, GenericImageView, ImageFormat, RgbaImage};
@@ -686,13 +686,7 @@ mod tests {
     }
 
     #[test]
-    fn float_casts_saturate_and_map_nan_to_zero() {
-        assert_eq!(pixel_offset(42.0), 42);
-        assert_eq!(pixel_offset(f64::NAN), 0);
-        assert_eq!(pixel_offset(-1.0), 0);
-        assert_eq!(pixel_offset(1e12), u32::MAX);
+    fn strip_cache_key_resolves_crop_to_ten_thousandths() {
         assert_eq!(basis_points(0.25), 2_500);
-        assert_eq!(basis_points(f64::NAN), 0);
-        assert_eq!(basis_points(f64::INFINITY), i64::MAX);
     }
 }

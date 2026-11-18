@@ -53,7 +53,7 @@ interface TypeGroup {
 }
 
 /** design/tokens.json, as far as this script reads it. */
-export interface DesignTokens {
+interface DesignTokens {
   name: string;
   version: number;
   color: DesignTokenGroup & { themes: ColorTheme[] };
@@ -195,7 +195,7 @@ function cssValue(token: DesignToken, theme: string): string {
   return alias ? `var(--${alias[1]})` : raw;
 }
 
-export function buildTokensCss(tokens: DesignTokens): string {
+function buildTokensCss(tokens: DesignTokens): string {
   const theme = tokens.color.themes[0].id;
   const lines = [
     '/* BazaarPlusPlus design tokens, generated from design/tokens.json by',
@@ -225,7 +225,7 @@ export function buildTokensCss(tokens: DesignTokens): string {
 
 // The Tailwind utility name of a product colour token: `bg-canvas` is
 // `canvas` (so `bg-canvas`, not `bg-bg-canvas`); every other name stays.
-export function tailwindColorName(token: string): string {
+function tailwindColorName(token: string): string {
   return token.startsWith('bg-') ? token.slice('bg-'.length) : token;
 }
 
@@ -233,7 +233,7 @@ export function tailwindColorName(token: string): string {
 // read the :root tokens (`inline`), so there is no second palette. The colour
 // and font namespaces start empty; `--text-*` keeps Tailwind's default sizes,
 // and each type style adds a size-only utility (`text-body`).
-export function buildTailwindTheme(tokens: DesignTokens): string {
+function buildTailwindTheme(tokens: DesignTokens): string {
   const lines = [
     '/* BazaarPlusPlus Tailwind bridge, generated from design/tokens.json by',
     '   `just design::build`. Do not edit: change design/tokens.json and rebuild.',

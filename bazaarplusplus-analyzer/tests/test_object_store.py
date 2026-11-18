@@ -126,15 +126,7 @@ def test_an_account_token_verifies_again_under_another_account() -> None:
     ]
 
 
-def test_a_token_the_account_endpoint_rejects_fails_without_another_request() -> None:
-    rejected = _Verify(_verified(code=401, success=False))
-    with (
-        rejected.client() as client,
-        pytest.raises(ObjectStoreError, match="must be an Account API Token"),
-    ):
-        derive_s3_credentials(_token(), account_id=ACCOUNT, client=client)
-    assert len(rejected.requests) == 1
-
+def test_a_malformed_account_id_fails_before_deriving_credentials() -> None:
     with pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID must be"):
         derive_s3_credentials(_token(), account_id="not-an-account")
 
@@ -285,7 +277,10 @@ def test_r2_configuration_is_validated_before_any_request(monkeypatch) -> None:
 @pytest.mark.parametrize(
     ("response", "message"),
     (
-        (_verified(code=401, success=False), "Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP 401"),
+        (
+            _verified(code=401, success=False),
+            "Cloudflare rejected CLOUDFLARE_API_TOKEN: HTTP 401; it must be an Account API Token",
+        ),
         (httpx.Response(500, text="not json"), "HTTP 500"),
         (
             httpx.Response(200, json={"success": True, "result": {"status": "active"}}),

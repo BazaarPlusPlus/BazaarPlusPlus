@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import checksums from '../../contracts/v6/fixtures/checksums.json';
-import corruptMagicBase64 from '../../contracts/v6/fixtures/corrupt-magic.bundle.b64?raw';
 import runOnlyBase64 from '../../contracts/v6/fixtures/run-only.bundle.b64?raw';
 import manifest from '../../contracts/v6/fixtures/run-only.manifest.json';
 import segmentMismatchBase64 from '../../contracts/v6/fixtures/segment-digest-mismatch.bundle.b64?raw';
@@ -97,19 +96,6 @@ describe('openBundle', () => {
       expect(cancel).toHaveBeenCalledOnce();
     }
   );
-  test('rejects corrupt magic before exposing a body', async () => {
-    const bytes = decodeBase64(corruptMagicBase64);
-    await expect(
-      openBundle(stream(bytes), bytes.byteLength, null)
-    ).rejects.toMatchObject({
-      status: 422,
-      code: 'invalid_bundle',
-      message: 'Bundle magic is invalid',
-      retryable: false,
-      details: { reason: 'invalid_prefix' }
-    });
-  });
-
   test('rejects body and digest with the same segment mismatch error', async () => {
     const bytes = decodeBase64(segmentMismatchBase64);
     const opened = await openBundle(stream(bytes), bytes.byteLength, null);

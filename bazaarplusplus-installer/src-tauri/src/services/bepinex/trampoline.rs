@@ -724,7 +724,7 @@ pub(crate) fn remove_obsolete_macos_artifacts(_game_path: &Path) -> anyhow::Resu
 mod tests {
     use super::imp::{
         bundle_paths, classify_real_binary, is_trampolined, restore_vanilla_layout, swap_in_stub,
-        RealBinarySource, TRAMPOLINE_ENTITLEMENTS,
+        RealBinarySource,
     };
     use super::*;
 
@@ -839,7 +839,13 @@ mod tests {
             String::from_utf8_lossy(&entitlements.stdout),
             String::from_utf8_lossy(&entitlements.stderr)
         );
-        assert!(entitlements.contains("com.apple.security.cs.allow-jit"));
+        for key in [
+            "com.apple.security.cs.allow-jit",
+            "com.apple.security.cs.allow-unsigned-executable-memory",
+            "com.apple.security.cs.disable-library-validation",
+        ] {
+            assert!(entitlements.contains(key), "signed binary missing {key}");
+        }
 
         // Steam restores its executable and duplicate over the existing .orig.
         std::fs::copy(clean.join("Contents/MacOS/The Bazaar"), &layout.exe_path).unwrap();
@@ -1385,25 +1391,5 @@ mod tests {
         remove_obsolete_macos_artifacts(tmp.path()).unwrap();
         assert!(!obsolete_macos_artifacts_present(tmp.path()));
         remove_obsolete_macos_artifacts(tmp.path()).unwrap();
-    }
-
-    #[test]
-    fn test_trampoline_entitlements_are_complete() {
-        for key in [
-            "com.apple.security.cs.allow-jit",
-            "com.apple.security.cs.allow-unsigned-executable-memory",
-            "com.apple.security.cs.disable-library-validation",
-        ] {
-            assert!(
-                TRAMPOLINE_ENTITLEMENTS.contains(key),
-                "trampoline entitlements missing {key}"
-            );
-        }
-        assert_eq!(
-            TRAMPOLINE_ENTITLEMENTS
-                .matches("com.apple.security.cs.")
-                .count(),
-            3
-        );
     }
 }

@@ -204,24 +204,6 @@ describe('Stream capability state', () => {
     expect(workflow.getSnapshot().crop.canEdit).toBe(true);
     expect(workflow.getSnapshot().service.problem).toBeNull();
   });
-
-  it('re-presents one live workflow in either locale without starting it again', async () => {
-    const ensureStreamSession = vi.fn().mockResolvedValue(runningStatus());
-    const { workflow } = setup({ ensureStreamSession });
-    await workflow.start();
-    const snapshot = workflow.getSnapshot();
-
-    const zh = presentStreamSnapshot(snapshot, (key, params) =>
-      formatMessage('zh', key, params)
-    );
-    const en = presentStreamSnapshot(snapshot, (key, params) =>
-      formatMessage('en', key, params)
-    );
-
-    expect(zh.status.label).not.toBe(en.status.label);
-    expect(ensureStreamSession).toHaveBeenCalledTimes(1);
-    expect(workflow.getSnapshot()).toBe(snapshot);
-  });
 });
 
 describe('Stream problem presentation', () => {

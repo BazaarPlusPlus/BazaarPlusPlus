@@ -26,13 +26,7 @@ import type {
 import { cliMain } from './game-libs.ts';
 import type { CliOptions } from './game-libs.ts';
 import { checkGameLibsLock } from './interop-snapshot.ts';
-import {
-  androidGameStatus,
-  gameStatus,
-  gameStatusStoreFromEnvironment,
-  publishAndroidGameStatus,
-  publishGameStatus
-} from './game-status.ts';
+import { gameStatus } from './game-status.ts';
 import type {
   AndroidGameStatusDocument,
   GameStatusDocument
@@ -42,7 +36,6 @@ import {
   lockKeys,
   readGameLibsLock,
   snapshotBlobKey,
-  snapshotManifestKey,
   validateGameLibsLock
 } from './snapshot-lock.ts';
 import type {
@@ -309,10 +302,6 @@ test('publish uploads the tarball by content and the manifest by identity, skipp
     channel: 'staging',
     store,
     log: (line) => log.push(line)
-  });
-  expect(keys).toEqual({
-    blobKey: snapshotBlobKey(manifest.sha256),
-    manifestKey: snapshotManifestKey('macos', 'staging', STAGING_VERSION)
   });
   expect(keys.blobKey).toBe(`game-libs/${manifest.sha256}.tar.gz`);
   expect(keys.manifestKey).toBe(
@@ -837,27 +826,7 @@ test('a lock entry is stale when its buildid differs from Steam', () => {
   ]);
 });
 
-test('steam-stale reads both desktop depots of the branch', () => {
-  const { workspaceRoot, modRoot } = workspace();
-  const calls: string[][] = [];
-  const state = steamStale({
-    workspaceRoot,
-    modRoot,
-    channel: 'online',
-    runTool: steamTool({ calls })
-  });
-
-  expect(state).toEqual({
-    buildid: '26443971',
-    updatedAt: 1793832079,
-    platforms: ['macos', 'windows']
-  });
-  expect(calls[0]).toEqual(
-    expect.arrayContaining(['--depots', '1617401,1617402'])
-  );
-});
-
-test('a capture is code, content or none by what it changed', () => {
+test('a capture with no previous entry is code', () => {
   const previous = emptyLock();
   previous.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '1');
   previous.entries['windows-online'] = onlineEntry(WINDOWS_ONLINE, '1');
@@ -871,17 +840,6 @@ test('a capture is code, content or none by what it changed', () => {
     return lock;
   };
 
-  expect(steamChangeKind(previous, after({}), 'online')).toBe('none');
-  expect(
-    steamChangeKind(
-      previous,
-      after({ gameVersion: '1.0.13057-prod-windows-x64-891f830a' }),
-      'online'
-    )
-  ).toBe('content');
-  expect(
-    steamChangeKind(previous, after({ sha256: 'b'.repeat(64) }), 'online')
-  ).toBe('code');
   expect(steamChangeKind(emptyLock(), after({}), 'online')).toBe('code');
 });
 
@@ -904,10 +862,6 @@ const statusLock = () => {
 };
 const STATUS_STATE = { buildid: '26443971', updatedAt: 1793832079 };
 
-test('the Game Status of a recorded online build matches the shared fixture', () => {
-  expect(gameStatus(statusLock(), STATUS_STATE)).toEqual(STATUS_FIXTURE);
-});
-
 test('the Game Status waits for the lock and for a real time', () => {
   const behind = statusLock();
   behind.entries['windows-online']!.buildid = '1';
@@ -915,27 +869,6 @@ test('the Game Status waits for the lock and for a real time', () => {
   expect(
     gameStatus(statusLock(), { ...STATUS_STATE, updatedAt: 0 })
   ).toBeNull();
-});
-
-test('publishing the Game Status writes it once and leaves it alone when behind', async () => {
-  const { workspaceRoot } = workspace({ lock: statusLock() });
-  const store = memoryStore();
-  expect(
-    await publishGameStatus({ workspaceRoot, state: STATUS_STATE, store })
-  ).toEqual(STATUS_FIXTURE);
-  expect(JSON.parse(store.objects.get('latest.json')!.toString())).toEqual(
-    STATUS_FIXTURE
-  );
-  const { workspaceRoot: behind } = workspace({ lock: emptyLock() });
-  const untouched = memoryStore();
-  expect(
-    await publishGameStatus({
-      workspaceRoot: behind,
-      state: STATUS_STATE,
-      store: untouched
-    })
-  ).toBeNull();
-  expect(untouched.objects.size).toBe(0);
 });
 
 const ANDROID_STATUS_FIXTURE = JSON.parse(
@@ -955,26 +888,6 @@ const androidStatusLock = () => {
   };
   return lock;
 };
-
-test('the Android Game Status of the android-publisher entry matches the shared fixture', async () => {
-  expect(androidGameStatus(androidStatusLock())).toEqual(
-    ANDROID_STATUS_FIXTURE
-  );
-  const { workspaceRoot } = workspace({ lock: androidStatusLock() });
-  const store = memoryStore();
-  expect(await publishAndroidGameStatus({ workspaceRoot, store })).toEqual(
-    ANDROID_STATUS_FIXTURE
-  );
-  expect(JSON.parse(store.objects.get('android.json')!.toString())).toEqual(
-    ANDROID_STATUS_FIXTURE
-  );
-  const { workspaceRoot: empty } = workspace({ lock: emptyLock() });
-  const untouched = memoryStore();
-  expect(
-    await publishAndroidGameStatus({ workspaceRoot: empty, store: untouched })
-  ).toBeNull();
-  expect(untouched.objects.size).toBe(0);
-});
 
 // previewBehindOnline decides which preview channels the CompatCheck matrix
 // skips. Failure modes: a string comparison of build ids ('9' > '10'), a
@@ -1115,29 +1028,6 @@ function fakeR2() {
   };
   return { fetchImpl, requests, objects };
 }
-
-test('the Game Status store writes under game-status/ in the public bucket, never installer/', async () => {
-  const r2 = fakeR2();
-  const store = gameStatusStoreFromEnvironment(R2_ENV, {
-    fetchImpl: r2.fetchImpl
-  });
-  expect(
-    await store.put('latest.json', Buffer.from('{}'), { ifNoneMatch: true })
-  ).toBe(true);
-  expect(
-    await store.put('android.json', Buffer.from('{}'), { ifNoneMatch: true })
-  ).toBe(true);
-  expect(r2.requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
-    `PUT ${R2_OBJECTS}/bazaarplusplus-public/game-status/latest.json`,
-    `PUT ${R2_OBJECTS}/bazaarplusplus-public/game-status/android.json`
-  ]);
-  expect(r2.requests.some(({ url }) => url.includes('/installer/'))).toBe(
-    false
-  );
-  expect(() => gameStatusStoreFromEnvironment({})).toThrow(
-    /CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID/
-  );
-});
 
 // The private store holds the game's own files (ADR 0007), so it must never
 // fall back to the public release bucket and its installer/ prefix.

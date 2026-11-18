@@ -98,7 +98,7 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
     }
 
     [Fact]
-    public void Step_query_reads_one_day_tier_result_for_distribution_and_maximum()
+    public void Step_query_shows_the_days_distribution_of_its_own_source()
     {
         var source = new object();
         var table = GameDataDayTierTable.FromWeights(0.99f, 0f, 0f, 0.01f)!;
@@ -111,11 +111,9 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         var result = Step(plans, StepId, "Get an item");
 
         Assert.Equal(EncounterPreviewAvailability.Available, result.Availability);
-        Assert.Equal(1, runtime.DayTierReadCount);
         Assert.Same(source, runtime.LastDayTierSource);
         Assert.Contains("Bronze 99%", result.Content);
         Assert.Contains("Diamond 1%", result.Content);
-        Assert.Equal(CardTier.Diamond, runtime.DayTierResolution.MaximumTier);
     }
 
     [Fact]
@@ -628,11 +626,8 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
             [playerAttributeId] = playerAttributeStep,
         };
         var compiler = new EncounterPreviewPlanCompiler();
-        var result = compiler.Compile(map);
-        Assert.True(
-            result.FailedTemplateIds.Count == 0,
-            $"Failed templates: {string.Join(", ", result.FailedTemplateIds)}"
-        );
+        var result = compiler.Compile(map, new Dictionary<int, TLevelUp>());
+        Assert.Equal(0, result.Snapshot.Coverage.EventFailureCount);
         return result.Snapshot;
     }
 
@@ -695,7 +690,6 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         public Action? OnResolveDayTiers { get; set; }
         public bool ThrowOnDayTierRead { get; set; }
         public object? LastDayTierSource { get; private set; }
-        public int DayTierReadCount { get; private set; }
         public GameDataDayTierResolution DayTierResolution { get; set; } =
             GameDataDayTierResolution.Available(
                 day: 3,
@@ -746,7 +740,6 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
             OnResolveDayTiers?.Invoke();
             if (ThrowOnDayTierRead)
                 throw new InvalidOperationException("day tiers unavailable");
-            DayTierReadCount++;
             LastDayTierSource = source;
             return DayTierResolution;
         }

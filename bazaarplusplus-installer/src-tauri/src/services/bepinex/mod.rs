@@ -328,20 +328,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reset_bpp_data_is_idempotent_when_run_twice() {
-        let tmp = make_valid_game_dir();
-        let data_dir = tmp.path().join(crate::config::BAZAAR_DATA_DIRECTORY);
-        std::fs::create_dir_all(&data_dir).unwrap();
-
-        let removed_data = reset_bpp_data_blocking_with(tmp.path(), &stopped).unwrap();
-        let removed_data_again = reset_bpp_data_blocking_with(tmp.path(), &stopped).unwrap();
-
-        assert!(removed_data);
-        assert!(!removed_data_again);
-        assert!(!data_dir.exists());
-    }
-
-    #[test]
     fn test_reset_bepinex_folder_removes_bepinex_directory_and_foreign_mods() {
         let tmp = make_valid_game_dir();
         let bepinex = tmp.path().join("BepInEx");

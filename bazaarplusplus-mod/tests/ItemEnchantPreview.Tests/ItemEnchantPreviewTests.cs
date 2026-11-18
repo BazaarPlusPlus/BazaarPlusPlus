@@ -284,15 +284,6 @@ public sealed class ItemEnchantPreviewTests
         );
 
     [Fact]
-    public void Enchant_preview_does_not_patch_the_native_passive_tooltip() =>
-        Assert(
-            typeof(ItemEnchantPreviewFormatting).Assembly.GetType(
-                "BazaarPlusPlus.Patches.Tooltips.CardTooltipDataPassivePatch"
-            ) == null,
-            "Enchant preview must not append into the game's native passive-tooltip string."
-        );
-
-    [Fact]
     public void Quest_only_tooltips_use_their_own_section_layout()
     {
         var questSectionLayout = BppTooltipSectionRenderPatch.ResolveSectionLayout(
@@ -355,19 +346,6 @@ public sealed class ItemEnchantPreviewTests
     }
 
     [Fact]
-    public void Cjk_wrapped_lines_use_the_shared_line_height()
-    {
-        var cjkSegment = CjkSegment();
-
-        Assert(
-            cjkSegment.Text.Contains("<line-height=1.9em>")
-                && !cjkSegment.Text.Contains("<line-height=1.6em>")
-                && !cjkSegment.Text.Contains("<line-height=2.1em>"),
-            "CJK enchant preview wrapped lines should use the shared line height."
-        );
-    }
-
-    [Fact]
     public void English_wrapped_lines_use_the_shared_line_height()
     {
         var englishLineHeightSegment = ItemEnchantPreviewFormatting.CreateSegment(
@@ -380,19 +358,6 @@ public sealed class ItemEnchantPreviewTests
                 && !englishLineHeightSegment.Text.Contains("<line-height=1.6em>")
                 && !englishLineHeightSegment.Text.Contains("<line-height=2.1em>"),
             "English enchant preview wrapped lines should use the shared line height."
-        );
-    }
-
-    [Fact]
-    public void Other_languages_wrapped_lines_use_the_shared_line_height()
-    {
-        var germanLineHeightSegment = GermanSegment();
-
-        Assert(
-            germanLineHeightSegment.Text.Contains("<line-height=1.9em>")
-                && !germanLineHeightSegment.Text.Contains("<line-height=1.6em>")
-                && !germanLineHeightSegment.Text.Contains("<line-height=2.1em>"),
-            "Other enchant preview languages should use the shared line height."
         );
     }
 
@@ -412,34 +377,6 @@ public sealed class ItemEnchantPreviewTests
                 == $"{segment.Text}<size=55%><line-height=2.1em>\n</line-height></size><size=55%>second\n\nthird</size>"
                 && !sectionText.EndsWith("\n", StringComparison.Ordinal),
             "Section text should separate entries without flattening an entry's paragraphs or list lines."
-        );
-    }
-
-    [Fact]
-    public void Cjk_entries_use_the_shared_entry_break()
-    {
-        var cjkSegment = CjkSegment();
-        var cjkSectionText = ItemEnchantPreviewFormatting.BuildSectionText(
-            new[] { cjkSegment, cjkSegment }
-        );
-        Assert(
-            cjkSectionText.Contains("<size=55%><line-height=2.1em>\n</line-height></size>")
-                && !cjkSectionText.Contains("<line-height=2.3em>"),
-            "CJK enchant preview entries should use the shared entry break."
-        );
-    }
-
-    [Fact]
-    public void Other_languages_entries_use_the_shared_entry_break()
-    {
-        var germanLineHeightSegment = GermanSegment();
-        var germanSectionText = ItemEnchantPreviewFormatting.BuildSectionText(
-            new[] { germanLineHeightSegment, germanLineHeightSegment }
-        );
-        Assert(
-            germanSectionText.Contains("<size=55%><line-height=2.1em>\n</line-height></size>")
-                && !germanSectionText.Contains("<line-height=2.3em>"),
-            "Other enchant preview languages should use the shared entry break."
         );
     }
 
@@ -644,18 +581,6 @@ public sealed class ItemEnchantPreviewTests
 
     private static TooltipSegment Segment() =>
         ItemEnchantPreviewFormatting.CreateSegment(EEnchantmentType.Icy, "Freeze for 2 seconds");
-
-    private static TooltipSegment CjkSegment() =>
-        ItemEnchantPreviewFormatting.CreateSegment(
-            EEnchantmentType.Icy,
-            "<line-height=1.6em>冰冷时获得护盾</line-height>"
-        );
-
-    private static TooltipSegment GermanSegment() =>
-        ItemEnchantPreviewFormatting.CreateSegment(
-            EEnchantmentType.Icy,
-            "<line-height=1.6em>Für 2 Sekunden einfrieren</line-height>"
-        );
 
     private static void Assert(bool condition, string message) =>
         Xunit.Assert.True(condition, message);

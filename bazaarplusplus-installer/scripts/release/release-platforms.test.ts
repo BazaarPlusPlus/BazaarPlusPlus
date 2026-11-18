@@ -1,5 +1,4 @@
 import { test, expect } from 'vite-plus/test';
-import path from 'node:path';
 import { runShell } from '../test-support/shell.ts';
 import {
   RELEASE_PLATFORMS,
@@ -7,7 +6,6 @@ import {
   resolveBuildPlatform,
   defaultTargetBuildPlatforms
 } from '../../../release/release-platforms.ts';
-import { resolveBundleCleanupPath } from './before-bundle-cleanup.ts';
 import { resolveTargetPlatforms } from '../checks/prebuild-check.ts';
 
 // The installer builds only the platforms that ship a Tauri installer.
@@ -36,15 +34,6 @@ test.each(TAURI_PLATFORMS)(
         `replay=${replayRecorderBundlePath(p.buildPlatform)}`
       );
     }
-  }
-);
-
-test.each(TAURI_PLATFORMS)(
-  'before-bundle-cleanup dir for $key matches the module',
-  (p) => {
-    const expected = path.join('/root', ...p.bundleCleanupDir.split('/'));
-    expect(resolveBundleCleanupPath('/root', p.buildPlatform)).toBe(expected);
-    expect(resolveBundleCleanupPath('/root', p.nodePlatform)).toBe(expected);
   }
 );
 

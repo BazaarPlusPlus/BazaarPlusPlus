@@ -1,5 +1,4 @@
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Localization;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -12,11 +11,6 @@ namespace EncounterPreview.Tests;
 /// </summary>
 public sealed class EncounterMerchantTierRuleTests
 {
-    public EncounterMerchantTierRuleTests()
-    {
-        L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
-    }
-
     // The host maps runtime enum numbers to names; raw JSON already carries names.
     private static readonly EncounterChoicePlanParser Parser = new(
         (kind, raw) => kind == "Tier" && raw == "3" ? "Diamond" : null
@@ -93,18 +87,6 @@ public sealed class EncounterMerchantTierRuleTests
                     """
                 )
             )
-        );
-    }
-
-    [Fact]
-    public void A_fixed_tier_merchant_renders_one_quality_line()
-    {
-        var line = EncounterPreviewTextFormatter.BuildQualityLine(null, CardTier.Diamond);
-
-        Assert.False(string.IsNullOrWhiteSpace(line));
-        Assert.Equal(
-            string.Empty,
-            EncounterPreviewTextFormatter.BuildQualityLine(null, fixedTier: null)
         );
     }
 }

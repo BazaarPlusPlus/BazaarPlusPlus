@@ -13,7 +13,7 @@ import {
   it,
   vi
 } from 'vite-plus/test';
-import { Badge, Button, Dialog, StatusPanel } from '@bpp/ui';
+import { Button, Dialog, StatusPanel } from '@bpp/ui';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -79,17 +79,6 @@ describe('Button', () => {
     await act(async () => link?.dispatchEvent(event));
     expect(onClick).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(true);
-  });
-});
-
-describe('Badge', () => {
-  it('reads as dot + word unless the dot is turned off', () => {
-    expect(renderToStaticMarkup(<Badge tone="ok">Ready</Badge>)).toBe(
-      '<span class="bpp-badge bpp-badge-ok">Ready</span>'
-    );
-    expect(renderToStaticMarkup(<Badge dot={false}>EU</Badge>)).toContain(
-      'no-dot'
-    );
   });
 });
 

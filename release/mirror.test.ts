@@ -3,7 +3,6 @@ import {
   MIRROR_USER_AGENT,
   VERIFY_REMEDY,
   assertMainlandMirrors,
-  checkMainlandMirror,
   classifyMirrorPage,
   fetchMirrorPage,
   verifyMainlandMirrors
@@ -67,25 +66,6 @@ test('title comparison decodes HTML entities', () => {
       'A&B_5.5.0.exe'
     ).outcome
   ).toBe('verified');
-});
-
-test('a check probes the supplied address and reports the platform outcome', async () => {
-  const probe = vi.fn(async () => ({
-    status: 200,
-    html: presentPage('BazaarPlusPlus_5.5.0_x64-setup.exe')
-  }));
-  const result = await checkMainlandMirror({
-    platform: 'windows-x86_64',
-    url: 'https://mirror.example/any-slug',
-    fileName: 'BazaarPlusPlus_5.5.0_x64-setup.exe',
-    probeMirror: probe
-  });
-  expect(result).toMatchObject({
-    platform: 'windows-x86_64',
-    url: 'https://mirror.example/any-slug',
-    outcome: 'verified'
-  });
-  expect(probe).toHaveBeenCalledWith('https://mirror.example/any-slug');
 });
 
 test('the assertion names every failed share; only an explicit override downgrades it to a warning', () => {

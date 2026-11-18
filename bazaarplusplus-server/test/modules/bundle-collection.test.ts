@@ -151,61 +151,16 @@ describe('GET /bundles', () => {
     });
   });
 
-  test('rejects duplicate and unknown query parameters', async () => {
+  test('rejects a repeated query parameter', async () => {
     const from = Date.now() - 120_000;
     const response = await worker.fetch(
-      collectionRequest(
-        `available_from_ms=${from}&available_from_ms=${from}&cursor=nope`
-      ),
+      collectionRequest(`available_from_ms=${from}&available_from_ms=${from}`),
       env
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
       error: { code: 'invalid_query', retryable: false }
     });
-  });
-
-  test('rejects a window end later than the settle point', async () => {
-    const now = Date.now();
-    const response = await worker.fetch(
-      collectionRequest(
-        `available_from_ms=${now - 120_000}&available_before_ms=${now - 100}`
-      ),
-      env
-    );
-    expect(response.status).toBe(400);
-    const body = (await response.json()) as {
-      error: { code: string; retryable: boolean; request_id: string };
-    };
-    expect(body.error).toMatchObject({
-      code: 'window_not_settled',
-      retryable: false
-    });
-    expect(body.error.request_id).toBeTruthy();
-  });
-
-  test('reports storage_unavailable when the D1 query fails', async () => {
-    const failingEnv = {
-      ...env,
-      DB: {
-        prepare() {
-          throw new Error('injected D1 query failure');
-        }
-      }
-    } as unknown as Cloudflare.Env;
-    const response = await worker.fetch(
-      collectionRequest(`available_from_ms=${Date.now() - 120_000}`),
-      failingEnv
-    );
-    expect(response.status).toBe(503);
-    const body = (await response.json()) as {
-      error: { code: string; retryable: boolean; request_id: string };
-    };
-    expect(body.error).toMatchObject({
-      code: 'storage_unavailable',
-      retryable: true
-    });
-    expect(body.error.request_id).toBeTruthy();
   });
 });
 

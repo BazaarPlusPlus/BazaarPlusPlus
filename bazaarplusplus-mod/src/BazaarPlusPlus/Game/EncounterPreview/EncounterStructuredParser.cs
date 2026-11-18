@@ -33,12 +33,7 @@ internal static class EncounterStructuredParser
             return null;
         try
         {
-            return source switch
-            {
-                JToken token => token,
-                string json when !string.IsNullOrWhiteSpace(json) => JToken.Parse(json),
-                _ => JToken.FromObject(source, GameSerializer.Value),
-            };
+            return JToken.FromObject(source, GameSerializer.Value);
         }
         // The game's converter indexes its discriminator table without a check, so a convertible
         // type it has no discriminator for throws KeyNotFoundException.

@@ -44,22 +44,6 @@ public sealed class BppLogPipeline
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
     }
 
-    public int ActiveStormKeyCount
-    {
-        get
-        {
-            try
-            {
-                lock (_stateLock)
-                    return _entries.Count;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-    }
-
     public void Emit(
         BppLogSeverity severity,
         BppLogEvent logEvent,

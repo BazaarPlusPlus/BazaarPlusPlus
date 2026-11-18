@@ -51,7 +51,7 @@ public sealed class EncounterPreviewTextFormatterTests
     }
 
     [Fact]
-    public void Build_renders_one_compact_line_per_choice_without_meta_brackets()
+    public void Build_renders_one_compact_line_per_choice()
     {
         var option = CreateOption(
             new EncounterChoiceDetail(
@@ -80,8 +80,6 @@ public sealed class EncounterPreviewTextFormatterTests
             text
         );
         Assert.DoesNotContain("<line-height=1.6em>«", text);
-        // No dim meta brackets anymore — the game text carries the information.
-        Assert.DoesNotContain("[", text);
     }
 
     [Fact]
@@ -114,13 +112,10 @@ public sealed class EncounterPreviewTextFormatterTests
             dayTiers: GameDataDayTierTable.FromWeights(0.9f, 0.1f, 0, 0)
         );
 
-        Assert.Contains("Get a Medium item (", text);
-        Assert.Contains("Bronze 90%", text);
-        Assert.Contains("Silver 10%", text);
-        Assert.DoesNotContain("up to Silver", text);
+        Assert.Contains("Get a Medium item (Bronze 90% · Silver 10%)", text);
         Assert.Contains("Get a Silver-tier Reagent", text);
-        Assert.DoesNotContain("Get a Silver-tier Reagent (<color", text);
-        Assert.DoesNotContain("Gain 4 Gold (<color", text);
+        Assert.DoesNotContain("Get a Silver-tier Reagent (", text);
+        Assert.DoesNotContain("Gain 4 Gold (", text);
     }
 
     [Theory]
@@ -173,7 +168,7 @@ public sealed class EncounterPreviewTextFormatterTests
         );
 
         Assert.Contains("Get 2 Diamond-tier Food", text);
-        Assert.DoesNotContain("Get 2 Diamond-tier Food (up to Gold)", text);
+        Assert.DoesNotContain("%", text);
     }
 
     [Fact]
@@ -196,7 +191,7 @@ public sealed class EncounterPreviewTextFormatterTests
         );
 
         Assert.Contains("获得2个钻石级食物", text);
-        Assert.DoesNotContain("获得2个钻石级食物（最高黄金）", text);
+        Assert.DoesNotContain("%", text);
     }
 
     // The result text follows the game language's script, not the BPP locale mode, so
@@ -229,7 +224,7 @@ public sealed class EncounterPreviewTextFormatterTests
         );
 
         Assert.Contains(resultText, text);
-        Assert.DoesNotContain("最高", text);
+        Assert.DoesNotContain("%", text);
     }
 
     [Fact]
@@ -255,7 +250,7 @@ public sealed class EncounterPreviewTextFormatterTests
         );
 
         Assert.Contains("Get a Rage item", text);
-        Assert.DoesNotContain("Get a Rage item (up to Gold)", text);
+        Assert.DoesNotContain("%", text);
     }
 
     [Fact]

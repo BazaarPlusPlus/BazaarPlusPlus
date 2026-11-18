@@ -46,54 +46,6 @@ public sealed class GamePremiseCompatibilityTests
         RegexOptions.CultureInvariant
     );
 
-    [Theory]
-    [InlineData("macos", "online")]
-    [InlineData("macos", "staging")]
-    [InlineData("macos", "ptr")]
-    [InlineData("windows", "online")]
-    [InlineData("windows", "staging")]
-    [InlineData("windows", "ptr")]
-    public void Snapshot_identity_comes_from_the_manifest_and_rejects_mislabeled_directories(
-        string platform,
-        string channel
-    )
-    {
-        var root = Directory.CreateTempSubdirectory("bpp-premise-snapshot-");
-        try
-        {
-            var gameVersion = $"1.0.12254-{channel}-{platform}-test";
-            var snapshot = Path.Combine(
-                root.FullName,
-                "game-libs",
-                $"{platform}-{channel}-{gameVersion}"
-            );
-            var managed = Path.Combine(snapshot, "Managed");
-            Directory.CreateDirectory(managed);
-            File.WriteAllBytes(
-                Path.Combine(snapshot, "manifest.json"),
-                JsonSerializer.SerializeToUtf8Bytes(
-                    new
-                    {
-                        platform,
-                        channel,
-                        gameVersion,
-                        buildid = "25141468",
-                    }
-                )
-            );
-
-            Assert.Equal((channel, "25141468"), IdentifyBuild(managed));
-            Directory.Move(snapshot, snapshot + "-mislabeled");
-            Assert.Throws<Xunit.Sdk.EqualException>(() =>
-                IdentifyBuild(Path.Combine(snapshot + "-mislabeled", "Managed"))
-            );
-        }
-        finally
-        {
-            root.Delete(recursive: true);
-        }
-    }
-
     [Fact]
     public void Game_premises_hold_for_the_managed_assemblies_and_are_reported()
     {

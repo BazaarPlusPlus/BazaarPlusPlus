@@ -8,7 +8,7 @@ namespace Architecture.Tests;
 public sealed class MacNativeReplayPackagingArchitectureTests
 {
     [Fact]
-    public void Payload_inventory_owns_native_and_retired_paths()
+    public void Payload_inventory_owns_the_native_recorder_paths()
     {
         using var inventory = JsonDocument.Parse(
             File.OpenRead(Path.Combine(TestInputs.RepoRoot, "..", "release", "payload.json"))
@@ -32,15 +32,6 @@ public sealed class MacNativeReplayPackagingArchitectureTests
                     .GetString()!
                     .EndsWith("GfxPluginBppReplayMediaFoundation.dll", StringComparison.Ordinal)
         );
-        foreach (
-            var entry in files.Where(entry =>
-                Path.GetFileName(entry.GetProperty("path").GetString()!)
-                    .StartsWith("ffmpeg", StringComparison.Ordinal)
-            )
-        )
-        {
-            Assert.Equal("retired", entry.GetProperty("producer").GetString());
-        }
     }
 
     [Fact]
@@ -107,7 +98,7 @@ public sealed class MacNativeReplayPackagingArchitectureTests
     }
 
     [Fact]
-    public void Managed_packaging_uses_the_shared_projection_without_creating_archives()
+    public void Managed_packaging_uses_the_shared_payload_projection()
     {
         var project = XDocument.Load(
             Path.Combine(TestInputs.RepoRoot, "src", "BazaarPlusPlus", "BazaarPlusPlus.csproj")
@@ -120,7 +111,6 @@ public sealed class MacNativeReplayPackagingArchitectureTests
                     ?.Value.EndsWith("release/generated/Payload.targets", StringComparison.Ordinal)
                 == true
         );
-        Assert.Empty(project.Descendants("ZipDirectory"));
         var releaseCopy = Assert.Single(
             project.Descendants("Target"),
             element => element.Attribute("Name")?.Value == "CopyToInstallerSource"

@@ -57,11 +57,6 @@ public class BppSettingsTests
             Assert.Equal(false, entry.BoxedValue);
             Assert.Contains("quest completion reward effects", entry.Description.Description);
             Assert.Contains("aggregate-item missing-type hints", entry.Description.Description);
-            Assert.DoesNotContain(
-                configFile.Keys,
-                definition =>
-                    definition.Section is "EventPreview" or "QuestPreview" or "QuestRewardPreview"
-            );
         }
         finally
         {
@@ -88,32 +83,6 @@ public class BppSettingsTests
 
             Assert.Equal(1f, config.GraphicsUpscalingSharpnessConfig.Value);
             Assert.Equal(1f, config.VoiceSubtitlesEnglishFontScaleConfig.Value);
-        }
-        finally
-        {
-            if (File.Exists(configPath))
-                File.Delete(configPath);
-        }
-    }
-
-    [Fact]
-    public void DetailedPreviewConfig_starts_on_even_when_both_old_switches_were_off()
-    {
-        var configPath = Path.Combine(
-            Path.GetTempPath(),
-            $"bpp-quest-preview-no-migration-{Guid.NewGuid():N}.cfg"
-        );
-        try
-        {
-            File.WriteAllText(
-                configPath,
-                "[EventPreview]\nEnabled = false\n[QuestPreview]\nEnabled = false\n"
-            );
-            var config = new BppSettings(
-                new BepInExSettingsStore(new ConfigFile(configPath, saveOnInit: false))
-            );
-
-            Assert.True(config.EnableDetailedPreviewConfig!.Value);
         }
         finally
         {

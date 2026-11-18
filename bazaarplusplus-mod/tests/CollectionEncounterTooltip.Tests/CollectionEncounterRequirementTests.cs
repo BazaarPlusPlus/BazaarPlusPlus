@@ -124,64 +124,6 @@ public class EncounterRequirementTests
 
     private static readonly Guid PackageId = Guid.Parse("b0000000-0000-0000-0000-000000000001");
 
-    // Treasure Chest: weight-1 fixed id + weight-9 TSpawnFilterQuery pool. Dropping
-    // the query group used to show the fixed chest as 100%.
-    [Fact]
-    public void Outcome_groups_keep_query_pools_in_the_roll()
-    {
-        var json = """
-            {
-              "$type": "TCardEncounterEvent",
-              "SelectionContext": {
-                "SpawnContext": {
-                  "SelectionMethod": "Random",
-                  "Limit": { "$type": "TFixedValue", "Value": 1.0 },
-                  "Groups": [
-                    {
-                      "RandomWeight": 1,
-                      "Filters": [
-                        { "$type": "TSpawnFilterIdList", "Ids": ["10000000-0000-0000-0000-000000000001"] }
-                      ]
-                    },
-                    {
-                      "RandomWeight": 9,
-                      "Limit": { "$type": "TFixedValue", "Value": 1.0 },
-                      "Filters": [
-                        {
-                          "$type": "TSpawnFilterQuery",
-                          "Constraints": {
-                            "$type": "ConstraintAnd",
-                            "Constraints": [
-                              { "$type": "ConstraintSize", "Sizes": ["Small", "Medium"], "IsNot": false },
-                              { "$type": "ConstraintCardType", "Types": ["Item"], "IsNot": false },
-                              { "$type": "ConstraintTag", "Tags": ["Loot"], "IsNot": true }
-                            ]
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-            """;
-
-        Assert.True(
-            Choices.TryParseEventOutcomeGroups(
-                EncounterStructuredParser.TryPrepareToken(json),
-                out var groups
-            )
-        );
-
-        Assert.Equal(2, groups.Count);
-        Assert.Equal(1u, groups[0].Weight);
-        Assert.Empty(groups[0].QueryPools);
-        Assert.Equal(9u, groups[1].Weight);
-        Assert.Empty(groups[1].Ids);
-        var pool = Assert.Single(groups[1].QueryPools);
-        Assert.NotNull(pool.Filter);
-    }
-
     // Runtime templates lose $type and serialize enum tags numerically; a numeric
     // Comparison must still parse ("2" = GreaterThanOrEqual is positional — verify
     // via names to stay robust against enum reordering).

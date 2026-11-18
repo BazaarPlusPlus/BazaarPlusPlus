@@ -15,7 +15,6 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -52,13 +51,6 @@ public class InteropStatementTest {
         signer.initSign(key.getPrivate());
         signer.update(InteropStatement.text(zip, game, purpose));
         return Base64.getEncoder().encodeToString(signer.sign());
-    }
-
-    @Test
-    public void theStatementIsTheAdrsFiveLines() {
-        assertEquals("bpp-interop-v1\n" + ZIP + "\n" + "a".repeat(64) + "\n" + "b".repeat(64) + "\nrelease 6.1.0\n",
-                new String(InteropStatement.text(ZIP, GAME, InteropStatement.releasePurpose("6.1.0")),
-                        StandardCharsets.UTF_8));
     }
 
     @Test

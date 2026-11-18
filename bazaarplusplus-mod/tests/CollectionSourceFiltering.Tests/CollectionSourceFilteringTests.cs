@@ -1,6 +1,5 @@
 using System.Runtime.Loader;
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.CollectionPanel;
 using BazaarPlusPlus.Game.CollectionPanel.Data;
 using BazaarPlusPlus.Game.CollectionPanel.Sources;
@@ -304,34 +303,29 @@ public sealed class CollectionSourceFilteringTests
             "A source template id should belong to exactly one collection source entry."
         );
 
-        var commonCacheKey = CollectionSourceOfferPoolCacheKey.Build(vanessaAila, CardHero.Common);
-        AssertTrue(
-            commonCacheKey.StartsWith(vanessaAila.SourceKey + "|", StringComparison.Ordinal),
-            "Source offer cache key should include the stable source key."
+        var offerPoolCache = new CollectionSourceOfferPoolCache();
+        var commonCrit = CatalogCard(
+            Guid.Parse("ffff1111-0000-0000-0000-000000000001"),
+            CardType.Item,
+            [CardHero.Common],
+            hiddenTags: [CardHiddenTag.Crit]
         );
-        AssertTrue(
-            commonCacheKey.Contains(ailaId1.ToString("N")[..12], StringComparison.Ordinal)
-                && commonCacheKey.Contains(ailaId2.ToString("N")[..12], StringComparison.Ordinal),
-            "Source offer cache key should include a fingerprint of all source template ids."
+        var vanessaCrit = CatalogCard(
+            Guid.Parse("ffff1111-0000-0000-0000-000000000002"),
+            CardType.Item,
+            [CardHero.Vanessa],
+            hiddenTags: [CardHiddenTag.Crit]
         );
-        AssertTrue(
-            commonCacheKey.Contains(vanessaAila.OfferRuleFingerprint, StringComparison.Ordinal),
-            "Source offer cache key should include the v4 source rule fingerprint."
+        var critCards = new[] { commonCrit, vanessaCrit };
+        AssertSet(
+            offerPoolCache.GetOrResolve(vanessaAila, CardHero.Common, critCards).OfferedCardIds,
+            new[] { commonCrit.Id },
+            "The offer pool cache should resolve a neutral source for the effective Common hero."
         );
-        AssertTrue(
-            commonCacheKey.EndsWith("|Common", StringComparison.Ordinal),
-            "Neutral source offer cache keys should use the effective Common hero."
-        );
-        var heroCacheKey = CollectionSourceOfferPoolCacheKey.Build(vanessaAila, CardHero.Vanessa);
-        AssertFalse(
-            string.Equals(heroCacheKey, commonCacheKey, StringComparison.Ordinal),
-            "Source offer cache key should distinguish Common from concrete heroes."
-        );
-        AssertTrue(
-            CollectionSourceOfferPoolCacheKey
-                .Build(vanessaAila, CardHero.TheDragons)
-                .EndsWith("|TheDragons", StringComparison.Ordinal),
-            "BPP-owned source cache keys should use the canonical The Dragons identity."
+        AssertSet(
+            offerPoolCache.GetOrResolve(vanessaAila, CardHero.Vanessa, critCards).OfferedCardIds,
+            new[] { vanessaCrit.Id },
+            "The offer pool cache should keep Common and concrete hero pools apart."
         );
 
         var visibleForVanessa = CollectionSourceCatalog
@@ -381,15 +375,6 @@ public sealed class CollectionSourceFilteringTests
             ParseHero("TheDragons", _ => true).Status,
             "Canonical JSON should resolve to CardHero.TheDragons."
         );
-        var dragonsSource = BuildDragonsEntry();
-        AssertTrue(
-            dragonsSource.OfferRuleFingerprint.Contains(
-                TheDragonsHeroId.CanonicalId,
-                StringComparison.Ordinal
-            ),
-            "The Dragons rule fingerprints should store the canonical identity."
-        );
-
         var currentCatalogJson = TestInputs.Fixture(
             "src/BazaarPlusPlus.Core/Data/CollectionSources/collection-sources.json"
         );
@@ -1314,20 +1299,6 @@ public sealed class CollectionSourceFilteringTests
     [Fact]
     public async Task Neutral_context_hero_chips_portrait_and_tooltip_for_the_dragons()
     {
-        AssertValues(
-            CollectionHeroSelectionRoster.BaseConcreteHeroes,
-            new[]
-            {
-                CardHero.Vanessa,
-                CardHero.Dooley,
-                CardHero.Pygmalien,
-                CardHero.Karnok,
-                CardHero.Mak,
-                CardHero.Stelle,
-                CardHero.Jules,
-            },
-            "The neutral/Common context should not render a Common hero chip."
-        );
         AssertTrue(
             TheDragonsHeroIdentity.TryResolve(
                 TheDragonsHeroIdentity.CanonicalId,
@@ -1418,16 +1389,6 @@ public sealed class CollectionSourceFilteringTests
             selectedCommonResult.OfferedCardIds,
             new[] { selectedHeroCards[1].Id },
             "SelectedHero rules should match only Common cards when Common is selected."
-        );
-        var selectedHeroDisabledResult = CollectionSourceOfferPoolResolver.Resolve(
-            selectedHeroRule,
-            CardHero.Common,
-            selectedHeroCards
-        );
-        AssertSet(
-            selectedHeroDisabledResult.OfferedCardIds,
-            new[] { selectedHeroCards[1].Id },
-            "SelectedHero rules should resolve neutral mode against the effective Common hero."
         );
         var selectedHeroTrainerRule = BuildSingleEntry(
             "Selected Hero Trainer",
@@ -1982,34 +1943,6 @@ public sealed class CollectionSourceFilteringTests
             kind,
             $$"""[{ "key": "normal", "kind": "Normal", "rule": {{offerRuleJson}} }]"""
         );
-    }
-
-    private static CollectionSourceEntry BuildDragonsEntry()
-    {
-        const string sourceId = "77777777-0000-0000-0000-000000000006";
-        return BuildCatalog(
-                $$"""
-                {
-                  "schemaVersion": 1,
-                  "groups": ["fixture"],
-                  "entries": [
-                    {
-                      "name": "Dragons source",
-                      "kind": "Merchant",
-                      "group": "fixture",
-                      "order": 0,
-                      "availableHeroes": ["TheDragons"],
-                      "description": "Dragons fixture",
-                      "portraitTemplateId": "{{sourceId}}",
-                      "sourceTemplateIds": ["{{sourceId}}"],
-                      "offerSegments": [{ "key": "normal", "kind": "Normal", "rule": { "heroMode": "FixedHero", "hero": "TheDragons" } }]
-                    }
-                  ]
-                }
-                """,
-                _ => true
-            )
-            .Single();
     }
 
     private static IReadOnlyList<CollectionSourceEntry> BuildCatalog(

@@ -12,9 +12,6 @@ namespace BazaarPlusPlus.Game.VoiceSubtitles.Settings;
 // entries, which are handed the BppSettings instance.
 internal sealed class VoiceLineSettings
 {
-    private const float DefaultEnglishFontScale = 1f;
-    private const float DefaultChineseFontScale = 1f;
-
     private VoiceLineSettings(
         SubtitlePosition position,
         SubtitleLanguageMode languageMode,

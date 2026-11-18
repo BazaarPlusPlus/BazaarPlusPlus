@@ -2156,7 +2156,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plan.items.len(), 2);
-        assert!(plan.items.iter().all(|item| item.delete_image_file));
+        assert!(plan.estimated_bytes > 0);
 
         let conn = Connection::open(&fixture.database_path).unwrap();
         conn.execute(
@@ -2229,40 +2229,6 @@ mod tests {
 
         assert_eq!(plan.items.len(), 1);
         assert_eq!(plan.items[0].screenshot_id, "shot-non-primary");
-        assert_eq!(plan.skipped_pending_uploads, 0);
-    }
-
-    #[test]
-    fn screenshot_plan_deletes_unrequested_primary_from_a_protected_run() {
-        let fixture = create_fixture();
-        let conn = Connection::open(&fixture.database_path).unwrap();
-        insert_run(
-            &conn,
-            "run-protected",
-            "completed",
-            "Ranked",
-            "2026-06-16T10:00:00Z",
-        );
-        insert_screenshot(
-            &conn,
-            "shot-unrequested",
-            Some("run-protected"),
-            1,
-            "2026-06-16/unrequested.png",
-            "2026-06-16T10:00:00Z",
-        );
-        drop(conn);
-
-        let plan = plan_screenshot_cleanup(
-            &fixture.database_path,
-            &fixture.data_root,
-            None,
-            test_today(),
-        )
-        .unwrap();
-
-        assert_eq!(plan.items.len(), 1);
-        assert_eq!(plan.items[0].screenshot_id, "shot-unrequested");
         assert_eq!(plan.skipped_pending_uploads, 0);
     }
 
@@ -2555,20 +2521,6 @@ mod tests {
             protected_count += i64::from(expected);
         }
         assert_eq!(plan.skipped_pending_uploads, protected_count);
-    }
-
-    #[test]
-    fn run_plan_skips_active_runs_without_counting_them_as_pending() {
-        let fixture = create_fixture();
-        let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
-        insert_run(&conn, "active", "active", "Ranked", "2026-06-10T10:00:00Z");
-        drop(conn);
-
-        let plan =
-            super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
-
-        assert!(plan.items.is_empty());
-        assert_eq!(plan.skipped_pending_uploads, 0);
     }
 
     /// A confirmed preview's plan can be minutes old. A Run the mod resumed
@@ -2988,14 +2940,7 @@ mod tests {
         let plan =
             super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
         assert_eq!(plan.items.len(), 2);
-        assert!(plan
-            .items
-            .iter()
-            .all(|item| item.screenshots[0].delete_image_file));
-        assert!(plan
-            .items
-            .iter()
-            .all(|item| item.videos[0].delete_video_file));
+        assert_eq!(plan.estimated_bytes, 29);
 
         let conn = Connection::open(&fixture.database_path).unwrap();
         conn.execute(
@@ -3107,10 +3052,6 @@ mod tests {
         assert_eq!(plan.items[0].run_id, "run-clean");
         assert_eq!(plan.items[0].screenshots.len(), 1);
         assert_eq!(plan.items[0].screenshots[0].screenshot_id, "shot-clean");
-        assert!(
-            !plan.items[0].screenshots[0].delete_image_file,
-            "pending run still references the normalized screenshot path"
-        );
         assert_eq!(plan.estimated_bytes, 0);
         assert_eq!(plan.skipped_pending_uploads, 1);
     }
@@ -3402,8 +3343,8 @@ mod tests {
         type Projection = Vec<(
             String,
             Vec<String>,
-            Vec<(String, String, bool)>,
-            Vec<(String, String, bool)>,
+            Vec<(String, String)>,
+            Vec<(String, String)>,
         )>;
         let project = |plan: &super::RunDataCleanupPlan| -> Projection {
             plan.items
@@ -3414,22 +3355,12 @@ mod tests {
                         item.battle_ids.clone(),
                         item.videos
                             .iter()
-                            .map(|video| {
-                                (
-                                    video.video_id.clone(),
-                                    video.relative_path.clone(),
-                                    video.delete_video_file,
-                                )
-                            })
+                            .map(|video| (video.video_id.clone(), video.relative_path.clone()))
                             .collect(),
                         item.screenshots
                             .iter()
                             .map(|shot| {
-                                (
-                                    shot.screenshot_id.clone(),
-                                    shot.image_relative_path.clone(),
-                                    shot.delete_image_file,
-                                )
+                                (shot.screenshot_id.clone(), shot.image_relative_path.clone())
                             })
                             .collect(),
                     )

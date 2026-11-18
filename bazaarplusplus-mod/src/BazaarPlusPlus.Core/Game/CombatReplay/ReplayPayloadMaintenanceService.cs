@@ -100,7 +100,6 @@ public sealed class ReplayPayloadMaintenanceService
 
         var inventory = _catalog.ListReplayMaintenanceInventory();
         var storedBattleIds = _files.ListBattleIds().ToList();
-        var workUnits = inventory.Count + storedBattleIds.Count;
         var databaseBattleIds = new HashSet<string>(
             inventory.Select(record => record.BattleId),
             StringComparer.Ordinal
@@ -110,7 +109,6 @@ public sealed class ReplayPayloadMaintenanceService
         var orphanDeleteCount = DeleteFiles(
             storedBattleIds.Where(battleId => !databaseBattleIds.Contains(battleId)).ToArray(),
             cancellationToken,
-            ref workUnits,
             ref failedDeleteCount
         ).Count;
 
@@ -119,12 +117,7 @@ public sealed class ReplayPayloadMaintenanceService
             .Where(record => record.PayloadState == ReplayPayloadState.DeletePending)
             .Select(record => record.BattleId)
             .ToList();
-        var completedPending = DeleteFiles(
-            pending,
-            cancellationToken,
-            ref workUnits,
-            ref failedDeleteCount
-        );
+        var completedPending = DeleteFiles(pending, cancellationToken, ref failedDeleteCount);
         if (completedPending.Count > 0)
         {
             _catalog.CompleteReplayPayloadDeletion(completedPending, now);
@@ -157,12 +150,7 @@ public sealed class ReplayPayloadMaintenanceService
         );
         var proposed = retention.BattleIds.Where(storedBattleIdSet.Contains).ToList();
         var scheduled = _catalog.ScheduleReplayPayloadDeletion(proposed, now);
-        var completedScheduled = DeleteFiles(
-            scheduled,
-            cancellationToken,
-            ref workUnits,
-            ref failedDeleteCount
-        );
+        var completedScheduled = DeleteFiles(scheduled, cancellationToken, ref failedDeleteCount);
         if (completedScheduled.Count > 0)
         {
             _catalog.CompleteReplayPayloadDeletion(completedScheduled, now);
@@ -175,15 +163,13 @@ public sealed class ReplayPayloadMaintenanceService
             deletedPayloadCount,
             missing.Count,
             orphanDeleteCount,
-            failedDeleteCount,
-            workUnits
+            failedDeleteCount
         );
     }
 
     private List<string> DeleteFiles(
         IReadOnlyCollection<string> battleIds,
         CancellationToken cancellationToken,
-        ref int workUnits,
         ref int failedDeleteCount
     )
     {
@@ -210,7 +196,6 @@ public sealed class ReplayPayloadMaintenanceService
         var deleted = new List<string>(ids.Length);
         for (var index = 0; index < ids.Length; index++)
         {
-            workUnits++;
             if (succeeded[index])
                 deleted.Add(ids[index]);
             else
@@ -253,8 +238,7 @@ public readonly record struct ReplayPayloadMaintenanceResult(
     int DeletedPayloadCount,
     int MissingPayloadCount,
     int OrphanDeleteCount,
-    int FailedDeleteCount,
-    int WorkUnits
+    int FailedDeleteCount
 );
 
 public enum ReplayMaintenanceReasonCode

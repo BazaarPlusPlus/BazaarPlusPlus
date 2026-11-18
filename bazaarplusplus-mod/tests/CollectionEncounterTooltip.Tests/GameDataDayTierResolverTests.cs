@@ -1,5 +1,4 @@
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.GameInterop.DayTiers;
 using Xunit;
 
@@ -38,24 +37,6 @@ public sealed class GameDataDayTierResolverTests
         Assert.Equal(3, available.Day);
         Assert.Equal(CardTier.Silver, available.MaximumTier);
         Assert.NotNull(available.Table);
-    }
-
-    [Fact]
-    public void FromWeights_ceiling_is_the_highest_positive_tier()
-    {
-        Assert.Equal(
-            CardTier.Bronze,
-            GameDataDayTierTable.FromWeights(1f, 0f, 0f, 0f)!.MaximumTier
-        );
-        // The highest positive tier is the ceiling even when its probability is smaller.
-        Assert.Equal(
-            CardTier.Gold,
-            GameDataDayTierTable.FromWeights(0.7f, 0.2f, 0.09f, 0f)!.MaximumTier
-        );
-        Assert.Equal(
-            CardTier.Diamond,
-            GameDataDayTierTable.FromWeights(0.89f, 0.1f, 0f, 0.01f)!.MaximumTier
-        );
     }
 
     [Fact]

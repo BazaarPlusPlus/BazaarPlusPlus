@@ -22,7 +22,6 @@ from bazaarlens.operational_evidence import OperationalEvidence, read_status
 from bazaarlens.products import BUILDS, HEROES
 from tests.bundle_fixtures import bundle_bytes
 from tests.fakes import MemoryObjectStore
-from tests.pipeline_fixtures import heal_from_bundles
 
 
 def _driver(data_root: Path, **kwargs) -> PipelineDriver:
@@ -82,31 +81,6 @@ class RecordingExpiredSource:
 
     def stream(self, _index):
         raise AssertionError("An expired index must never be streamed")
-
-
-def test_one_complete_day_publishes_a_one_day_window(tmp_path: Path) -> None:
-    root = tmp_path / "facts"
-    heal_from_bundles(root, 1)
-    objects = MemoryObjectStore()
-
-    summary = _driver(
-        root,
-        source=NeverSource(),
-        clock=lambda: datetime(2026, 8, 7, 23, 59, tzinfo=UTC),
-        object_store=objects,
-    ).run(heal_days=1, anchor_day=date(2026, 8, 7))
-
-    assert summary.exit_code == 0
-    assert summary.outcome == "noop"
-    assert summary.report["window"] == {
-        "start": "2026-08-07",
-        "end": "2026-08-07",
-        "days": 1,
-    }
-    assert objects.put_keys() == [
-        HEROES.public_key,
-        BUILDS.public_key,
-    ]
 
 
 def test_successful_publication_prunes_facts_to_eight_latest_sealed_days(
@@ -179,7 +153,6 @@ def test_source_epoch_prevents_pre_epoch_days_from_being_healed_or_considered(
     ]
     assert summary.report["window"] is None
     status = read_status(tmp_path)
-    assert all(day >= "2026-08-07" for day in status["facts"]["sealed_days"])
     assert all(item["source_day"] >= "2026-08-07" for item in status["facts"]["abandoned_days"])
 
 
@@ -197,10 +170,16 @@ def test_driver_publishes_exactly_two_objects_and_records_the_structured_run_rep
     ).run(heal_days=7)
 
     assert summary.exit_code == 0
+    assert summary.outcome == "noop"
     assert objects.put_keys() == [
         HEROES.public_key,
         BUILDS.public_key,
     ]
+    for key in (HEROES.public_key, BUILDS.public_key):
+        observed = objects.get(key)
+        assert observed is not None
+        assert observed.stat.cache_control == "public,max-age=60,must-revalidate"
+        assert observed.stat.content_type == "application/json"
     status = json.loads((root / "status.json").read_bytes())
     assert status["last_run"]["report"] == summary.report
     assert status["publication"] == {

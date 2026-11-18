@@ -10,27 +10,32 @@ namespace SettingsDockCore.Tests;
 /// </summary>
 public sealed class TouchPlayStateTests
 {
-    public static TheoryData<bool, bool, bool> States()
-    {
-        var states = new TheoryData<bool, bool, bool>();
-        foreach (var combat in new[] { false, true })
-        foreach (var replay in new[] { false, true })
-        foreach (var recap in new[] { false, true })
-            states.Add(combat, replay, recap);
-        return states;
-    }
-
+    // A fight or a replay hides the shortcuts and keeps every panel closed. A recap's card still
+    // offers its enchantments, but never previews its upgrade.
     [Theory]
-    [MemberData(nameof(States))]
-    public void Each_rule_follows_its_facts(bool combat, bool replay, bool recap)
+    [InlineData(false, false, false, false, true, true, true)]
+    [InlineData(false, false, true, false, true, true, false)]
+    [InlineData(false, true, false, true, true, false, false)]
+    [InlineData(false, true, true, true, true, false, false)]
+    [InlineData(true, false, false, true, false, false, false)]
+    [InlineData(true, false, true, true, false, false, false)]
+    [InlineData(true, true, false, true, false, false, false)]
+    [InlineData(true, true, true, true, false, false, false)]
+    public void Each_rule_follows_its_facts(
+        bool combat,
+        bool replay,
+        bool recap,
+        bool isPlaying,
+        bool showsSwitches,
+        bool offersEnchantments,
+        bool previewsUpgrade
+    )
     {
         var state = new TouchPlayState(combat, replay, recap);
 
-        // A fight or a replay hides the shortcuts and keeps every panel closed.
-        Assert.Equal(combat || replay, state.IsPlaying);
-        Assert.Equal(!combat, state.ShowsPreviewSwitches);
-        Assert.Equal(!combat && !replay, state.OffersEnchantments);
-        // A recap's card still offers its enchantments, but never previews its upgrade.
-        Assert.Equal(!combat && !replay && !recap, state.PreviewsUpgrade);
+        Assert.Equal(isPlaying, state.IsPlaying);
+        Assert.Equal(showsSwitches, state.ShowsPreviewSwitches);
+        Assert.Equal(offersEnchantments, state.OffersEnchantments);
+        Assert.Equal(previewsUpgrade, state.PreviewsUpgrade);
     }
 }

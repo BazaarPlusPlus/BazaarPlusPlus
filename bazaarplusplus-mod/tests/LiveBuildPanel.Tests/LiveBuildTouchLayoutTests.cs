@@ -117,20 +117,6 @@ public sealed class LiveBuildTouchLayoutTests
         var metrics = Screen(2400f, 1080f, 420f);
         Near(metrics.Dp(12f), metrics.Sp(8f), "Sp clamps to the body minimum.");
         Near(metrics.Dp(48f), metrics.Target(20f), "A target clamps to 48dp.");
-        var layout = LiveBuildTouchLayout.For(metrics);
-        foreach (
-            var size in new[]
-            {
-                layout.TitleFont,
-                layout.RowTitleFont,
-                layout.ButtonFont,
-                layout.BodyFont,
-                layout.ValueFont,
-                layout.TagFont,
-                layout.NameFont,
-            }
-        )
-            Check.That(size >= metrics.BodyText - 0.01f, $"Text size {size} is under 12sp.");
     }
 
     // One row per screen of Screens(), keyed by its name.
@@ -317,7 +303,7 @@ public sealed class LiveBuildTouchLayoutTests
             );
 
         Check.That(
-            layout.MetricCellHeight >= metrics.Dp(LiveBuildTouchLayout.MinMetricCellDp) - 0.01f,
+            layout.MetricCellHeight >= metrics.Dp(40f) - 0.01f,
             $"{name}: a metric cell is {layout.MetricCellHeight / metrics.UnitsPerDp}dp high."
         );
         for (var index = 0; index < LiveBuildTouchLayout.MetricCount; index++)

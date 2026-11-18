@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Core.Cards;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace EncounterTooltip.Tests;
@@ -225,105 +226,6 @@ public sealed class EncounterStructuredParserTests
     }
 
     [Fact]
-    public void TryParseRewardFilter_applies_spawn_behavior_tier_as_an_exact_reward_tier()
-    {
-        var json = """
-            {
-              "$type": "TCardEncounterStep",
-              "Abilities": {
-                "0": {
-                  "Action": {
-                    "$type": "TActionGameDealCards",
-                    "SpawnContext": {
-                      "$type": "TSpawnContextQuery",
-                      "Limit": { "$type": "TFixedValue", "Value": 2.0 },
-                      "Groups": [
-                        {
-                          "Filters": [
-                            {
-                              "Constraints": {
-                                "$type": "ConstraintAnd",
-                                "Constraints": [
-                                  { "$type": "ConstraintCardType", "Types": ["Item"], "IsNot": false },
-                                  { "$type": "ConstraintTag", "Tags": ["Food"], "IsNot": false },
-                                  { "$type": "ConstraintTier", "Tiers": ["Legendary"], "IsNot": true }
-                                ]
-                              }
-                            }
-                          ]
-                        }
-                      ],
-                      "Behaviors": [
-                        { "$type": "TSpawnBehaviorTier", "Tiers": ["Diamond"], "IsNot": false },
-                        { "$type": "TSpawnBehaviorIgnoreTierTable", "IgnoreTierTable": true }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-            """;
-
-        var reward = ParseRewardFilter(json);
-
-        Assert.NotNull(reward);
-        Assert.Equal(CardType.Item, reward.CardType);
-        Assert.Equal(2, reward.Quantity);
-        Assert.Equal(new[] { CardTier.Diamond }, reward.Tiers);
-        Assert.Equal(new[] { CardTag.Food }, reward.Tags);
-        Assert.Equal("Diamond Food", reward.FilterSummary);
-        Assert.False(reward.UsesDayTierTable);
-        Assert.False(reward.UsesDayTierDistribution);
-    }
-
-    // An exclusion-only tier behavior ("any tier except X") leaves the pool governed by
-    // the day tier table; only an inclusive tier list pins the pool to fixed tiers.
-    [Fact]
-    public void TryParseRewardFilter_keeps_day_tier_table_for_exclusion_only_spawn_behavior_tier()
-    {
-        var json = """
-            {
-              "$type": "TCardEncounterStep",
-              "Abilities": {
-                "0": {
-                  "Action": {
-                    "$type": "TActionGameDealCards",
-                    "SpawnContext": {
-                      "$type": "TSpawnContextQuery",
-                      "Limit": { "$type": "TFixedValue", "Value": 1.0 },
-                      "Groups": [
-                        {
-                          "Filters": [
-                            {
-                              "Constraints": [
-                                { "$type": "ConstraintCardType", "Types": ["Item"] }
-                              ]
-                            }
-                          ]
-                        }
-                      ],
-                      "Behaviors": [
-                        { "$type": "TSpawnBehaviorTier", "Tiers": ["Bronze"], "IsNot": true }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-            """;
-
-        var reward = ParseRewardFilter(json);
-
-        Assert.NotNull(reward);
-        Assert.Equal(
-            new[] { CardTier.Silver, CardTier.Gold, CardTier.Diamond, CardTier.Legendary },
-            reward.Tiers
-        );
-        Assert.True(reward.UsesDayTierTable);
-        Assert.True(reward.UsesDayTierDistribution);
-    }
-
-    [Fact]
     public void TryParseRewardFilter_reads_only_tier_fields_from_spawn_behavior_tier()
     {
         var json = """
@@ -413,108 +315,6 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal(new[] { CardTag.Weapon }, reward.Tags);
         Assert.False(reward.UsesDayTierTable);
         Assert.False(reward.UsesDayTierDistribution);
-    }
-
-    [Fact]
-    public void TryParseRewardFilter_keeps_source_day_distribution_for_downshift_rewards()
-    {
-        var json = """
-            {
-              "$type": "TCardEncounterStep",
-              "Abilities": {
-                "0": {
-                  "Action": {
-                    "$type": "TActionGameDealCards",
-                    "SpawnContext": {
-                      "$type": "TSpawnContextQuery",
-                      "Limit": { "$type": "TFixedValue", "Value": 1.0 },
-                      "Groups": [
-                        {
-                          "Filters": [
-                            {
-                              "Constraints": [
-                                { "$type": "ConstraintCardType", "Types": ["Item"] },
-                                { "$type": "ConstraintHiddenTag", "HiddenTags": ["Shield"] }
-                              ]
-                            }
-                          ]
-                        }
-                      ],
-                      "Behaviors": [
-                        { "$type": "TSpawnBehaviorDownShiftTier" },
-                        { "$type": "TSpawnBehaviorInheritTier", "Inherits": false }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-            """;
-
-        var reward = ParseRewardFilter(json);
-
-        Assert.NotNull(reward);
-        Assert.Equal(CardType.Item, reward.CardType);
-        Assert.False(reward.UsesDayTierTable);
-        Assert.True(reward.UsesDayTierDistribution);
-    }
-
-    [Fact]
-    public void TryParseRewardFilter_reads_real_constraint_is_not_as_exclusion()
-    {
-        var json = """
-            {
-              "$type": "TCardEncounterStep",
-              "Abilities": {
-                "0": {
-                  "Action": {
-                    "$type": "TActionGameDealCards",
-                    "SpawnContext": {
-                      "Limit": { "Value": 1.0 },
-                      "Groups": [
-                        {
-                          "Filters": [
-                            {
-                              "Constraints": [
-                                {
-                                  "$type": "ConstraintCardType",
-                                  "Types": ["Item"],
-                                  "IsNot": false
-                                },
-                                {
-                                  "$type": "ConstraintSize",
-                                  "Sizes": ["Medium"],
-                                  "IsNot": false
-                                },
-                                {
-                                  "$type": "ConstraintTier",
-                                  "Tiers": ["Bronze", "Silver", "Gold", "Diamond"],
-                                  "IsNot": false
-                                },
-                                {
-                                  "$type": "ConstraintTag",
-                                  "Tags": ["Loot"],
-                                  "IsNot": true
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-            """;
-
-        var reward = ParseRewardFilter(json);
-
-        Assert.NotNull(reward);
-        Assert.Equal(CardType.Item, reward.CardType);
-        Assert.Empty(reward.Tags);
-        Assert.Equal(new[] { CardTag.Loot }, reward.ExcludedTags);
-        Assert.Equal("Medium Bronze-Diamond Item, not Loot", reward.FilterSummary);
     }
 
     [Fact]
@@ -697,54 +497,6 @@ public sealed class EncounterStructuredParserTests
     }
 
     [Fact]
-    public void TryParseEventChoiceGroups_marks_random_selection_groups_as_pools()
-    {
-        // Advanced Training shape: outer Sequential limit 3, one group that itself
-        // selects randomly over its member ids.
-        var json = """
-            {
-              "$type": "TCardEncounterEvent",
-              "SelectionContext": {
-                "SpawnContext": {
-                  "SelectionMethod": "Sequential",
-                  "Limit": { "$type": "TFixedValue", "Value": 3.0 },
-                  "Groups": [
-                    {
-                      "SelectionMethod": "Random",
-                      "RandomWeight": 2,
-                      "Filters": [
-                        {
-                          "$type": "TSpawnFilterIdList",
-                          "Ids": [
-                            "10000000-0000-0000-0000-000000000001",
-                            "10000000-0000-0000-0000-000000000002"
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "SelectionMethod": "Sequential",
-                      "Filters": [
-                        { "$type": "TSpawnFilterIdList", "Ids": ["10000000-0000-0000-0000-000000000003"] }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-            """;
-
-        var groups = Choices.TryParseEventChoiceGroups(
-            EncounterStructuredParser.TryPrepareToken(json)
-        );
-
-        Assert.Equal(2, groups.Count);
-        Assert.True(groups[0].IsRandomPool);
-        Assert.Equal(2, groups[0].Members.Count);
-        Assert.False(groups[1].IsRandomPool);
-    }
-
-    [Fact]
     public void TryParseEventStepReferences_reads_tag_prerequisite_groups()
     {
         var json = """
@@ -789,10 +541,7 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal("Any", requirement.TagOperator);
         Assert.Equal("GreaterThanOrEqual", requirement.Comparison);
         Assert.Equal(1, requirement.Amount);
-        Assert.Equal(
-            3,
-            Choices.TryParseEventChoiceLimit(EncounterStructuredParser.TryPrepareToken(json))
-        );
+        Assert.Equal(3, Choices.TryParseEventChoiceLimit(JToken.Parse(json)));
     }
 
     // Core's parsers over the desktop's enum names, as its card reader runs them.
@@ -805,11 +554,11 @@ public sealed class EncounterStructuredParserTests
     );
 
     private static EncounterRewardFilter? ParseRewardFilter(string json) =>
-        Rewards.TryParse(EncounterStructuredParser.TryPrepareToken(json));
+        Rewards.TryParse(JToken.Parse(json));
 
     private static IReadOnlyList<EncounterStepReference> ParseStepReferences(string json) =>
         Choices
-            .TryParseEventChoiceGroups(EncounterStructuredParser.TryPrepareToken(json))
+            .TryParseEventChoiceGroups(JToken.Parse(json))
             .SelectMany(group => group.Members)
             .ToList();
 }

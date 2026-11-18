@@ -439,13 +439,6 @@ public sealed class UpgradePreviewValueProjectionTests
             "Non-duration projected values should keep their raw units."
         );
 
-    [Fact]
-    public void Values_that_render_identically_show_no_upgrade_arrow() =>
-        AssertTrue(
-            UpgradePreviewValueMath.HaveSameFormattedValue(3.01f, 3.02f),
-            "Values that render identically should not show a redundant upgrade arrow."
-        );
-
     // The Silver Fiery card whose Burn is 20% of its Bongos value.
     private static (ItemCard Card, TCardItem Template, string FieryAbilityId) FieryCard()
     {

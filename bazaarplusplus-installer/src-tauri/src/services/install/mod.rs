@@ -314,9 +314,9 @@ fn open_url(url: &str) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        has_bepinex_directory, has_resettable_bpp_data, install_warnings, InstallWarningCode,
-    };
+    use super::install_warnings;
+    #[cfg(target_os = "macos")]
+    use super::InstallWarningCode;
     use crate::services::detect::InstallEnvironmentSnapshot;
     use crate::services::vdf::SteamLaunchOptionsState;
 
@@ -333,57 +333,6 @@ mod tests {
             trampoline_current: true,
             obsolete_macos_artifacts_present: false,
         }
-    }
-
-    #[test]
-    fn test_has_resettable_bpp_data_detects_existing_data_directory() {
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join(crate::config::BAZAAR_DATA_DIRECTORY)).unwrap();
-        let path = tmp.path().to_string_lossy().into_owned();
-
-        assert!(has_resettable_bpp_data(Some(path.as_str())));
-    }
-
-    #[test]
-    fn test_has_resettable_bpp_data_is_false_when_missing() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().to_string_lossy().into_owned();
-
-        assert!(!has_resettable_bpp_data(Some(path.as_str())));
-        assert!(!has_resettable_bpp_data(None));
-    }
-
-    #[test]
-    fn test_has_bepinex_directory_detects_existing_folder() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().to_string_lossy().into_owned();
-        assert!(!has_bepinex_directory(Some(path.as_str())));
-
-        std::fs::create_dir_all(tmp.path().join("BepInEx")).unwrap();
-
-        assert!(has_bepinex_directory(Some(path.as_str())));
-        assert!(!has_bepinex_directory(None));
-    }
-
-    #[test]
-    fn install_warnings_are_semantic_codes_without_backend_copy() {
-        let warnings = install_warnings(&InstallEnvironmentSnapshot {
-            game_path: None,
-            game_path_valid: false,
-            steam_launch_options: SteamLaunchOptionsState::Empty,
-            trampoline_current: true,
-            obsolete_macos_artifacts_present: false,
-            ..snapshot()
-        });
-
-        assert_eq!(
-            warnings
-                .iter()
-                .map(|warning| warning.code)
-                .collect::<Vec<_>>(),
-            vec![InstallWarningCode::GameMissing]
-        );
-        assert!(warnings.iter().all(|warning| warning.params.is_empty()));
     }
 
     #[cfg(target_os = "macos")]

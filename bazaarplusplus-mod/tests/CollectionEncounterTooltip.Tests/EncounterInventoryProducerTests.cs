@@ -1,4 +1,3 @@
-using System.Reflection;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Cards.Enchantments;
 using BazaarGameShared.Domain.Cards.Item;
@@ -105,12 +104,7 @@ public sealed class EncounterInventoryProducerTests
     private static EncounterInventory InventoryFrom(ItemCard card)
     {
         var cards = new List<EncounterInventoryCard>();
-        var addCards = typeof(EncounterPreviewGameRuntime).GetMethod(
-            "AddCards",
-            BindingFlags.NonPublic | BindingFlags.Static
-        );
-        Assert.NotNull(addCards);
-        addCards.Invoke(null, [cards, new Card[] { card }]);
+        EncounterPreviewGameRuntime.AddCards(cards, new Card[] { card });
         return new EncounterInventory(cards);
     }
 

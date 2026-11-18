@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-// The panel as the Install page shows it: the reinstall hint while the installed
-// mod writes an old Data Root, and each listed root with its delete action.
+// The panel as the Install page shows it: each listed root with its delete
+// action.
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
@@ -79,12 +79,6 @@ async function show(data: LegacyDataState) {
 }
 
 describe('legacy data panel', () => {
-  it('shows the reinstall hint while the mod writes an old Data Root', async () => {
-    await show(state({ installed_mod_data_root: 'reinstall_required' }));
-
-    expect(container.textContent).toContain(zh('legacyModReinstallRequired'));
-  });
-
   it('lists a root with its delete action and no hint for a current mod', async () => {
     await show(state({}));
 

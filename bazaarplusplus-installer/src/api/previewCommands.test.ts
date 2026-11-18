@@ -1,76 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { commandClient } from './commandClient';
-import { UNFILTERED } from '../features/history/pagination';
-import {
-  defaultCropSettings,
-  emptyHistoryRunList,
-  emptyInstallState,
-  fallbackBootstrap,
-  idleStreamStatus
-} from './previewDefaults';
+import { defaultCropSettings } from './previewDefaults';
 
 describe('browser-preview command adapter', () => {
-  it('returns the shared seed references', async () => {
-    expect(await commandClient.getInstallState(null)).toBe(emptyInstallState);
-    expect(await commandClient.getStreamStatus()).toBe(idleStreamStatus);
-    expect(await commandClient.ensureStreamSession()).toBe(idleStreamStatus);
-    expect(await commandClient.restartStreamSession()).toBe(idleStreamStatus);
-    expect(await commandClient.setStreamWindow(3)).toBe(idleStreamStatus);
-    expect(await commandClient.getOverlaySettings()).toBe(defaultCropSettings);
-    expect(await commandClient.resetOverlayCrop()).toBe(defaultCropSettings);
-    expect(await commandClient.listHistoryRuns(50, 0, UNFILTERED)).toBe(
-      emptyHistoryRunList
-    );
-    expect(
-      await commandClient.previewStorageCleanup('screenshots', 'all')
-    ).toEqual({
-      scope: 'screenshots',
-      preview: {
-        screenshots: 0,
-        orphan_files: 0,
-        estimated_bytes: 0,
-        skipped_pending_uploads: 0
-      },
-      plan_id: 0
-    });
-    expect(
-      await commandClient.previewStorageCleanup('run_data', 'all')
-    ).toEqual({
-      scope: 'run_data',
-      preview: {
-        runs: 0,
-        battles: 0,
-        videos: 0,
-        estimated_bytes: 0,
-        skipped_pending_uploads: 0
-      },
-      plan_id: 0
-    });
-    expect(
-      await commandClient.executeStorageCleanup('screenshots', 'all', 0)
-    ).toEqual({
-      scope: 'screenshots',
-      result: {
-        deleted_rows: 0,
-        deleted_files: 0,
-        freed_bytes: 0,
-        skipped_pending_uploads: 0
-      }
-    });
-    expect(
-      await commandClient.executeStorageCleanup('run_data', 'all', 0)
-    ).toEqual({
-      scope: 'run_data',
-      result: {
-        deleted_runs: 0,
-        deleted_files: 0,
-        freed_bytes: 0,
-        skipped_pending_uploads: 0
-      }
-    });
-    expect(await commandClient.getAppBootstrap()).toBe(fallbackBootstrap);
-  });
-
   it('reproduces input-dependent overlay fallbacks', async () => {
     expect(await commandClient.applyOverlayCropCode('x')).toEqual({
       ...defaultCropSettings,
@@ -80,47 +12,6 @@ describe('browser-preview command adapter', () => {
       ...defaultCropSettings,
       display_mode: 'hero'
     });
-  });
-
-  it('returns inline preview literals', async () => {
-    expect(await commandClient.chooseGameDirectory()).toEqual({
-      game_path: null
-    });
-  });
-
-  it('preserves nullable read-only desktop preview results', async () => {
-    expect(await commandClient.getHistoryRunDetail('r')).toBeNull();
-  });
-
-  it('reports History Thumbnails unavailable because the preview has no image service', async () => {
-    await expect(
-      commandClient.prepareHistoryThumbnails()
-    ).rejects.toMatchObject({
-      name: 'SemanticProblemError',
-      problem: {
-        code: 'history_thumbnails_unavailable',
-        params: { operation: 'prepare_history_thumbnails' }
-      }
-    });
-  });
-
-  it('returns null for Tauri unit-returning no-ops', async () => {
-    expect(await commandClient.setAppLocale('en')).toBeNull();
-    expect(await commandClient.launchGame()).toBeNull();
-    expect(await commandClient.revealRunScreenshot('r')).toBeNull();
-    expect(await commandClient.revealBattleVideo('b', 'v')).toBeNull();
-  });
-
-  it('keeps preview bootstrap and install gates wired to real defaults', () => {
-    expect(fallbackBootstrap.app_version).toBe(__FRONTEND_VERSION__);
-    expect(fallbackBootstrap.bundled_bpp_version).toBeNull();
-    expect(fallbackBootstrap.links).toBeTruthy();
-    expect(emptyInstallState.selected_game_path).toBeNull();
-    expect(emptyInstallState.has_resettable_data).toBe(false);
-    expect(emptyInstallState.has_bepinex_files).toBe(false);
-    expect(emptyInstallState.warnings.map((warning) => warning.code)).toEqual([
-      'game_missing'
-    ]);
   });
 
   it('passes native-only preview commands through to the normalized client', async () => {

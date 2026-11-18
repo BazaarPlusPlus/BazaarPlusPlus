@@ -47,15 +47,6 @@ public sealed class TheDragonsHeroIdentityTests
     }
 
     [Fact]
-    public void Persistence_identity_writes_canonical_hero_ids()
-    {
-        Assert.True(TheDragonsHeroIdentity.TryResolve("Hero8", out var dragons));
-
-        Assert.Equal("TheDragons", TheDragonsHeroIdentity.ToCanonicalId(dragons));
-        Assert.Equal("Vanessa", TheDragonsHeroIdentity.ToCanonicalId(EHero.Vanessa));
-    }
-
-    [Fact]
     public void Write_path_stores_the_canonical_id_under_either_runtime_enum_name()
     {
         Assert.True(TheDragonsHeroIdentity.TryResolve("Hero8", out var dragons));
@@ -79,12 +70,8 @@ public sealed class TheDragonsHeroIdentityTests
     public void Legacy_only_runtime_shape_resolves_both_aliases()
     {
         Assert.True(TheDragonsHeroIdentity.TryResolve("Hero8", out var currentDragons));
-        var requestedNames = new List<string>();
         Func<string, EHero?> legacyOnly = name =>
-        {
-            requestedNames.Add(name);
-            return string.Equals(name, "Hero8", StringComparison.Ordinal) ? currentDragons : null;
-        };
+            string.Equals(name, "Hero8", StringComparison.Ordinal) ? currentDragons : null;
 
         Assert.True(
             TheDragonsHeroIdentity.TryResolve("Hero8", legacyOnly, out var fromLegacyAlias)
@@ -94,21 +81,14 @@ public sealed class TheDragonsHeroIdentityTests
         );
         Assert.Equal(currentDragons, fromLegacyAlias);
         Assert.Equal(currentDragons, fromCanonicalAlias);
-        Assert.Equal(["TheDragons", "Hero8", "TheDragons", "Hero8"], requestedNames);
     }
 
     [Fact]
     public void Canonical_only_runtime_shape_resolves_both_aliases()
     {
         Assert.True(TheDragonsHeroIdentity.TryResolve("Hero8", out var currentDragons));
-        var requestedNames = new List<string>();
         Func<string, EHero?> canonicalOnly = name =>
-        {
-            requestedNames.Add(name);
-            return string.Equals(name, "TheDragons", StringComparison.Ordinal)
-                ? currentDragons
-                : null;
-        };
+            string.Equals(name, "TheDragons", StringComparison.Ordinal) ? currentDragons : null;
 
         Assert.True(
             TheDragonsHeroIdentity.TryResolve("Hero8", canonicalOnly, out var fromLegacyAlias)
@@ -122,7 +102,6 @@ public sealed class TheDragonsHeroIdentityTests
         );
         Assert.Equal(currentDragons, fromLegacyAlias);
         Assert.Equal(currentDragons, fromCanonicalAlias);
-        Assert.Equal(["TheDragons", "TheDragons"], requestedNames);
     }
 
     [Fact]

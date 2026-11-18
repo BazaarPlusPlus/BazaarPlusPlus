@@ -16,27 +16,18 @@ namespace BazaarPlusPlus.Game.EncounterPreview;
 
 internal sealed class EncounterPreviewCompileResult
 {
-    public EncounterPreviewCompileResult(
-        EncounterPreviewSnapshot snapshot,
-        IReadOnlyList<Guid> failedTemplateIds
-    )
+    public EncounterPreviewCompileResult(EncounterPreviewSnapshot snapshot)
     {
         Snapshot = snapshot;
-        FailedTemplateIds = failedTemplateIds;
     }
 
     public EncounterPreviewSnapshot Snapshot { get; }
-
-    public IReadOnlyList<Guid> FailedTemplateIds { get; }
 
     public int LevelUpFailureCount => Snapshot.Coverage.LevelUpFailureCount;
 }
 
 internal sealed class EncounterPreviewPlanCompiler
 {
-    public EncounterPreviewCompileResult Compile(IReadOnlyDictionary<Guid, ITCard> cardMap) =>
-        Compile(cardMap, new Dictionary<int, TLevelUp>());
-
     public EncounterPreviewCompileResult Compile(
         IReadOnlyDictionary<Guid, ITCard> cardMap,
         IReadOnlyDictionary<int, TLevelUp> levelUpMap
@@ -119,7 +110,7 @@ internal sealed class EncounterPreviewPlanCompiler
                 missingReferencedTemplates.Count
             )
         );
-        return new EncounterPreviewCompileResult(snapshot, failures.OrderBy(id => id).ToArray());
+        return new EncounterPreviewCompileResult(snapshot);
     }
 
     private void TryAddReferencedTemplate(

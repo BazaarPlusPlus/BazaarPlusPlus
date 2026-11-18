@@ -414,13 +414,6 @@ public sealed class VideoBackendPolicyTests
             other.Equals(Enum.Parse(backendType, "Unsupported")),
             "Unknown platforms must be rejected."
         );
-
-        TestReflection.RequireType(
-            "BazaarPlusPlus.Game.CombatReplay.Video.MacNativeReplayAudioMuxer"
-        );
-        TestReflection.RequireType(
-            "BazaarPlusPlus.Game.CombatReplay.Video.WindowsNativeReplayAudioMuxer"
-        );
     }
 }
 

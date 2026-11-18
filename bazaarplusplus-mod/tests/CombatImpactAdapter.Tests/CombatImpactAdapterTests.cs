@@ -2,9 +2,7 @@ using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.AuraActions;
-using BazaarGameShared.Domain.Targeting;
 using BazaarGameShared.Domain.Values;
-using BazaarGameShared.Domain.Values.ReferenceValues;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using BazaarGameShared.Infra.Messages.Shared;
 using BazaarPlusPlus.Core.Combat;
@@ -142,29 +140,6 @@ public sealed partial class CombatImpactAdapterTests
     }
 
     [Fact]
-    public void Card_action_cost_event_is_read_without_a_compile_time_runtime_type_dependency()
-    {
-        var simulation = new CombatSim();
-        simulation
-            .Frames[0]
-            .Events.Add(
-                OptionalCombatSimEventFactory.CardActionCostSpent(
-                    "source",
-                    EPlayerAttributeType.Tempo,
-                    ECardAttributeType.TempoCost
-                )
-            );
-
-        var timeline = DesktopCombatTimeline.From(simulation);
-
-        var spent = Assert.IsType<CombatCardActionCostSpent>(
-            Assert.Single(Assert.Single(timeline.Frames).Events)
-        );
-        Assert.Equal("source", spent.ExecutingCard);
-        Assert.Equal(CombatPlayerAttribute.Tempo, spent.PlayerAttributeSpent);
-    }
-
-    [Fact]
     public void Condition_observations_without_an_executed_effect_are_not_copied()
     {
         var simulation = new CombatSim();
@@ -202,47 +177,6 @@ public sealed partial class CombatImpactAdapterTests
         Assert.Equal("source", executed.Source);
         Assert.Equal("trigger", executed.TriggerSource);
         Assert.Equal("target", Assert.IsType<CombatCardTarget>(executed.Target).Target);
-    }
-
-    [Fact]
-    public void Self_card_attribute_reference_keeps_its_target_and_modifier()
-    {
-        var modifier = DesktopCombatTimeline.ToModifier(
-            new TAuraActionCardModifyAttribute
-            {
-                AttributeType = ECardAttributeType.DamageAmount,
-                Operation = EAttributeModifierOperation.Add,
-                Value = new TReferenceValueCardAttribute
-                {
-                    AttributeType = ECardAttributeType.Custom_0,
-                    Target = new TTargetCardSelf(),
-                    Modifier = new TValueModifier
-                    {
-                        ModifyMode = EValueModifierMode.Multiply,
-                        Value = new TFixedValue { Value = 2 },
-                    },
-                },
-            }
-        );
-
-        Assert.Equal(
-            new CombatAttributeModifier
-            {
-                AttributeType = CombatCardAttribute.DamageAmount,
-                Operation = CombatAttributeOperation.Add,
-                Value = new CombatCardAttributeReference
-                {
-                    AttributeType = CombatCardAttribute.Custom_0,
-                    TargetsSelf = true,
-                    Modifier = new CombatValueModifier
-                    {
-                        ModifyMode = CombatValueModifierMode.Multiply,
-                        Value = new CombatFixedValue { Value = 2 },
-                    },
-                },
-            },
-            modifier
-        );
     }
 
     private static EffectTargetCard CardTarget(string id) =>

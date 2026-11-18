@@ -418,7 +418,6 @@ describe('analyzeHeroes', () => {
       'Karnok'
     ]);
     expect(analysis.focus.matchups.at(-1)?.isLowSample).toBe(true);
-    expect(analysis).not.toHaveProperty('stages');
   });
 
   test('handles an empty snapshot and clears focus and scope controls', () => {

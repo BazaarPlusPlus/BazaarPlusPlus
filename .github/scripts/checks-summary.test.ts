@@ -160,7 +160,6 @@ test('workflow wiring summarizes every optional job and isolates every manual ru
   assert.deepEqual(needs.sort(), ['classify', ...SCOPES].sort());
   assert.match(workflow, /group: checks-\$\{\{ github.event_name \}\}/);
   assert.match(workflow, /group: .*inputs.scope.*inputs.platform/);
-  assert.match(workflow, /shared-key: installer-.*-installer\n/);
 
   assert.match(
     workflow,

@@ -99,7 +99,7 @@ public sealed class AggregateItemMissingTypesTextTests
             },
         };
 
-        Assert.True(AggregateItemTypeSourceResolver.TryResolve(template, out var source));
+        Assert.True(AggregateItemTypeSourceResolver.TryResolve(template, null, out var source));
         Assert.Null(source.Section);
     }
 
@@ -114,7 +114,7 @@ public sealed class AggregateItemMissingTypesTextTests
             },
         };
 
-        Assert.True(AggregateItemTypeSourceResolver.TryResolve(template, out var source));
+        Assert.True(AggregateItemTypeSourceResolver.TryResolve(template, null, out var source));
         Assert.Null(source.Section);
     }
 
@@ -143,7 +143,7 @@ public sealed class AggregateItemMissingTypesTextTests
             },
         };
 
-        Assert.True(AggregateItemTypeSourceResolver.TryResolve(template, out var source));
+        Assert.True(AggregateItemTypeSourceResolver.TryResolve(template, null, out var source));
         Assert.Equal(ETargetCardSectionTargetSection.SelfHand, source.Section);
         Assert.True(source.ExcludeSelf);
     }

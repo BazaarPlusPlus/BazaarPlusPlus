@@ -406,46 +406,9 @@ public sealed class BundleSealFailureTests : IDisposable
         );
     }
 
-    // A replay trimmed to fit the size budget is on disk, so it never holds the Run.
-    [Fact]
-    public async Task SizeBudgetTrimDoesNotWaitAsync()
-    {
-        var root = Path.Combine(_root, "size-budget");
-        using var fixture = new Fixture(root);
-        fixture.AddCompletedRun("budget-run", endedMinutesAgo: 0);
-        fixture.AddBattle("budget-run", "budget-large", recordedMinutesAgo: 2);
-        fixture.AddBattle("budget-run", "budget-small", recordedMinutesAgo: 1);
-        fixture.Replays.Save(
-            new PvpReplayPayload
-            {
-                BattleId = "budget-large",
-                SpawnMessageBytes = OversizedSpawn(),
-                CombatMessageBytes = ReplayBytes.Combat,
-                DespawnMessageBytes = ReplayBytes.Despawn,
-            }
-        );
-        SealInputs.SaveReplay(fixture.Replays, "budget-small");
-        using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
-        await coordinator.ReconcileAsync(CancellationToken.None);
-        Require(
-            fixture.OutboxCount("budget-run") == 1,
-            "An oversized Run with every replay on disk seals before its deadline."
-        );
-        var payload = fixture.PendingPayload("budget-run", out _);
-        Require(
-            payload.Degradation.Categories.Contains("projection_battle_trimmed")
-                && payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(["budget-large"])
-                && payload.ReplayableBattleIds.SequenceEqual(["budget-small"]),
-            "The size budget trims the oldest replay and keeps the rest."
-        );
-    }
-
     // Seeded random text survives gzip at about three quarters of its length, so the Run segment
     // stays over BundleLimitsV6.MaxRunBytes until the size budget trims this replay.
-    private static byte[] OversizedSpawn(
-        int entropy = BundleLimitsV6.MaxRunBytes * 2,
-        int seed = 504
-    )
+    private static byte[] OversizedSpawn(int entropy, int seed)
     {
         var random = new byte[entropy];
         new Random(seed).NextBytes(random);

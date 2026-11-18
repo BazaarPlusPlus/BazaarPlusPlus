@@ -658,24 +658,6 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Direct_damage_is_a_successful_mapping_despite_its_zero_kind_value()
-    {
-        Assert.True(
-            CombatImpactProjector.TryResolveKind(CombatActionType.PlayerDamage, out var kind)
-        );
-        Assert.Equal(CombatImpactKind.DirectDamage, kind);
-    }
-
-    [Theory]
-    [InlineData(CombatActionType.None)]
-    [InlineData((CombatActionType)int.MaxValue)]
-    public void Unmapped_actions_return_false_and_the_default_kind(CombatActionType action)
-    {
-        Assert.False(CombatImpactProjector.TryResolveKind(action, out var kind));
-        Assert.Equal(default, kind);
-    }
-
-    [Fact]
     public void Every_native_action_has_an_explicit_display_or_ignore_classification()
     {
         Assert.All(
@@ -913,31 +895,6 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Enchant_actions_preserve_the_unique_applied_enchantment_type()
-    {
-        var simulation = new CombatTimeline();
-        simulation
-            .Frames[0]
-            .Events.Add(Executed("source", CombatActionType.CardEnchant, CardTarget("target")));
-        simulation
-            .Frames[0]
-            .Events.Add(
-                new CombatCardEnchanted
-                {
-                    InstanceId = "target",
-                    EnchantmentType = CardEnchantment.Fiery,
-                }
-            );
-
-        var group = Assert.Single(
-            Assert.Single(CombatImpactProjector.Project(simulation, Entities()).Sources).Groups
-        );
-
-        Assert.Equal("EnchantTargets:Fiery", group.NativeAttributeKey);
-        Assert.Equal(1, group.Count);
-    }
-
-    [Fact]
     public void Experimental_chef_projects_both_enchantments_from_the_recorded_event_shape()
     {
         const string chef = "skl_RIsKVL3";
@@ -982,6 +939,7 @@ public sealed partial class CombatImpactProjectorTests
         Assert.Equal("Experimental Chef", source.Entity.Name);
         Assert.Equal(2, source.EffectCount);
         Assert.Equal("Caviar", Assert.Single(groups["EnchantTargets:Fiery"].Targets).Entity.Name);
+        Assert.Equal(1, groups["EnchantTargets:Fiery"].Count);
         Assert.Equal(
             "Pizza Cutter",
             Assert.Single(groups["EnchantTargets:Shiny"].Targets).Entity.Name
@@ -3499,10 +3457,7 @@ public sealed partial class CombatImpactProjectorTests
         var report = CombatImpactProjector.Project(simulation, Entities());
         var caused = Assert.Single(Assert.Single(report.Sources).Groups);
         Assert.Equal(CombatImpactKind.Destroy, caused.Kind);
-        Assert.Equal(
-            CombatImpactAggregator.NativeKey(CombatImpactKind.Destroy),
-            caused.NativeAttributeKey
-        );
+        Assert.Equal("DestroyTargets", caused.NativeAttributeKey);
         Assert.Equal(2, caused.Count);
         var causedTarget = Assert.Single(caused.Targets);
         Assert.Equal(2, causedTarget.Count);
@@ -3720,16 +3675,10 @@ public sealed partial class CombatImpactProjectorTests
         var groups = source.Groups.ToDictionary(group => group.NativeAttributeKey);
 
         Assert.Equal(useCount, source.UseCount);
-        Assert.Equal(
-            useCount,
-            groups[CombatImpactAggregator.NativeKey(CombatImpactKind.Destroy)].Targets.Count
-        );
+        Assert.Equal(useCount, groups["DestroyTargets"].Targets.Count);
         Assert.Equal(useCount, groups["TransformTargets"].Targets.Count);
         Assert.Equal(useCount, groups["RepairTargets"].Targets.Count);
-        Assert.Equal(
-            useCount,
-            groups[CombatImpactAggregator.NativeKey(CombatImpactKind.Haste)].Targets.Count
-        );
+        Assert.Equal(useCount, groups["HasteAmount"].Targets.Count);
     }
 
     [Fact]
@@ -4427,37 +4376,6 @@ public sealed partial class CombatImpactProjectorTests
     }
 
     [Fact]
-    public void Configured_duration_ignores_status_net_delta_when_decay_shares_the_frame()
-    {
-        var simulation = new CombatTimeline();
-        var target = ("target");
-        simulation
-            .Frames[0]
-            .Events.Add(Executed("source", CombatActionType.CardHaste, CardTarget("target")));
-        simulation.Frames[0].CardUpdates[target] = new CombatCardUpdate
-        {
-            CardInstanceId = target,
-            Attributes =
-            {
-                [CombatCardAttribute.Haste] = new CombatCardAttributeUpdate
-                {
-                    AttributeType = CombatCardAttribute.Haste,
-                    PreviousValue = 1000,
-                    CurrentValue = 1950,
-                },
-            },
-        };
-
-        var report = CombatImpactProjector.Project(
-            simulation,
-            EntitiesWithSourceAttribute(CombatCardAttribute.HasteAmount, 1_000)
-        );
-        var group = Assert.Single(Assert.Single(report.Sources).Groups);
-        Assert.Equal(1_000, group.ObservedValue);
-        Assert.Equal(CombatImpactCoverage.Estimated, group.ObservedCoverage);
-    }
-
-    [Fact]
     public void Configured_duration_actions_do_not_fall_back_to_target_frame_deltas()
     {
         var cases = new[]
@@ -4511,28 +4429,32 @@ public sealed partial class CombatImpactProjectorTests
                 CombatActionType.CardCharge,
                 CombatCardAttribute.ChargeAmount,
                 CombatCardAttribute.Cooldown,
-                CombatImpactKind.Charge
+                CombatImpactKind.Charge,
+                "ChargeAmount"
             ),
             (
                 CombatActionType.CardHaste,
                 CombatCardAttribute.HasteAmount,
                 CombatCardAttribute.Haste,
-                CombatImpactKind.Haste
+                CombatImpactKind.Haste,
+                "HasteAmount"
             ),
             (
                 CombatActionType.CardSlow,
                 CombatCardAttribute.SlowAmount,
                 CombatCardAttribute.Slow,
-                CombatImpactKind.Slow
+                CombatImpactKind.Slow,
+                "SlowAmount"
             ),
             (
                 CombatActionType.CardFreeze,
                 CombatCardAttribute.FreezeAmount,
                 CombatCardAttribute.Freeze,
-                CombatImpactKind.Freeze
+                CombatImpactKind.Freeze,
+                "FreezeAmount"
             ),
         };
-        foreach (var (action, sourceAttribute, targetAttribute, expectedKind) in cases)
+        foreach (var (action, sourceAttribute, targetAttribute, expectedKind, expectedKey) in cases)
         {
             var simulation = new CombatTimeline();
             var target = ("target");
@@ -4561,7 +4483,7 @@ public sealed partial class CombatImpactProjectorTests
             var receivedSource = Assert.Single(received.Sources);
 
             Assert.Equal(expectedKind, caused.Kind);
-            Assert.Equal(CombatImpactAggregator.NativeKey(expectedKind), caused.NativeAttributeKey);
+            Assert.Equal(expectedKey, caused.NativeAttributeKey);
             Assert.Equal(2_000, caused.ObservedValue);
             Assert.Equal(CombatImpactCoverage.Estimated, caused.ObservedCoverage);
             Assert.Equal(2_000, causedTarget.ObservedValue);

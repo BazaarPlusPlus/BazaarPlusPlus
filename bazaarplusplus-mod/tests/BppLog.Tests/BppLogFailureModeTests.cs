@@ -96,11 +96,19 @@ public sealed class BppLogFailureModeTests
         );
 
         pipeline.Emit(BppLogSeverity.Warning, keyedOnRedacted, [("run_id", "run-a-1", policy)]);
-        pipeline.Emit(BppLogSeverity.Warning, keyedOnRedacted, [("run_id", "run-a-2", policy)]);
+        pipeline.Emit(BppLogSeverity.Warning, keyedOnRedacted, [("run_id", "run-a-1", policy)]);
         pipeline.Flush();
 
         Assert.Equal(2, output.Count);
-        Assert.Equal(0, pipeline.ActiveStormKeyCount);
+        Assert.All(
+            output,
+            line =>
+                Assert.StartsWith(
+                    "[BPP][Upload] event=upload.failure_mode.degraded",
+                    line,
+                    StringComparison.Ordinal
+                )
+        );
     }
 
     [Fact]

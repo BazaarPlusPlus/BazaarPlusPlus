@@ -146,7 +146,6 @@ test('one preparation publishes a coherent Payload and does not touch another pl
     produce: ({ rootDir, platform }) => stage(rootDir, platform, 'new')
   });
   expect(result.productVersion).toBe('5.5.0');
-  expect(result.inputDigest).toBe(computePayloadInputs(data).digest);
   expect(
     fs.readFileSync(
       path.join(

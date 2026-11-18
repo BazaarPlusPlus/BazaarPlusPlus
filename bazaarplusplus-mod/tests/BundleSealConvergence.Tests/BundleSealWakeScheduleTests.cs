@@ -9,7 +9,7 @@ namespace BundleSeal.Tests;
 // it replaces.
 public sealed class BundleSealWakeScheduleTests
 {
-    private const float Cap = BundleSealWakeSchedule.MaximumIdleWaitSeconds;
+    private const float Cap = 300f;
 
     [Fact]
     public void No_waiting_job_sleeps_until_the_idle_cap() =>
@@ -21,17 +21,11 @@ public sealed class BundleSealWakeScheduleTests
 
     [Fact]
     public void An_overdue_discovery_runs_on_the_next_short_wait() =>
-        Near(
-            BundleSealWakeSchedule.MinimumWaitSeconds,
-            BundleSealWakeSchedule.WaitSeconds(null, Cap + 30f, maintenanceFailed: false)
-        );
+        Near(1f, BundleSealWakeSchedule.WaitSeconds(null, Cap + 30f, maintenanceFailed: false));
 
     [Fact]
     public void A_failed_discovery_retries_at_the_input_wait_cadence_never_faster() =>
-        Near(
-            BundleSealWakeSchedule.InputWaitPollSeconds,
-            BundleSealWakeSchedule.WaitSeconds(null, Cap + 30f, maintenanceFailed: true)
-        );
+        Near(5f, BundleSealWakeSchedule.WaitSeconds(null, Cap + 30f, maintenanceFailed: true));
 
     [Fact]
     public void A_failed_discovery_does_not_delay_a_job_due_sooner() =>
@@ -39,10 +33,7 @@ public sealed class BundleSealWakeScheduleTests
 
     [Fact]
     public void A_job_due_at_once_still_waits_the_minimum() =>
-        Near(
-            BundleSealWakeSchedule.MinimumWaitSeconds,
-            BundleSealWakeSchedule.WaitSeconds(0.01f, 0f, maintenanceFailed: false)
-        );
+        Near(1f, BundleSealWakeSchedule.WaitSeconds(0.01f, 0f, maintenanceFailed: false));
 
     [Fact]
     public void A_long_backoff_is_cut_to_the_idle_cap() =>
@@ -82,7 +73,7 @@ public sealed class BundleSealWakeScheduleTests
     [Fact]
     public void A_due_job_still_waiting_on_an_input_is_polled_until_its_deadline() =>
         Near(
-            BundleSealWakeSchedule.InputWaitPollSeconds,
+            5f,
             BundleSealWakeSchedule.SecondsUntilAttempt(
                 null,
                 0,
@@ -110,7 +101,7 @@ public sealed class BundleSealWakeScheduleTests
     [Fact]
     public void A_due_job_past_its_deadline_is_polled_never_in_a_tight_loop() =>
         Near(
-            BundleSealWakeSchedule.InputWaitPollSeconds,
+            5f,
             BundleSealWakeSchedule.SecondsUntilAttempt(
                 "seal_publish_failed",
                 1,
@@ -151,10 +142,7 @@ public sealed class BundleSealWakeScheduleTests
         // A skipped job that becomes due requests the next pass immediately.
         Near(0f, due);
         // The worker still applies its minimum wait to avoid a busy loop.
-        Near(
-            BundleSealWakeSchedule.MinimumWaitSeconds,
-            BundleSealWakeSchedule.WaitSeconds(due, 2f, maintenanceFailed: false)
-        );
+        Near(1f, BundleSealWakeSchedule.WaitSeconds(due, 2f, maintenanceFailed: false));
     }
 
     [Fact]

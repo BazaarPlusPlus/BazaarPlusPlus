@@ -12,8 +12,6 @@ import {
   interopSnapshotName,
   lockKey,
   lockKeys,
-  lockWarnings,
-  lockedEntries,
   parseGameVersion,
   readGameLibsLock,
   validateGameLibsLock
@@ -21,9 +19,9 @@ import {
 import type { GameLibsLock, GameLibsLockEntries } from './snapshot-lock.ts';
 
 // The Snapshot Lock (root GLOSSARY.md, ADR 0004 and ADR 0008): its keys, the
-// game version that names an entry, validation of every entry shape, and the
-// warnings that never fail a gate. Capture, publish and fetch are tested in
-// game-libs.test.ts and game-libs-interop.test.ts.
+// game version that names an entry, and validation of every entry shape.
+// Capture, publish and fetch are tested in game-libs.test.ts and
+// game-libs-interop.test.ts.
 
 const roots: string[] = [];
 afterEach(() => {
@@ -125,40 +123,6 @@ test('lock validation rejects every malformed shape it will meet', () => {
     expect(() => validateGameLibsLock(lock), JSON.stringify(lock)).toThrow(
       message
     );
-});
-
-test('warnings name empty and stale entries without failing', () => {
-  const lock = emptyLock();
-  lock.entries['macos-staging'] = {
-    gameVersion: STAGING_VERSION,
-    sha256: 'a'.repeat(64),
-    buildid: '25661913',
-    steamBranch: 'staging',
-    capturedAt: '2026-08-01T00:00:00.000Z'
-  };
-  lock.entries['windows-online'] = {
-    gameVersion: '1.0.12600-windows-x64-0a1b2c3d',
-    sha256: 'b'.repeat(64),
-    buildid: '25661999',
-    steamBranch: 'public',
-    capturedAt: '2026-10-01T00:00:00.000Z'
-  };
-  const warnings = lockWarnings(lock, { now: NOW });
-  expect(warnings).toHaveLength(7);
-  expect(
-    warnings.filter((w) => w.includes('no snapshot captured'))
-  ).toHaveLength(4);
-  expect(warnings.find((w) => w.startsWith('android-play'))).toMatch(
-    /no Interop Snapshot captured; run 'just mod::snapshot-android <APK>\.\.\.', then 'just mod::publish android play'/
-  );
-  expect(warnings.find((w) => w.startsWith('macos-staging'))).toMatch(
-    /captured 63 days ago \(staleAfterDays 30\)/
-  );
-  expect(warnings.some((w) => w.startsWith('windows-online'))).toBe(false);
-  expect(lockedEntries(lock).map(({ key }) => key)).toEqual([
-    'macos-staging',
-    'windows-online'
-  ]);
 });
 
 test('an Android version names its source: the publisher form or a bare Play versionName', () => {

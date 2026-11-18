@@ -344,10 +344,6 @@ test('an integrity-pinned platform without an input digest remains stale', () =>
     };
     fs.writeFileSync(lockPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-    expect(manifest.platforms.windows).toMatchObject({
-      inputDigest: null,
-      policy: { architecture: 'x64', signing: 'unsigned' }
-    });
     expect(() =>
       verifyNativeRecorderInput({
         rootDir: fixture.rootDir,

@@ -73,9 +73,7 @@ test('each platform installs only its own host entries', () => {
     ['BepInEx/plugins/BazaarPlusPlus.dll', 'android'],
     ['MelonLoader/Mods/BazaarPlusPlus.Android.dll', 'macos'],
     ['MelonLoader/UserData/BazaarPlusPlus.cfg', 'android'],
-    ['MelonLoader/Latest.log', 'android'],
-    // The injected APK's deployment is gone with ADR 0010.
-    ['assets/LemonLoader/deployment/Mods/BazaarPlusPlus.Android.dll', 'android']
+    ['MelonLoader/Latest.log', 'android']
   ] as const)
     expect(() => assertShippedPayloadPaths([file], platform)).toThrow(
       /Undeclared or forbidden/
@@ -303,10 +301,6 @@ test('MSBuild evaluates the same product version as the release coordinator', ()
   expect(version).toBe(readProductVersion());
 }, 30000);
 
-// The Android Host builds but is not shipped yet: the BepInEx-shaped inventory has
-// no root for it until the Payload Inventory gains per-host roots.
-const UNSHIPPED_PROJECTS = new Set(['BazaarPlusPlus.Android']);
-
 test('every published product assembly is declared in the shared inventory', () => {
   const assemblies = (host: PayloadHost) =>
     readInventory()
@@ -330,7 +324,6 @@ test('every published product assembly is declared in the shared inventory', () 
         )
     )
     .map((entry) => entry.name)
-    .filter((name) => !UNSHIPPED_PROJECTS.has(name))
     .sort();
   // The Updater ships beside the host assemblies with its own version, so it
   // is declared by its producer, not as a product assembly.
@@ -346,15 +339,9 @@ test('every published product assembly is declared in the shared inventory', () 
   expect(
     assemblies('bepinex').filter((name) => !projects.includes(name))
   ).toEqual([]);
-  // The Android host and Core projects land with #352 and #354; until then
-  // the MelonLoader entries name the layout they will build into.
   expect(
     assemblies('melonloader').filter((name) => !projects.includes(name))
-  ).toEqual(
-    ['BazaarPlusPlus.Android', 'BazaarPlusPlus.Core'].filter(
-      (name) => !projects.includes(name)
-    )
-  );
+  ).toEqual([]);
 });
 
 const xml = (value: string) =>

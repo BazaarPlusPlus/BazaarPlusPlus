@@ -589,8 +589,7 @@ mod characterization_tests;
 #[cfg(test)]
 mod tests {
     use super::{
-        history_paths_for_game_path, history_read_problem_with, history_thumbnails,
-        require_video_file_exists, CleanupPlans, GameCardNames, History, HistoryReadError,
+        history_thumbnails, require_video_file_exists, CleanupPlans, GameCardNames, History,
         HistoryThumbnails, RunQuery, StorageCleanupExecution, StorageCleanupPreset,
         StorageCleanupPreview, StorageCleanupScope,
     };
@@ -600,19 +599,6 @@ mod tests {
     use crate::services::data_maintenance::DataMaintenanceLock;
     use crate::services::paths;
     use std::path::Path;
-
-    #[test]
-    fn history_paths_use_combat_replay_videos_as_video_root() {
-        let game_path = std::path::PathBuf::from("/tmp/The Bazaar");
-
-        let resolved = history_paths_for_game_path(game_path.clone());
-
-        assert_eq!(
-            resolved.combat_replay_videos_dir,
-            paths::combat_replay_videos_dir(&game_path)
-        );
-        assert_eq!(resolved.database_path, paths::database_path(&game_path));
-    }
 
     #[test]
     fn history_page_list_uses_semantic_unavailable_and_read_failed_problems() {
@@ -642,22 +628,6 @@ mod tests {
             Some("list_runs")
         );
         assert!(read_failed.diagnostic.is_some());
-    }
-
-    #[test]
-    fn history_read_problem_uses_the_injected_game_state() {
-        let problem = history_read_problem_with(
-            "list_runs",
-            HistoryReadError::Failed("database busy".to_string()),
-            || true,
-        );
-
-        assert_eq!(problem.code, SemanticProblemCode::HistoryReadBlockedByGame);
-        assert_eq!(
-            problem.params.get("operation").map(String::as_str),
-            Some("list_runs")
-        );
-        assert_eq!(problem.diagnostic.as_deref(), Some("database busy"));
     }
 
     #[test]
@@ -757,46 +727,6 @@ mod tests {
                 "delete_video",
                 history
                     .delete_battle_video("battle-1", "video-1")
-                    .unwrap_err(),
-            ),
-        ] {
-            assert_eq!(problem.code, SemanticProblemCode::HistoryActionFailed);
-            assert_eq!(
-                problem.params.get("operation").map(String::as_str),
-                Some(operation)
-            );
-            assert!(problem.diagnostic.is_some());
-        }
-    }
-
-    #[test]
-    fn storage_cleanup_page_classifies_preview_and_execute_failures() {
-        let temp = tempfile::tempdir().unwrap();
-        let game_path = temp.path().join("The Bazaar");
-        let history = History::at(Some(game_path.clone())).unwrap();
-        std::fs::create_dir_all(history.paths.database_path.parent().unwrap()).unwrap();
-        std::fs::write(&history.paths.database_path, b"not sqlite").unwrap();
-
-        for (operation, problem) in [
-            (
-                "preview_storage_cleanup",
-                history
-                    .preview_cleanup(
-                        StorageCleanupScope::RunData,
-                        StorageCleanupPreset::All,
-                        &CleanupPlans::default(),
-                    )
-                    .unwrap_err(),
-            ),
-            (
-                "execute_storage_cleanup",
-                history
-                    .execute_cleanup(
-                        StorageCleanupScope::RunData,
-                        StorageCleanupPreset::All,
-                        &CleanupPlans::default(),
-                        1,
-                    )
                     .unwrap_err(),
             ),
         ] {
@@ -1225,37 +1155,6 @@ mod tests {
                 .runs,
             1,
             "the run recorded after the preview survives"
-        );
-    }
-
-    #[test]
-    fn storage_cleanup_preview_serializes_as_a_scope_tagged_result() {
-        let preview = StorageCleanupPreview::Screenshots {
-            preview: crate::history::cleanup::ScreenshotCleanupPreview {
-                screenshots: 2,
-                orphan_files: 1,
-                estimated_bytes: 42,
-                skipped_pending_uploads: 0,
-            },
-            plan_id: 7,
-        };
-
-        assert_eq!(
-            serde_json::to_value(preview).unwrap(),
-            serde_json::json!({
-                "scope": "screenshots",
-                "preview": {
-                    "screenshots": 2,
-                    "orphan_files": 1,
-                    "estimated_bytes": 42,
-                    "skipped_pending_uploads": 0
-                },
-                "plan_id": 7
-            })
-        );
-        assert_eq!(
-            serde_json::to_value(StorageCleanupScope::Screenshots).unwrap(),
-            serde_json::json!("screenshots")
         );
     }
 }

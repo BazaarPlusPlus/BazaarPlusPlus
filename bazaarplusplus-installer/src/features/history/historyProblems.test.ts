@@ -1,32 +1,29 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { formatMessage } from '../../i18n/messages';
+import { formatMessage, type MessageKey } from '../../i18n/messages';
 import { createUiProblem } from '../shared/problems';
 import {
   presentHistoryProblem,
   type HistoryPageProblemCode
 } from './historyProblems';
 
-const codes: HistoryPageProblemCode[] = [
-  'history_unavailable',
-  'history_read_failed',
-  'history_read_blocked_by_game',
-  'history_database_unsupported_schema',
-  'history_thumbnails_unavailable',
-  'history_unexpected'
+const rows: [HistoryPageProblemCode, MessageKey][] = [
+  ['history_unavailable', 'historyProblemUnavailable'],
+  ['history_read_failed', 'historyProblemReadFailed'],
+  ['history_read_blocked_by_game', 'historyProblemBlockedByGame'],
+  ['history_database_unsupported_schema', 'historyProblemUnsupportedSchema'],
+  ['history_thumbnails_unavailable', 'historyProblemThumbnailsUnavailable'],
+  ['history_unexpected', 'historyProblemUnexpected']
 ];
 
 describe('History problem presentation', () => {
-  it.each(codes)('has complete Chinese and English copy for %s', (code) => {
+  it.each(rows)('presents %s with %s in Chinese and English', (code, key) => {
     const problem = createUiProblem(code);
-    const zh = presentHistoryProblem(problem, (key, params) =>
-      formatMessage('zh', key, params)
-    );
-    const en = presentHistoryProblem(problem, (key, params) =>
-      formatMessage('en', key, params)
-    );
-
-    expect(zh).not.toBe(code);
-    expect(en).not.toBe(code);
-    expect(en).not.toBe(zh);
+    for (const locale of ['zh', 'en'] as const) {
+      expect(
+        presentHistoryProblem(problem, (k, params) =>
+          formatMessage(locale, k, params)
+        )
+      ).toBe(formatMessage(locale, key, problem.params));
+    }
   });
 });

@@ -667,6 +667,7 @@ fn history_reads_name_a_running_game() {
             problem.params.get("operation").map(String::as_str),
             Some(operation)
         );
+        assert!(problem.diagnostic.is_some());
     }
 
     for (operation, problem) in [

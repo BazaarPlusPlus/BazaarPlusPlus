@@ -8,7 +8,7 @@ namespace BazaarPlusPlus.GameInterop.CombatSimulation;
 
 internal static class CardActionCostSpentEventReader
 {
-    internal const string RuntimeTypeName =
+    private const string RuntimeTypeName =
         "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardActionCostSpent";
 
     private const BindingFlags InstancePublic = BindingFlags.Instance | BindingFlags.Public;

@@ -32,14 +32,6 @@ public sealed class HistoryPanelDecisionsTests
         var confirmation = CreateConfirmation("run-1", 105f);
 
         Assert(
-            GetString(confirmation, "RunId") == "run-1",
-            "Delete confirmation should store run id."
-        );
-        Assert(
-            GetFloat(confirmation, "ExpiresAt") == 105f,
-            "Delete confirmation arm should be now + 5s."
-        );
-        Assert(
             InvokeBool(confirmationType, confirmation, "IsActiveFor", "run-1", 100f),
             "Confirmation should be active for the armed run before expiry."
         );
@@ -419,13 +411,6 @@ public sealed class HistoryPanelDecisionsTests
     private static string? GetString(object target, string propertyName)
     {
         return GetProperty(target, propertyName).GetValue(target) as string;
-    }
-
-    private static float GetFloat(object target, string propertyName)
-    {
-        return GetProperty(target, propertyName).GetValue(target) is float value
-            ? value
-            : throw new InvalidOperationException($"{propertyName} should be a float.");
     }
 
     private static bool GetBool(object target, string propertyName)

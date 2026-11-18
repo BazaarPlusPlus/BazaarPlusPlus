@@ -6,6 +6,7 @@ using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Effect;
 using BazaarGameShared.Domain.Effect.Actions;
+using BazaarGameShared.Domain.Game;
 using BazaarGameShared.Domain.Runs;
 using BazaarGameShared.Domain.Spawning.SpawnFilters;
 using BazaarGameShared.Domain.Spawning.SpawnFilters.Constraints;
@@ -74,12 +75,9 @@ public sealed class EncounterPreviewCompilerTests
 
         var compiler = new EncounterPreviewPlanCompiler();
 
-        var result = compiler.Compile(map);
+        var result = compiler.Compile(map, new Dictionary<int, TLevelUp>());
 
-        Assert.True(
-            result.FailedTemplateIds.Count == 0,
-            $"Failed templates: {string.Join(", ", result.FailedTemplateIds)}"
-        );
+        Assert.Equal(0, result.Snapshot.Coverage.EventFailureCount);
         var plan = Assert.Single(result.Snapshot.Events);
         Assert.Equal(1, plan.ChoiceLimit);
         Assert.Equal(

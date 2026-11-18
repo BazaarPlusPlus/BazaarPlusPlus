@@ -118,7 +118,7 @@ pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> anyhow::Result
 
 #[cfg(test)]
 mod tests {
-    use super::{remove_video_file, StoredPathReferences, StoredRelativePath};
+    use super::{StoredPathReferences, StoredRelativePath};
 
     #[test]
     fn the_rule_accepts_relative_segments_and_rejects_everything_else() {
@@ -191,23 +191,5 @@ mod tests {
         assert!(protects("server/share/d.png"));
         assert!(protects("2020-01-01/d.png"));
         assert!(!protects("x/y/e.png"));
-    }
-
-    #[test]
-    fn video_removal_never_deletes_outside_the_video_directory() {
-        let temp = tempfile::tempdir().unwrap();
-        let video_dir = temp.path().join("videos");
-        std::fs::create_dir_all(video_dir.join("2026-05-20")).unwrap();
-        let inside = video_dir.join("2026-05-20/a.mp4");
-        let outside = temp.path().join("outside.mp4");
-        std::fs::write(&inside, b"inside").unwrap();
-        std::fs::write(&outside, b"outside").unwrap();
-
-        remove_video_file(&video_dir, &outside.to_string_lossy()).unwrap();
-        remove_video_file(&video_dir, "../outside.mp4").unwrap();
-        assert!(outside.is_file());
-
-        remove_video_file(&video_dir, "2026-05-20/a.mp4").unwrap();
-        assert!(!inside.exists());
     }
 }

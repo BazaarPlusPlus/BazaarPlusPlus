@@ -9,20 +9,12 @@ public sealed class CombatImpactDetailPresentationPolicyTests
     public void Entity_rows_are_rendered_for_compact_groups()
     {
         Assert.True(CombatImpactDetailPresentationPolicy.ShouldRenderEntityRows(0));
-        Assert.True(
-            CombatImpactDetailPresentationPolicy.ShouldRenderEntityRows(
-                CombatImpactDetailPresentationPolicy.MaximumDetailedEntityRows
-            )
-        );
+        Assert.True(CombatImpactDetailPresentationPolicy.ShouldRenderEntityRows(12));
     }
 
     [Fact]
     public void Entity_rows_are_suppressed_for_oversized_groups()
     {
-        Assert.False(
-            CombatImpactDetailPresentationPolicy.ShouldRenderEntityRows(
-                CombatImpactDetailPresentationPolicy.MaximumDetailedEntityRows + 1
-            )
-        );
+        Assert.False(CombatImpactDetailPresentationPolicy.ShouldRenderEntityRows(13));
     }
 }

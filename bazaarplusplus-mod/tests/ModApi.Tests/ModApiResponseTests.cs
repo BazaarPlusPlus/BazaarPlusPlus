@@ -86,19 +86,6 @@ public sealed class ModApiResponseTests
         Assert(oversized.UserCode == "body_too_large", "overflow closed code");
     }
 
-    [Fact]
-    public void TransportFailureSeparatesUserAndDiagnosticChannels()
-    {
-        var exception = new InvalidOperationException("private-transport-sentinel");
-        var failure = new ModApiFailure("transport_error", exception);
-        Assert(failure.UserCode == "transport_error", "closed transport code");
-        Assert(
-            ReferenceEquals(failure.DiagnosticException, exception),
-            "diagnostic exception retained"
-        );
-        Assert(!failure.UserCode.Contains("sentinel", StringComparison.Ordinal), "no raw UI text");
-    }
-
     private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 

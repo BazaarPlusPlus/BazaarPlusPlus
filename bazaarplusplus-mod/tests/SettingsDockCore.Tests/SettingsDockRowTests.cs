@@ -76,6 +76,7 @@ public sealed class SettingsDockRowTests
         row.SelectStandardChoice(7);
         Assert.Equal(2, value);
         Assert.Equal(new[] { "1", "2", "3" }, row.ResolveChoiceState("en").Options);
+        Assert.False(row.ResolveChoiceState("en").HasSyntheticCurrentOption);
         Assert.Equal(1, row.ResolveChoiceState("en").SelectedIndex);
     }
 
@@ -104,9 +105,7 @@ public sealed class SettingsDockRowTests
             Settings()
         );
 
-        Assert.Equal(BppSettingsDockOrder.GameHistory, entry.Order);
         Assert.Equal("Game History", plain.ResolveLabel("en"));
-        Assert.Equal(HistoryPanelSettingsMenuLabel.ResolvePlain("en"), plain.ResolveLabel("en"));
         Assert.Contains("F2", hotkey.ResolveLabel("en"));
         Assert.DoesNotContain("F2", plain.ResolveLabel("en"));
         Assert.True(plain.CollapseAfterActivate);
