@@ -9,8 +9,8 @@ namespace BazaarPlusPlus.Patches.RandomCosmetics;
 
 /// <summary>
 /// Arms the Random Cosmetic Pool only when every one of its patches is installed and every
-/// game field it reads exists. Patches apply per class, so a game update can drop one of them;
-/// then the whole pool stays off, the run-start pick included, and the loadout is native.
+/// game field and method it reads exists. Patches apply per class, so a game update can drop one
+/// of them; then the whole pool stays off, the run-start pick included, and the loadout is native.
 /// </summary>
 internal static class RandomCosmeticPoolPatchCapabilities
 {
@@ -46,7 +46,7 @@ internal static class RandomCosmeticPoolPatchCapabilities
     private static bool Probe() =>
         Installed(
             typeof(CollectionManager),
-            nameof(CollectionManager.GetRandomizedLoadout),
+            RandomCosmeticPoolLoadoutPatch.Target,
             typeof(RandomCosmeticPoolLoadoutPatch),
             info => info.Postfixes
         )
@@ -108,7 +108,8 @@ internal static class RandomCosmeticPoolPatchCapabilities
         && HasField(typeof(CosmeticsPanelController), "_cosmeticsListManager")
         && HasField(typeof(CosmeticsListManager), "_cosmeticsContent")
         && HasField(typeof(CosmeticsListManager), "_lastEquippedItem")
-        && HasField(typeof(CosmeticItem), "_equipableItem");
+        && HasField(typeof(CosmeticItem), "_equipableItem")
+        && BppPatchHost.Features.RandomCosmeticPool.CanReadCollection;
 
     private static bool Installed(
         Type type,

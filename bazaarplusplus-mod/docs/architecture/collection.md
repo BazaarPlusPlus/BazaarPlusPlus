@@ -42,6 +42,7 @@ Android's disk catalog identity uses the projection version owned by `AndroidCol
 
 Traps and rules that bite only this feature; most failed silently at least once.
 
+- Steam staging 1.0.13257 takes no card in `CardTooltipData.GetPassiveTooltipBlock()` and returns `List<TooltipSegment>`, where online's `GetPassiveTooltipBlock(Card)` returns `(StringBuilder, TooltipSegment?)`. `CollectionTierTooltipPreview` binds the online shape by signature, so the passive tier comparison, and the Package merchant summary that patches the same method, do not apply there until they move to the segment shape the active text already uses. [`src/BazaarPlusPlus/Patches/CollectionPanel/CollectionTierTooltipPreview.cs` | `src/BazaarPlusPlus/Patches/Tooltips/PackageMerchantSummaryTooltipPatch.cs`]
 - UI Toolkit draws a `Sprite` background through the sprite's tight mesh, and drew several merchant and trainer portraits that way as displaced fragments, though each mesh matches its UVs. Each encounter portrait is an unpacked sprite that fills its own texture, so a source cell draws the texture instead (`SourcePortraitBackground`). [`src/BazaarPlusPlus/Game/CollectionPanel/Ui/CollectionPanelView.Filters.cs`]
 - While a desktop source fold is open, the Collection reports modal input to the Overlay Panel Host so that Escape closes the fold first; the host then drops panel hotkeys and the Walkthrough Control's `open` until the fold closes (`just mod::ui-shots` times out). [`src/BazaarPlusPlus/Game/CollectionPanel/CollectionPanel.cs`]
 
