@@ -379,6 +379,34 @@ public sealed class BundleV6CodecTests
             Ungzip(RunPayloadV6Codec.Encode(goldenDecoded)),
             "golden Run payload decode and re-encode"
         );
+
+        // A mod already shipped reads Ghost Bundles from a newer mod: a replay array longer than
+        // the keys this decoder knows must still decode and stay replayable.
+        var untyped = MessagePackSerializerOptions.Standard.WithResolver(
+            PrimitiveObjectResolver.Instance
+        );
+        var graph = (object[])MessagePackSerializer.Deserialize<object>(Ungzip(golden), untyped);
+        var futureBattle = (object[])((object[])graph[5])[0];
+        futureBattle[4] = ((object[])futureBattle[4]).Append("future").ToArray();
+        var future = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
+        );
+        True(
+            RunBundleV6Contract.IsReplayable(future.Battles[0]),
+            "a replay with an unknown trailing key stays replayable"
+        );
+        Equal(12, future.Battles[0].Replay!.PlayerAttributes!["HealthRegen"], "known keys decode");
+
+        // And the other way: a Ghost Bundle from a mod that predates key 4 has the shorter array.
+        futureBattle[4] = ((object[])futureBattle[4]).Take(4).ToArray();
+        var earlier = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
+        );
+        True(
+            RunBundleV6Contract.IsReplayable(earlier.Battles[0]),
+            "a replay without the player attributes stays replayable"
+        );
+        True(earlier.Battles[0].Replay!.PlayerAttributes == null, "an absent key decodes as null");
     }
 
     private static byte[] Ungzip(byte[] bytes)
@@ -631,6 +659,11 @@ public sealed class BundleV6CodecTests
         payload.Run.Gold = 17;
         payload.Run.BuildChannel = "Online";
         var battle = ReplayBattle("battle-000");
+        battle.Replay!.PlayerAttributes = new Dictionary<string, int>
+        {
+            ["Health"] = 2500,
+            ["HealthRegen"] = 12,
+        };
         battle.Facts = new BattleFactsV6
         {
             RecordedAtMs = 1_785_716_940_000,

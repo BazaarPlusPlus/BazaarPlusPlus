@@ -34,6 +34,15 @@ public interface IPvpBattleReads<TMessage>
     IReadOnlyList<PvpBattleCardSnapshot> PlayerBoard(PvpSnapshotSection section);
 
     /// <summary>
+    /// The player's attributes as the combat opens, keyed by the game's member name: the live
+    /// game state with the opening message's player changes applied on top. The opening carries
+    /// only what changed for the player, so the message alone does not hold them. Null when the
+    /// host does not read them. Read only during the observe call that delivered the opening, and
+    /// asked only for a PvP combat.
+    /// </summary>
+    IReadOnlyDictionary<string, int>? PlayerAttributes(TMessage opening);
+
+    /// <summary>
     /// The replay part of <paramref name="stage"/>: the opening game sim for
     /// <see cref="PvpReplayStage.Spawn"/>, the combat sim for <see cref="PvpReplayStage.Combat"/>,
     /// the closing game sim for <see cref="PvpReplayStage.Despawn"/>. Asked only for a PvP combat.

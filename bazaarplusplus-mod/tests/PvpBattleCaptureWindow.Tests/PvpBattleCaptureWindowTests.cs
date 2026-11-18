@@ -298,6 +298,20 @@ public sealed class PvpBattleCaptureWindowTests
         AssertOneUnreadable(h, "player", field.ToString(), capture);
     }
 
+    [Fact]
+    public void PlayerAttributesThatThrowLeaveTheReplayWithoutThem()
+    {
+        using var h = new WindowHarness();
+        h.Reads.PlayerAttributeMap = () => throw new InvalidOperationException("unreadable");
+
+        var capture = h.Battle();
+
+        var replay = Assert.IsType<PvpReplayPayload>(capture.Replay);
+        Assert.Null(replay.PlayerAttributes);
+        Assert.NotEmpty(replay.SpawnMessageBytes);
+        AssertOneUnreadable(h, "player", "Attributes", capture);
+    }
+
     [Theory]
     [InlineData(PvpOpeningText.EncounterId, "battle")]
     [InlineData(PvpOpeningText.OpponentName, "opponent")]
@@ -483,6 +497,10 @@ public sealed class PvpBattleCaptureWindowTests
         Assert.Equal(ScriptedBattleReads.Bytes("opening:PVPCombat"), replay.SpawnMessageBytes);
         Assert.Equal(ScriptedBattleReads.Bytes("combat"), replay.CombatMessageBytes);
         Assert.Equal(ScriptedBattleReads.Bytes("sim:Choice"), replay.DespawnMessageBytes);
+        Assert.Equal(
+            new Dictionary<string, int> { ["Health"] = 400, ["HealthRegen"] = 3 },
+            replay.PlayerAttributes
+        );
     }
 
     [Fact]

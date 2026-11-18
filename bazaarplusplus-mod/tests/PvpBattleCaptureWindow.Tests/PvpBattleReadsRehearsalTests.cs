@@ -84,6 +84,7 @@ public sealed class PvpBattleReadsRehearsalTests
                 "opening OpponentLevel",
                 "opening OpponentPrestige",
                 "opening OpponentVictories",
+                "player Attributes",
                 "opponent Skills",
                 "serialize",
                 "opponent Hand",
@@ -252,6 +253,12 @@ public sealed class PvpBattleReadsRehearsalTests
         {
             reads.Add("player " + section);
             return inner.PlayerBoard(section);
+        }
+
+        public IReadOnlyDictionary<string, int>? PlayerAttributes(FakeMessage opening)
+        {
+            reads.Add("player Attributes");
+            return inner.PlayerAttributes(opening);
         }
 
         public PvpReplayPart KeepReplayPart(

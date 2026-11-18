@@ -243,6 +243,8 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         );
 
         KeepPart(battle, PvpReplayStage.Spawn, opening);
+        if (battle.Pvp)
+            battle.PlayerAttributes = PlayerAttributes(opening, battleId);
         return battle;
     }
 
@@ -355,6 +357,21 @@ public sealed class PvpBattleCaptureWindow<TMessage>
             field.ToString(),
             battleId
         );
+
+    // A failed read leaves the replay without the map; it never fails a replay part.
+    private Dictionary<string, int>? PlayerAttributes(TMessage opening, string battleId)
+    {
+        try
+        {
+            var attributes = _reads.PlayerAttributes(opening);
+            return attributes == null ? null : new Dictionary<string, int>(attributes);
+        }
+        catch (Exception exception)
+        {
+            ReportUnreadable(PvpBattleReadSide.Player, "Attributes", battleId, exception);
+            return null;
+        }
+    }
 
     private static PvpBattleReadSide SideOf(PvpOpeningText field) =>
         field == PvpOpeningText.EncounterId ? PvpBattleReadSide.Battle : PvpBattleReadSide.Opponent;
@@ -577,6 +594,7 @@ public sealed class PvpBattleCaptureWindow<TMessage>
             SpawnMessageBytes = bytes[(int)PvpReplayStage.Spawn],
             CombatMessageBytes = bytes[(int)PvpReplayStage.Combat],
             DespawnMessageBytes = bytes[(int)PvpReplayStage.Despawn],
+            PlayerAttributes = battle.PlayerAttributes,
         };
     }
 
@@ -621,6 +639,8 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         public int? Hour { get; set; }
 
         public bool CombatSeen { get; set; }
+
+        public Dictionary<string, int>? PlayerAttributes { get; set; }
 
         public PvpBattleParticipants Participants { get; } = new();
 
