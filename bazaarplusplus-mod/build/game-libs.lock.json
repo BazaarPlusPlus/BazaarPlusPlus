@@ -45,15 +45,15 @@
       "capturedAt": "2026-11-07T20:29:43.191Z"
     },
     "android-publisher": {
-      "gameVersion": "1.0.13113-production-android-c0ecfda3",
-      "versionCode": 13113,
-      "apkSha256": "5281575711b1650e23c514c153aa8ddf123178ce2d29f33a65dac5126992ffb3",
-      "apkEtag": "cd00f278f07315e403e46b3cb171bc73",
+      "gameVersion": "1.0.13269-production-android-337a7d86",
+      "versionCode": 13269,
+      "apkSha256": "7402d986a6bd0b2f89eb690f061c9d3551288e7a9c18b4647fbe2a232ed4a8db",
+      "apkEtag": "7366226ba513272c8660e40cdbf12d19",
       "splitApkSha256s": [],
-      "il2cppSha256": "fef2fd386c55c60d686d21a3e687251b1ea727a0258f452f12ed37c71c0fac8d",
-      "metadataSha256": "fc466d15543119bb78cea7e5045576516a87b55123a8b0c50a73af52032af729",
+      "il2cppSha256": "ad25efb4eafd3be4621bc719d22554e5e4a03e514234af86a17e80984679f2f5",
+      "metadataSha256": "fbc4935c6180538ff4db544da75706704d509c39a02f0eb9fa6db2045c61e67a",
       "unityVersion": "6000.3.27f2",
-      "interopSha256": "1accd31280a514be3b28f0e623ef4efdb19d6b40365f81ad2555a73c8c742759",
+      "interopSha256": "164b571e1e7f41364ced7be6037e65a8f565f5d7f2b4bdc12a10c4946a215002",
       "loader": {
         "tag": "v0.7.4-android.4",
         "sha256": "e098b943b4f83baf219e9ce330be2aa0bc7c69e019f4968ee362bfb7aaee8506",
@@ -73,7 +73,7 @@
           "sha256": "52d49cc84918c112d5713a6de83269d33f03c4c7c3ed721fbd2c8c00adf4ca80"
         }
       },
-      "capturedAt": "2026-11-07T00:57:33.418Z"
+      "capturedAt": "2026-11-18T21:59:16.241Z"
     },
     "android-play": {
       "gameVersion": "1.0.6",
