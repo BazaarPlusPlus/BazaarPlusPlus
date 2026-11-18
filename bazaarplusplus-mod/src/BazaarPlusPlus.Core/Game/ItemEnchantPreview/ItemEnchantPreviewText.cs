@@ -16,22 +16,25 @@ public static class ItemEnchantPreviewText
         RegexOptions.Compiled | RegexOptions.CultureInvariant
     );
 
+    // The named styles in the game's Attributes_Style Sheet also set an absolute font size.
+    // Copy their label colors so the preview can size its own text.
     public static string ColorHex(string enchantmentName) =>
         enchantmentName switch
         {
-            "Heavy" => "CB9F6E",
-            "Golden" => "FFCD19",
-            "Icy" => "3FC8F7",
-            "Turbo" => "00ECC3",
-            "Shielded" => "F4CF20",
-            "Restorative" => "8EEA31",
-            "Mossy" => "8FE930",
-            "Toxic" => "0EBE4F",
-            "Fiery" => "FF9F45",
+            "Deadly" => "F4523C",
+            "Ethereal" => "2177E2",
+            "Fiery" => "FB943E",
+            "Golden" or "Shielded" => "F5D021",
+            "Heavy" => "CDA06E",
+            "Icy" => "3EC8F8",
+            "Mystical" => "FF6DFA",
+            "Obsidian" => "B44177",
+            "Radiant" => "A5FF82",
+            "Restorative" or "Mossy" => "8FE930",
             "Shiny" => "FFFFFF",
-            "Deadly" => "F5503D",
-            "Radiant" => "98A8FE",
-            "Obsidian" => "9D4A6F",
+            "Tiny" => "F09FFF",
+            "Toxic" => "0EBE4E",
+            "Turbo" => "00EAC2",
             _ => "FFFFFF",
         };
 
