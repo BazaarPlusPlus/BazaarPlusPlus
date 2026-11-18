@@ -14,9 +14,14 @@ namespace BazaarPlusPlus.Patches.RandomCosmetics;
 // of the native method.
 
 // The game draws the run-start loadout here; the pool replaces the pick per category.
-[HarmonyPatch(typeof(CollectionManager), nameof(CollectionManager.GetRandomizedLoadout))]
+[HarmonyPatch(typeof(CollectionManager), Target)]
 internal static class RandomCosmeticPoolLoadoutPatch
 {
+    // Named, not nameof: Steam staging 1.0.13257 dropped the method and draws the loadout in
+    // Bazaar.Sdk's BazaarSdk.RandomiseLoadout instead. There this class fails to apply, so the
+    // capability probe keeps the whole pool off and the loadout stays native.
+    internal const string Target = "GetRandomizedLoadout";
+
     [HarmonyPostfix]
     private static void Postfix(
         CollectionManager __instance,

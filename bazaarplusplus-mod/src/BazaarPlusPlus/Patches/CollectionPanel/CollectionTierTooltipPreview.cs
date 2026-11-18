@@ -7,6 +7,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Game.CollectionPanel.Tooltips;
 using BazaarPlusPlus.GameInterop.Cards;
+using HarmonyLib;
 using TheBazaar;
 using TheBazaar.Tooltips;
 using TheBazaar.Utilities;
@@ -93,7 +94,8 @@ internal static class CollectionTierTooltipPreview
     )
     {
         if (
-            original.Item1 == null
+            RenderPassive is not { } renderPassive
+            || original.Item1 == null
             || !TryGetPreviewTiers(tooltipData, out var slot)
             || slot.Tiers.Length < 2
         )
@@ -111,9 +113,7 @@ internal static class CollectionTierTooltipPreview
             }
 
             var tierData = slot.VariantFor(tooltipData, tier);
-            var tierResult = RenderVariant(() =>
-                tierData.GetPassiveTooltipBlock(tierData.CardInstance)
-            );
+            var tierResult = RenderVariant(() => renderPassive(tierData, tierData.CardInstance));
             try
             {
                 variants.Add(SplitLines(tierResult.Item1));
@@ -235,6 +235,33 @@ internal static class CollectionTierTooltipPreview
 
         slot = cached;
         return slot.Tiers.Length > 0;
+    }
+
+    // Online's GetPassiveTooltipBlock(Card) returns (StringBuilder, TooltipSegment?). Steam
+    // staging 1.0.13257 takes no card and returns tooltip segments, so the passive patch does
+    // not apply there and this stays unbound.
+    private static readonly Func<
+        CardTooltipData,
+        Card,
+        ValueTuple<StringBuilder, TooltipSegment?>
+    >? RenderPassive = BindRenderPassive();
+
+    private static Func<
+        CardTooltipData,
+        Card,
+        ValueTuple<StringBuilder, TooltipSegment?>
+    >? BindRenderPassive()
+    {
+        var method = AccessTools.DeclaredMethod(
+            typeof(CardTooltipData),
+            nameof(CardTooltipData.GetPassiveTooltipBlock),
+            [typeof(Card)]
+        );
+        return method?.ReturnType == typeof(ValueTuple<StringBuilder, TooltipSegment?>)
+            ? AccessTools.MethodDelegate<
+                Func<CardTooltipData, Card, ValueTuple<StringBuilder, TooltipSegment?>>
+            >(method)
+            : null;
     }
 
     private static T RenderVariant<T>(Func<T> render)

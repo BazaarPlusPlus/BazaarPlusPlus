@@ -5,6 +5,7 @@ using BazaarGameShared.TempoNet.Models;
 using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
+using HarmonyLib;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using UnityEngine;
@@ -159,14 +160,60 @@ internal sealed class RandomCosmeticPoolService
         CollectionManager collection,
         BazaarInventoryTypes.ECollectionType category,
         EHero hero
-    ) =>
-        RandomCosmeticPool.Create(
-            collection
-                .GetCollectionDisplayItems(category, includeDefault: false, hero)
+    )
+    {
+        var displayItems =
+            DisplayItems
+            ?? throw new MissingMethodException(nameof(CollectionManager), DisplayItemsMethod);
+        return RandomCosmeticPool.Create(
+            displayItems(collection, category, false, hero)
                 .Where(item => !item.IsDefault)
                 .Select(item => item.CollectionItemID),
             Load(category, hero)
         );
+    }
+
+    /// <summary>False on a client without the collection read the pool is built from.</summary>
+    internal bool CanReadCollection => DisplayItems != null;
+
+    // Bound by signature: Steam staging 1.0.13257 reshapes the method to
+    // GetCollectionDisplayItems(bool withOffers), with no category or hero. Without the online
+    // shape RandomCosmeticPoolPatchCapabilities keeps the pool off.
+    private const string DisplayItemsMethod = "GetCollectionDisplayItems";
+
+    private static readonly Func<
+        CollectionManager,
+        BazaarInventoryTypes.ECollectionType,
+        bool,
+        EHero,
+        BazaarSaleItem[]
+    >? DisplayItems = BindDisplayItems();
+
+    private static Func<
+        CollectionManager,
+        BazaarInventoryTypes.ECollectionType,
+        bool,
+        EHero,
+        BazaarSaleItem[]
+    >? BindDisplayItems()
+    {
+        var method = AccessTools.DeclaredMethod(
+            typeof(CollectionManager),
+            DisplayItemsMethod,
+            [typeof(BazaarInventoryTypes.ECollectionType), typeof(bool), typeof(EHero)]
+        );
+        return method?.ReturnType == typeof(BazaarSaleItem[])
+            ? AccessTools.MethodDelegate<
+                Func<
+                    CollectionManager,
+                    BazaarInventoryTypes.ECollectionType,
+                    bool,
+                    EHero,
+                    BazaarSaleItem[]
+                >
+            >(method)
+            : null;
+    }
 
     /// <summary>Leaves out or brings back one cosmetic; false when the click changes nothing.</summary>
     internal bool Toggle(
