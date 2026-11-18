@@ -50,7 +50,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         }
       ],
       "battles": []
@@ -98,7 +98,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha",
@@ -366,7 +366,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha",
@@ -394,14 +394,14 @@
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         }
       ],
       "battles": [
@@ -766,7 +766,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha",
@@ -794,28 +794,28 @@
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         }
       ],
       "battles": [
@@ -1212,7 +1212,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha",
@@ -1240,7 +1240,7 @@
           "seq": 1,
           "ts_at_ms": 1784376912000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
@@ -1254,28 +1254,28 @@
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         }
       ],
       "battles": [
@@ -1751,7 +1751,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha",
@@ -1779,7 +1779,7 @@
           "seq": 1,
           "ts_at_ms": 1784376912000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
@@ -1793,42 +1793,42 @@
           "seq": 3,
           "ts_at_ms": 1784377092000,
           "kind": "run_resumed",
-          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-foxtrot",
           "seq": 1,
           "ts_at_ms": 1784377152000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         }
       ],
       "battles": [
@@ -2304,7 +2304,7 @@
           "seq": 1,
           "ts_at_ms": 1784376060000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha\",\"seq\":1,\"ts\":\"2026-07-18T12:01:00.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha",
@@ -2332,7 +2332,7 @@
           "seq": 1,
           "ts_at_ms": 1784376912000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":1,\"ts\":\"2026-07-18T12:15:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-alpha:bpp:#1",
@@ -2346,42 +2346,42 @@
           "seq": 3,
           "ts_at_ms": 1784377092000,
           "kind": "run_resumed",
-          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-alpha:bpp:#1\",\"seq\":3,\"ts\":\"2026-07-18T12:18:12.000+00:00\",\"kind\":\"run_resumed\",\"day\":2,\"hour\":4,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-bravo",
           "seq": 1,
           "ts_at_ms": 1784376606000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-bravo\",\"seq\":1,\"ts\":\"2026-07-18T12:10:06.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-charlie",
           "seq": 1,
           "ts_at_ms": 1784376610000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-charlie\",\"seq\":1,\"ts\":\"2026-07-18T12:10:10.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-delta",
           "seq": 1,
           "ts_at_ms": 1784376672000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-delta\",\"seq\":1,\"ts\":\"2026-07-18T12:11:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-echo",
           "seq": 1,
           "ts_at_ms": 1784376792000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-echo\",\"seq\":1,\"ts\":\"2026-07-18T12:13:12.000+00:00\",\"kind\":\"run_started\",\"day\":4,\"hour\":1,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         },
         {
           "run_id": "run-foxtrot",
           "seq": 1,
           "ts_at_ms": 1784377152000,
           "kind": "run_started",
-          "payload_json": "{\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\"}"
+          "payload_json": "{\"run_id\":\"run-foxtrot\",\"seq\":1,\"ts\":\"2026-07-18T12:19:12.000+00:00\",\"kind\":\"run_started\",\"day\":1,\"hour\":0,\"hero\":\"Vanessa\",\"game_mode\":\"Ranked\",\"server_build_id\":\"server-build-13176\",\"game_data_etag\":\"0123456789abcdef0123456789abcdef\"}"
         }
       ],
       "battles": [

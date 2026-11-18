@@ -174,6 +174,7 @@ internal sealed class DesktopComposition : IDisposable
             _postCombatImpactModule
         );
         var battleCatalog = PvpBattleCatalog;
+        var gameDataCache = GameBuildProbe.GameDataCacheDirectory();
         _runLoggingModule = new RunLoggingModule(
             eventBus,
             _services.RunContext,
@@ -194,7 +195,8 @@ internal sealed class DesktopComposition : IDisposable
             subscribeRankRefreshed: onRefreshed =>
                 BppClientCacheBridge.SubscribeRankRefreshed(
                     (rank, rating) => onRefreshed(new RankSnapshot { Rank = rank, Rating = rating })
-                )
+                ),
+            gameDataEtagResolver: () => GameDataManifest.ReadGameDataEtag(gameDataCache)
         );
         _bundleSealCoordinator = DesktopBundleSealCoordinator.Create(_services);
 

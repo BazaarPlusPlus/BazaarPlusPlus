@@ -78,7 +78,11 @@ internal static class NetMessageReceivePatch
                     ("run_id", runInitialized.RunId, BppLogCorrelationPolicy.Short)
                 );
                 composition.EventBus.Publish(
-                    new RunInitializedObserved { RunId = runInitialized.RunId }
+                    new RunInitializedObserved
+                    {
+                        RunId = runInitialized.RunId,
+                        BuildId = runInitialized.BuildId,
+                    }
                 );
             }
 

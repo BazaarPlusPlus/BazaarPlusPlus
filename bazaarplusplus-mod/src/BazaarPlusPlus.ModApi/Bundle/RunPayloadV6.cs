@@ -99,6 +99,12 @@ public sealed class RunFactsV6
 
     [Key(21)]
     public string ModVersion { get; set; } = string.Empty;
+
+    [Key(22)]
+    public string? ServerBuildId { get; set; }
+
+    [Key(23)]
+    public string? GameDataEtag { get; set; }
 }
 
 [MessagePackObject]

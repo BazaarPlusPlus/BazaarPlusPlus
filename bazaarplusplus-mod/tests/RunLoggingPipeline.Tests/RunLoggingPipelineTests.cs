@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.RunContext;
+using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Game.RunLogging;
@@ -29,8 +30,10 @@ using Xunit;
 //    the store's writer alive. A Subscribe failure would take the same rollback, but
 //    InMemoryBppEventBus.Subscribe cannot throw for a non-null handler, so it is not driven.
 // 2. Run created: a field of the create request maps to the wrong column, a second
-//    RunInitializedObserved for the same run appends a second run_started, or a player account
-//    resolved only after the run row exists never reaches it.
+//    RunInitializedObserved for the same run appends a second run_started, a player account
+//    resolved only after the run row exists never reaches it, or a run_started or run_resumed
+//    event lacks the build id its run's initialization carried or the ETag the game's data
+//    manifest names (the golden rows show both in the event JSON).
 // 3. PvP recorded: a matching PvP battle is not attached to the run (a replay captured before
 //    the run id was known keeps battles.run_id NULL), a mismatched or PvE battle is linked,
 //    run_events.seq and runs.last_seq drift apart, or a later account replaces the run's first.
@@ -238,7 +241,7 @@ public sealed class RunLoggingPipelineTests : IDisposable
         h.Context.IsInGameRun = true;
         h.Context.CurrentServerRunId = "run-bravo";
         h.Clock.Advance(TimeSpan.FromSeconds(2));
-        bus.Publish(new RunInitializedObserved { RunId = "run-bravo" });
+        bus.Publish(new RunInitializedObserved { RunId = "run-bravo", BuildId = Harness.BuildId });
         Check.That(
             h.Status("run-bravo") == "active",
             "4: a deadline must not complete a run that resumed before it fired."
@@ -252,7 +255,9 @@ public sealed class RunLoggingPipelineTests : IDisposable
             h.Status("run-bravo") == "active",
             "4: a stale deadline must not complete a run whose replacement is entering."
         );
-        bus.Publish(new RunInitializedObserved { RunId = "run-charlie" });
+        bus.Publish(
+            new RunInitializedObserved { RunId = "run-charlie", BuildId = Harness.BuildId }
+        );
         h.EndRun(bus, RunExitKind.Completed);
         h.Scheduler.FireEarly();
         h.Clock.Advance(TimeSpan.FromSeconds(1));
@@ -546,7 +551,17 @@ internal sealed class Harness
         Clock = new ManualClock(Epoch);
         Scheduler = new ManualScheduler(Clock);
         Catalog = new PvpBattleSqliteStore(Database);
+        // The game's data manifest as the game writes it: ETags keep their HTTP quotes.
+        GameDataCache = Path.Combine(dataRoot, "game-data-cache");
+        Directory.CreateDirectory(GameDataCache);
+        File.WriteAllText(
+            Path.Combine(GameDataCache, GameDataManifest.FileName),
+            """{"Entries":{"maintenance":{"ETag":"\"ffffffffffffffffffffffffffffffff\""},"GameData":{"ETag":"\"0123456789abcdef0123456789abcdef\""}}}"""
+        );
     }
+
+    internal const string BuildId = "server-build-13176";
+    internal string GameDataCache { get; }
 
     internal IPathProvider Paths { get; }
     internal string Database { get; }
@@ -585,7 +600,8 @@ internal sealed class Harness
             playerAccountIdResolver: () => PlayerAccountId,
             bundleScreenshotRequestedResolver: () => true,
             modVersionResolver: () => "5.0.0",
-            subscribeRankRefreshed: observeRankRefresh ? SubscribeRankRefreshed : null
+            subscribeRankRefreshed: observeRankRefresh ? SubscribeRankRefreshed : null,
+            gameDataEtagResolver: () => GameDataManifest.ReadGameDataEtag(GameDataCache)
         );
 
     /// <summary>As the game's end-of-run screen does: replace the cached rank, then notify.</summary>
@@ -627,7 +643,7 @@ internal sealed class Harness
             );
         }
         Context.CurrentServerRunId = runId;
-        bus.Publish(new RunInitializedObserved { RunId = runId });
+        bus.Publish(new RunInitializedObserved { RunId = runId, BuildId = BuildId });
     }
 
     /// <summary>As RunLifecycleModule does on RunEnded or RunInterrupted.</summary>

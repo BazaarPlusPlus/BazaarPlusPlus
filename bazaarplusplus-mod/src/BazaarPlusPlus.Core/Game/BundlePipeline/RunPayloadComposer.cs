@@ -65,12 +65,13 @@ public sealed class RunPayloadComposer
 
     public RunPayloadComposition Compose(string runId, string playerAccountId)
     {
+        var events = _runs.ReadEvents(runId);
         var payload = new RunPayloadV6
         {
             RunId = runId,
             PlayerAccountId = playerAccountId,
-            Run = ReadRunFacts(runId),
-            Events = ReadEvents(runId),
+            Run = ReadRunFacts(runId, events),
+            Events = events.Select(MapEvent).ToList(),
         };
         var manifests = _battles
             .ListByRunId(runId)
@@ -108,11 +109,12 @@ public sealed class RunPayloadComposer
         return RunPayloadV6Codec.Encode(composition.Payload);
     }
 
-    private RunFactsV6 ReadRunFacts(string runId)
+    private RunFactsV6 ReadRunFacts(string runId, IReadOnlyList<RunLogStoredEvent> events)
     {
         var run =
             _runs.TryReadEndedRun(runId)
             ?? throw new BundleCompositionException("source_run_missing");
+        var started = RunStartedEventBody(events);
         return new RunFactsV6
         {
             Hero = run.Hero,
@@ -137,20 +139,28 @@ public sealed class RunPayloadComposer
             Gold = NonNegative(run.Gold),
             BuildChannel = Limit(run.BuildChannel),
             ModVersion = Limit(run.ModVersion) ?? string.Empty,
+            ServerBuildId = Limit(started?.Value<string>("server_build_id")),
+            GameDataEtag = Limit(started?.Value<string>("game_data_etag")),
         };
     }
 
-    private List<RunEventV6> ReadEvents(string runId) =>
-        _runs
-            .ReadEvents(runId)
-            .Select(stored => new RunEventV6
-            {
-                Seq = stored.Seq,
-                TimestampMs = stored.TimestampMs,
-                Kind = stored.Kind,
-                PayloadJson = EventPayloadBody(stored.PayloadJson),
-            })
-            .ToList();
+    // The game version a Run started under is the one its run_started event recorded; a
+    // run_resumed event keeps its own in the event JSON. Read from the stored events, which the
+    // size budget has not trimmed.
+    private static JObject? RunStartedEventBody(IReadOnlyList<RunLogStoredEvent> events)
+    {
+        var started = events.FirstOrDefault(stored => stored.Kind == "run_started");
+        return started == null ? null : LoadEventJson(started.PayloadJson);
+    }
+
+    private static RunEventV6 MapEvent(RunLogStoredEvent stored) =>
+        new()
+        {
+            Seq = stored.Seq,
+            TimestampMs = stored.TimestampMs,
+            Kind = stored.Kind,
+            PayloadJson = EventPayloadBody(stored.PayloadJson),
+        };
 
     // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
     // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
@@ -601,15 +611,21 @@ public sealed class RunPayloadComposer
 
     internal static string EventPayloadBody(string payloadJson)
     {
+        var body = LoadEventJson(payloadJson);
+        foreach (var key in EventEnvelopeKeys)
+            body.Remove(key);
+        return body.ToString(Formatting.None);
+    }
+
+    // Values stay as stored: no date or float reinterpretation.
+    private static JObject LoadEventJson(string payloadJson)
+    {
         using var reader = new JsonTextReader(new StringReader(payloadJson))
         {
             DateParseHandling = DateParseHandling.None,
             FloatParseHandling = FloatParseHandling.Decimal,
         };
-        var body = JObject.Load(reader);
-        foreach (var key in EventEnvelopeKeys)
-            body.Remove(key);
-        return body.ToString(Formatting.None);
+        return JObject.Load(reader);
     }
 
     private static int? NonNegative(int? value) => value is >= 0 ? value : null;

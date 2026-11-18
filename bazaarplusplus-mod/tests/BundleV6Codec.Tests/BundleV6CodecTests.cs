@@ -407,6 +407,25 @@ public sealed class BundleV6CodecTests
             "a replay without the player attributes stays replayable"
         );
         True(earlier.Battles[0].Replay!.PlayerAttributes == null, "an absent key decodes as null");
+
+        // The same holds for the Run facts: a shipped mod reads a Run array longer than its keys,
+        // and this one reads a Run sealed before keys 22 and 23 existed.
+        var run = (object[])graph[3];
+        graph[3] = run.Append("future").ToArray();
+        var futureRun = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
+        );
+        Equal("Online", futureRun.Run.BuildChannel, "known Run keys decode past an unknown one");
+        Equal("server-build-13176", futureRun.Run.ServerBuildId, "the server build id decodes");
+        graph[3] = run.Take(22).ToArray();
+        var earlierRun = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
+        );
+        Equal("Online", earlierRun.Run.BuildChannel, "a Run without the game version decodes");
+        True(
+            earlierRun.Run.ServerBuildId == null && earlierRun.Run.GameDataEtag == null,
+            "absent game version keys decode as null"
+        );
     }
 
     private static byte[] Ungzip(byte[] bytes)
@@ -658,6 +677,8 @@ public sealed class BundleV6CodecTests
         payload.Run.Income = 8;
         payload.Run.Gold = 17;
         payload.Run.BuildChannel = "Online";
+        payload.Run.ServerBuildId = "server-build-13176";
+        payload.Run.GameDataEtag = "0123456789abcdef0123456789abcdef";
         var battle = ReplayBattle("battle-000");
         battle.Replay!.PlayerAttributes = new Dictionary<string, int>
         {
