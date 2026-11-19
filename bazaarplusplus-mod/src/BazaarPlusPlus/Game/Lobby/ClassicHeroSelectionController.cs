@@ -16,6 +16,9 @@ namespace BazaarPlusPlus.Game.Lobby;
 
 internal sealed class ClassicHeroSelectionController : MonoBehaviour
 {
+    private const float GlowTransitionSeconds = .14f;
+    private const float GlowHiddenScale = .95f;
+
     // Slot centers in the lobby canvas. The second row sits between the outer rows' columns.
     private static readonly (EHero Hero, float X, float Y)[] Slots =
     [
@@ -69,6 +72,7 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
             var input = !NativeLobbyHeroSelection.IsPopupOpen;
             _controls.interactable = input;
             _controls.blocksRaycasts = input;
+            AnimateGlows();
         }
 
         if (Time.unscaledTime < _nextRefresh)
@@ -113,7 +117,7 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
             var highlighted = random
                 ? owned && NativeLobbyHeroSelection.IsHeroInRandomPool(tile.Hero)
                 : selected == tile.Hero;
-            tile.Glow.gameObject.SetActive(highlighted);
+            tile.GlowTargetVisible = highlighted;
             tile.NamePlate.gameObject.SetActive(highlighted);
             if (highlighted)
                 tile.Name.text = heroManager.GetHeroName(tile.Hero);
@@ -122,6 +126,28 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         _randomLabel!.text = RandomLabel.Resolve(L.CurrentLanguageCode, L.CurrentMode);
         _randomMark!.gameObject.SetActive(random);
         _randomButton!.interactable = hasOwnedHero;
+    }
+
+    private void AnimateGlows()
+    {
+        var step = Time.unscaledDeltaTime / GlowTransitionSeconds;
+        foreach (var tile in _tiles)
+        {
+            var target = tile.GlowTargetVisible ? 1f : 0f;
+            var progress = Mathf.MoveTowards(tile.GlowProgress, target, step);
+            if (progress == tile.GlowProgress)
+                continue;
+
+            tile.GlowProgress = progress;
+            var eased = Mathf.SmoothStep(0f, 1f, progress);
+            var glow = tile.Glow;
+            if (progress > 0f && !glow.gameObject.activeSelf)
+                glow.gameObject.SetActive(true);
+            glow.rectTransform.localScale = Vector3.one * Mathf.Lerp(GlowHiddenScale, 1f, eased);
+            glow.canvasRenderer.SetAlpha(eased);
+            if (progress == 0f)
+                glow.gameObject.SetActive(false);
+        }
     }
 
     private NativeLobbyHeroArt? ReadyArt()
@@ -165,7 +191,7 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         _root = DesktopKit.Rect(native.Parent, "BPP_ClassicHeroSelection");
         _root.anchorMin = _root.anchorMax = new Vector2(0f, .5f);
         _root.pivot = new Vector2(0f, 1f);
-        _root.anchoredPosition = new Vector2(60f, 65f);
+        _root.anchoredPosition = new Vector2(60f, 29f);
         _controls = _root.gameObject.AddComponent<CanvasGroup>();
         _controls.interactable = _controls.blocksRaycasts = !NativeLobbyHeroSelection.IsPopupOpen;
         var kit = new DesktopKit(font);
@@ -428,5 +454,9 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         Image Glow,
         Image NamePlate,
         TextMeshProUGUI Name
-    );
+    )
+    {
+        internal bool GlowTargetVisible { get; set; }
+        internal float GlowProgress { get; set; }
+    }
 }
