@@ -40,6 +40,7 @@ public sealed class BppSettings
     public ISetting<bool> EnableCombatStatusBarConfig { get; }
 
     public ISetting<bool> EnableAnimatedHeroPortraitsConfig { get; }
+    public ISetting<bool> EnableClassicHeroSelectionConfig { get; }
 
     public ISetting<float> CombatStatusBarSpeedMultiplierConfig { get; }
 
@@ -159,6 +160,12 @@ public sealed class BppSettings
             "Enabled",
             false,
             "Desktop: animate static hero portraits using each skin's character animation. Turn off to restore the original portraits."
+        );
+        EnableClassicHeroSelectionConfig = config.Bind(
+            "ClassicHeroSelection",
+            "Enabled",
+            false,
+            "Desktop: show a direct hero picker on the left of the lobby."
         );
         EnableCombatStatusBarConfig = config.Bind(
             "CombatStatusBar",
