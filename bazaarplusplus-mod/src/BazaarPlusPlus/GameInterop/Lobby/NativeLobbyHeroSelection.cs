@@ -48,7 +48,7 @@ internal sealed class NativeLobbyHeroSelection
         Exists
         && _view.isActiveAndEnabled
         && _heroSelect.gameObject.activeInHierarchy
-        && !(ReadGamepad?.Invoke(_view) ?? false);
+        && ReadGamepad?.Invoke(_view) == false;
 
     internal static bool IsPopupOpen =>
         Services.TryGet<PopupManager>(out var popup)

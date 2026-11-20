@@ -184,7 +184,7 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
             NativeGameTypography.PrepareOwnedText(out var font)
                 != NativeGameTypography.Outcome.Ready
             || font == null
-            || !Slots.Any(slot => heroManager.TryGetHeroSO(slot.Hero, out _))
+            || !art.Portraits.Keys.Any(hero => heroManager.TryGetHeroSO(hero, out _))
         )
             return;
 
@@ -212,7 +212,10 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
 
         foreach (var (hero, x, y) in Slots)
         {
-            if (!heroManager.TryGetHeroSO(hero, out _))
+            if (
+                !art.Portraits.TryGetValue(hero, out var portrait)
+                || !heroManager.TryGetHeroSO(hero, out _)
+            )
                 continue;
 
             var hit = MakeButton(
@@ -232,7 +235,7 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
             var icon = MakeImage(
                 hit.transform,
                 "ShieldPortrait",
-                art.Portraits[hero],
+                portrait,
                 new Vector2(0f, hero == EHero.Dooley ? -12f : 0f),
                 new Vector2(374f, 374f)
             );
@@ -401,7 +404,8 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
 
     private void RemovePanel()
     {
-        if (_controls == null && _root == null)
+        // The lobby can destroy the native root before we release its tiles and label material.
+        if (_root is null)
             return;
 
         _native?.Detach();

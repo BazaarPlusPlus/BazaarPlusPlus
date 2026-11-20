@@ -51,7 +51,7 @@ internal sealed record NativeLobbyHeroArt(
         var randomCheck = form.Result?.GetSprite("Form_Checkbox_Check_TUI");
         var backdrop = common.Result?.GetSprite("Gradient_Left_Tall_TUI");
         if (
-            portraits.Any(portrait => portrait.Result == null)
+            portraits.All(portrait => portrait.Result == null)
             || selected.Result == null
             || namePlate.Result == null
             || randomFrame == null
@@ -66,8 +66,9 @@ internal sealed record NativeLobbyHeroArt(
 
         return new NativeLobbyHeroArt(
             heroes
-                .Select((hero, index) => (hero, sprite: portraits[index].Result!))
-                .ToDictionary(item => item.hero, item => item.sprite),
+                .Select((hero, index) => (hero, sprite: portraits[index].Result))
+                .Where(item => item.sprite != null)
+                .ToDictionary(item => item.hero, item => item.sprite!),
             selected.Result!,
             namePlate.Result!,
             randomFrame,
