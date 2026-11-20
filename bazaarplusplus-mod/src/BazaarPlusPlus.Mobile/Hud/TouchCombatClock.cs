@@ -10,12 +10,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Hud;
 
-/// <summary>What a host hands the combat clock.</summary>
-/// <param name="State">The playback state the host's combat hooks feed, as the desktop bar's.</param>
-/// <param name="Enabled">The clock's setting, the desktop bar's <c>[CombatStatusBar] Enabled</c>.</param>
-/// <param name="RunContext">The host's run, for the desktop bar's run-or-replay rule.</param>
-/// <param name="GameState">The host's live game-state read, for the same rule.</param>
-/// <param name="TogglePause">Pauses or resumes the playing fight.</param>
 internal sealed record TouchCombatClockData(
     CombatStatusBarState State,
     Func<bool> Enabled,
@@ -24,13 +18,6 @@ internal sealed record TouchCombatClockData(
     Action TogglePause
 );
 
-/// <summary>
-/// The combat clock on a mobile platform: a plaque by the vault with the logical time and touch
-/// speed and pause controls, over the desktop bar's <see cref="CombatStatusBarState"/>. It shows
-/// for the whole run or replay, by the desktop bar's rule
-/// (<see cref="CombatStatusBarState.ShouldRenderForState"/>), and hides under a panel, a native
-/// popup or card inspection.
-/// </summary>
 internal sealed class TouchCombatClock : IDisposable
 {
     private readonly TouchCombatClockData _data;
@@ -43,10 +30,7 @@ internal sealed class TouchCombatClock : IDisposable
     private Button? _pause;
     private NativeSkin? _skin;
 
-    // The vault the plaque sits beside, read from the board as the desktop reads the hero
-    // portrait, every few shown frames; as on the desktop, no vault on screen means no plaque. A
-    // vault that moves, or a screen that changes, lays the plaque out again once the new place
-    // has held still for a few reads; a plaque shown again after hiding lays out at once.
+    // Debounce moving vault geometry while visible. On reappearance, position the plaque immediately.
     private const int VaultReadFrames = 5;
     private const int VaultStableReads = 2;
     private int _shownFrames;
@@ -59,21 +43,16 @@ internal sealed class TouchCombatClock : IDisposable
     private int? _keyBoardTop;
     private TouchRelayoutDebounce? _relayout;
 
-    // Hidden frames between checks for a run or replay to build the plaque ahead in.
     private const int BuildAheadCheckFrames = 30;
 
     private int _hiddenFrames;
 
-    // The layout a plaque built ahead takes, read on the check before the build.
     private string? _aheadKey;
 
-    // The native skin was scanned on a frame of its own; the next build uses that scan.
     private bool _skinScanned;
 
-    // Built ahead while the native art was not yet found: build again when first shown.
     private bool _builtWithoutArt;
 
-    // What the view last wrote, so a frame that changes nothing makes no Unity call.
     private bool _shown;
     private string? _shownTime;
     private bool? _shownPaused;
@@ -81,21 +60,14 @@ internal sealed class TouchCombatClock : IDisposable
     private bool? _shownCanToggle;
     private Color? _shownTimeColor;
 
-    // As the desktop bar: the time fades to muted ink outside a fight and back to ink in one.
     private float _visualBlend;
 
-    /// <param name="data">What the host hands the clock.</param>
-    /// <param name="boardTop">
-    /// Screen Fill's board top in screen pixels down from the top, where the HUD gathers in a band
-    /// above the board; null elsewhere.
-    /// </param>
     public TouchCombatClock(TouchCombatClockData data, Func<float?> boardTop)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         _readBoardTop = boardTop ?? throw new ArgumentNullException(nameof(boardTop));
     }
 
-    /// <summary>Every frame, from the host's Overlay Panel Host.</summary>
     public void Tick(bool panelOpen)
     {
         var state = _data.State;
@@ -149,7 +121,6 @@ internal sealed class TouchCombatClock : IDisposable
             var font = MobilePlatform.Port.GameFont();
             if (font == null)
                 return;
-            // A first build scans for the native skin on this frame and builds on the next.
             if (_root == null && ScannedThisFrame())
                 return;
             Build(font, key, ahead: false);
@@ -157,7 +128,6 @@ internal sealed class TouchCombatClock : IDisposable
         if (!_shown)
             _root!.SetActive(true);
         _shown = true;
-        // The state hands back the same string until the displayed time changes.
         var time = state.GetDisplayedTimeText();
         if (!string.Equals(time, _shownTime, StringComparison.Ordinal))
         {
@@ -183,8 +153,6 @@ internal sealed class TouchCombatClock : IDisposable
             _speedText!.text =
                 speed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "×";
         }
-        // Speed stays tappable between fights and sets the next fight's pace; pause only
-        // applies to a playing fight, so it dims outside one.
         var canToggle = state.CanToggleCombatPause();
         if (canToggle != _shownCanToggle)
         {
@@ -193,7 +161,6 @@ internal sealed class TouchCombatClock : IDisposable
         }
     }
 
-    /// <summary>Hides the plaque until the next <see cref="Tick"/> shows it again.</summary>
     private void Hide()
     {
         if (_shown)
@@ -201,9 +168,7 @@ internal sealed class TouchCombatClock : IDisposable
         _shown = false;
     }
 
-    // While hidden by a panel, popup or inspection, in a run or a replay, and once per scene (a
-    // scene change disposes the clock): the plaque is built hidden, so the frame it reappears on
-    // does not pay for the build.
+    // Prebuild while occluded so the frame revealing the clock does not pay for construction.
     private void BuildAhead()
     {
         if (_root != null)
@@ -230,10 +195,6 @@ internal sealed class TouchCombatClock : IDisposable
         _root!.SetActive(false);
     }
 
-    /// <summary>
-    /// Scans for the native skin when it has none or lost its art and no scan waits for a build;
-    /// true when it scanned.
-    /// </summary>
     private bool ScannedThisFrame()
     {
         if (_skinScanned || (_skin != null && !_skin.NeedsRefresh))
@@ -243,10 +204,6 @@ internal sealed class TouchCombatClock : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// The screen and the vault's place in whole canvas units, or null with no vault the plaque
-    /// can sit beside; the string is formatted again only when one of them changed.
-    /// </summary>
     private string? LayoutKey()
     {
         var port = MobilePlatform.Port;
@@ -263,7 +220,6 @@ internal sealed class TouchCombatClock : IDisposable
             (int)MathF.Round(vault.Height)
         );
         _vault = vault;
-        // On a screen the board is drawn nearer on, the HUD gathers above it (Screen Fill).
         _boardTop = _readBoardTop() * UiKit.ReferenceResolution.y / Screen.height;
         var boardTop = _boardTop is { } top ? (int?)MathF.Round(top) : null;
         if (
@@ -299,7 +255,6 @@ internal sealed class TouchCombatClock : IDisposable
             _skin = new NativeSkin();
         _skinScanned = false;
         _skin!.Select(background, false);
-        // Only the button sprite is read here; a plaque built ahead without it tries again.
         _builtWithoutArt = ahead && background.sprite == null;
         var rule = chrome.Metrics.Dp(.5f);
         var inset = chrome.Padding;
@@ -394,7 +349,6 @@ internal sealed class TouchCombatClock : IDisposable
             false
         );
 
-    /// <summary>A transparent hit area that tints the visible label or glyph it drives.</summary>
     private static Button Control(RectTransform rect, Graphic visual, string control, Action action)
     {
         UiKit.HitArea(rect);
@@ -405,7 +359,6 @@ internal sealed class TouchCombatClock : IDisposable
         return button;
     }
 
-    /// <summary>A scene change or the host's stop: the canvas and the glyphs go.</summary>
     public void Dispose()
     {
         DestroyCanvas();

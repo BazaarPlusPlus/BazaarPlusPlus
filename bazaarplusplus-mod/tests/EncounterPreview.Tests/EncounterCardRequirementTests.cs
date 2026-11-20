@@ -6,8 +6,7 @@ public sealed class EncounterCardRequirementTests
 {
     private static readonly Guid PackageId = Guid.Parse("b0000000-0000-0000-0000-000000000001");
 
-    // Farai's delivery outcomes: the group only rolls while you do NOT own the
-    // package ("Equal 0") — the exact inverse of a plain has-check.
+    // Farai's delivery group uses Equal 0 to express that the player must lack the package.
     [Fact]
     public void Equal_zero_requirement_is_met_only_without_the_card()
     {

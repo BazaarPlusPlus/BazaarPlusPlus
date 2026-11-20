@@ -6,22 +6,14 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Borrowed native sprites; never clones native controls or their callbacks. The sprites are
-/// game assets that outlive any one view, so they are kept process-wide: a construction scans
-/// for a pair only when it is missing or Unity has collected it. Main thread only.
-/// </summary>
 internal sealed class AndroidNativeArt
 {
     public readonly record struct ButtonLayer(Sprite Sprite, Color Color, TouchRect Bounds);
 
-    /// <summary>A round button's layers, and its icon's bounds when it has one.</summary>
     public readonly record struct RoundArt(IReadOnlyList<ButtonLayer> Layers, TouchRect? Icon);
 
-    // Button with Selected and Frame with TagFrame come from one native object each, so each
-    // pair is replaced together. A pair rescans when its primary is missing or collected, or
-    // when its captured secondary was collected; a secondary absent from the start (Selected
-    // may legitimately be) never triggers a rescan.
+    // Keep both sprites from the same donor. An optional sprite that was never found does not
+    // trigger a rescan.
     private static Sprite? _button;
     private static Sprite? _selected;
     private static Sprite? _frame;
@@ -68,12 +60,6 @@ internal sealed class AndroidNativeArt
             );
     }
 
-    /// <summary>
-    /// The round <paramref name="gear"/> button at rest: its visible layers except its icon, and
-    /// where the icon sits, each placed as a fraction of the button's bounds; no layers when they
-    /// cannot be read. <paramref name="rect"/> is the gear's, and <paramref name="rootCanvas"/>
-    /// its root canvas.
-    /// </summary>
     public static RoundArt RoundArtFor(
         UnityEngine.UI.Button gear,
         RectTransform rect,
@@ -132,12 +118,8 @@ internal sealed class AndroidNativeArt
         }
     }
 
-    /// <summary>
-    /// The gear's state-driven images as they look at rest, keyed by image. A tap leaves a touch
-    /// gear selected, and the game then shows ClickedImage, its state graphics' selected sprites,
-    /// and its ActiveState layers; a sprite swap fades a clone (<paramref name="swapClones"/>, by
-    /// name) out over a faded-in original.
-    /// </summary>
+    // Taps leave the touch gear Selected, and sprite swaps create transition clones. Read the
+    // resting state instead.
     private static Dictionary<IntPtr, (bool Shown, Sprite? Sprite, bool Opaque)> RestingLayers(
         UnityEngine.UI.Button gear,
         Il2Cpp.BazaarButtonController? native,

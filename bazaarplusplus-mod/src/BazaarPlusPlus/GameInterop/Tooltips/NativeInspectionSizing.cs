@@ -3,7 +3,6 @@ namespace BazaarPlusPlus.GameInterop.Tooltips;
 
 internal static class NativeInspectionSizing
 {
-    // Preserve the native description scale unless it overflows the available space.
     public static float FitScale(
         float width,
         float height,

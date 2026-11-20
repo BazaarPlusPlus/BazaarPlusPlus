@@ -8,11 +8,6 @@ using Il2CppTheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Counts native tooltip requests. Preview ownership starts only when contents actually render.
-/// <c>CardController</c> lives in the global namespace of the game, so its proxy is
-/// <c>Il2Cpp.CardController</c>.
-/// </summary>
 [HarmonyPatch(typeof(Il2Cpp.CardController), nameof(Il2Cpp.CardController.ShowTooltips))]
 internal static class CardTooltipPatch
 {
@@ -30,16 +25,14 @@ internal static class CardTooltipPatch
     }
 }
 
-/// <summary>The card tooltip closed: the held upgrade preview ends with it.</summary>
 [HarmonyPatch(
     typeof(TooltipParentComponent),
     nameof(TooltipParentComponent.HideCardTooltipController)
 )]
 internal static class CardTooltipHidePatch
 {
-    // Mobile input dismisses the native tooltip after the BPP button's onClick. A touch in
-    // its actions or drawer still belongs to that inspection, outside a fight; outside touches
-    // remain native.
+    // Mobile input dismisses the native tooltip after the BPP button's onClick, even for touches
+    // inside its own drawer.
     [HarmonyPrefix]
     private static bool Prefix() =>
         Il2CppTheBazaar.Data.IsInCombat
@@ -60,11 +53,6 @@ internal static class CardTooltipHidePatch
     }
 }
 
-/// <summary>
-/// Actual tooltip rendering binds touch actions, builds the enchant preview section for this card
-/// and hands it to its passive block (<see cref="EnchantPreviewPassivePatch"/>), and leases the
-/// existing upgrade value projection; the section and the lease end with the render.
-/// </summary>
 [HarmonyPatch(typeof(CardTooltipTypeHandler), nameof(CardTooltipTypeHandler.RenderCardContents))]
 internal static class CardTooltipRenderPatch
 {
@@ -101,7 +89,6 @@ internal static class CardTooltipRenderPatch
     }
 }
 
-/// <summary>Appends the pending enchant preview section below the native passive text.</summary>
 [HarmonyPatch(typeof(EffectBlockRenderer), nameof(EffectBlockRenderer.RenderPassive))]
 internal static class EnchantPreviewPassivePatch
 {
@@ -129,11 +116,6 @@ internal static class EnchantPreviewPassivePatch
     }
 }
 
-/// <summary>
-/// The text of a tooltip whose card holds an upgrade value lease renders through BPP's copy of
-/// the game's loop (<see cref="AndroidUpgradePreviewValues.TryRender"/>); every other tooltip,
-/// and this one when that throws, renders natively.
-/// </summary>
 [HarmonyPatch(typeof(CardTooltipData), nameof(CardTooltipData.RenderTooltip))]
 internal static class UpgradeValueTextPatch
 {
@@ -159,7 +141,6 @@ internal static class UpgradeValueTextPatch
     }
 }
 
-/// <summary>The cooldown clock of a leased tooltip shows the projected cooldown.</summary>
 [HarmonyPatch(typeof(CooldownRenderer), nameof(CooldownRenderer.RenderFromTooltip))]
 internal static class UpgradeValueCooldownPatch
 {

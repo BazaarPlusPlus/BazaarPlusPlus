@@ -178,8 +178,7 @@ public sealed class PvpBattleCaptureWindowTests
         Assert.Empty(h.LogLines("pvp_battles.replay.part_failed"));
     }
 
-    // Each player board read in turn: a number is that many cards, -1 throws. The opening read
-    // comes first, then the live retries at the combat sim and at the close.
+    // Script card counts in read order (opening, combat sim, close). A negative count simulates a read failure.
     [Theory]
     [InlineData(new[] { 2 }, "Captured/OpeningMessage/2/opening=2", 1)]
     [InlineData(new[] { 0, 2 }, "Captured/OpeningMessage/2/opening=0/live", 2)]
@@ -723,7 +722,6 @@ public sealed class PvpBattleCaptureWindowTests
 
     private static string Key(Enum field) => field.ToString();
 
-    // Every scalar the window reads, by the field name the port uses for it.
     private static Dictionary<string, object?> Scalars(PvpBattleManifest m)
     {
         var p = m.Participants;

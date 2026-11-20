@@ -6,14 +6,9 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
-/// <summary>
-/// The <c>runs</c> columns a History Run row reads, which <see cref="HistoryPanelRowMapper.ReadRun"/>
-/// maps. Both hosts' History lists select them, so a Run reads the same on desktop and Android.
-/// </summary>
 public static class HistoryRunColumns
 {
-    // Only a Run the mod could resume reads as active (the current Run): an active History-Only
-    // Run, which the V5 import should already have closed, reads as abandoned.
+    // Unfinished History-Only Runs are abandoned because the mod can never resume them.
     private static readonly string RunStatusColumn =
         $"CASE WHEN status = 'active' AND NOT {RunLogStore.ResumableRunCondition(RunLogSchema.RunsTableName)} "
         + "THEN 'abandoned' ELSE status END AS run_status";
@@ -28,8 +23,6 @@ public static class HistoryRunColumns
         + $"CASE WHEN {BundleQueueStore.ProtectedRunCondition(RunLogSchema.RunsTableName)} THEN 1 ELSE 0 END AS seal_protected";
 }
 
-// Pure SQLite reader → typed record translation. No SQL, no UI, no formatting; just
-// column reads and the projection rules tied to the schema (e.g. final_* fallback to day/hour).
 public static class HistoryPanelRowMapper
 {
     public static HistoryRunRecord ReadRun(SqliteDataReader reader)
@@ -86,8 +79,7 @@ public static class HistoryPanelRowMapper
             ReplayAvailabilityCodec.Parse(GetNullableString(reader, "ghost_replay_state"))
         );
 
-    // A favorite row keeps the battles display columns under their names, so it reads through the
-    // same projection as its origin; only replay availability comes from the favorite's own copy.
+    // The favorite's replay availability comes from its own copy, independent of its origin.
     public static HistoryFavoriteRecord ReadFavorite(SqliteDataReader reader)
     {
         var battleId = reader.GetString(reader.GetOrdinal("battle_id"));

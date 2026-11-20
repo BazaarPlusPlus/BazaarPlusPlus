@@ -4,11 +4,6 @@ using BazaarPlusPlus.Game.Settings;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>
-/// The settings row that opens the History panel and closes the settings dialog. Each host
-/// supplies how it opens the panel and when it can: the desktop names its rebindable hotkey in
-/// the label; a host without one (Android) passes no hotkey and shows the plain name.
-/// </summary>
 public sealed class HistoryPanelSettingsDockEntry : ISettingsDockEntry
 {
     private readonly Func<string>? _resolveHotkeyDisplay;

@@ -47,18 +47,12 @@ impl SemanticProblem {
         self
     }
 
-    /// Attaches `error` and its causes as the diagnostic.
     pub fn with_error(self, error: &anyhow::Error) -> Self {
         self.with_diagnostic(error_diagnostic(error))
     }
 }
 
-/// Runs a command body that touches SQLite, the filesystem or a subprocess on
-/// the blocking pool. Tauri runs an `async` command, including a synchronous
-/// one marked `#[tauri::command(async)]`, on the tokio workers that also serve
-/// the overlay's HTTP handlers and every other async command, so such a body
-/// must not run there. In debug and test builds a body that panics reports
-/// `failed` with the join error; release builds abort on panic.
+/// Tauri command workers also serve overlay HTTP requests, so keep blocking I/O off that pool.
 pub(crate) async fn run_blocking<T, F>(
     failed: impl FnOnce(anyhow::Error) -> SemanticProblem + Send,
     task: F,
@@ -73,10 +67,7 @@ where
     }
 }
 
-/// Renders an error and its causes as one diagnostic line, outermost first and
-/// joined by `": "`. A cause whose text the message before it already
-/// contains is skipped, because many library errors embed their source in
-/// their own message.
+/// Some library error messages already embed their source text, so avoid repeating it.
 pub(crate) fn error_diagnostic(error: &anyhow::Error) -> String {
     let mut diagnostic = String::new();
     for cause in error.chain() {

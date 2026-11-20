@@ -13,25 +13,14 @@ public sealed class GameBuildInfo : IGameBuildInfo
     public string RawVersion { get; }
     public GameBuildChannel Channel { get; }
 
-    // Non-null when the two detection signals disagreed or were unreadable; the caller
-    // logs it once at startup (resolution happens before BppLog is installed).
+    // Resolution precedes logging setup, so the caller reports this warning at startup.
     public string? DetectionWarning { get; }
 }
 
-/// <summary>
-/// Classifies a client from what its host read: the bundleVersion and whether
-/// <c>TheBazaar.Config.ServerOption</c> exists (null when the probe was unreadable). Each host
-/// reads both from its own runtime; the classification is the same on every host.
-/// </summary>
 public static class GameBuildInfoResolver
 {
-    // Primary signal: the PTR build's bundleVersion embeds a "-ptr" token
-    // (e.g. "1.0.11358-ptr-macos-arm64-947c079a"); the production build does not.
-    // Corroborating probe: only the PTR fork of TheBazaar.Config declares the nested
-    // ServerOption class (it holds the PTR server URLs). On disagreement the build is
-    // treated as Ptr: misclassifying PTR as Online silently pollutes the production
-    // dataset, while misclassifying Online as Ptr only pauses uploads — which the
-    // analyzers' staleness alarm surfaces quickly.
+    // Only the PTR fork declares TheBazaar.Config.ServerOption. On disagreement, prefer PTR
+    // because sending PTR runs would contaminate the production dataset.
     public static GameBuildInfo Resolve(string rawVersion, bool? hasServerOption)
     {
         // Staging lacks Config.ServerOption. Reuse the persisted Ptr isolation category

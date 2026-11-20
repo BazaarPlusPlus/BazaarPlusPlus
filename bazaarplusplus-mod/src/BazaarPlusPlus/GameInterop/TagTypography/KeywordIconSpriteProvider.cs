@@ -3,23 +3,15 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.TagTypography;
 
-/// <summary>
-/// Resolves a keyword icon name to a UITK-usable sprite. Native tooltips render keyword icons as
-/// TMP sprite markup, which UI Toolkit chips do not parse, so this builds a Sprite over the TMP
-/// atlas glyph rect instead. Main thread only; icons are locale-invariant and do not clear with
-/// NativeTagTypography's locale cache.
-/// </summary>
+// UI Toolkit chips cannot parse TMP sprite markup, so use the atlas glyph rect directly.
+// Main thread only. Icons are locale-invariant.
 internal static class KeywordIconSpriteProvider
 {
     private static readonly Dictionary<string, Sprite> Cache = new(StringComparer.Ordinal);
     private static readonly HashSet<string> MissesThisPass = new(StringComparer.Ordinal);
 
-    // Cached collection of all sprite assets discovered during the last full scan.
-    // Null means no full scan has been performed yet.
     private static TMP_SpriteAsset[]? _discoveredAssets;
 
-    // Set to true at the start of each pass; cleared after a full scan runs within that pass.
-    // This ensures at most one expensive scan per BeginResolvePass call.
     private static bool _freshScanAllowedThisPass = true;
 
     public static void BeginResolvePass()
@@ -61,7 +53,6 @@ internal static class KeywordIconSpriteProvider
 
     private static TMP_SpriteAsset? ResolveSpriteAsset(string iconName)
     {
-        // Fast path: search already-discovered assets without allocating.
         if (_discoveredAssets != null)
         {
             foreach (var asset in _discoveredAssets)
@@ -76,8 +67,6 @@ internal static class KeywordIconSpriteProvider
                 return null;
         }
 
-        // Full scan: collect all TMP sprite assets reachable from live TMP_Text components
-        // first (higher probability of being the right asset), then any standalone assets.
         _freshScanAllowedThisPass = false;
         _discoveredAssets = CollectAllSpriteAssets();
 
@@ -92,7 +81,6 @@ internal static class KeywordIconSpriteProvider
 
     private static TMP_SpriteAsset[] CollectAllSpriteAssets()
     {
-        // Use a set keyed by instance ID to avoid duplicates without LINQ.
         var seen = new HashSet<int>();
         var result = new List<TMP_SpriteAsset>();
 

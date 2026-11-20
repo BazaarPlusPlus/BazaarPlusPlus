@@ -6,10 +6,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.BilingualItemNames;
 
-// The native title is a serif TMP label. Keep it intact and add the translated title as a
-// separate label: Chinese uses the game's serif face, while English uses its sans face.
-// The wrapper owns both rows and has no padding or spacing, avoiding the extra line box that the
-// old rich-text newline/voffset markup left between the item name and its translation.
+// Separate labels let Chinese use the game's serif face and English its sans face without adding an empty TMP line box.
 internal static class BilingualItemNameSubtitle
 {
     private const string StackName = "BppBilingualItemNameStack";

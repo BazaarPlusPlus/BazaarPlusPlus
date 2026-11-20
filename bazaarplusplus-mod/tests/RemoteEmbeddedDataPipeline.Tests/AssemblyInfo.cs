@@ -1,5 +1,4 @@
 using Xunit;
 
-// The MSBuild and fetch-data checks start dotnet and scripts/build.sh, which build and test
-// projects of this repository. Run the tests one at a time, as the capsule did.
+// Run serially because the child MSBuild and shell processes build projects in the same checkout.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

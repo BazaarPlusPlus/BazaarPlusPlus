@@ -62,8 +62,6 @@ public sealed class SqliteShutdownTests
         }
     }
 
-    // A host that opens the database in DELETE mode commits straight into the main file, so a
-    // reader sees every run with no shutdown hand-over at all.
     [Fact]
     public void RollbackJournalLeavesNoSidecar()
     {

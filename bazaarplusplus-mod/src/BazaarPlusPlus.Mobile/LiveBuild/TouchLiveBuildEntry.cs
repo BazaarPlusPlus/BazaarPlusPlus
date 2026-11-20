@@ -5,25 +5,14 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.LiveBuild;
 
-/// <summary>
-/// Ten-Win Builds as a Main Overlay Panel on a mobile platform: it registers the panel with the
-/// host's Overlay Panel Host under <see cref="PanelId"/> through the Mobile Platform Port, which
-/// ticks it every frame and closes it, and builds <see cref="TouchLiveBuildPanel"/> on the first
-/// open, under the host's touch canvas and in the game's font. A build that throws is the
-/// Overlay Panel Host's to log and roll back. The host opens it from its own entry (the touch icon)
-/// with <see cref="RequestOpen"/>.
-/// </summary>
 internal sealed class TouchLiveBuildEntry : IDisposable
 {
-    /// <summary>The panel's id on the Overlay Panel Host.</summary>
     public const string PanelId = "live_build";
 
     private readonly TouchLiveBuildData _data;
     private readonly Func<Transform?> _parent;
     private readonly MobilePanelHandle _handle;
 
-    /// <param name="data">The recommendations and supporters the panel reads.</param>
-    /// <param name="parent">The host's touch canvas, or null before it exists.</param>
     public TouchLiveBuildEntry(TouchLiveBuildData data, Func<Transform?> parent)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
@@ -40,15 +29,10 @@ internal sealed class TouchLiveBuildEntry : IDisposable
         });
     }
 
-    /// <summary>The panel, once its first open built it.</summary>
     public TouchLiveBuildPanel? Panel { get; private set; }
 
     public OverlayRequestOutcome RequestOpen(string source) => _handle.RequestOpen(source);
 
-    /// <summary>
-    /// The host stops: the panel leaves the Overlay Panel Host, then gives its leases back and its
-    /// view goes.
-    /// </summary>
     public void Dispose()
     {
         _handle.Dispose();
@@ -56,7 +40,6 @@ internal sealed class TouchLiveBuildEntry : IDisposable
         Panel = null;
     }
 
-    // The host's open: the combat gate already passed.
     private bool Open()
     {
         if (Panel == null)

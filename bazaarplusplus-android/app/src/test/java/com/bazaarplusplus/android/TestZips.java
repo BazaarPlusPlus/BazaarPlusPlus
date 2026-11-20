@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/** Writes small APK-shaped zips for tests. */
 public final class TestZips {
     private TestZips() {}
 

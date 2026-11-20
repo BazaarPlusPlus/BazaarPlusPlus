@@ -28,7 +28,6 @@ internal sealed class NativeCardPreviewPresentation
                 if (group == null)
                     continue;
                 var root = group.gameObject;
-                // A card carries a handful of gem groups, so a linear scan replaces the HashSet.
                 if (root == card.gameObject || Roots.Contains(root))
                     continue;
                 Roots.Add(root);

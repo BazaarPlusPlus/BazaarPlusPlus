@@ -1,10 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-/// <summary>
-/// Derives the WAV path the loopback capture writes for a recording — a single, all-inclusive
-/// device-output stem (music, settlement, and the spatialised combat/board SFX).
-/// </summary>
 internal static class ReplayVideoAudioTapPlan
 {
     internal static string DeriveAudioWavPath(string tempVideoPath) =>

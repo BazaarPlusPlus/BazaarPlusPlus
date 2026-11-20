@@ -9,15 +9,13 @@ export interface StatusPanelProps {
   /** Replaces the kind's default mark; loading always spins. */
   icon?: ReactNode;
   title: ReactNode;
-  /** At most one sentence: what will fill the space. */
   body?: ReactNode;
   actions?: ReactNode;
   /** Single-line loading row: the spinner and the title. */
   compact?: boolean;
   /** Draw the panel frame; off when the status sits inside another panel. */
   framed?: boolean;
-  /** The title's heading level in the page outline. Level 1 is a page-sized
-   *  title, for a status that replaces the whole page. */
+  /** Use level 1 when the status replaces the whole page. */
   headingLevel?: 1 | 2 | 3;
   /** Accessible name of the loading mark, which then reads as a progress bar. */
   progressLabel?: string;
@@ -30,7 +28,6 @@ const DEFAULT_MARK = {
   'not-found': <CompassIcon />
 } as const;
 
-/** The one layout for loading, empty, error and not-found states. */
 export function StatusPanel({
   kind,
   icon,

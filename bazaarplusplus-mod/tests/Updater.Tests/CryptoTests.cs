@@ -107,8 +107,7 @@ public sealed class CryptoTests
         Assert.False(Ed25519.Verify(publicKey, Array.Empty<byte>(), signature));
     }
 
-    // A file signed with the release key through release/android-release.ts signWithUpdaterKey
-    // (the Tauri signer): the whole path, prehash included, under the key the Updater embeds.
+    // This fixture was signed with the release key through signWithUpdaterKey in release/android-release.ts.
     [Fact]
     public void Release_key_verifies_a_tauri_signer_signature()
     {
@@ -133,8 +132,6 @@ public sealed class CryptoTests
         Assert.Equal("signature_key_id_mismatch", failure);
     }
 
-    // The Tauri signer writes only prehashed "ED" signatures; minisign's raw "Ed" form is refused
-    // even when it would verify.
     [Fact]
     public void A_signature_that_is_not_prehashed_is_refused()
     {
@@ -159,9 +156,8 @@ public sealed class CryptoTests
         Assert.Equal("signature_algorithm_unsupported", failure);
     }
 
-    // The published 5.7.0 Windows updater signature (bppinstaller.bazaarplusplus.com/latest.json)
-    // over BazaarPlusPlus_5.7.0_x64-setup.exe, whose BLAKE2b-512 Python's hashlib computed from the
-    // published file (8872188 bytes, sha256 91c2386a…f25c).
+    // The signature came from bppinstaller.bazaarplusplus.com/latest.json for the Windows 5.7.0 installer.
+    // Python's hashlib computed the BLAKE2b-512 digest of the published file (8,872,188 bytes).
     [Fact]
     public void Release_key_verifies_the_published_5_7_0_updater_signature()
     {

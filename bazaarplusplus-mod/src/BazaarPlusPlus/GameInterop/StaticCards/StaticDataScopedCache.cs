@@ -2,11 +2,6 @@
 
 namespace BazaarPlusPlus.GameInterop.StaticCards;
 
-/// <summary>
-/// A lookup cache bound to one static-data manager reference and one scope string (the game
-/// language, or empty when the value does not vary with it). A different manager (GameData
-/// reload) or scope empties it, so an entry from an earlier scope never comes back.
-/// </summary>
 internal sealed class StaticDataScopedCache<TKey, TValue>
     where TKey : notnull
 {
@@ -14,11 +9,7 @@ internal sealed class StaticDataScopedCache<TKey, TValue>
     private object? _staticData;
     private string? _scope;
 
-    /// <summary>
-    /// Returns the cached value for <paramref name="key"/> in this scope, or resolves it and keeps
-    /// it when <paramref name="shouldCache"/> accepts it. Pass static lambdas and carry inputs in
-    /// <paramref name="state"/> so a hit allocates nothing.
-    /// </summary>
+    // Pass static lambdas and carry inputs in state so cache hits allocate nothing.
     internal TValue GetOrAdd<TState>(
         object staticData,
         string scope,

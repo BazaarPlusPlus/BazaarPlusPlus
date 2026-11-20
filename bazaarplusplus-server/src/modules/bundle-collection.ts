@@ -32,8 +32,7 @@ interface BazaarDbRow extends CollectionRow {
   bundle_sha256: string;
 }
 
-// One keyset feed over bundles: the index and filter must agree, because a
-// partial index is usable only when the query repeats its WHERE clause.
+// D1 can use the partial index only when the query repeats its WHERE clause.
 interface CollectionFeed<Row extends CollectionRow, Item> {
   event: string;
   columns: string;

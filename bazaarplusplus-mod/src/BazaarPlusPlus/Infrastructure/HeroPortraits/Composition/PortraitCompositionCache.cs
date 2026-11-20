@@ -25,8 +25,7 @@ internal sealed class PortraitCompositionCache
         var fit = Read(path, input);
         if (fit != null)
             return fit;
-        // Version 3 adds a fallback without changing accepted atlas fits. Keep the user's
-        // already validated positive results, then promote them to the current cache key.
+        // The fallback changes misses only, so previously validated atlas fits can be reused.
         var previousPath = Path.Combine(
             _directory,
             Fingerprint(input, cancellation, AtlasOnlyVersion) + ".json"

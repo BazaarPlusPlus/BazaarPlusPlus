@@ -7,11 +7,6 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-/**
- * The App's one SHA-256, as 64 lowercase hex characters: the form a Platform Release Manifest, an
- * interop statement, a Launch Record and the Game Code Hash all carry, so the App compares digests
- * with {@code equals}.
- */
 public final class Sha256 {
     private final MessageDigest digest;
 
@@ -23,12 +18,11 @@ public final class Sha256 {
         }
     }
 
-    /** Adds bytes; for a caller that also does something else with each buffer it reads. */
     public void update(byte[] buffer, int offset, int length) {
         digest.update(buffer, offset, length);
     }
 
-    /** The digest of the bytes added so far. Ends this instance's use. */
+    /** Reading the digest resets the accumulator. */
     public String hex() {
         byte[] bytes = digest.digest();
         StringBuilder hex = new StringBuilder(bytes.length * 2);
@@ -36,7 +30,6 @@ public final class Sha256 {
         return hex.toString();
     }
 
-    /** The digest of the rest of {@code in}. Does not close it. */
     public static String of(InputStream in) throws IOException {
         Sha256 sha256 = new Sha256();
         byte[] buffer = new byte[1 << 16];

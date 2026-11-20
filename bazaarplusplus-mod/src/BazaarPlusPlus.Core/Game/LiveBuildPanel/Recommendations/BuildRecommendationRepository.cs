@@ -7,12 +7,7 @@ using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
-/// <summary>
-/// Consumes the analyzer ten-win build catalog, answers recommendation queries against the live
-/// state, and projects matched builds onto renderable item boards. The corpus is a static package —
-/// recommendation queries read the catalog snapshot and never hit the server. Not thread-safe: the
-/// Live Build panel queries on its host's main thread.
-/// </summary>
+// Query on the host's main thread. The projection cache is shared across queries and has no synchronization.
 public sealed class BuildRecommendationRepository
 {
     private const int SocketCount = 10;
@@ -20,17 +15,10 @@ public sealed class BuildRecommendationRepository
     private readonly IRemoteEmbeddedCatalog<TenWinBuildCorpus> _catalog;
     private readonly Func<Guid, CardSize?> _templateSize;
 
-    // A build's projection never changes within one corpus snapshot, so each is projected once and
-    // reused by later queries; a new snapshot drops them all. Keyed by the build itself: BuildId is
-    // a per-hero index, so two heroes share id 0.
+    // Build IDs are per-hero row indices, so key projections by the build itself.
     private readonly Dictionary<TenWinBuild, BppItemBoard> _projectedBoards = new();
     private TenWinBuildCorpus? _projectedCorpus;
 
-    /// <param name="catalog">The plugin-lifetime build catalog, owned by the composition root.</param>
-    /// <param name="templateSize">
-    /// The game's size for a template, used to recognize Tiny and when a layout row carries no
-    /// valid size; null when the host cannot answer. A card it cannot size renders small.
-    /// </param>
     public BuildRecommendationRepository(
         IRemoteEmbeddedCatalog<TenWinBuildCorpus> catalog,
         Func<Guid, CardSize?>? templateSize = null
@@ -54,8 +42,7 @@ public sealed class BuildRecommendationRepository
         if (corpus == null)
             return Array.Empty<BuildRecommendation>();
 
-        // Drop a replaced snapshot's boards on the first query against the new one, matched or
-        // not, so the cache never keeps the old corpus reachable.
+        // Invalidate even on a query with no matches so old projected boards do not retain the replaced corpus.
         if (!ReferenceEquals(corpus, _projectedCorpus))
         {
             _projectedBoards.Clear();
@@ -99,8 +86,7 @@ public sealed class BuildRecommendationRepository
         return results;
     }
 
-    // Use the captured size, as the native board renderer does. Unknown templates remain
-    // eligible; a failed lookup is not evidence that a card was shrunk.
+    // A lookup failure cannot establish that the native board shrank a card.
     private bool ContainsTiny(TenWinBuild build) =>
         build.Layout.Any(item =>
             item.Size is { } size
@@ -151,9 +137,7 @@ public sealed class BuildRecommendationRepository
             1 => CardSize.Small,
             2 => CardSize.Medium,
             3 => CardSize.Large,
-            // Out-of-range/absent payload size: fall back to the game's authoritative card size.
-            // TenWinBuildCorpus.Parse rejects a layout size outside 1..3, so a cached projection
-            // never freezes the Small answer given while static data is not ready.
+            // Parse rejects out-of-range sizes so the cache cannot freeze a Small fallback from unready game data.
             _ => ResolveTemplateSize(templateId),
         };
     }
@@ -170,7 +154,7 @@ public sealed class BuildRecommendationRepository
         }
     }
 
-    // Layout tier is the analyzer's value 1..5 (Bronze..Legendary); anything else clamps.
+    // Wire tiers use the analyzer's 1–5 numbering for Bronze through Legendary.
     private static CardTier MapTier(int? tier) =>
         tier.GetValueOrDefault() switch
         {
@@ -181,8 +165,7 @@ public sealed class BuildRecommendationRepository
             _ => CardTier.Legendary,
         };
 
-    // The corpus names enchantments by member name. A numeric string never selects a facet: a
-    // facet's integer belongs to BPP (ADR-0015).
+    // The analyzer sends game member names. BPP facet integers are local and cannot identify a wire enchantment.
     private static CardEnchantment? MapEnchant(string? enchantName)
     {
         var name = enchantName?.Trim();
@@ -196,10 +179,6 @@ public sealed class BuildRecommendationRepository
             : null;
     }
 
-    /// <summary>
-    /// Snapshot of the currently loaded corpus's provenance (data window end, build/hero counts)
-    /// for status surfaces; null while no corpus is loaded.
-    /// </summary>
     public TenWinCorpusSummary? GetCorpusSummary()
     {
         var corpus = EnsureCorpus();

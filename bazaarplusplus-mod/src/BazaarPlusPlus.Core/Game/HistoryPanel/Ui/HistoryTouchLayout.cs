@@ -4,52 +4,27 @@ using BazaarPlusPlus.Core.Ui;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
-/// <summary>
-/// The History panel's geometry on a landscape touch screen, in canvas units, top-down from the
-/// canvas's top-left corner: a full sheet inside the safe area. The header carries the section
-/// tabs, the open section's filter, the supporter action, More and Close; the tabs name the
-/// panel, so it has no title. Under it stand three columns: the
-/// archive (list, page label and pager), the run's battle rail with its two pagers, and the
-/// detail column with the native boards over the action row (delete, set apart from favorite,
-/// skills and replay). The rail ends above the action row, so its pager never reads as part of
-/// it. The archive and the detail run to the sheet's bottom, so the pager and the action row
-/// share one bottom edge; the status line stands over the action row. On the compact step the
-/// status line runs along the bottom of the sheet. Every target is at least
-/// <see cref="TouchMetrics.MinTargetDp"/> and every text at least
-/// <see cref="TouchMetrics.MinBodySp"/>. The boards keep the game's card prefab proportions: ten
-/// sockets span the detail column, which takes <see cref="DetailSocketDp"/> per socket before the
-/// archive takes the rest. When two boards would shrink below a touch target, the compact
-/// detail step uses a single board beneath Back, battle navigation and side selection. The
-/// skills side picker (sized to the skills it shows), the card inspection, the More dialog, and
-/// the favorite note dialog sit over the sheet. List rows, rail chips and dialog rows are given from their content's
-/// top-left corner. The desktop's History is laid out by uGUI layout groups in its view and is not
-/// derived from this one.
-/// </summary>
+/// <summary>Canvas and scroll-content coordinates use a top-left origin.
+/// Use a single board when two would push each socket below the minimum touch target.</summary>
 public sealed class HistoryTouchLayout
 {
     public const int SocketCount = 10;
 
-    /// <summary>The most skills a skills sheet row shows.</summary>
     public const int SkillsPerRow = 10;
 
-    /// <summary>The socket width the detail column is sized for before the archive takes the rest.</summary>
     public const float DetailSocketDp = 52f;
 
     public const int PagerButtonCount = 3;
 
-    /// <summary>The widest archive: past it a run row gains nothing.</summary>
     public const float ArchiveMaxDp = 360f;
 
-    /// <summary>An archive row: a name line over a meta line, beside the portrait and badges.</summary>
     public const float RowDp = 52f;
 
-    /// <summary>A row of a narrow archive: three lines, the last under the badges.</summary>
     public const float NarrowRowDp = 64f;
 
-    /// <summary>The narrowest archive whose rows read as two lines.</summary>
+    /// <summary>Below this width, use a third row line to fit the badges and text.</summary>
     public const float TwoLineRowMinDp = 280f;
 
-    /// <summary>The narrowest page label that still reads beside the pager.</summary>
     public const float PageLabelMinDp = 120f;
 
     private HistoryTouchLayout(TouchMetrics metrics)
@@ -91,9 +66,7 @@ public sealed class HistoryTouchLayout
         var nativeHeight = NativeCardPrefab.Height * NativeCardPrefab.FrameHeightOverSocket;
         var tallScale =
             (columnHeight - target - Gap - 2f * BoardTitleHeight - boardGap) / (2f * nativeHeight);
-        // The detail column takes what its boards can use at this height, and no less than its
-        // action row; the archive takes the rest, so a short wide phone gets a wider run list
-        // in place of empty board margins.
+        // Reserve room for the action row and give excess board space to the archive on short, wide screens.
         var actionsWidth =
             2f * metrics.Target(64f) + metrics.Target(104f) + metrics.Target(120f) + 4f * Gap;
         var detailNeed = Math.Max(
@@ -114,19 +87,13 @@ public sealed class HistoryTouchLayout
         Compact = wideScale * NativeCardPrefab.SocketWidth < metrics.MinTarget;
         if (Compact)
             archiveWidth = body.Width;
-        // Beside the detail the archive and the detail run to the sheet's bottom, so the pager
-        // and the action row share one bottom edge; the status line moves over the action row.
         Archive = new TouchRect(
             body.Left,
             top,
             archiveWidth,
             Compact ? columnHeight : body.Bottom - top
         );
-        // The section tabs head the archive column from the header row, and the section's filter
-        // follows them, so the list keeps the archive's whole height. Every control of the
-        // archive has the same inset from its panel, so their edges align.
-        // A narrow header gives up tab width, then filter width, so the supporter action stays
-        // a target.
+        // Give up tab width and then filter width so the supporter action keeps its minimum touch target.
         var tabsWidth = Compact
             ? Math.Clamp(
                 More.Left - body.Left - metrics.Dp(124f + 120f) - 3f * Gap - 2f * small,
@@ -152,8 +119,6 @@ public sealed class HistoryTouchLayout
             Archive.Width - 2f * small,
             target
         );
-        // One row carries the pager and the page label when the label has room between them;
-        // a narrow archive keeps the label on its own line above three equal buttons.
         var arrowWidth = metrics.Target(48f);
         var latestWidth = metrics.Target(64f);
         var inlineLabel = ArchivePager.Width - 2f * arrowWidth - latestWidth - 3f * Gap;
@@ -210,8 +175,6 @@ public sealed class HistoryTouchLayout
         RunRowHeight = metrics.Dp(RowTwoLine ? RowDp : NarrowRowDp);
         BattleRowHeight = RunRowHeight;
 
-        // The compact detail replaces the archive header with Back and battle navigation,
-        // retaining Close. This leaves one full-size native board even on short safe areas.
         Detail = Compact
             ? new TouchRect(body.Left, body.Top, body.Width, bottom - body.Top)
             : new TouchRect(
@@ -261,7 +224,6 @@ public sealed class HistoryTouchLayout
                 RailOlder.Top - small - RailNewer.Bottom - small
             );
         RailListFull = Rail;
-        // A portrait with the rank and the outcome mark at its corners, over the day.
         ChipHeight = metrics.Dp(72f);
         ChipWidth = metrics.Target(64f);
         Footer = new TouchRect(Detail.Left, Detail.Bottom - target, Detail.Width, target);
@@ -284,8 +246,7 @@ public sealed class HistoryTouchLayout
             metrics.Target(104f),
             target
         );
-        // The status line over the action row takes the height it leaves under the boards, so
-        // the boards keep the scale the detail width was chosen for.
+        // Use only the leftover height for status so it cannot shrink the boards below their chosen scale.
         if (!Compact)
             Status = new TouchRect(
                 Detail.Left,
@@ -311,8 +272,7 @@ public sealed class HistoryTouchLayout
         CardHeight = nativeHeight * CardScale;
         CarpetWidth = SocketWidth * SocketCount;
         var carpetLeft = Detail.Left + (Detail.Width - CarpetWidth) / 2f;
-        // The titles frame the two boards from outside, the opponent's above and yours below,
-        // so the boards face each other with only a small gap between them.
+        // Keep titles outside the two boards so the boards can face each other across a small gap.
         UpperBoardTitle = new TouchRect(carpetLeft, boardTop, CarpetWidth, BoardTitleHeight);
         UpperBoard = new TouchRect(carpetLeft, UpperBoardTitle.Bottom, CarpetWidth, CardHeight);
         LowerBoard = Compact
@@ -322,7 +282,6 @@ public sealed class HistoryTouchLayout
             ? UpperBoardTitle
             : new TouchRect(carpetLeft, LowerBoard.Bottom, CarpetWidth, BoardTitleHeight);
 
-        // The card inspection: the shared tap-to-inspect sheet.
         _inspect = chrome.Inspect();
         InspectCardArea = _inspect.CardArea;
         InspectInfo = _inspect.Info;
@@ -330,7 +289,6 @@ public sealed class HistoryTouchLayout
         InspectName = _inspect.Name;
         InspectDetail = _inspect.Detail;
 
-        // The skills picker: a skill square fits ten to a side's row, two rows under the title.
         var rowInset = SkillRowInset(metrics);
         SkillSide = Math.Max(
             1f,
@@ -347,7 +305,6 @@ public sealed class HistoryTouchLayout
             )
         );
 
-        // The More dialog and the note dialog: centred, the sheet's height, at most 600dp wide.
         var dialogWidth = Math.Min(metrics.Dp(600f), Sheet.Width);
         Dialog = new TouchRect(
             Sheet.CenterX - dialogWidth / 2f,
@@ -366,7 +323,6 @@ public sealed class HistoryTouchLayout
         );
         var w = MoreScroll.Width;
         var line2 = metrics.Dp(36f);
-        // Every row's action shares one width, so the buttons line up down the dialog.
         var actionWidth = Math.Min(metrics.Target(160f), w * 0.4f);
         MoreHealth = new TouchRect(w - actionWidth, 0f, actionWidth, target);
         MoreDatabase = new TouchRect(0f, 0f, Math.Max(0f, MoreHealth.Left - Gap), target);
@@ -456,18 +412,14 @@ public sealed class HistoryTouchLayout
 
     public float BodyFont { get; }
 
-    /// <summary>An inspected card's name.</summary>
     public float NameFont { get; }
 
-    /// <summary>The whole panel: the safe area less a margin.</summary>
     public TouchRect Sheet { get; }
 
     public TouchRect TabsTray { get; }
 
-    /// <summary>Record selection opens a separate detail page when two readable boards cannot fit.</summary>
     public bool Compact { get; }
 
-    /// <summary>The open section's filter, in the header beside the title.</summary>
     public TouchRect ArchiveFilter { get; }
     public TouchRect Back { get; }
     public TouchRect OpponentToggle { get; }
@@ -480,7 +432,6 @@ public sealed class HistoryTouchLayout
 
     public TouchRect FavoritesTab { get; }
 
-    /// <summary>The single supporter-credit button opening the sponsor link directly.</summary>
     public TouchRect Sponsor { get; }
 
     public TouchRect More { get; }
@@ -497,17 +448,14 @@ public sealed class HistoryTouchLayout
 
     public TouchRect PageLabel { get; }
 
-    /// <summary>The page label stands in the pager row, between the arrows.</summary>
     public bool PageLabelInline { get; }
 
     public TouchRect ArchivePager { get; }
 
-    /// <summary>A row is a name line over a meta line; a narrow archive's row has three lines.</summary>
     public bool RowTwoLine { get; }
 
     public float RunRowHeight { get; }
 
-    /// <summary>A Ghost or Favorites row.</summary>
     public float BattleRowHeight { get; }
 
     public TouchRect Rail { get; }
@@ -518,14 +466,12 @@ public sealed class HistoryTouchLayout
 
     public TouchRect RailOlder { get; }
 
-    /// <summary>The rail list when the run has no other battle page: the whole rail.</summary>
     public TouchRect RailListFull { get; }
 
     public float ChipHeight { get; }
 
     public TouchRect Detail { get; }
 
-    /// <summary>The detail above its status line and action row, where no record is open.</summary>
     public TouchRect EmptyDetail { get; }
 
     public TouchRect Footer { get; }
@@ -544,18 +490,14 @@ public sealed class HistoryTouchLayout
 
     public float SocketWidth { get; }
 
-    /// <summary>A rented card's framed height on the boards.</summary>
     public float CardHeight { get; }
 
-    /// <summary>Ten sockets' width: no card reaches past it.</summary>
     public float CarpetWidth { get; }
 
-    /// <summary>The opponent's board with two boards, the challenger's with one (Ghost).</summary>
     public TouchRect UpperBoardTitle { get; }
 
     public TouchRect UpperBoard { get; }
 
-    /// <summary>Your board, when the section shows two.</summary>
     public TouchRect LowerBoardTitle { get; }
 
     public TouchRect LowerBoard { get; }
@@ -570,24 +512,20 @@ public sealed class HistoryTouchLayout
 
     public TouchRect InspectDetail { get; }
 
-    /// <summary>A skill square's side on the skills sheet.</summary>
     public float SkillSide { get; }
 
-    /// <summary>The More dialog and the note dialog.</summary>
     public TouchRect Dialog { get; }
 
     public TouchRect DialogTitle { get; }
 
     public TouchRect DialogClose { get; }
 
-    /// <summary>The More dialog's drag-scrolled viewport; its rows are from its content's top-left.</summary>
     public TouchRect MoreScroll { get; }
 
     public TouchRect MoreDatabase { get; }
 
     public TouchRect MoreHealth { get; }
 
-    /// <summary>The More dialog's status line; the rows below rise into it while it is empty.</summary>
     public TouchRect MoreStatus { get; }
 
     public TouchRect AccountTitle { get; }
@@ -598,7 +536,6 @@ public sealed class HistoryTouchLayout
 
     public TouchRect AccountPersistence { get; }
 
-    /// <summary>Where the account link form starts; the content ends here while it is hidden.</summary>
     public float AccountFormTop { get; }
 
     public TouchRect AccountWhy { get; }
@@ -611,7 +548,6 @@ public sealed class HistoryTouchLayout
 
     public TouchRect AccountLinked { get; }
 
-    /// <summary>The More dialog's content height with the account link form shown.</summary>
     public float MoreContentHeight { get; }
 
     public TouchRect NoteInput { get; }
@@ -622,27 +558,20 @@ public sealed class HistoryTouchLayout
 
     public TouchRect NoteSave { get; }
 
-    /// <summary>One archive pager button: 0 newer, 1 latest, 2 older.</summary>
     public TouchRect PagerButton(int index) =>
         _pagerButtons[Math.Clamp(index, 0, PagerButtonCount - 1)];
 
-    /// <summary>An archive row, from the list content's top-left corner.</summary>
     public TouchRect ArchiveRow(int index, bool runs)
     {
         var height = runs ? RunRowHeight : BattleRowHeight;
         return new TouchRect(0f, Math.Max(0, index) * height, ArchiveList.Width, height - Gap / 2f);
     }
 
-    /// <summary>A battle chip on the rail, from the rail content's top-left corner.</summary>
     public TouchRect RailChip(int index) =>
         Compact
             ? new(Math.Max(0, index) * ChipWidth, 0f, ChipWidth - Gap / 2f, _target)
             : new(0f, Math.Max(0, index) * ChipHeight, RailList.Width, ChipHeight - Gap / 2f);
 
-    /// <summary>
-    /// A card's footprint on a board, from the board's top-left corner: <paramref name="span"/>
-    /// sockets from <paramref name="socket"/>.
-    /// </summary>
     public TouchRect CardRect(int socket, int span)
     {
         var clampedSpan = Math.Clamp(span, 1, SocketCount);
@@ -655,11 +584,6 @@ public sealed class HistoryTouchLayout
         );
     }
 
-    /// <summary>
-    /// The skills side picker for one or two sides holding <paramref name="counts"/> skills each,
-    /// centred on the sheet and no larger than they need. Each side is one button over its title
-    /// and its skills; a side without skills keeps only its title.
-    /// </summary>
     public HistorySkillsSheetLayout SkillsSheet(IReadOnlyList<int> counts)
     {
         var rows = Math.Clamp(counts.Count, 1, 2);
@@ -733,10 +657,8 @@ public sealed class HistoryTouchLayout
 
     private static float SkillRowInset(TouchMetrics metrics) => metrics.Dp(8f);
 
-    /// <summary>The prefab scale that fills a skill square.</summary>
     public float SkillScale => SkillSide / NativeCardPrefab.Height;
 
-    /// <summary>The enlarged card's scale on the inspection for a card <paramref name="span"/> sockets wide.</summary>
     public float InspectScale(int span) =>
         _inspect.Scale(
             NativeCardPrefab.SocketWidth * Math.Clamp(span, 1, 3),
@@ -744,11 +666,6 @@ public sealed class HistoryTouchLayout
         );
 }
 
-/// <summary>
-/// One opening of the skills side picker, in canvas units: <see cref="Sides"/> is each side's
-/// button, holding its <see cref="RowTitles"/> entry and its <see cref="Cells"/>; a cell past a
-/// side's count is empty.
-/// </summary>
 public sealed record HistorySkillsSheetLayout(
     TouchRect Sheet,
     TouchRect Title,

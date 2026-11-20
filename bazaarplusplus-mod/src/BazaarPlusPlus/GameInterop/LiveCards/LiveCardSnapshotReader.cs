@@ -10,12 +10,7 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.GameInterop.LiveCards;
 
-/// <summary>
-/// The desktop's walk of the run for Core's <see cref="LiveCardSnapshotRead"/>: the hero, the
-/// shop's item offers in <c>SelectionSet</c> order, and every item on the board and in the stash
-/// in <c>GetCardsAndSockets</c> order, on card facets (ADR-0015). Core places, numbers, and
-/// reports the cards. Main thread only.
-/// </summary>
+// Main thread only. Preserve the game's SelectionSet and GetCardsAndSockets iteration order.
 internal static class LiveCardSnapshotReader
 {
     public static LiveCardWalk? Walk()

@@ -144,18 +144,12 @@ internal sealed class EndOfRunMouseBlocker
         {
             _blockerCanvasObject?.SetActive(false);
         }
-        catch
-        {
-            // Destroy below remains the final cleanup path.
-        }
+        catch { }
         try
         {
             _blockerObject?.SetActive(false);
         }
-        catch
-        {
-            // Destroy below remains the final cleanup path.
-        }
+        catch { }
         try
         {
             if (_blockerCanvasObject != null)

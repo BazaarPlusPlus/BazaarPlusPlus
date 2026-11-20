@@ -6,13 +6,7 @@ use tauri::AppHandle;
 use super::bepinex;
 use super::detect::detect_installation_paths;
 
-/// Startup-time installer context.
-///
-/// These inputs don't change during a session, so we read them once, cache the
-/// result, and let every subsequent `resolve_game_path` or `detect_for_install`
-/// call reuse the cached values. Before this split, each detection pass re-read
-/// the bundled `BepInEx.zip`, which on Windows was a dominant source of
-/// detect-flow latency because Defender scans the zip on every `CreateFile`.
+/// Cache the bundled zip for the session because Defender can scan it on every open.
 pub(crate) struct InstallerStartup {
     pub(crate) bundled_bpp_version: Option<String>,
     pub(crate) steam_path: Option<PathBuf>,

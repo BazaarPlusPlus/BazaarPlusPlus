@@ -5,17 +5,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Game;
 
-/// <summary>
-/// <c>[Graphics] FrameRatePriority</c>: keeps the game at its own frame-rate setting under load.
-/// The game's <c>PerformanceController</c> lowers the render resolution when the GPU runs long
-/// and lowers the frame cap (<c>PerformanceFrameCappingScaler</c>) when the main or render thread
-/// runs long, each against 80% of the target frame time. The mod's own work on the main thread
-/// can push a fight onto the frame-cap path. While the switch is on, the current quality preset's
-/// <c>DynamicFrameCapping</c> is off, so only the resolution scaler answers load, as it does in
-/// the unmodded game; switching off gives each preset its flag back. When Adaptive Performance
-/// runs, the game disables the controller and its own scalers decide, so the switch does
-/// nothing; <c>android.frame_rate.controller_found</c> says which path runs.
-/// </summary>
+// The mod's own main-thread work can trigger the game's frame-cap scaler. Adaptive Performance uses
+// separate scalers.
 internal sealed class AndroidFrameRatePriority
 {
     private const float IntervalSeconds = 1f;
@@ -83,9 +74,8 @@ internal sealed class AndroidFrameRatePriority
             settings.DynamicFrameCapping = false;
             if (!_held.Any(held => held.Pointer == settings.Pointer))
                 _held.Add(settings);
-            // ApplySettings destroys the frame-cap scaler, whose OnDestroy writes the frame rate
-            // it saw on Awake at the end of this frame. Make that the preference first: Awake
-            // may have run before the game applied it.
+            // ApplySettings destroys the scaler, whose OnDestroy restores the cap it captured in
+            // Awake, potentially before preferences loaded.
             if (controller._frameCappingScaler is { } scaler && target > 0)
                 scaler._defaultFps = target;
             controller.ApplySettings();
@@ -115,7 +105,6 @@ internal sealed class AndroidFrameRatePriority
         foreach (var settings in _held)
             settings.DynamicFrameCapping = true;
         _held.Clear();
-        // A fresh frame-cap scaler starts at the preference and measures from there.
         controller.ApplySettings();
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Android, "android.frame_rate.released"),
@@ -123,7 +112,7 @@ internal sealed class AndroidFrameRatePriority
         );
     }
 
-    // What PlayerPreferences.Apply writes, without its UI-scale notification.
+    // Avoid the UI-scale notification raised by PlayerPreferences.Apply.
     private static int PreferenceFrameRate()
     {
         var data = Il2Cpp.PlayerPreferences.Data;

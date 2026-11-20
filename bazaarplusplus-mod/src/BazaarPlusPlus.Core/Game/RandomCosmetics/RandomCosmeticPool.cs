@@ -1,13 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.RandomCosmetics;
 
-/// <summary>
-/// One category's Random Cosmetic Pool for one hero: the cosmetics the game's Randomize
-/// draws from at run start. Candidates are the non-default cosmetics the game draws from
-/// itself; a default cosmetic is never a candidate. The player saves what to leave out, so a
-/// cosmetic acquired later joins the pool. While no current candidate is left out, the pool is
-/// every candidate and the game's own pick stands.
-/// </summary>
+// Save exclusions so newly acquired cosmetics enter the pool automatically.
 public sealed class RandomCosmeticPool
 {
     private readonly string[] _candidates;
@@ -21,10 +15,6 @@ public sealed class RandomCosmeticPool
         _excluded = excluded;
     }
 
-    /// <summary>
-    /// <paramref name="candidateIds"/> are the current non-default cosmetics in display order;
-    /// <paramref name="excludedIds"/> are the saved ids to leave out, or null when none are saved.
-    /// </summary>
     public static RandomCosmeticPool Create(
         IEnumerable<string?> candidateIds,
         IEnumerable<string?>? excludedIds
@@ -52,22 +42,17 @@ public sealed class RandomCosmeticPool
         }
     }
 
-    /// <summary>True when the pool leaves out a current candidate, so it replaces the game's pick.</summary>
     public bool OverridesGamePick => Members.Count < _candidates.Length;
 
     public bool Contains(string? id) => id != null && Members.Contains(id, StringComparer.Ordinal);
 
-    /// <summary>
-    /// The ids to save after a click on <paramref name="id"/>, or null when the click changes
-    /// nothing: the id is not a candidate, or it is the last member. Saved ids that are not
-    /// current candidates (a cosmetic that is unavailable now) stay saved.
-    /// </summary>
+    // Keep exclusions for unavailable cosmetics so their settings survive if they return.
     public IReadOnlyList<string>? Toggle(string? id)
     {
         if (id == null || !_candidateSet.Contains(id))
             return null;
 
-        // Start from what the player sees: the fallback shows every candidate as a member.
+        // Use the displayed fallback membership so the first click can recover from stale exclusions.
         var members = new HashSet<string>(Members, StringComparer.Ordinal);
         var next = new HashSet<string>(
             _excluded.Where(saved => !_candidateSet.Contains(saved)),
@@ -89,10 +74,6 @@ public sealed class RandomCosmeticPool
         return next.OrderBy(saved => saved, StringComparer.Ordinal).ToArray();
     }
 
-    /// <summary>
-    /// The cosmetic to equip instead of the game's pick, or null to keep the game's pick.
-    /// <paramref name="nextIndex"/> returns a uniform index below its argument.
-    /// </summary>
     public string? Pick(Func<int, int> nextIndex)
     {
         if (nextIndex == null)

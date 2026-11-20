@@ -31,7 +31,6 @@ internal sealed class ReplayAudioWarmupStats
     public int SoundtrackBanksSkipped;
 }
 
-/// <summary>Where the one soundtrack the audio warmup warms came from.</summary>
 internal enum ReplaySoundtrackSource
 {
     None,
@@ -39,7 +38,6 @@ internal enum ReplaySoundtrackSource
     /// <summary>The game's <c>PlayingSoundTrackSO</c>, already set by its own board load.</summary>
     GamePlaying,
 
-    /// <summary>Picked by the game's rule and set as <c>PlayingSoundTrackSO</c> by the warmup.</summary>
     WarmupSet,
 }
 

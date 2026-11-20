@@ -1,11 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Per-cell native visual-bounds cache for Collection grid fit. UnityEngine-free so the
-// hit/miss policy is table-tested in CollectionGridLayout.Tests without booting the client.
-//
-// Invalidation hooks (design): re-bind, scale dirty (viewport/base unit), art load complete.
-// Scroll-only reposition reads a warm cache and never remeasures.
 public sealed class NativeCardCellBoundsCache
 {
     private bool _valid;
@@ -35,15 +30,12 @@ public sealed class NativeCardCellBoundsCache
         _valid = true;
     }
 
-    // Fresh native session / Show reactivation: measured subtree may differ from any prior value.
     public void InvalidateOnRebind() => Clear();
 
-    // Viewport or base-unit change: re-fit uses a new cellRect; remeasure keeps Aspect SetSize
-    // and layout-dependent bounds honest after a resize.
+    // A resize can change the native bounds through Aspect.SetSize.
     public void InvalidateOnScaleDirty() => Clear();
 
-    // Item art finishes loading after (or independently of) the first measure; RawImage /
-    // FrameContainer bounds can change once material is assigned.
+    // Art can finish after the first measure and assigning its material can change RawImage and FrameContainer bounds.
     public void InvalidateOnArtLoaded() => Clear();
 
     private void Clear()

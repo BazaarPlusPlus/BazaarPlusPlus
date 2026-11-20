@@ -6,25 +6,9 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
-/// <summary>
-/// A battle's stored boards as cards a host renders from the game's own prefabs, on every host:
-/// the desktop's native board and the touch boards. A card is kept on the same terms
-/// <see cref="HistoryBattleSnapshotCounter"/> counts it: a parseable template id, the capture's
-/// card type, and a template the host's static data knows. Items keep the desktop's order (placed
-/// cards by socket, then the rest in capture order), a card with no size renders as one socket
-/// (ADR-0017), and the board is planned (<see cref="BppItemBoardSlotPlanner"/>) so every card has
-/// its display socket. Each card carries its Saved Card Values, which the rendered card shows over
-/// its template's. A socket effect in the hand is no card on the board: it raises the attribute
-/// its template sets (Heated or Chilled, named by the host) to at least 1 on every placed item
-/// that covers its socket, as the game shows a recorded board (ADR-0017, amended 2026-11-04).
-/// </summary>
+/// <summary>The game's recorded board applies a socket effect to every item covering its socket instead of displaying the effect as a card (ADR-0017).</summary>
 public static class HistoryBoardProjection
 {
-    /// <summary>
-    /// The planned item board of one hand. <paramref name="socketEffectAttribute"/> names the
-    /// attribute a socket-effect template sets at a tier, or null for none
-    /// (<see cref="IHistoryCardTemplates.SocketEffectAttribute"/>).
-    /// </summary>
     public static BppItemBoard Items(
         PvpBattleCardSetCapture? hand,
         Func<Guid, bool> hasCardTemplate,
@@ -92,7 +76,6 @@ public static class HistoryBoardProjection
         );
     }
 
-    /// <summary>One skill set's skills, in capture order.</summary>
     public static IReadOnlyList<BppItemBoardCard> Skills(
         PvpBattleCardSetCapture? skills,
         Func<Guid, bool> hasCardTemplate
@@ -121,12 +104,6 @@ public static class HistoryBoardProjection
         return cards;
     }
 
-    /// <summary>
-    /// The facts a board reports from its rented cards, which Core's
-    /// <see cref="HistoryPanelViewModelBuilder.ArchiveStatus"/> turns into its message: loading
-    /// while any card is, empty when the board has no card, failed when every card failed, partial
-    /// when some did, and ready otherwise.
-    /// </summary>
     public static HistoryBoardFacts Facts(int cards, int pending, int failed) =>
         pending > 0 ? new HistoryBoardFacts(NativeMonsterBoardStatus.Loading, 0)
         : cards <= 0 ? new HistoryBoardFacts(NativeMonsterBoardStatus.Empty, 0)
@@ -139,7 +116,6 @@ public static class HistoryBoardProjection
             ? new Dictionary<string, int>(snapshot.Attributes)
             : new Dictionary<string, int>();
 
-    // The attribute names the hand's socket effects set, by socket index.
     private static Dictionary<int, HashSet<string>> SocketEffects(
         PvpBattleCardSetCapture? hand,
         Func<Guid, CardTier, string?> socketEffectAttribute

@@ -11,12 +11,7 @@ public interface IReplayPlaybackOutcomeSink
     void ReportDegradation(ReplayPlaybackReasonCode reasonCode, Exception? exception = null);
 }
 
-/// <summary>
-/// Thread-safe, one-shot operational result for one requested replay: it owns the recording
-/// promotion decision and writes the started and terminal events. Lifecycle events remain
-/// separate: the runtime may publish the ended signal before menu navigation resolves, but this
-/// operation does not write its terminal event until all required cleanup is known.
-/// </summary>
+/// <summary>The ended signal can precede menu navigation. Delay the terminal log until the required cleanup has settled.</summary>
 public sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
 {
     private readonly object _gate = new();
@@ -85,7 +80,6 @@ public sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
         }
     }
 
-    /// <summary>Writes <c>combat_replay.playback.started</c> once, unless already terminal.</summary>
     public void MarkStarted()
     {
         bool recordVideo;
@@ -106,10 +100,6 @@ public sealed class ReplayPlaybackLogOperation : IReplayPlaybackOutcomeSink
         );
     }
 
-    /// <summary>
-    /// Writes the one terminal event: <c>failed</c> for a failure reason or failed rollback,
-    /// <c>degraded</c> when degradations were reported, otherwise <c>succeeded</c>.
-    /// </summary>
     public void Complete(
         ReplayPlaybackEndReasonCode endReasonCode,
         ReplayRollbackStatus rollbackStatus,

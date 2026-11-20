@@ -8,7 +8,6 @@ using Xunit;
 
 public sealed class GhostBundleImportTests
 {
-    // The capsule's three imports: one row each.
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
@@ -16,8 +15,6 @@ public sealed class GhostBundleImportTests
     public Task Imports(bool malformedReplay, bool rejectedReplay) =>
         ImportAsync(malformedReplay, rejectedReplay);
 
-    // malformedReplay fails projecting the battle; rejectedReplay makes the replay's messages fail
-    // the host's verification instead. Either is an import failure.
     private static async Task ImportAsync(bool malformedReplay, bool rejectedReplay = false)
     {
         const string battleId = "valid-battle";
@@ -193,7 +190,6 @@ public sealed class GhostBundleImportTests
             throw new InvalidOperationException(
                 "A saved Ghost replay must load from cache without another download."
             );
-        // Playback takes the payload the download confirmed instead of reading the file again.
         if (
             result.Payload?.BattleId != localId
             || cached.Payload?.BattleId != localId

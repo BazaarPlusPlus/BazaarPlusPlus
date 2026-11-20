@@ -39,7 +39,6 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
             Clear();
             return;
         }
-        // Release stale visuals at frame cadence; discovery alone is throttled.
         _removed.Clear();
         foreach (var pair in _slots)
         {
@@ -328,8 +327,7 @@ internal sealed class AnimatedHeroPortraitController : MonoBehaviour
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                // Keep a failed slot until the sprite changes or the user toggles the setting;
-                // a broken skin must not retry every discovery tick.
+                // Keep the failed slot so a broken skin cannot retry every discovery tick.
                 if (!_disposed)
                 {
                     BppLog.DebugEvent(

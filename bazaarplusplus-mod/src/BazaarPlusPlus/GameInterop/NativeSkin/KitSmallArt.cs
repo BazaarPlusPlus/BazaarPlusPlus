@@ -8,37 +8,28 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.NativeSkin;
 
-/// <summary>
-/// Small copies of content art for the Desktop UI kit. The game's portraits, trophies and rank
-/// badges are large textures without mipmaps, so a 30 or 44 unit copy of one shimmers. A copy
-/// here is area-averaged once and has its own mipmaps; a portrait copy is drawn as the
-/// hero's medallion. One copy per source sprite; a copy that cannot be made is null
-/// and the kit shows the source.
-/// </summary>
+// The game's large portraits, trophies and rank badges lack mipmaps and shimmer in small slots.
+// Area-average the copies and give them mipmaps.
 internal static class KitSmallArt
 {
     private const int CapturePixels = 512;
     private const int IconPixels = 128;
     private const int PlatePixels = 176;
 
-    // One copy per source sprite and look: the same portrait may be asked for with two looks.
     private static readonly Dictionary<
         (int Sprite, KitMedallion? Look),
         (Sprite Source, Task<Sprite?> Copy)
     > Copies = new();
 
-    /// <summary>The whole sprite, small.</summary>
     internal static Task<Sprite?> IconAsync(Sprite source) => Get(source, null);
 
-    /// <summary>A hero's medallion, drawn from a bust portrait (<see cref="KitArtReduction.Medallion"/>).</summary>
     internal static Task<Sprite?> MedallionAsync(Sprite source, KitMedallion look) =>
         Get(source, look);
 
     private static Task<Sprite?> Get(Sprite source, KitMedallion? look)
     {
         var key = (source.GetInstanceID(), look);
-        // A copy that could not be made is made again on the next request: a readback can
-        // fail once.
+        // A readback can fail transiently, so allow the next request to retry.
         if (
             Copies.TryGetValue(key, out var entry)
             && entry.Source == source

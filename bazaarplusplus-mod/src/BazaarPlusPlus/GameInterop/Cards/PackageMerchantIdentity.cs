@@ -5,10 +5,7 @@ using BazaarGameShared.Domain.Prerequisites.Conditionals;
 
 namespace BazaarPlusPlus.GameInterop.Cards;
 
-/// <summary>
-/// Resolves the encounter template that accepts a package. Package abilities gate their sell
-/// rewards on the current encounter's stable template ID; that runtime rule is authoritative.
-/// </summary>
+// Package abilities gate rewards on the current encounter's stable template ID.
 internal static class PackageMerchantIdentity
 {
     internal static bool TryResolveMerchantTemplateId(

@@ -3,12 +3,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// The screen as Core's <see cref="TouchMetrics"/> sees it: Unity's pixel size, density, and safe
-/// area against the touch canvas's reference height (<see cref="UiKit.ReferenceResolution"/>,
-/// matched by height). A panel built on it compares <see cref="Key"/> each frame and lays itself out
-/// again when the resolution, density, or safe area changes. Main thread only.
-/// </summary>
 internal static class TouchScreen
 {
     private static int _keyWidth;
@@ -20,10 +14,7 @@ internal static class TouchScreen
     private static float _keySafeHeight;
     private static string? _key;
 
-    /// <summary>
-    /// What the layout depends on; a change means a new layout. Panels call it every frame, so
-    /// the string is formatted again only when one of its inputs changed.
-    /// </summary>
+    // Checked every frame, so format the layout key only when its inputs change.
     public static string Key()
     {
         var width = Screen.width;
@@ -67,10 +58,7 @@ internal static class TouchScreen
         );
     }
 
-    /// <summary>
-    /// Places <paramref name="rect"/> at <paramref name="area"/>, given top-down from the top-left
-    /// corner of a parent that spans the canvas (or of a list's content).
-    /// </summary>
+    // The rect uses top-down coordinates from the parent's top-left corner.
     public static RectTransform Place(RectTransform rect, TouchRect area)
     {
         rect.anchorMin = new Vector2(0f, 1f);
@@ -81,7 +69,6 @@ internal static class TouchScreen
         return rect;
     }
 
-    /// <summary>A new child placed at <paramref name="area"/>.</summary>
     public static RectTransform Child(string name, Transform parent, TouchRect area) =>
         Place(
             UiKit.Rect(name, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero),

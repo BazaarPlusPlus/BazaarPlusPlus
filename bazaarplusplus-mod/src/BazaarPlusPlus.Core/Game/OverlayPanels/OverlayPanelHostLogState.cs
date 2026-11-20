@@ -10,8 +10,7 @@ internal sealed class OverlayPanelHostLogState
     private readonly HashSet<string> _tickDegradedPanels = new(StringComparer.Ordinal);
     private bool _combatProbeDegraded;
 
-    // dt/isOpen are passed by value and the tick delegate is the registration's own stored
-    // delegate, so the per-frame dispatch allocates nothing.
+    // Pass through the stored delegate to avoid allocating a closure every frame.
     internal void ExecuteTick(string panelId, Action<float, bool> tick, float dt, bool isOpen)
     {
         try
@@ -27,7 +26,6 @@ internal sealed class OverlayPanelHostLogState
         ReportTickRecovered(panelId);
     }
 
-    // Returns false when the callback threw (and was logged).
     internal bool ExecuteDirective(
         Guid requestId,
         string panelId,
@@ -57,8 +55,6 @@ internal sealed class OverlayPanelHostLogState
         }
     }
 
-    // A predicate the host reads (Enabled, IsModalInputActive) threw: logged like a failed
-    // directive of that panel, and the caller falls back to the given value.
     internal bool ReadPredicate(
         string panelId,
         OverlayPredicateKind predicate,
@@ -73,8 +69,7 @@ internal sealed class OverlayPanelHostLogState
         catch (Exception ex)
         {
             BppLog.ErrorEvent(
-                // Read every frame: the storm key keeps a predicate that keeps throwing to one line
-                // per window.
+                // Throttle failures because this predicate runs every frame.
                 new BppLogEvent(
                     BppLogFeatureScope.OverlayPanels,
                     "overlay_panels.predicate.failed",

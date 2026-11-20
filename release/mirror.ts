@@ -23,25 +23,21 @@ import {
 } from './release-platforms.ts';
 import type { ReleasePlatformKey } from './release-platforms.ts';
 
-/** A probed share page: its status and body, or the failure of the request. */
 export type MirrorPage =
   | { status: number; html: string; error?: undefined }
   | { error: Error; status?: undefined; html?: undefined };
 
-/** How a mirror check ended; `waived` marks a release without a mirror. */
 export type MirrorOutcome =
   | 'verified'
   | 'missing-or-misnamed'
   | 'unverifiable'
   | 'waived';
 
-/** What classifyMirrorPage concludes from one page. */
 export interface MirrorClassification {
   outcome: Exclude<MirrorOutcome, 'waived'>;
   detail: string;
 }
 
-/** The outcome of one platform's mirror check. */
 export interface MirrorCheckResult {
   platform: string;
   url: string | null;
@@ -50,16 +46,13 @@ export interface MirrorCheckResult {
   detail: string;
 }
 
-/** Reads a share page; fetchMirrorPage in production. */
 export type ProbeMirror = (url: string) => Promise<MirrorPage>;
 
-/** The options of fetchMirrorPage. */
 export interface FetchMirrorPageOptions {
   fetchImpl?: FetchImpl;
   timeoutMs?: number;
 }
 
-/** The inputs of checkMainlandMirror. */
 export interface CheckMainlandMirrorOptions {
   platform: string;
   url: string;
@@ -67,14 +60,12 @@ export interface CheckMainlandMirrorOptions {
   probeMirror: ProbeMirror;
 }
 
-/** The options of assertMainlandMirrors. */
 export interface AssertMainlandMirrorsOptions {
   allowUnverified?: boolean;
   log?: (line: string) => void;
   remedy?: string;
 }
 
-/** The inputs of verifyMainlandMirrors. */
 export interface VerifyMainlandMirrorsOptions {
   baseUrl: string;
   version?: ProductVersion | null;
@@ -85,25 +76,16 @@ export interface VerifyMainlandMirrorsOptions {
   log?: (line: string) => void;
 }
 
-/** What verifyMainlandMirrors checked: the version(s) and each result. */
 export interface MirrorVerification {
   version: string;
   results: MirrorCheckResult[];
 }
 
-// One platform's mirror address to check; null when promoted without one.
 type MirrorTarget =
   | { platform: string; url: string; fileName: string }
   | { platform: string; url: null; fileName: string };
 
-// The Mainland Mirror is a manually uploaded share page of each installer at
-// an address the operator supplies. This module proves that the page actually
-// serves the installer the release ships.
-//
-// Lanzou answers HTTP 200 for present and absent shares alike. A present share
-// names its file in <title>; an absent or cancelled one has an empty title and
-// carries this marker. Mobile user agents get a page without those facts, so
-// the probe identifies itself as a desktop browser.
+// Lanzou returns HTTP 200 for missing shares too. Use a desktop user agent to get the file title or missing-share marker.
 const MISSING_MARKER = '文件取消分享';
 const TITLE_SUFFIX = ' - 蓝奏云';
 export const MIRROR_USER_AGENT =
@@ -120,9 +102,6 @@ function decodeEntities(text: string): string {
     .replaceAll('&amp;', '&');
 }
 
-// Three outcomes: `verified` (the share names the expected installer),
-// `missing-or-misnamed` (the operator can fix the share), `unverifiable` (the
-// page could not be read or is not a share page this check understands).
 export function classifyMirrorPage(
   page: MirrorPage,
   fileName: string
@@ -261,10 +240,7 @@ async function fetchJson(
   }
 }
 
-// Every platform records a mainland mirror. Without a platform, the check
-// before promotion covers the Lockstep Platforms, which upload together;
-// Android uploads on its own cadence and is named explicitly. The check of
-// the published manifests covers every platform.
+// Before promotion, name Android explicitly because it uploads independently of the Lockstep Platforms.
 function platformKeysFor(
   platform: string | undefined,
   latest: boolean
@@ -273,10 +249,6 @@ function platformKeysFor(
   return latest ? RELEASE_PLATFORM_KEYS : LOCKSTEP_PLATFORM_KEYS;
 }
 
-// Read-only check against the public release origin; needs no credentials.
-// Before promotion it re-checks the mirror records uploaded for `version`;
-// with `latest` it checks each published Platform Release Manifest instead,
-// so the check can be repeated for a release after VERSION has moved on.
 export async function verifyMainlandMirrors({
   baseUrl,
   version = null,
@@ -293,7 +265,6 @@ export async function verifyMainlandMirrors({
     const versions: ProductVersion[] = [];
     for (const key of platformKeysFor(platform, true)) {
       const manifestPath = platformManifestPath(key);
-      // The check proves the manifest's shape.
       const manifest = validatePlatformManifest(
         (await fetchJson(`${origin}/${manifestPath}`, fetchImpl, manifestPath, {
           missing: `${key} has no platform manifest yet at ${manifestPath}`
@@ -305,7 +276,6 @@ export async function verifyMainlandMirrors({
       targets.push({
         platform: key,
         url: download.mainlandUrl ?? null,
-        // A desktop download is the installer; Android's names its App.
         fileName: installerFileName(
           download.app === undefined ? download.url : download.app.url
         )
@@ -313,11 +283,9 @@ export async function verifyMainlandMirrors({
     }
     target = [...new Set(versions)].join(' / ');
   } else {
-    // assertProductVersion returns the version it accepts.
     target = assertProductVersion(target);
     for (const key of platformKeysFor(platform, false)) {
       const uploadedKey = fragmentKey(target, key);
-      // The check proves the fragment's shape.
       const fragment = validatePlatformFragment(
         (await fetchJson(`${origin}/${uploadedKey}`, fetchImpl, uploadedKey, {
           missing: `${key} ${target} is not uploaded yet; run upload first`

@@ -5,9 +5,7 @@ const DEFAULT_CROP = {
   height: 0.22
 };
 
-// This page is served by the local stream service on its own origin, so it
-// cannot read the app's stored locale. The app appends `?lang=` when it opens
-// the page; a direct visit falls back to the browser language.
+// The stream service's separate origin prevents this page from reading the app's stored locale.
 const MESSAGES = {
   en: {
     documentTitle: 'BazaarPlusPlus Overlay Calibration',
@@ -126,7 +124,7 @@ function resolveLocale() {
   try {
     candidates.push(new URLSearchParams(window.location.search).get('lang'));
   } catch {
-    // A malformed query string just falls through to the browser language.
+    // A query locale is optional.
   }
   candidates.push(...(navigator.languages || []), navigator.language);
 

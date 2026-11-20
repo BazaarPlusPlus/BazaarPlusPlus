@@ -7,11 +7,6 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
-/// <summary>
-/// Maps a Core item board back to the game's types for native card previews: facets through
-/// <see cref="DesktopCardFacets"/>, socket indexes to <see cref="EContainerSocketId"/>, and
-/// attribute member names to <see cref="ECardAttributeType"/> (ADR-0017).
-/// </summary>
 internal static class BppItemBoardPreviewMapper
 {
     private const int SocketCount = 10;

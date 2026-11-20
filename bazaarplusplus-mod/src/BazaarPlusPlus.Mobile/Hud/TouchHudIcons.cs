@@ -3,12 +3,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.Hud;
 
-/// <summary>
-/// The touch shortcuts' artwork (Collection, Ten-Win Builds) and History's menu icon, decoded
-/// from the desktop's own PNGs linked into the host assembly under the Desktop Host's names. Owned
-/// sprites survive scene loads, and each texture keeps no CPU copy of its pixels once its sprite
-/// exists.
-/// </summary>
+// Source the icon PNGs from the desktop kit under the same resource names.
 internal sealed class TouchHudIcons : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
@@ -17,7 +12,6 @@ internal sealed class TouchHudIcons : IDisposable
 
     public Sprite TenWins { get; }
 
-    /// <summary>History's tile in the game's menus (the Android host's).</summary>
     public Sprite History { get; }
 
     public TouchHudIcons()
@@ -50,10 +44,7 @@ internal sealed class TouchHudIcons : IDisposable
         return GpuOnlySprite(_owned, texture);
     }
 
-    /// <summary>
-    /// A sprite over all of <paramref name="texture"/>; then the texture is uploaded without a
-    /// CPU copy. The sprite is cut first because its mesh is read from those pixels.
-    /// </summary>
+    // Cut the sprite before discarding the CPU pixels because sprite meshing reads them.
     internal static Sprite GpuOnlySprite(List<UnityEngine.Object> owned, Texture2D texture)
     {
         texture.filterMode = FilterMode.Bilinear;
@@ -85,12 +76,7 @@ internal sealed class TouchHudIcons : IDisposable
     public void Dispose() => DestroyAll(_owned);
 }
 
-/// <summary>
-/// The combat clock's play and pause glyphs: the same play triangle / pause bars as the desktop
-/// CombatPlaybackIcon, rasterized once into an ordinary Image sprite instead of a custom
-/// Graphic, which an IL2CPP host cannot inject. It decodes no PNG; owned sprites survive scene
-/// loads.
-/// </summary>
+// Rasterize into a stock Image sprite because IL2CPP cannot inject a custom Graphic.
 internal sealed class TouchPlaybackIcons : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();

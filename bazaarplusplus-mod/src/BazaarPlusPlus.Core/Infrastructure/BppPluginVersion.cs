@@ -5,7 +5,7 @@ namespace BazaarPlusPlus.Infrastructure;
 
 public static class BppPluginVersion
 {
-    // Every BPP assembly carries the product VERSION, so Core's own version is the build's.
+    // Every BPP assembly embeds product VERSION, so reading Core gives the version on either host.
     private static readonly string BuildVersion =
         typeof(BppPluginVersion).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
     private static string _current = BuildVersion;

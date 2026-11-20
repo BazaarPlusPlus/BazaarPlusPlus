@@ -3,11 +3,7 @@ using System.Text.Json;
 
 namespace BazaarPlusPlus.HistorySampler;
 
-/// <summary>
-/// The server's bundle_sync collection (<c>GET /bundles</c>, docs/api-reference.md in the server):
-/// one fixed window of recent Bundles, each with a presigned download URL. The analyzer reads the
-/// same feed (bazaarlens/bundle_source.py).
-/// </summary>
+// The analyzer's bazaarlens/bundle_source.py consumes the same bundle_sync feed.
 internal sealed class BundleFeed : IDisposable
 {
     // The server keeps Bundles for eight days and serves only windows that end a minute ago.
@@ -29,7 +25,6 @@ internal sealed class BundleFeed : IDisposable
 
     public sealed record Item(string BundleId, long AvailableAtMs, string DownloadUrl);
 
-    /// <summary>Every Bundle that became available in the last <paramref name="hours"/>.</summary>
     public async Task<List<Item>> ListAsync(int hours, CancellationToken cancellation)
     {
         var before = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - SettleLagMs;

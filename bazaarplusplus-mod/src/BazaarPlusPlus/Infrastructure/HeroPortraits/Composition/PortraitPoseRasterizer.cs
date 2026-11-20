@@ -15,8 +15,7 @@ internal sealed record PortraitPoseImage(
         );
 }
 
-// A bounded numeric matching proxy, not a replacement for Spine's native renderer.
-// Pixels and geometry both use a bottom-left origin; output retains premultiplied alpha.
+// Pixels and geometry share a bottom-left origin. The matching proxy retains premultiplied alpha.
 internal static class PortraitPoseRasterizer
 {
     private const int MaxTriangles = 10_000;

@@ -3,7 +3,6 @@ using Il2CppTheBazaar.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>Merchant and trainer names from the encounter template's localized title.</summary>
 internal static class AndroidEncounterNames
 {
     public static string Display(Guid templateId, string fallback)

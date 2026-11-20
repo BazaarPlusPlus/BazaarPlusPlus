@@ -3,11 +3,7 @@ package com.bazaarplusplus.android.loader;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * {@code assets/bpp-runtime.json}, which release/android-app.ts {@code stageAndroidAppRuntime}
- * writes: the Loader Release this App carries and its nonManagedPayloadDigest (null for a
- * development build).
- */
+/** release/android-app.ts {@code stageAndroidAppRuntime} owns the packaged runtime metadata. */
 public final class RuntimeFacts {
     public final String loaderTag;
     public final String nonManagedPayloadDigest;

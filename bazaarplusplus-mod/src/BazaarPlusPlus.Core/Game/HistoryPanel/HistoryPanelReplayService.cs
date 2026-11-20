@@ -5,11 +5,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>
-/// History's replay over a host's saved-replay runtime and its recording availability: whether a
-/// battle can replay or record, the replay itself (a Ghost battle downloads first), and the
-/// cleanup of deleted runs' payloads. Both hosts compose it; only the two ports differ.
-/// </summary>
 public sealed class HistoryPanelReplayService : IHistoryPanelReplay
 {
     private readonly Func<ISavedReplayRuntime?> _runtimeAccessor;
@@ -31,8 +26,6 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
         _runtimeAccessor =
             runtimeAccessor ?? throw new ArgumentNullException(nameof(runtimeAccessor));
         _recording = recording ?? throw new ArgumentNullException(nameof(recording));
-        // Paths are startup-stable strings (no Func wrappers). Null coalesces to empty so
-        // downstream IsNullOrWhiteSpace checks stay fail-open without ArgumentNullException.
         _replayDirectoryPath = replayDirectoryPath ?? string.Empty;
         _ghostSyncService = ghostSyncService;
     }
@@ -41,7 +34,6 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
 
     public void PrewarmRecordingAvailability() => _recording.Prewarm();
 
-    // Recording is feasible only when the replay itself can run AND the host can record.
     public bool CanRecordReplay(
         HistoryBattleRecord? battle,
         out string reason,
@@ -215,8 +207,6 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
         );
     }
 
-    // Downloads the Ghost replay when needed and loads its manifest and payload, checked against
-    // the account that owns the Ghost row. Payload is null exactly when Failure says why.
     public async Task<GhostReplayLoad> LoadGhostReplayAsync(
         HistoryBattleRecord battle,
         string account,
@@ -236,8 +226,7 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
                 HistoryPanelReplayReasonCode.GhostDownloadUnavailable
             );
 
-        // Always pass through the sync service so a local_ready row with a missing or corrupt
-        // cache file can be validated and recovered instead of becoming a permanent dead row.
+        // Run even a local_ready row through sync because its cached file may be missing or corrupt.
         var downloadResult = await _ghostSyncService.DownloadReplayAsync(
             battle.BattleId,
             replayDirectoryPath,
@@ -257,8 +246,7 @@ public sealed class HistoryPanelReplayService : IHistoryPanelReplay
                 )
             );
 
-        // The download already loaded (or extracted) and identity-checked the payload; reading the
-        // file again would decompress and deserialize it a second time.
+        // Reuse the validated payload to avoid decompressing and deserializing the same file twice.
         var ghostPayload = downloadResult.Payload;
         if (ghostPayload?.BattleManifest == null)
             return GhostReplayLoad.Failed(

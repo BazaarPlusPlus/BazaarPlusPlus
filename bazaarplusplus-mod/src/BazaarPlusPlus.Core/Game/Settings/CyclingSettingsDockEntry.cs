@@ -3,16 +3,7 @@ using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Game.Settings;
 
-/// <summary>
-/// A settings dock row backed by an ordered value ladder, rendered as a native toggle or
-/// dropdown choice.
-/// </summary>
-/// <remarks>
-/// The <c>write</c> callback owns persistence and any coupled persistence (for example,
-/// forcing another setting on). The optional <c>onChanged</c> callback reacts after the
-/// write completes (for example, publishing an event, refreshing UI, or arming a pump) and
-/// is invoked unconditionally with the new value after every write.
-/// </remarks>
+// The write callback owns coupled persistence. Run onChanged only after that persistence completes.
 public sealed class CyclingSettingsDockEntry<T> : ISettingsDockEntry
 {
     private readonly string _key;

@@ -68,11 +68,7 @@ internal sealed class BppKeyBindRowController : MonoBehaviour
         DisposeRebindResources();
     }
 
-    // The cloned native row keeps the game's LocalizableTextComponent drivers, which re-apply
-    // the template's serialized text (e.g. "Sell Item") over mod-owned labels on every enable
-    // and LocaleChanged event. Disabling is not enough — the LocaleChanged subscription fires
-    // on disabled components — so destroy them on the elements this controller owns. The
-    // rebind-hint subtext keeps its driver so the native prompt stays game-translated.
+    // LocaleChanged fires on disabled LocalizableTextComponents and overwrites cloned labels, so destroy the drivers for mod-owned text.
     private void ScrubNativeLocalizers()
     {
         DestroyNativeLocalizer(_labelText);

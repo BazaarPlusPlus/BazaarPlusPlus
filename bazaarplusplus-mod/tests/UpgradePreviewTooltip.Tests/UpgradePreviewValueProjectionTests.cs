@@ -18,9 +18,6 @@ using Xunit;
 
 namespace UpgradePreviewTooltip.Tests;
 
-// Each test is one block of checks the capsule ran, with the same calls and messages. A block
-// that changes a card and projects it again stays one test; the cards and templates two blocks
-// shared are built by the helpers at the bottom.
 public sealed class UpgradePreviewValueProjectionTests
 {
     [Fact]
@@ -306,7 +303,6 @@ public sealed class UpgradePreviewValueProjectionTests
         );
     }
 
-    // One card, projected three times as its cooldown attributes change.
     [Fact]
     public void Cooldown_projection_applies_the_active_percentage_once()
     {
@@ -439,7 +435,6 @@ public sealed class UpgradePreviewValueProjectionTests
             "Non-duration projected values should keep their raw units."
         );
 
-    // The Silver Fiery card whose Burn is 20% of its Bongos value.
     private static (ItemCard Card, TCardItem Template, string FieryAbilityId) FieryCard()
     {
         var bongosValueReference = new TReferenceValueCardAttribute
@@ -530,7 +525,6 @@ public sealed class UpgradePreviewValueProjectionTests
             },
         };
 
-    // A Silver Obsidian item whose enchantment doubles its damage and its ammo.
     private static TCardItem MultipliedTemplate()
     {
         var doubleDamageAura = DoubleDamageAura();

@@ -9,25 +9,18 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The game's rank badges and run trophies, the art the desktop History shows, held in the
-/// game's Global asset scope. Call under the Android main-thread context; the shared caches
-/// coalesce requests from reused rows.
-/// </summary>
 internal static class AndroidRankArt
 {
     private const string RankBadges = "Assets/ScriptableObjects/Rank/RankBadge.asset";
     private static readonly AsyncLoadCache<ERank, Sprite> Ranks = new(LoadRank);
     private static readonly AsyncLoadCache<RunOutcomeTier, Sprite> Trophies = new(LoadTrophy);
 
-    /// <summary>The badge for a stored rank name; null when the name is no game rank.</summary>
     public static Task<Sprite?>? Rank(string? rank) =>
         Enum.TryParse<ERank>(rank?.Trim(), true, out var value)
         && Enum.IsDefined(typeof(ERank), value)
             ? Ranks.GetOrLoadAsync(value)
             : null;
 
-    /// <summary>The trophy a finished run earned; a Misfortune run earns none.</summary>
     public static Task<Sprite?>? Trophy(RunOutcomeTier tier) =>
         tier == RunOutcomeTier.Misfortune ? null : Trophies.GetOrLoadAsync(tier);
 

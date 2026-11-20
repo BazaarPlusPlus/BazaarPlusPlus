@@ -33,7 +33,6 @@ export type UpdaterUiContract = {
     actionLabelKey: MessageKey | null;
     priority: ModalPriority;
     dismissalPolicy: ModalDismissalPolicy;
-    /** Offer the zh-locale mainland mirror as a manual fallback (ADR-0001). */
     offersMainlandMirror: boolean;
   } | null;
 };

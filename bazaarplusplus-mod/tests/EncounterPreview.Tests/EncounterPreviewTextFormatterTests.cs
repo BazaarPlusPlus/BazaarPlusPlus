@@ -194,8 +194,6 @@ public sealed class EncounterPreviewTextFormatterTests
         Assert.DoesNotContain("%", text);
     }
 
-    // The result text follows the game language's script, not the BPP locale mode, so
-    // the tier-descriptor guard must hold when the two scripts disagree.
     [Theory]
     [InlineData("获得2个钻石级食物", true)]
     [InlineData("獲得2個鑽石級食物", false)]
@@ -256,8 +254,6 @@ public sealed class EncounterPreviewTextFormatterTests
     [Fact]
     public void Build_shows_the_exact_runtime_distribution_when_only_bronze_is_weighted()
     {
-        // A Bronze-Diamond span (e.g. from a not-Legendary complement) is day-driven:
-        // on day 1 the effective tier is exactly Bronze.
         var option = CreateOption(
             new EncounterChoiceDetail(
                 Guid.Parse("10000000-0000-0000-0000-000000000008"),
@@ -310,7 +306,6 @@ public sealed class EncounterPreviewTextFormatterTests
             "<size=85%><line-height=1.4em><color=#8F8268>Add It to Your Bushel: (if you have a Bushel) Your Bushel gains 20 Heal</color></size>",
             text
         );
-        // No accent color and no keyword colorizer on the dimmed line.
         Assert.DoesNotContain("<color=#FFD37E>Add It to Your Bushel", text);
         Assert.DoesNotContain("«(if you have a Bushel)", text);
     }
@@ -378,11 +373,8 @@ public sealed class EncounterPreviewTextFormatterTests
         Assert.Contains("<color=#FFD37E>40%</color>", text);
         // Sub-entries use a hanging indent so soft-wrapped lines stay aligned.
         Assert.Contains("<indent=2.2em>- A Routine Job: Gain 2 XP</indent>", text);
-        // Embedded newlines flatten so sub-entries stay one line each.
         Assert.Contains("<indent=2.2em>- Generous Tip: Gain 10 Gold and 1 XP</indent>", text);
         Assert.Contains("Fight a monster (10 possible)", text);
-        // Prerequisite-unmet groups render dimmed without a percentage; their own
-        // text already carries the condition.
         Assert.Contains(
             "<line-height=1.9em>\n<size=85%><line-height=1.4em><color=#8F8268>· <indent=1em>Clear the Way: (if you have Powder Keg) Gain 5 Gold</indent></color></size>",
             text

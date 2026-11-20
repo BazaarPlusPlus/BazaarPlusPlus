@@ -1,6 +1,4 @@
-/* The overlay is a standalone page served by the stream HTTP server, so it
-   bundles its own brand face, served from /assets/fonts for the wordmark. Latin subset only:
-   the only Cinzel text is the ASCII wordmark. */
+/* The standalone overlay bundles a Latin font subset for its ASCII wordmark. */
 @font-face {
   font-family: 'Cinzel';
   font-style: normal;

@@ -3,16 +3,10 @@ using Il2CppTheBazaar.Utilities;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Heroes' display names from the game's own localization (<c>LocalizableShared</c>), the source
-/// the desktop's <c>TheDragonsHeroIdentity</c> reads. Before the localization service is up, or
-/// for a hero without a native counterpart, the facet's English name stands in.
-/// </summary>
 internal static class AndroidHeroNames
 {
     public const string TheDragonsFallback = "The Dragons";
 
-    /// <summary>The game's localized name for <paramref name="hero"/>.</summary>
     public static string Display(CardHero hero) =>
         Native(hero) ?? (hero == CardHero.TheDragons ? TheDragonsFallback : hero.ToString());
 

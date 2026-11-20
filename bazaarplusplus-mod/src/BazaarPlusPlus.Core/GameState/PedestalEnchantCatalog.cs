@@ -2,16 +2,8 @@
 
 namespace BazaarPlusPlus.Core.GameState;
 
-/// <summary>Maps a pedestal encounter's stable <c>TemplateId</c> to its effect.
-///
-/// The client cannot read the real pedestal <c>Behavior</c> — it is
-/// <c>[BazaarObfuscate]</c> and therefore excluded from deserialization, so every
-/// pedestal's <c>Behavior</c> is the default <c>TPedestalBehaviorUpgrade</c> on the
-/// client. This datamined catalog supplies what the client lacks. Base and
-/// "(Level Up)" variants of the same encounter are distinct template ids that map to
-/// the same effect (many-to-one). Source: bazaarplusplus-extractor card-asset export.
-/// An enchantment is named by its game <c>EEnchantmentType</c> member name, which each host
-/// pins against its own enum (ADR-0015).</summary>
+// The game marks pedestal Behavior as BazaarObfuscate, so the client only sees the default upgrade behavior.
+// These encounter IDs come from the bazaarplusplus-extractor card-asset export.
 public static class PedestalEnchantCatalog
 {
     private static readonly Dictionary<Guid, string> EnchantByTemplateId = new()
@@ -54,18 +46,14 @@ public static class PedestalEnchantCatalog
         [G("8dead654-6cd3-4819-a0f1-b9d5a70b59f7")] = "Obsidian",
     };
 
-    // "The Artist" — a low-tier encounter that applies a RANDOM enchant (the game picks
-    // one; the player does not choose). The specific type is unknown ahead of time, so
-    // kind is Enchant but no specific type is offered and callers show the item's full
-    // enchant list rather than a single type.
+    // The Artist rolls its enchantment at application time, so the preview can only show the full list.
     private static readonly HashSet<Guid> RandomEnchantTemplateIds = new()
     {
         G("49717d0f-71de-4291-8af6-d9c41ad3f438"),
         G("9b18ad79-901b-46ac-bec1-f447d41ad5ad"),
     };
 
-    // Upgrade pedestals (B1&B2, Sterling, Forja, base + Level Up). Kept for completeness;
-    // upgrade preview is key-only, so the policy does not auto-fire on these.
+    // These include the base and Level Up variants of B1&B2, Sterling and Forja.
     private static readonly HashSet<Guid> UpgradeTemplateIds = new()
     {
         G("2e1e5a86-3ace-4f78-8b73-6641ca59e834"),
@@ -76,13 +64,9 @@ public static class PedestalEnchantCatalog
         G("586ebd2d-a1c2-4274-875b-c3aeb29ab1ef"),
     };
 
-    /// <summary>Every enchantment name the catalog can return, for the hosts' enum pins.</summary>
     public static IReadOnlyCollection<string> EnchantmentTypeNames { get; } =
         new HashSet<string>(EnchantByTemplateId.Values, StringComparer.Ordinal);
 
-    /// <summary>Classifies a pedestal by its template id. <paramref name="enchantmentTypeName"/>
-    /// is the specific offered enchant for fixed enchant pedestals, or null for upgrade,
-    /// random-enchant (The Artist), and unknown pedestals.</summary>
     public static ChoiceScreenPedestalKind Classify(
         Guid templateId,
         out string? enchantmentTypeName

@@ -6,11 +6,8 @@ using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-// History archive status is a table: observed facts in, list/board/page-label copy out. Every
-// expectation is the HistoryPanelText entry itself, resolved under each installed language.
 public sealed class GhostMessageTests
 {
-    // The capsule ran these checks with English installed.
     public GhostMessageTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     private const string FailureDetail = "network failure with retry guidance";
@@ -79,7 +76,6 @@ public sealed class GhostMessageTests
 
     private static readonly Row[] Table =
     [
-        // List precedence: account → rows → read → sync running → filters → sync failed → empty.
         new(
             "Unknown account wins over a pending read and hides the page totals.",
             Ghost with
@@ -179,7 +175,6 @@ public sealed class GhostMessageTests
             HistoryPanelText.NoSavedGhostBattles,
             HistoryPanelText.NoSavedGhostBattles
         ),
-        // Selected Ghost battle preview.
         new(
             "A pending detail read shows loading before any replay state.",
             GhostRow with
@@ -311,8 +306,6 @@ public sealed class GhostMessageTests
             None,
             None
         ),
-        // Runs.
-        // Runs precedence: rows → read → filters → empty; a run without battles says so.
         new(
             "Run lists never receive Ghost guidance or hide totals without an account.",
             Runs with
@@ -429,7 +422,6 @@ public sealed class GhostMessageTests
             HistoryPanelText.BattleSnapshotMissing,
             Opponent: HistoryPanelText.BattleSnapshotMissing
         ),
-        // Favorites: not account-scoped, never Ghost sync guidance. rows → read → empty.
         new(
             "An empty Favorites list explains how to add one, without an account.",
             Favorites,

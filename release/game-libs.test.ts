@@ -81,8 +81,7 @@ function emptyLock(): GameLibsLock {
   };
 }
 
-// A game install: Managed beside a globalgamemanagers that embeds the version
-// in binary noise, as Unity writes it.
+// Unity embeds the version in binary noise in globalgamemanagers.
 function gameInstall(
   root: string,
   gameVersion: string,
@@ -246,8 +245,6 @@ test('snapshot captures the mounted game under its game version and records the 
     channel: 'staging',
     ...entry
   });
-  // Recapturing the same game is idempotent; a different game under the same
-  // version is refused rather than silently replaced.
   captureSnapshot({
     workspaceRoot,
     managedPath: managed,
@@ -363,13 +360,11 @@ test('fetch prefers a verified snapshot, then a matching Steam install, then the
     gameVersion: STAGING_VERSION
   });
 
-  // Same version string, different bytes: the sha256 half of the check.
   write(path.join(managed, 'UnityEngine.dll'), 'patched');
   await expect(
     fetchSnapshot({ ...fetchOptions, steamManagedPath: managed })
   ).rejects.toThrow(/hashes to [0-9a-f]{64} instead of/);
 
-  // Another version mounted and no credentials: the two-version error.
   const other = gameInstall(path.join(workspaceRoot, 'other'), ONLINE_VERSION);
   await expect(
     fetchSnapshot({ ...fetchOptions, steamManagedPath: other })
@@ -380,7 +375,6 @@ test('fetch prefers a verified snapshot, then a matching Steam install, then the
   );
   await expect(fetchSnapshot(fetchOptions)).rejects.toThrow(/is not found/);
 
-  // With credentials the store serves it, and the download is verified.
   const log: string[] = [];
   const fromStore = await fetchSnapshot({
     ...fetchOptions,
@@ -401,7 +395,6 @@ test('fetch prefers a verified snapshot, then a matching Steam install, then the
     `macos-staging-${STAGING_VERSION}`
   ]);
 
-  // A stored blob that does not hash to the lock entry never lands.
   fs.rmSync(directory, { recursive: true });
   const poisoned = memoryStore();
   poisoned.objects.set(
@@ -622,11 +615,6 @@ test('the CLI prints only the result on stdout and reports failures on stderr', 
   expect(err.join('')).toMatch(/WARNING: windows-online/);
 });
 
-// lockEntryForManaged, the provenance the sealed build record carries. Failure
-// modes: a Managed directory whose digest no entry records throws, naming its
-// game version and the locked entries (an entry the build did not use is one
-// such entry); an unknown build platform throws; identical bytes under several
-// entries resolve to the build platform's entry, then online, staging, ptr.
 test('the build record entry is the one the Managed digest matches, preferring the build platform', () => {
   const { workspaceRoot } = workspace();
   const managed = gameInstall(
@@ -692,7 +680,6 @@ test('the build record entry is the one the Managed digest matches, preferring t
   expect(() =>
     lockEntryForManaged({ lock, platform: 'linux', managedPath: managed })
   ).toThrow(/Unknown snapshot platform/);
-  // The game moved on after capture: the entries exist, but none was used.
   write(path.join(managed, 'UnityEngine.dll'), 'patched');
   expect(() =>
     lockEntryForManaged({ lock, platform: 'macos', managedPath: managed })
@@ -701,7 +688,6 @@ test('the build record entry is the one the Managed digest matches, preferring t
   );
 });
 
-// Stands in for tools/SteamSnapshot: `download` lays out what the depot holds.
 function steamTool({
   buildid = '26443971',
   gameVersion,
@@ -806,7 +792,6 @@ test('a Steam capture needs a desktop entry', () => {
     steamStale({
       workspaceRoot,
       modRoot,
-      // Deliberately not a snapshot channel.
       channel: 'beta' as unknown as SnapshotChannel,
       runTool: steamTool({})
     })
@@ -889,9 +874,6 @@ const androidStatusLock = () => {
   return lock;
 };
 
-// previewBehindOnline decides which preview channels the CompatCheck matrix
-// skips. Failure modes: a string comparison of build ids ('9' > '10'), a
-// preview at or above online read as behind, an empty entry read as behind.
 test('a preview channel is behind online only when its Steam build id is numerically lower', () => {
   const lock = emptyLock();
   lock.entries['macos-online'] = onlineEntry(ONLINE_VERSION, '10');
@@ -920,11 +902,6 @@ test('a preview channel is behind online only when its Steam build id is numeric
   lock.entries['macos-online'] = null;
   expect(previewBehindOnline(lock, 'macos', 'staging')).toBeNull();
 });
-
-// ---------------------------------------------------------------------------
-// The CLI as the workflows and bazaarplusplus-mod/scripts call it. Each test
-// pins what the caller reads: the exact stdout (results only), the exit code
-// (0 or 1), that logs and errors go to stderr, and what the verb wrote.
 
 interface CliRun {
   code: number;
@@ -983,12 +960,7 @@ test('--help and no verb print the usage on stdout, naming every verb', async ()
   }
 });
 
-// The Game Status store is the one place the release bucket's default
-// installer/ prefix must not apply: GAME_STATUS_KEY and the Release Manifest
-// are both latest.json. The fake answers the Cloudflare token check and the S3
-// requests, so a test sees the exact object URL the store writes. The
-// expectations are literal strings on purpose; a change to a shared constant
-// must fail here.
+// Assert literal URLs because both Game Status and the Release Manifest end in latest.json.
 const R2_ACCOUNT = 'f'.repeat(32);
 const R2_ENV = {
   CLOUDFLARE_API_TOKEN: 'game-status-test-token',
@@ -1029,8 +1001,7 @@ function fakeR2() {
   return { fetchImpl, requests, objects };
 }
 
-// The private store holds the game's own files (ADR 0007), so it must never
-// fall back to the public release bucket and its installer/ prefix.
+// The private bucket holds the game's own files and must stay separate from public releases (ADR 0007).
 test('the game-libs store reads and writes the private game-libs bucket, never the public one', async () => {
   const r2 = fakeR2();
   vi.stubGlobal('fetch', r2.fetchImpl);
@@ -1082,7 +1053,7 @@ test('steam-stale prints one JSON line that game-status reads back as --state', 
     ]
   ]);
 
-  // The workflow keeps the last line (tail -n 1) as steam-state.json.
+  // The workflow captures only the last stdout line as steam-state.json.
   const stateFile = path.join(workspaceRoot, 'steam-state.json');
   write(stateFile, stale.out.join('').trim().split('\n').at(-1)!);
   const r2 = fakeR2();
@@ -1097,10 +1068,7 @@ test('steam-stale prints one JSON line that game-status reads back as --state', 
     `GET ${url}`,
     `PUT ${url}`
   ]);
-  // The bytes are the shared fixture's, key order and trailing newline
-  // included.
   expect(r2.requests[1].body).toEqual(STATUS_FIXTURE_BYTES);
-  // The same status again reads and writes nothing more.
   expect(
     (await runCli(['game-status', '--state', stateFile], options)).code
   ).toBe(0);
@@ -1170,8 +1138,6 @@ test('game-status leaves the store alone while the lock is behind, and fails wit
   expect(noState.code).toBe(1);
   expect(noState.out).toEqual([]);
   expect(noState.err).toMatch(/^game-status requires --state\n/);
-  // The store is built before the lock is read, so even a lock that is behind
-  // needs the credentials.
   const noCredentials = await runCli(['game-status', '--state', stateFile], {
     workspaceRoot,
     env: {},
@@ -1230,8 +1196,7 @@ test('android-game-status writes the android-publisher entry as game-status/andr
 
 test('steam-capture prints the snapshot directory and writes the lock in its two-space format', async () => {
   const { workspaceRoot, modRoot, lock } = workspace();
-  // A compact lock with its entries out of order: the writer, not this
-  // test, gives the file its format.
+  // Seed out-of-order entries so the test exercises lock formatting.
   const seeded = emptyLock();
   write(
     path.join(workspaceRoot, GAME_LIBS_LOCK_PATH),

@@ -18,8 +18,6 @@ internal static class BPPSupporterAttributionRow
         row.style.flexWrap = Wrap.Wrap;
         row.style.alignItems = Align.Center;
         row.style.marginTop = UiSpacing.Sm;
-        // The Collection's supporter strip: one md control high on the panel's neutral ground,
-        // with the sponsor button inside its right end.
         row.style.flexWrap = Wrap.NoWrap;
         row.style.overflow = Overflow.Hidden;
         UiStyle.FixedHeight(row.style, InGameSizes.ControlMd);
@@ -37,9 +35,7 @@ internal static class BPPSupporterAttributionRow
         NativeGameTypography.PanelScope typography
     )
     {
-        // The Collection panel binds on every refresh with the list it sampled at open. Rebuild
-        // only when an input changed; native typography availability is part of the key so the
-        // panel's late-typography re-render still rebuilds the row.
+        // Include typography availability in the key so late native font registration rebuilds the row.
         var languageCode = GetLanguageCode();
         var key = new BoundKey(
             supporters,
@@ -114,7 +110,6 @@ internal static class BPPSupporterAttributionRow
         label.style.unityTextAlign = TextAnchor.MiddleLeft;
         label.style.whiteSpace = WhiteSpace.NoWrap;
         label.style.marginRight = UiSpacing.Xs;
-        // Keep the row fixed, but lower the attribution copy within it slightly.
         label.style.marginBottom = UiSpacing.None;
         return label;
     }
@@ -158,7 +153,6 @@ internal static class BPPSupporterAttributionRow
         return label;
     }
 
-    // A flat neutral sm button with the supporter heart, in the fourth tier's colour.
     private static Button CreateSponsorButton(
         string text,
         NativeGameTypography.PanelScope typography

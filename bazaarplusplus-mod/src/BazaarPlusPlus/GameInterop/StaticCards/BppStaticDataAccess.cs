@@ -9,10 +9,7 @@ using TheBazaar.DataManagement.Json;
 
 namespace BazaarPlusPlus.GameInterop.StaticCards;
 
-/// <summary>
-/// <c>Data.GetStatic()</c> has shipped as both a synchronous manager return and a completed
-/// task-returning accessor. This helper centralises that version seam.
-/// </summary>
+// Data.GetStatic() can return a manager or a task, depending on the game build.
 internal static class BppStaticDataAccess
 {
     private static readonly FieldInfo? DatabasePathField = typeof(JsonGameDataManager).GetField(
@@ -32,12 +29,6 @@ internal static class BppStaticDataAccess
         return manager.GetCardById(templateId) as TCardBase;
     }
 
-    /// <summary>
-    /// Non-blocking handle to the static data manager. Returns the manager as an opaque object
-    /// only when it is fully materialised (created, and any task-returning <c>GetStatic()</c>
-    /// already completed); returns <c>null</c> otherwise. Never blocks the main thread waiting
-    /// on the static-data task.
-    /// </summary>
     public static object? TryGetReadyManagerObject()
     {
         if (!Data.IsManagerCreated())
@@ -50,16 +41,8 @@ internal static class BppStaticDataAccess
         return staticData as JsonGameDataManager;
     }
 
-    /// <summary>
-    /// Materialises the full card map (<c>JsonGameDataManager.GetCardMap()</c> → <c>ReadAllCards</c>:
-    /// a full-table SQLite read plus polymorphic JSON deserialize — the dominant first-open cost).
-    /// Intended to run on a worker thread: the game opens its own SQLite connection, deserializes
-    /// on PLINQ workers, builds a fresh dictionary, and publishes it via an atomic reference
-    /// assignment, so calling it off the main thread does not tear the shared map. <paramref
-    /// name="source"/> must come from <see cref="TryGetReadyManagerObject"/>. When downloaded data
-    /// contains unsupported derived types, returns a compatible snapshot without publishing it
-    /// to the game's cache. Other data errors propagate.
-    /// </summary>
+    // GetCardMap can run off-thread because it opens its own SQLite connection and publishes
+    // the finished dictionary atomically. Keep compatibility snapshots out of the game's cache.
     public static Dictionary<Guid, ITCard>? LoadCardMap(object? source)
     {
         if (source is not JsonGameDataManager manager)
@@ -87,11 +70,7 @@ internal static class BppStaticDataAccess
         }
     }
 
-    /// <summary>
-    /// Copies the manager's eagerly-loaded level-up table so background preview compilation never
-    /// retains the game's mutable dictionary. Reflection is centralised here because the manager
-    /// exposes only point lookups and the level range is data-driven.
-    /// </summary>
+    // The manager exposes point lookups only. Copy its data-driven level table before worker use.
     public static Dictionary<int, TLevelUp>? SnapshotLevelUps(object? source)
     {
         if (source is not JsonGameDataManager manager)
@@ -101,11 +80,7 @@ internal static class BppStaticDataAccess
         return new Dictionary<int, TLevelUp>(levelUps);
     }
 
-    /// <summary>
-    /// Captures the ordinary string inputs needed to identify the current GameData generation.
-    /// Call this on the Unity main thread: the fallback path and data URL touch game globals;
-    /// workers consume only the returned strings.
-    /// </summary>
+    // Capture on the Unity main thread because the fallback path and data URL read game globals.
     public static BppGameDataSourceInfo? TryCaptureGameDataSourceInfo(object? source)
     {
         if (source is not JsonGameDataManager manager)

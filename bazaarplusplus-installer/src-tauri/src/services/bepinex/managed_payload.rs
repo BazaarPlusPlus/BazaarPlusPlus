@@ -1,10 +1,4 @@
-//! The Managed Payload (root `GLOSSARY.md`) as install and Repair see it.
-//!
-//! The mod's self-update (mod ADR-0014) can leave a newer Managed Payload in
-//! the game directory than the one in the installer's bundled zip. Repair keeps
-//! that payload instead of writing the bundled one back (installer ADR-0009):
-//! the bundled zip still supplies every non-managed file, and supplies the
-//! managed files only on a first install or as the fallback.
+//! The mod can self-update beyond the bundled version. Repair must preserve a compatible newer Managed Payload (ADR-0009).
 
 use anyhow::{anyhow, bail, Context as _};
 use std::collections::HashSet;
@@ -13,15 +7,10 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-/// The install-relative directory the desktop Managed Payload lives in; the
-/// mod's `ManagedPayloadHost.BepInEx` writes only directly inside it.
 const MOD_DIRECTORY: &str = "BepInEx/plugins/";
 const MANIFEST_HEADER: &str = "bpp-managed-payload-manifest 1";
 
-/// A product version as the payload orders it: the leading major.minor.patch
-/// of `BazaarPlusPlus.version` (`6.1.0.prod`, `6.1.0.t20261022.120000.dev`) or a
-/// manifest's `version`. The mod's `ManagedPayloadVersion.TryParse` defines the
-/// same order; the installer and the Updater must agree on which copy is newer.
+/// Parse versions in the same order as the Updater's `ManagedPayloadVersion.TryParse`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ProductVersion(u32, u32, u32);
 
@@ -39,8 +28,6 @@ impl ProductVersion {
     }
 }
 
-/// Readiness: the installed copy is current when it is not older than the
-/// bundled one. A version that does not parse is never current.
 pub(crate) fn installed_version_is_current(installed: &str, bundled: &str) -> bool {
     match (
         ProductVersion::parse(installed),
@@ -58,9 +45,8 @@ struct ManagedPayloadFile {
     sha256: String,
 }
 
-/// The Managed Payload Manifest line format (`release/managed-payload.ts`,
-/// golden `release/fixtures/managed-payload/manifest.txt`), parsed as strictly
-/// as the mod's `ManagedPayloadManifest.Parse`.
+/// Keep validation in sync with the Updater's `ManagedPayloadManifest.Parse`.
+/// The line format is owned by `release/managed-payload.ts`.
 #[derive(Debug)]
 struct ManagedPayloadManifest {
     version: ProductVersion,
@@ -169,14 +155,9 @@ impl ManagedPayloadManifest {
     }
 }
 
-/// What install writes for the managed part of the Payload.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum ManagedPayloadSource {
-    /// Extract every bundled file: a first install, a bundled release that is
-    /// not older than the installed one, or the fallback.
     Bundled,
-    /// Keep the installed Managed Payload. `skip` lists the bundled entries
-    /// install must not write; `keep` the installed paths it must not remove.
     Installed {
         version: String,
         skip: HashSet<String>,
@@ -184,13 +165,7 @@ pub(super) enum ManagedPayloadSource {
     },
 }
 
-/// Chooses between the bundled and the installed Managed Payload. The
-/// installed one wins only when it is newer than the bundled one, built for
-/// the same platform, history database schema and non-managed files (so the
-/// bundled non-managed files are exactly the ones it was released with), and
-/// every file its manifest lists is present with the recorded size and
-/// SHA-256. Anything else, including a development build without a manifest,
-/// falls back to the bundled zip.
+/// The non-managed digest must match so Repair keeps the files the newer Managed Payload was released with.
 pub(super) fn choose_managed_payload_source(
     game_path: &Path,
     manifest_path: &str,
@@ -319,7 +294,6 @@ pub(super) mod tests {
             .collect()
     }
 
-    /// Renders a manifest the way `renderManagedPayloadManifest` does.
     pub(crate) fn render(
         version: &str,
         history: u32,
@@ -341,9 +315,6 @@ pub(super) mod tests {
         text
     }
 
-    /// The manifest a self-update one patch release past `bundled` would
-    /// install: the same platform, schema and non-managed files, with the
-    /// files in `replaced` changed. Returns the new version and the manifest.
     #[cfg(target_os = "macos")]
     pub(crate) fn self_updated(bundled: &str, replaced: &[(&str, &[u8])]) -> (String, String) {
         let bundled = ManagedPayloadManifest::parse(bundled).unwrap();

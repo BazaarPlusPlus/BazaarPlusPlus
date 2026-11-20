@@ -7,19 +7,14 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Patches.RandomCosmetics;
 
-// The Random Cosmetic Pool needs every patch below: without one, the loadout shows a half
-// state (a mark the click cannot change, or a pool nobody can see). The bodies act only
-// while RandomCosmeticPoolPatchCapabilities.Armed and reach game members only inside the
-// service they call within their try, so a missing member degrades instead of throwing out
-// of the native method.
+// The pool requires all patches so a missing target cannot leave the loadout showing marks
+// that the player cannot change.
 
-// The game draws the run-start loadout here; the pool replaces the pick per category.
 [HarmonyPatch(typeof(CollectionManager), Target)]
 internal static class RandomCosmeticPoolLoadoutPatch
 {
-    // Named, not nameof: Steam staging 1.0.13257 dropped the method and draws the loadout in
-    // Bazaar.Sdk's BazaarSdk.RandomiseLoadout instead. There this class fails to apply, so the
-    // capability probe keeps the whole pool off and the loadout stays native.
+    // Some builds randomize in BazaarSdk.RandomiseLoadout, leaving this named target absent.
+    // The capability gate keeps the entire pool off on those builds.
     internal const string Target = "GetRandomizedLoadout";
 
     [HarmonyPostfix]
@@ -45,7 +40,6 @@ internal static class RandomCosmeticPoolLoadoutPatch
     }
 }
 
-// Opening a category keeps Pool Mode: see RandomCosmeticPoolService.HoldRandomize.
 [HarmonyPatch(typeof(CosmeticsPanelController), "OnCosmeticPressed")]
 internal static class RandomCosmeticPoolCategoryPatch
 {
@@ -135,7 +129,6 @@ internal static class RandomCosmeticPoolDimmingPatch
     }
 }
 
-// In Pool Mode a click on a loadout cosmetic edits the pool instead of equipping it.
 [HarmonyPatch(typeof(CosmeticsListManager), "EquipItem")]
 internal static class RandomCosmeticPoolClickPatch
 {
@@ -159,7 +152,6 @@ internal static class RandomCosmeticPoolClickPatch
     }
 }
 
-// A built or extended loadout list shows each cosmetic's pool state.
 [HarmonyPatch(typeof(CosmeticsListManager), "FetchCosmetics")]
 internal static class RandomCosmeticPoolListPatch
 {
@@ -182,7 +174,6 @@ internal static class RandomCosmeticPoolListPatch
     }
 }
 
-// In Pool Mode the native selected look (glowing frame, full brightness) marks the pool.
 [HarmonyPatch(typeof(CosmeticItem), nameof(CosmeticItem.SetEquipState))]
 internal static class RandomCosmeticPoolSelectedPatch
 {

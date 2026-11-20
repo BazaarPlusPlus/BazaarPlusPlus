@@ -35,21 +35,21 @@ public sealed class RunLogEvent
 
     public string? OpponentName { get; set; }
 
-    /// <summary>On run_started and run_resumed: the game server's build id for the run.</summary>
+    // Present on run_started and run_resumed. This build ID comes from the game server.
     public string? ServerBuildId { get; set; }
 
-    /// <summary>On run_started and run_resumed: the ETag of the GameData.db the game had loaded.</summary>
+    // Present on run_started and run_resumed. The ETag identifies the loaded GameData.db.
     public string? GameDataEtag { get; set; }
 
-    /// <summary>On stream_message: the received message, the game's MessagePack bytes in base64.</summary>
+    // Present on stream_message. The game's raw MessagePack is stored in base64.
     public string? Message { get; set; }
 
-    /// <summary>On stream_message: the seq of the stream_command whose response carried it.</summary>
+    // Present on stream_message when it came from a recorded stream_command response.
     public long? RespondsToSeq { get; set; }
 
-    /// <summary>On stream_command: the game's command method.</summary>
+    // Present on stream_command.
     public string? Command { get; set; }
 
-    /// <summary>On stream_command: the method's arguments by parameter name.</summary>
+    // Present on stream_command. Arguments are keyed by parameter name.
     public JObject? CommandArgs { get; set; }
 }

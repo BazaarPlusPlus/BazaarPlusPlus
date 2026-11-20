@@ -7,17 +7,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// The one mapping between facet board captures (<see cref="PvpBattleCardSetCapture"/>) and the
-/// stored <see cref="PvpBattleCardSetDocument"/> JSON every host writes and the Bundle composer
-/// reads. A facet is stored by its member name, which equals the game's (ADR-0015 §4).
-/// </summary>
-/// <remarks>
-/// A card the game gave no size is stored with <see cref="PvpBattleCardDocument.NoSize"/>, the
-/// game's unnamed size 0, and reads back with a null <see cref="PvpBattleCardSnapshot.Size"/>.
-/// A stored type or size that names no facet drops that card from the facet view (a warning names
-/// the kind); a section or socket that names no facet reads as null.
-/// </remarks>
+// Stored snapshot facets use game member names. Size 0 is the game's unnamed size and round-trips as null.
 public static class PvpBattleSnapshotsCodec
 {
     public static string Serialize(PvpBattleCardSetCapture capture) =>
@@ -39,7 +29,7 @@ public static class PvpBattleSnapshotsCodec
         };
     }
 
-    // An empty document (a column the row left NULL) reads as an empty capture.
+    // A null history column represents an empty capture.
     public static PvpBattleSnapshots FromDocuments(PvpBattleSnapshotDocuments documents)
     {
         if (documents == null)
@@ -83,7 +73,6 @@ public static class PvpBattleSnapshotsCodec
         };
     }
 
-    /// <summary>Cards outside a board set (the player's stash), as the history stores a set's.</summary>
     public static List<PvpBattleCardDocument> ToCardDocuments(
         IEnumerable<PvpBattleCardSnapshot> cards
     ) => cards.Select(ToDocument).ToList();
@@ -142,10 +131,7 @@ public static class PvpBattleSnapshotsCodec
         return true;
     }
 
-    /// <summary>
-    /// Parses an exact facet member name. A number is never a facet name, even one
-    /// <c>Enum.TryParse</c> would cast (ADR-0015 §4).
-    /// </summary>
+    // Enum.TryParse accepts numeric strings, but the stored facet contract uses member names.
     public static bool TryParseFacet<TFacet>(string? name, out TFacet facet)
         where TFacet : struct, Enum
     {

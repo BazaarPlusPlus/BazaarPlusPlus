@@ -5,14 +5,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Display-case slot visuals drawn behind the native cards on the overlay board: a weak
-// translucent rounded rect per visible cell (so the fixed grid order reads even before art
-// loads) plus an intentionally transparent hover layer kept for pooled layout compatibility.
-//
-// Purely decorative. Every Image has raycastTarget = false — re-enabling it would let the
-// overlay swallow the wheel/click events UITK relies on, which was the P1/P2 regression in the
-// design log (§16.6). The layer is the board's first child so the pooled cards (later siblings)
-// always render on top of the slots.
+// Raycastable slot Images would let the overlay swallow clicks and wheel events meant for UITK.
 internal sealed class CollectionGridSlotLayer
 {
     private static Sprite? _roundedSprite;
@@ -39,8 +32,6 @@ internal sealed class CollectionGridSlotLayer
         _hover = CreateImage("CollectionGridHover", Color.clear);
     }
 
-    // Position one slot per visible cell rect (board-local, top-left origin, y down). Extra
-    // pooled slots from a previous, larger window are deactivated.
     public void Sync(IReadOnlyList<CollectionGridRect> rects)
     {
         var poolBefore = _slots.Count;
@@ -76,8 +67,6 @@ internal sealed class CollectionGridSlotLayer
         if (!_hoverActive)
         {
             _hover.gameObject.SetActive(true);
-            // Keep the highlight above the slot fills (still behind the cards, which are the
-            // board's later siblings). Re-asserted only on activation, not every frame.
             _hover.transform.SetAsLastSibling();
             _hoverActive = true;
         }
@@ -131,8 +120,6 @@ internal sealed class CollectionGridSlotLayer
         rt.sizeDelta = new Vector2(rect.Width, rect.Height);
     }
 
-    // Self-contained rounded-rect sprite (9-sliced) so slots/hover have soft corners without a
-    // game-asset dependency. Mirrors CombatStatusBar.GetRoundedSprite.
     private static Sprite GetRoundedSprite()
     {
         if (_roundedSprite != null)

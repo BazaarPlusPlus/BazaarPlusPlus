@@ -4,14 +4,8 @@ using Xunit;
 
 namespace EncounterPreview.Tests;
 
-/// <summary>
-/// A merchant's quality rule off the JSON shapes the shared card table
-/// (<c>EncounterPreviewCardReaderTests</c>) does not hold: numeric and unmapped tiers, an
-/// assembly-qualified <c>$type</c>, and no query spawn context.
-/// </summary>
 public sealed class EncounterMerchantTierRuleTests
 {
-    // The host maps runtime enum numbers to names; raw JSON already carries names.
     private static readonly EncounterChoicePlanParser Parser = new(
         (kind, raw) => kind == "Tier" && raw == "3" ? "Diamond" : null
     );

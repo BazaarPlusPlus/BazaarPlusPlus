@@ -56,7 +56,6 @@ internal static class TooltipPreviewModePolicy
         bool holdEnchant
     )
     {
-        // Upgrade preview remains key-only; the shared key can be configured as hold or toggle.
         if (holdUpgrade)
             return TooltipPreviewMode.Upgrade;
         if (holdEnchant)

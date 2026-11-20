@@ -7,9 +7,7 @@ using Xunit;
 
 public sealed class HistoryPanelFactoryTests
 {
-    // The two degrade checks compose the panel through the production HistoryPanelFactory.Create.
-    // Its signature names CombatReplayRuntime, a MonoBehaviour, so the test copies
-    // UnityEngine.CoreModule next to itself (the csproj); Create reads no Unity state.
+    // Copy UnityEngine.CoreModule so Create can resolve CombatReplayRuntime in its signature.
 
     [Fact]
     public void TestEmptyDbPathDegradesRepositoryAndGhostSync()
@@ -23,8 +21,6 @@ public sealed class HistoryPanelFactoryTests
         AssertDegradedChain(BuildDataServiceForDbPath("   "), "whitespace");
     }
 
-    // The production composition with a Mod API session, so a missing ghost sync can only come
-    // from the missing repository.
     private static HistoryPanelDataService BuildDataServiceForDbPath(string runLogDatabasePath)
     {
         using var session = ModApiSession.TryCreate(

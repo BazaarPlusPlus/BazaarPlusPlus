@@ -12,8 +12,6 @@ using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// Exercise the production workflow, SQLite and compressed files together. Only operations
-// requiring the game process are supplied by the fixture; none of the persistence is mocked.
 public sealed class HistoryFavoriteWorkflowTests : IDisposable
 {
     private readonly string root = TestRoot.Create();
@@ -223,8 +221,7 @@ public sealed class HistoryFavoriteWorkflowTests : IDisposable
             Check(account == Fixture.Account, "The owning account must reach the Ghost loader.");
             return ++loads == 1 ? firstLoad.Task : secondLoad.Task;
         };
-        // Both pass the fast precheck before either finishes loading. This is a service-level
-        // contract: the current UI serializes favorite actions, so it is not a proven UI bug.
+        // Hold both lookups past the fast precheck, bypassing the UI's serialized favorite actions.
         var first = f.AddGhost();
         var second = f.AddGhost();
         Check(loads == 2, "Both saves must have entered loading before the first commits.");
@@ -290,7 +287,6 @@ public sealed class HistoryFavoriteWorkflowTests : IDisposable
             "The copy saved across a sweep must remain usable."
         );
 
-        // Model a failed file delete/crash leaving a copy behind after its row is removed.
         f.Repository.DeleteFavorite(Fixture.LocalId);
         Check(
             await f.Service.SweepOrphanCopiesAsync(CancellationToken.None) == 1
@@ -328,8 +324,7 @@ public sealed class HistoryFavoriteWorkflowTests : IDisposable
         var pendingCopySurvived = false;
         try
         {
-            // AtomicFileWriter promotes the complete file. This event, rather than a delay,
-            // puts the test inside the copy-written/row-not-inserted window.
+            // Wait for AtomicFileWriter's promotion event to catch the gap before the row insert.
             await copyWritten.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Check(
                 !save.IsCompleted && !f.Service.IsFavorite(Fixture.LocalId),
@@ -358,7 +353,6 @@ public sealed class HistoryFavoriteWorkflowTests : IDisposable
         finally
         {
             transaction.Rollback();
-            // Settle both operations before the caller cleans up files, even on assertion failure.
             await save.WaitAsync(TimeSpan.FromSeconds(5));
             if (sweep != null)
                 await sweep.WaitAsync(TimeSpan.FromSeconds(5));

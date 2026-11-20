@@ -41,8 +41,6 @@ internal sealed partial class CollectionPanelView
         rail.style.marginLeft = UiSpacing.ColumnGap;
         parent.Add(rail);
 
-        // The top controls read as one control deck: navigation and context first, followed by
-        // the search tools. This keeps the catalog's controls from looking like separate rows.
         var controlDeck = new VisualElement();
         controlDeck.style.flexDirection = FlexDirection.Column;
         controlDeck.style.flexShrink = 0f;
@@ -50,7 +48,6 @@ internal sealed partial class CollectionPanelView
         ApplyCollectionFilterCardTreatment(controlDeck, QuietFilterCardBorder);
         rail.Add(controlDeck);
 
-        // Title + Close (Close lives here in the operation area, not a top bar).
         var titleRow = new VisualElement();
         titleRow.style.flexDirection = FlexDirection.Row;
         titleRow.style.alignItems = Align.Center;
@@ -89,23 +86,17 @@ internal sealed partial class CollectionPanelView
             controlDeck.Add(_stagingIdCopyLabel);
         }
 
-        // The fixed-width toggles below (tab 192 + sort 120 + day/reset 88 plus margins) exceed
-        // the rail's minimum content width, so the row must be allowed to wrap: trailing
-        // controls flow to a second line instead of being clipped by the rail's hidden
-        // overflow. Children carry the row's top margin so wrapped lines stay separated.
+        // At minimum rail width the fixed controls need to wrap to avoid being clipped.
         var primaryControlsRow = CreateOperationRow(UiSpacing.None);
         primaryControlsRow.style.flexWrap = Wrap.Wrap;
         controlDeck.Add(primaryControlsRow);
 
-        // The search field is deliberately persistent. Zero flex-basis keeps the wrap decision
-        // independent of the typed query's width: the field only takes leftover space.
+        // Zero flex-basis keeps the typed query's width from changing the wrap decision.
         _searchInputContainer = CreateSearchField();
         _searchInputContainer.style.flexBasis = 0f;
         _searchInputContainer.style.marginTop = UiSpacing.Md;
         primaryControlsRow.Add(_searchInputContainer);
 
-        // Catalog choice sits between search and sort, matching the row height so the whole
-        // line reads as one control strip.
         _tabModeControl = CreateFacetChoiceControl(
             CollectionPanelText.ItemsTab(),
             CollectionPanelText.SkillsTab(),
@@ -130,18 +121,14 @@ internal sealed partial class CollectionPanelView
         _standardOperationControls.style.marginTop = UiSpacing.Md;
         primaryControlsRow.Add(_standardOperationControls);
 
-        // Compact day-number icon toggle.
         _dayToggleButton = CreateDayToggleButton();
         _standardOperationControls.Add(_dayToggleButton);
 
-        // Reset closes the operation row at the far right, away from the frequent controls.
         var resetButton = CreateResetButton(_commands.ResetFilters);
         resetButton.style.marginLeft = UiSpacing.Sm;
         _standardOperationControls.Add(resetButton);
 
-        // The foundational hero/size/quality card is pinned between the control deck and the
-        // scrolling filter stack: switching tabs or scrolling secondary filters must not move
-        // the primary selectors.
+        // Keeping the primary selectors above the filter stack anchors them across tab switches and scrolling.
         _heroFilterSection = CreateFilterSection(
             rail,
             CollectionPanelText.HeroHeader(),
@@ -161,8 +148,6 @@ internal sealed partial class CollectionPanelView
         _heroChipRow.style.justifyContent = Justify.FlexStart;
         _heroChipRow.RegisterCallback<GeometryChangedEvent>(OnHeroChipRowGeometryChanged);
 
-        // Keep hero, size, and quality in one visual card. The child section contributes only its
-        // chip row, without introducing a nested card or a second heading.
         _tierFilterSection = CreateFilterSection(
             _heroFilterSection,
             string.Empty,
@@ -208,8 +193,6 @@ internal sealed partial class CollectionPanelView
         _controlsScrollShadow = CreateControlsScrollShadow();
         controlsViewport.Add(_controlsScrollShadow);
 
-        // Keyword filter (CardHiddenTag gameplay keywords). This is the common secondary filter for
-        // Items and Skills, so keep it directly below Quality.
         _keywordFilterSection = CreateFilterSection(
             controlsScroll,
             CollectionPanelText.KeywordHeader(),
@@ -226,7 +209,6 @@ internal sealed partial class CollectionPanelView
         _keywordChipRow.style.flexWrap = Wrap.Wrap;
         _keywordChipRow.style.justifyContent = Justify.FlexStart;
 
-        // Player-facing type chips get their own titled card; the chip flow itself is unchanged.
         _tagFilterSection = CreateFilterChipSection(
             controlsScroll,
             CollectionPanelText.TagHeader(),
@@ -240,7 +222,6 @@ internal sealed partial class CollectionPanelView
         _tagChipRow.style.flexWrap = Wrap.Wrap;
         _tagChipRow.style.justifyContent = Justify.FlexStart;
 
-        // Source filter (merchant portraits on Items, trainer portraits on Skills).
         _sourceFilterSection = CreateFilterSection(
             controlsScroll,
             CollectionPanelText.SourceHeader(CardType.Item),
@@ -337,8 +318,6 @@ internal sealed partial class CollectionPanelView
         mesh.SetNextIndex(3);
     }
 
-    // A filter card is a section of the operation rail: a flat neutral surface framed by a
-    // neutral hairline. Its strength sets the card's place in the hierarchy (ADR-0026).
     private static void ApplyCollectionFilterCardTreatment(VisualElement card, Color? border = null)
     {
         card.style.backgroundColor = InGameTheme.NeutralSurface;
@@ -1035,8 +1014,7 @@ internal sealed partial class CollectionPanelView
         return row;
     }
 
-    // Compact day-number "icon": shows the current run day (or an unavailable dash) and toggles
-    // whether the day participates in filtering. The tooltip names the number-only control.
+    // The tooltip names this number-only control.
     private Button CreateDayToggleButton()
     {
         var button = CreateButton(
@@ -1080,7 +1058,6 @@ internal sealed partial class CollectionPanelView
         _gridViewport.style.flexShrink = 1f;
         _gridViewport.style.minHeight = 0f;
         _gridViewport.style.minWidth = 0f;
-        // The catalog uses the same treatment with a stronger hairline than the filter cards.
         ApplyCollectionFilterCardTreatment(_gridViewport, GridFilterCardBorder);
         parent.Add(_gridViewport);
 
@@ -1092,9 +1069,7 @@ internal sealed partial class CollectionPanelView
         _gridScrollView.verticalScrollerVisibility = ScrollerVisibility.Auto;
         _gridScrollView.mouseWheelScrollSize = CollectionGridHostConstants.MouseWheelScrollPoints;
         _gridScrollView.contentContainer.style.flexDirection = FlexDirection.Column;
-        // Scroll offset is polled in CollectionPanel.Update via ReadScrollYPixels(): the
-        // publicized UIElements Scroller exposes valueChanged ambiguously (field vs property),
-        // so we avoid subscribing.
+        // Publicized UIElements Scroller exposes valueChanged as both a field and a property, making subscriptions ambiguous.
         _gridDragScroller = new ScrollViewDragScroller(_gridScrollView);
         _gridViewport.Add(_gridScrollView);
 

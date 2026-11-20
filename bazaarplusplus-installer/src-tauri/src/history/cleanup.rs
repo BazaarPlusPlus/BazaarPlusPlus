@@ -23,10 +23,7 @@ pub enum StorageCleanupPreset {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CleanupCutoff {
-    /// The cutoff instant; SQL compares it with the mod's `*_at_ms` columns.
     pub utc: DateTime<Utc>,
-    /// Local calendar date of the cutoff; used for dated-folder orphan sweeps
-    /// (folder names come from the local capture date).
     pub local_date: NaiveDate,
 }
 
@@ -56,13 +53,9 @@ impl CleanupCutoff {
     }
 }
 
-/// A Run's last activity. Completion and abandonment set `ended_at_ms`, so a
-/// Run the mod resumed and ended again has a new value.
+/// A resumed Run gets a new `ended_at_ms` when it ends again.
 const RUN_LAST_ACTIVITY: &str = "coalesce(r.ended_at_ms, r.last_seen_at_ms, r.started_at_ms)";
 
-/// A finished Run whose last activity precedes the cutoff `?1` (null: every
-/// finished Run). Planning selects candidates with it, and execution checks it
-/// again per Run with the plan's own cutoff.
 static RUN_BEFORE_CUTOFF_PREDICATE: LazyLock<String> =
     LazyLock::new(|| format!("r.status <> 'active' and (?1 is null or {RUN_LAST_ACTIVITY} < ?1)"));
 
@@ -179,9 +172,6 @@ pub struct ScreenshotCleanupResult {
     pub skipped_pending_uploads: i64,
 }
 
-/// Executes a plan computed earlier, possibly by a preview the user confirmed.
-/// It never trusts the plan: each row delete re-checks protection, and files
-/// are unlinked only while no surviving row references them.
 pub(crate) fn execute_screenshot_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
@@ -229,9 +219,7 @@ pub(crate) fn execute_screenshot_cleanup_plan(
     })
 }
 
-/// Owns exclusion until the last unlink, including the gaps between row commits.
-/// `BEGIN EXCLUSIVE` alone is insufficient in WAL mode; EXCLUSIVE locking mode
-/// keeps the connection's file lock after COMMIT. Closing the connection releases it.
+/// SQLite's EXCLUSIVE locking mode keeps the writer lock between commits, including during file unlinks.
 struct CleanupSession {
     conn: Connection,
 }
@@ -246,11 +234,8 @@ impl CleanupSession {
         conn.execute_batch("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;")
             .context("Cannot exclusively lock history for cleanup")?;
 
-        // The mod can write a file before its row, so excluding SQL writers alone
-        // cannot exclude an in-flight capture. Probe AFTER acquiring the lock:
-        // a later game startup must initialize its stores in a write transaction
-        // before any screenshot/replay/video writer can start. The required mod
-        // startup ordering and its source owners are in docs/history-storage.md.
+        // Probe after locking. The mod must finish a store write transaction before its capture writers start.
+        // See the startup ordering in docs/history-storage.md.
         let game_path = data_root
             .parent()
             .context("History Data Root has no game directory.")?;
@@ -263,12 +248,7 @@ impl CleanupSession {
         }
     }
 
-    /// The plan nominates candidates, never permission to unlink. Compare resolved
-    /// paths, retain every surviving reference, and deduplicate candidates while
-    /// the session still excludes writers.
-    /// Call only after the row transactions commit: an unlink failure must not
-    /// roll back deleted rows into references to already removed files.
-    /// A failed unlink does not stop the others; the caller reports it.
+    /// Commit row deletes before unlinking files so a rollback cannot resurrect references to deleted files.
     fn delete_unreferenced_files(
         &self,
         root: &Path,
@@ -287,7 +267,6 @@ impl CleanupSession {
         }
         let mut visited = HashSet::new();
         for candidate in candidates {
-            // A candidate the stored-path rule rejects names no file to unlink.
             let Some(candidate) = StoredRelativePath::parse(&candidate) else {
                 continue;
             };
@@ -309,9 +288,6 @@ impl CleanupSession {
     }
 }
 
-/// What the unlinks of one cleanup execution did. `failed` keeps each
-/// candidate whose file is still on disk, as its `StoredRelativePath` key,
-/// with its error.
 #[derive(Default)]
 struct UnlinkOutcome {
     deleted_files: i64,
@@ -320,8 +296,6 @@ struct UnlinkOutcome {
 }
 
 impl UnlinkOutcome {
-    /// The execution's result once every unlink was attempted: rows stay
-    /// deleted whatever this returns.
     fn into_result(self) -> anyhow::Result<(i64, i64)> {
         match self.failed.as_slice() {
             [] => Ok((self.deleted_files, self.freed_bytes)),
@@ -331,12 +305,7 @@ impl UnlinkOutcome {
     }
 }
 
-/// Video files a run-data cleanup failed to unlink after deleting their rows,
-/// one path relative to the video directory per line. Nothing else can find
-/// them again: the mod keeps a successful MP4 it has no row for. Payloads and
-/// screenshots need no record, since the mod's replay maintenance and the
-/// screenshot orphan sweep find theirs. It lives in the Data Root, so a Reset
-/// discards it with the files it names.
+/// The mod retains successful MP4s without rows, so a failed unlink must be recorded for a later cleanup.
 const VIDEO_UNLINK_RETRY_FILE_NAME: &str = "installer-cleanup-video-retry.txt";
 
 fn video_unlink_retry_path(data_root: &Path) -> PathBuf {
@@ -373,8 +342,7 @@ fn write_video_unlink_retries(
         .map_err(|err| anyhow!("failed to write the cleanup retry record: {err}"))
 }
 
-/// Built once from `PROTECTED_RUN_PREDICATE` — the per-row delete loop must not
-/// re-format a ~600-byte SQL text for every screenshot it visits.
+/// Cache the formatted SQL to avoid rebuilding it for every screenshot.
 static DELETE_SCREENSHOT_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
     format!(
         "delete from run_screenshots
@@ -404,7 +372,6 @@ fn delete_screenshot_if_unprotected(
 pub struct RunDataVideoCleanupItem {
     pub video_id: String,
     pub relative_path: String,
-    /// Preview estimate only; execution resolves surviving references under the lock.
     delete_video_file: bool,
 }
 
@@ -413,8 +380,6 @@ pub struct RunDataCleanupItem {
     pub battle_ids: Vec<String>,
     pub videos: Vec<RunDataVideoCleanupItem>,
     pub screenshots: Vec<ScreenshotCleanupItem>,
-    /// The Run's last activity when planned; execution deletes the Run only
-    /// while it is unchanged.
     last_activity_ms: Option<i64>,
 }
 
@@ -422,11 +387,7 @@ pub struct RunDataCleanupPlan {
     pub items: Vec<RunDataCleanupItem>,
     pub estimated_bytes: i64,
     pub skipped_pending_uploads: i64,
-    /// The cutoff the items were selected under; execution re-checks each Run
-    /// against it.
     cutoff_ms: Option<i64>,
-    /// Unreferenced video files an earlier cleanup failed to unlink. They
-    /// count as videos, so a plan with no Run still lets the user retry.
     retry_videos: Vec<String>,
 }
 
@@ -498,9 +459,6 @@ pub fn plan_run_data_cleanup(
     let mut items = Vec::new();
     let mut screenshot_items_for_estimate = Vec::new();
     let mut video_items_for_estimate = Vec::new();
-    // Execution unlinks one replay payload per distinct battle id, so the
-    // estimate counts each payload once too — same dedupe key as
-    // `deleted_replay_payloads` in `execute_run_data_cleanup_plan`.
     let mut estimated_replay_payloads = HashSet::new();
     let mut estimated_bytes = 0i64;
     for (run_id, last_activity_ms) in eligible_runs {
@@ -560,9 +518,7 @@ pub fn plan_run_data_cleanup(
     })
 }
 
-/// Runs are heavier than screenshots (multiple tables + cascade per row),
-/// so each transaction commits fewer rows. The cleanup session retains its
-/// exclusive connection lock across these commits and the subsequent unlinks.
+/// Keep chunks smaller because Run deletions cascade through multiple tables.
 const RUN_CLEANUP_CHUNK_SIZE: usize = 25;
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -573,13 +529,7 @@ pub struct RunDataCleanupResult {
     pub skipped_pending_uploads: i64,
 }
 
-/// Executes a plan computed earlier, possibly by a preview the user confirmed
-/// minutes ago while the game kept writing. A planned Run is deleted only
-/// while it is exactly what the plan counted: still eligible under the plan's
-/// cutoff, unprotected, with the same last activity, and holding no battle,
-/// video, or screenshot outside the plan. Otherwise it is skipped like a Run
-/// that became protected. Files are unlinked only while no surviving row
-/// references them.
+/// A preview can be stale by confirmation time. Revalidate last activity and child membership before deleting.
 pub(crate) fn execute_run_data_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
@@ -600,8 +550,6 @@ pub(crate) fn execute_run_data_cleanup_plan(
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
             let transaction = session.conn.transaction()?;
             for item in chunk {
-                // Read under the session lock, so nothing can attach to the
-                // Run between this check and its delete.
                 let battle_ids = run_battle_ids(&transaction, &item.run_id)?;
                 if !planned.holds_children_of(&transaction, &item.run_id, &battle_ids)?
                     || delete_run_if_unprotected(&transaction, item, plan.cutoff_ms)? == 0
@@ -623,11 +571,8 @@ pub(crate) fn execute_run_data_cleanup_plan(
         }
 
         deleted_runs = deleted_items.len() as i64;
-        // Video ownership follows a battle whose Run attachment can change.
-        // Wait for ALL Run deletions, including later chunks, before checking it:
-        // a video moved to another deleted Run must not be mistaken for a survivor.
-        // Include candidates from guarded-delete misses too: their battle may
-        // have moved to a Run that was deleted, leaving no current owner.
+        // A battle can move between Runs. Check video ownership after all Run deletions.
+        // Include skipped Runs because their battles may have moved to a Run that was deleted.
         for chunk in plan.items.chunks(RUN_CLEANUP_CHUNK_SIZE) {
             let transaction = session.conn.transaction()?;
             for item in chunk {
@@ -705,10 +650,6 @@ pub(crate) fn execute_run_data_cleanup_plan(
     })
 }
 
-/// Built once from the planning predicates; see the screenshot twin above.
-/// The planned Run is deleted only while it is still eligible under the plan's
-/// cutoff and its last activity is the one planned, so a plan computed long
-/// before execution never deletes a Run the mod resumed since.
 static DELETE_RUN_IF_UNPROTECTED_SQL: LazyLock<String> = LazyLock::new(|| {
     format!(
         "delete from runs as r
@@ -730,9 +671,7 @@ fn delete_run_if_unprotected(
         .map_err(anyhow::Error::from)
 }
 
-/// Every battle, video, and screenshot a run-data plan counted, across all of
-/// its Runs: a battle the plan saw under one planned Run may since have moved
-/// to another.
+/// A battle can move between planned Runs, so count planned children across the full plan.
 struct PlannedRunChildren<'a> {
     battles: HashSet<&'a str>,
     videos: HashSet<&'a str>,
@@ -764,7 +703,6 @@ impl<'a> PlannedRunChildren<'a> {
         }
     }
 
-    /// Whether everything `run_id` holds now was counted by the plan.
     fn holds_children_of(
         &self,
         conn: &Connection,
@@ -783,7 +721,6 @@ impl<'a> PlannedRunChildren<'a> {
     }
 }
 
-/// Each eligible Run with its last activity.
 fn eligible_runs(
     conn: &Connection,
     cutoff_ms: Option<i64>,
@@ -926,12 +863,8 @@ fn remaining_video_relative_paths_after_run_cleanup(
     Ok(paths)
 }
 
-/// Replay payload path: `<CombatReplays>/<battleId>.payload.mpack.gz`.
 pub(crate) fn replay_payload_path(replays_dir: &Path, battle_id: &str) -> Option<PathBuf> {
     let trimmed = battle_id.trim();
-    // A battle id must name one file, which is narrower than the stored-path
-    // rule: no separator, no `:` and no `..` anywhere in it. The file name it
-    // gives then resolves through that rule like every other stored path.
     if trimmed.is_empty()
         || trimmed.contains('/')
         || trimmed.contains('\\')
@@ -1001,13 +934,10 @@ fn pending_upload_count(conn: &Connection, cutoff_ms: Option<i64>) -> anyhow::Re
         .map_err(anyhow::Error::from)
 }
 
-/// Both screenshot path sets a plan needs, derived from one table scan.
 struct ScreenshotRelativePathSets {
     /// Every referenced path, including those of the planned items. Feeds the
     /// orphan sweep, which must not treat a planned row's file as unreferenced.
     all: StoredPathReferences,
-    /// Paths still referenced once the planned rows are gone. Feeds the
-    /// shared-file guard that keeps a surviving row's image on disk.
     remaining: StoredPathReferences,
 }
 
@@ -1091,18 +1021,7 @@ fn scan_orphan_screenshot_files(
         return Vec::new();
     }
 
-    // Folders whose date is at or after this floor are never swept for orphans.
-    // Today's local-date folder is ALWAYS protected — that is why the floor is
-    // `today_local_date` even under preset `all` (cutoff `None`). The mod writes
-    // a screenshot's PNG to disk (via an atomic `<name>.png.<guid>.tmp` rename)
-    // BEFORE it inserts the matching `run_screenshots` row, and it names the
-    // dated folder from local capture time. So a file captured "now" briefly has
-    // no row; sweeping today's folder would classify that in-flight file (or its
-    // transient `.tmp` sibling) as an orphan and delete it, leaving the mod to
-    // insert a row pointing at a missing file. A bounded preset's cutoff is
-    // always <= today, so `min` keeps its existing, stricter protection. Execution
-    // also excludes the game and rechecks references under CleanupSession's lock,
-    // including late publication of a capture spanning local midnight.
+    // The mod writes screenshot files before their rows, so protect today's local folder even for preset `All`.
     let protect_from = cutoff_local_date.map_or(today_local_date, |cutoff_date| {
         cutoff_date.min(today_local_date)
     });
@@ -1171,8 +1090,6 @@ fn collect_dated_folder_orphan_files(
         let Ok(relative) = path.strip_prefix(screenshots_dir) else {
             continue;
         };
-        // A file name the stored-path rule rejects (`C:x.png`) is not an
-        // orphan: no candidate History unlinks can name it.
         if StoredRelativePath::parse(&relative.to_string_lossy())
             .is_some_and(|relative| !referenced_paths.protects(&relative))
         {
@@ -1330,16 +1247,11 @@ mod tests {
         }
     }
 
-    /// A fixed "today" for the generic cleanup tests. It sits strictly after
-    /// every dated folder those tests create, so the today-folder orphan guard
-    /// never masks the past-folder sweeps they assert. The guard itself is
-    /// exercised by the dedicated all-preset tests below.
+    /// Keep today later than every fixture folder so the current-day guard does not mask orphan sweeps.
     fn test_today() -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 7, 15).unwrap()
     }
 
-    /// Plans and executes at once, as a confirmation whose preview plan is
-    /// gone does.
     fn execute_screenshot_cleanup(
         database_path: &Path,
         data_root: &Path,
@@ -1369,7 +1281,6 @@ mod tests {
         )
     }
 
-    /// Seeds keep RFC 3339 text for readability; the database stores Unix milliseconds.
     fn ms(rfc3339: &str) -> i64 {
         DateTime::parse_from_rfc3339(rfc3339)
             .unwrap()
@@ -1418,9 +1329,7 @@ mod tests {
         .unwrap();
     }
 
-    /// `source` stays explicit because `GHOST` rows (no payload state) are a
-    /// distinct case the run-cleanup cascade tests rely on; their remote
-    /// identity is derived because the `battles` CHECK admits only one shape.
+    /// Ghost battles need a derived remote identity to satisfy the `battles` CHECK constraint.
     fn insert_battle(
         conn: &rusqlite::Connection,
         battle_id: &str,
@@ -1448,8 +1357,6 @@ mod tests {
         .unwrap();
     }
 
-    /// Cleanup planning selects videos by battle, never by `status`, so every
-    /// seed uses the completed status and the helper fixes it.
     fn insert_video(
         conn: &rusqlite::Connection,
         video_id: &str,
@@ -1467,8 +1374,6 @@ mod tests {
         .unwrap();
     }
 
-    /// `captured_utc_offset_minutes` is `not null` but no cleanup query reads
-    /// it, so the helper records the +08:00 zone the existing seeds all used.
     fn insert_screenshot(
         conn: &rusqlite::Connection,
         screenshot_id: &str,
@@ -1547,8 +1452,6 @@ mod tests {
             assert_writer_blocked();
             drop(session);
 
-            // Mirrors the mandatory startup write transaction, then file-before-row
-            // publication: a new game can now initialize and reuse the old path safely.
             writer.execute_batch("BEGIN IMMEDIATE; COMMIT;").unwrap();
             write_screenshot_file(&fixture.screenshots_dir, relative, b"new");
             insert_screenshot(&writer, "new", None, 0, relative, "2026-06-01T00:00:00Z");
@@ -1960,7 +1863,6 @@ mod tests {
         let tz = FixedOffset::east_opt(8 * 3600).unwrap();
         let now = tz.with_ymd_and_hms(2026, 7, 15, 10, 0, 0).unwrap();
         let cutoff = CleanupCutoff::for_preset(StorageCleanupPreset::BeforeThisMonth, now).unwrap();
-        // Local 2026-07-01T00:00:00+08:00 == 2026-06-30T16:00:00Z
         assert_eq!(
             cutoff.utc.to_rfc3339_opts(SecondsFormat::Secs, true),
             "2026-06-30T16:00:00Z"
@@ -2287,17 +2189,11 @@ mod tests {
 
     #[test]
     fn plan_all_preset_skips_todays_and_future_local_folders() {
-        // Under preset `all` (cutoff `None`) the orphan sweep must still protect
-        // today's local-date folder: the mod writes a screenshot's PNG (and a
-        // transient `<name>.png.<guid>.tmp`) to disk BEFORE inserting its
-        // run_screenshots row, so a just-captured file in today's folder has no
-        // row yet and must not be classified as an orphan.
         let fixture = create_fixture();
         let today = NaiveDate::from_ymd_opt(2026, 7, 3).unwrap();
 
         let past_orphan =
             write_screenshot_file(&fixture.screenshots_dir, "2026-06-15/past.png", b"stale");
-        // Today's in-flight capture: the final PNG and its atomic temp sibling.
         let _today_png = write_screenshot_file(
             &fixture.screenshots_dir,
             "2026-07-03/2026-07-03_14-32-15-427_final_run-abc.png",
@@ -2308,7 +2204,6 @@ mod tests {
             "2026-07-03/2026-07-03_14-32-15-427_final_run-abc.png.deadbeef.tmp",
             b"tmp",
         );
-        // A future-dated folder (installer clock behind the mod's) is protected too.
         let _future =
             write_screenshot_file(&fixture.screenshots_dir, "2026-07-04/ahead.png", b"ahead");
 
@@ -2342,13 +2237,9 @@ mod tests {
             b"tmp",
         );
 
-        let result = execute_screenshot_cleanup(
-            &fixture.database_path,
-            &fixture.data_root,
-            None, // preset "all"
-            today,
-        )
-        .unwrap();
+        let result =
+            execute_screenshot_cleanup(&fixture.database_path, &fixture.data_root, None, today)
+                .unwrap();
 
         assert_eq!(
             result.deleted_files, 1,
@@ -2445,9 +2336,7 @@ mod tests {
         assert!(error.contains(&supported), "{error}");
     }
 
-    /// Cases owned by the mod's `BundleQueueStore.SealEligibleRunCondition`. The mod evaluates
-    /// the same file against its seal-job and replay-maintenance queries, so a rule change on
-    /// either side fails a gate until both agree.
+    /// The mod evaluates these same cases against `BundleQueueStore.SealEligibleRunCondition`.
     const SEAL_ELIGIBILITY_FIXTURE: &str = include_str!(
         "../../../../bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json"
     );
@@ -2523,9 +2412,6 @@ mod tests {
         assert_eq!(plan.skipped_pending_uploads, protected_count);
     }
 
-    /// A confirmed preview's plan can be minutes old. A Run the mod resumed
-    /// since, or whose last activity moved past the plan's cutoff, is no
-    /// longer a candidate and survives.
     #[test]
     fn stale_run_plan_spares_runs_resumed_or_touched_after_planning() {
         let fixture = create_fixture();
@@ -2573,10 +2459,6 @@ mod tests {
         assert_eq!(remaining, vec!["resumed", "touched"]);
     }
 
-    /// The last-activity check on its own: under the `all` preset, a planned
-    /// Run the mod resumed and ended again without attaching anything new is
-    /// still eligible and holds only planned children, yet it is no longer
-    /// the Run the preview showed, so it survives.
     #[test]
     fn stale_all_preset_plan_spares_a_run_ended_again_without_new_children() {
         let fixture = create_fixture();
@@ -2628,10 +2510,6 @@ mod tests {
         );
     }
 
-    /// Under the `all` preset there is no cutoff to move past. The mod resumes
-    /// a planned Run, records one more battle with its payload, video, and
-    /// screenshot, and ends the Run again before the user confirms. The Run
-    /// is no longer what the preview counted, so it survives whole.
     #[test]
     fn stale_all_preset_plan_spares_a_run_resumed_and_ended_again() {
         let fixture = create_fixture();
@@ -2658,7 +2536,6 @@ mod tests {
             super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
         assert_eq!(plan.items.len(), 1);
 
-        // The upsert in the mod's `RunLogStore` sets `status = excluded.status`.
         let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
         conn.execute(
             "update runs set status = 'active' where run_id = 'resumed'",
@@ -2728,9 +2605,6 @@ mod tests {
         }
         assert!(payload.exists() && video.exists() && shot.exists());
 
-        // A replay video recorded later for a battle the preview counted
-        // leaves the Run row untouched, and still spares the Run: the preview
-        // never counted that video.
         let fixture = create_fixture();
         let conn = rusqlite::Connection::open(&fixture.database_path).unwrap();
         insert_run(&conn, "old", "abandoned", "Normal", "2026-06-10T10:00:00Z");
@@ -3266,8 +3140,6 @@ mod tests {
                 Some("ready"),
             );
         }
-        // run-a and run-b share one screenshot file; run-a shares its video
-        // with the protected run, so that video file must survive.
         insert_video(
             &conn,
             "video-a",
@@ -3378,8 +3250,6 @@ mod tests {
             other_plan.skipped_pending_uploads,
             current_plan.skipped_pending_uploads
         );
-        // b.mp4 + both payloads + the shared screenshot counted once; the
-        // video shared with the protected run is not counted.
         assert_eq!(current_plan.estimated_bytes, 7 + 9 + 9 + 4);
         assert_eq!(other_plan.estimated_bytes, current_plan.estimated_bytes);
 
@@ -3394,8 +3264,6 @@ mod tests {
         assert_eq!(result.deleted_runs, 2);
         assert_eq!(result.deleted_files, 4);
         assert_eq!(result.freed_bytes, 7 + 9 + 9 + 4);
-        // Only the other root's run-owned files went; the shared video stays,
-        // and the current root is untouched.
         let [other_shared_video, other_rest @ ..] = other_files.as_slice() else {
             unreachable!();
         };
@@ -3505,7 +3373,6 @@ mod tests {
             execute_run_data_cleanup(&fixture.database_path, &fixture.data_root, None).unwrap();
 
         assert_eq!(result.deleted_runs, 1);
-        // v1.mp4 + battle-1 payload + shot.png; shared.png stays for the pending run.
         assert_eq!(result.deleted_files, 3);
         assert_eq!(result.freed_bytes, 4 + 3 + 2);
         assert_eq!(result.skipped_pending_uploads, 1);
@@ -3619,8 +3486,6 @@ mod tests {
         );
         assert!(!shot.exists(), "one failed unlink must not strand the rest");
 
-        // Nothing references the video now, yet the next preview still offers
-        // it, so a cleanup with no Run left can retry it.
         let preview = || {
             super::plan_run_data_cleanup(&fixture.database_path, &fixture.data_root, None)
                 .unwrap()
@@ -3635,7 +3500,6 @@ mod tests {
         );
         assert!(video.is_dir());
 
-        // The holder lets go.
         fs::remove_dir(&video).unwrap();
         fs::write(&video, b"vvvv").unwrap();
         assert_eq!(
@@ -3697,8 +3561,6 @@ mod tests {
             "Normal",
             "2026-06-10T10:00:00Z",
         );
-        // Not `insert_battle`: this test replaced `battles` with the legacy
-        // shape that has no local-payload columns.
         conn.execute_batch(
             "insert into battles (battle_id, source, run_id, recorded_at_ms)
                 values ('battle-1', 'LOCAL', 'run-legacy', 1781082000000);",
@@ -3791,7 +3653,7 @@ mod tests {
         let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
-            None, // preset "all"
+            None,
             test_today(),
         )
         .unwrap();
@@ -3808,7 +3670,6 @@ mod tests {
             pending_file.exists(),
             "protected primary screenshot must survive"
         );
-        // Emptied dated folders are removed; the pending one stays.
         assert!(!fixture.screenshots_dir.join("2026-06-15").exists());
         assert!(!fixture.screenshots_dir.join("2026-06-14").exists());
         assert!(fixture.screenshots_dir.join("2026-06-16").exists());
@@ -3871,7 +3732,7 @@ mod tests {
         let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
-            None, // preset "all"
+            None,
             test_today(),
         )
         .unwrap();
@@ -3945,7 +3806,7 @@ mod tests {
         let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
-            None, // preset "all"
+            None,
             test_today(),
         )
         .unwrap();
@@ -3991,7 +3852,7 @@ mod tests {
         let result = execute_screenshot_cleanup(
             &fixture.database_path,
             &fixture.data_root,
-            None, // preset "all"
+            None,
             test_today(),
         )
         .unwrap();

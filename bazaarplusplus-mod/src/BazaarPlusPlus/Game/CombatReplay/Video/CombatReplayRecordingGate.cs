@@ -25,15 +25,9 @@ internal readonly struct CombatReplayRecordingGateResult
     public bool CanRecord => Blocker == CombatReplayRecordingBlocker.None;
 }
 
-/// <summary>
-/// The single source of truth for whether native replay recording can start.
-/// </summary>
 internal static class CombatReplayRecordingGate
 {
-    /// <summary>
-    /// Captures the Unity-owned dimensions and FPS and loads the native plugin. Call it on the UI
-    /// thread, so a later <see cref="Evaluate"/> finds the backend probe warm.
-    /// </summary>
+    // Read Unity-owned dimensions and FPS on the main thread.
     public static void Prewarm()
     {
         ReplayVideoCaptureSettingsCache.TryCaptureCurrent(out _);

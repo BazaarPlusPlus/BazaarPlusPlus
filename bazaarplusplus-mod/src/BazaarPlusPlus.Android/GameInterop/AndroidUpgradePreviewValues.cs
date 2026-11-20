@@ -12,30 +12,8 @@ using Il2CppTheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// BPP's next-tier values in the touch upgrade preview. The game's own preview fuses a value
-/// only past the gate in <c>CardTooltipData.RenderStylizedAttributeValue</c>: the tooltip is in
-/// preview and <c>NextTierHasAttribute</c> finds the token's attribute (its referenced attribute,
-/// or its style attribute when it references none) in the next tier's own template entry, which
-/// lists only what that tier changes. A value that changes with the tier through some other
-/// attribute stays at its current number: Sea Shell's <c>Shield {aura.1.mod}</c> is scaled by
-/// its <c>Custom_0</c>, while the gate looks for <c>ShieldApplyAmount</c>. While
-/// <see cref="AndroidUpgradePreview"/> holds an item, each render of its tooltip leases one
-/// <see cref="AndroidUpgradePreviewValueProjection"/>, renders the item's tooltip text with every
-/// value token resolved against it, sets the cooldown clock from it, and returns the lease when
-/// the render ends. The projection is keyed by the tooltip data's native pointer, so no other
-/// tooltip ever reads it.
-/// </summary>
-/// <remarks>
-/// The desktop postfixes the game's private <c>RenderStylizedAttributeValue</c>. Under IL2CPP
-/// that method takes a <c>Nullable</c> and returns a <c>ValueTuple</c> by value, and no
-/// Android patch has a detour over struct arguments or results to stand on, so this host
-/// replaces <c>RenderTooltip</c>, whose argument and result are references, with the same loop
-/// in managed code, and calls the game's formatter (an ordinary interop call, which boxes the
-/// structs) for every value BPP does not project. The first leased render of a launch, and the
-/// first in which BPP's text differs from the game's, also run the loop with the game's values
-/// only and the game's own <c>RenderTooltip</c>, and log whether the copy matches it.
-/// </remarks>
+// The native formatter misses indirect tier gains. Detour RenderTooltip to avoid the nullable
+// struct argument and by-value tuple in RenderStylizedAttributeValue.
 internal static class AndroidUpgradePreviewValues
 {
     private const long LoggedEvents = 20;
@@ -57,7 +35,6 @@ internal static class AndroidUpgradePreviewValues
 
     public static long Projected => Interlocked.Read(ref _projected);
 
-    /// <summary>The contents of a card tooltip start to render: lease a projection if held.</summary>
     public static void Prepare(CardTooltipData? tooltipData)
     {
         Return();
@@ -87,7 +64,6 @@ internal static class AndroidUpgradePreviewValues
         }
     }
 
-    /// <summary>The render finished: the lease, if any, ends with it.</summary>
     public static void Return()
     {
         if (_active == null)
@@ -96,11 +72,6 @@ internal static class AndroidUpgradePreviewValues
         Interlocked.Increment(ref _returned);
     }
 
-    /// <summary>
-    /// The game's <c>CardTooltipData.RenderTooltip</c> loop over <paramref name="builder"/>,
-    /// with BPP's projected value in place of each value token the lease resolves. False when
-    /// <paramref name="tooltipData"/> holds no lease, and the game renders it unchanged.
-    /// </summary>
     public static bool TryRender(
         CardTooltipData tooltipData,
         TooltipBuilder? builder,
@@ -133,7 +104,6 @@ internal static class AndroidUpgradePreviewValues
         return true;
     }
 
-    /// <summary>The cooldown clock rendered: it shows the projected cooldown instead.</summary>
     public static void OnCooldownRendered(CooldownRenderer renderer, CardTooltipData? tooltipData)
     {
         var lease = _active;
@@ -154,8 +124,6 @@ internal static class AndroidUpgradePreviewValues
         );
     }
 
-    // The game's loop. With a projection, each value it resolves takes BPP's next-tier value;
-    // without one, every value is the game's own, which is what the game's loop renders.
     private static string Render(
         CardTooltipData tooltipData,
         Il2CppSystem.Collections.Generic.List<ITooltipComponent> components,
@@ -222,8 +190,8 @@ internal static class AndroidUpgradePreviewValues
             }
             else if (style.HasValue)
             {
-                // The game passes no token for these; the desktop recovers only the attribute
-                // auras among them (UpgradePreviewAuraValueContextPatch), and so does this.
+                // The game supplies no token for these values. Only attribute auras can recover
+                // one.
                 var (segment, withIcon) = RenderValue(
                     tooltipData,
                     projection,
@@ -247,8 +215,6 @@ internal static class AndroidUpgradePreviewValues
         return text.ToString();
     }
 
-    // Whether the managed loop, with the game's values only, renders what the game's own
-    // RenderTooltip does for the same builder, and whether BPP's text differs from it.
     private static void CompareWithNative(
         CardTooltipData tooltipData,
         TooltipBuilder builder,
@@ -299,8 +265,6 @@ internal static class AndroidUpgradePreviewValues
         return length;
     }
 
-    // The desktop's UpgradePreviewValuePatch, with the game's own result kept for the values
-    // the projection does not resolve and for the log's comparison.
     private static (string? Segment, bool WithIcon) RenderValue(
         CardTooltipData tooltipData,
         AndroidUpgradePreviewValueProjection? projection,

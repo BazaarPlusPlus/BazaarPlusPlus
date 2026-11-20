@@ -244,7 +244,6 @@ describe('route shell outcomes', () => {
     });
     const headers = new Headers(fixture.headers);
     headers.set('CF-Ray', 'error-ray');
-    // A conditional PUT conflict whose read-back throws is not an HttpError.
     const response = await worker.fetch(uploadRequest(fixture.body, headers), {
       ...env,
       BUNDLE_BUCKET: {

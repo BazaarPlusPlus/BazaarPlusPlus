@@ -151,7 +151,6 @@ public class ManagedPayloadStagingTest {
         assertEquals("6.1.0", ManagedPayloadStaging.installedVersion(external));
     }
 
-    /** An install of {@code listed}, the manifest that names them, and {@code unlisted} beside them. */
     File install(List<String> listed, List<String> unlisted) throws IOException {
         File external = tmp.newFolder();
         StringBuilder manifest = new StringBuilder("bpp-managed-payload-manifest 1\nversion 6.1.0\nplatform android-aarch64\n"

@@ -8,49 +8,21 @@ using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Android.Lobby;
 
-/// <summary>What the game-update row says: the last check's answer beyond the Managed Payload.</summary>
 internal enum AndroidGameUpdateStatus
 {
-    /// <summary>No check has answered yet this session.</summary>
     Checking,
 
-    /// <summary>The last check failed, so whether the game is current is unknown.</summary>
     CheckFailed,
 
-    /// <summary>This copy needs nothing beyond the Managed Payload.</summary>
     Current,
 
-    /// <summary>
-    /// This copy needs nothing beyond the Managed Payload, but the release was not adapted for
-    /// the running game's code (root ADR 0016): BPP runs, and some features may fail.
-    /// </summary>
     NotAdapted,
 
-    /// <summary>
-    /// The release was adapted for a newer game: the user updates the game from its store
-    /// (<see cref="AndroidVersionCheck.Update"/>).
-    /// </summary>
     GameUpdated,
 
-    /// <summary>
-    /// Same game, but this copy cannot take the release by itself: it needs a new Android App
-    /// (<see cref="AndroidVersionCheck.Update"/>).
-    /// </summary>
     AppUpdated,
 }
 
-/// <summary>
-/// The main menu's release check on Android, the counterpart of the desktop's
-/// <c>MainMenuVersionCheckController</c>: each main-menu visit reads
-/// <c>latest/android-aarch64.json</c>, hands the result to Core's <see cref="MainMenuSelfUpdate"/>,
-/// which stages nothing here (the Android App stages the Managed Payload, root ADR 0012) and
-/// compares the release with the runtime the App started this process with, and keeps what this
-/// copy needs beyond the Managed Payload (<see cref="AndroidGameUpdate.Needed"/>): a newer game
-/// or a new Android App. The game is compared by its code with every adapted game
-/// (<see cref="AndroidGameUpdate.Compare"/>, root ADR 0016 and 0019), the running side from the
-/// Launch Record. Results land off the main thread;
-/// <see cref="Tick"/> observes them on it.
-/// </summary>
 internal sealed class AndroidVersionCheck : IDisposable
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
@@ -68,19 +40,6 @@ internal sealed class AndroidVersionCheck : IDisposable
     private AndroidGameAdaptation _adaptation = AndroidGameAdaptation.Unknown;
     private Task? _check;
 
-    /// <param name="installRoot">The MelonLoader install root.</param>
-    /// <param name="dataRoot">The Data Root.</param>
-    /// <param name="runningGame">
-    /// The running game's code from this process's Launch Record; null without one, which reads
-    /// as <see cref="AndroidGameAdaptation.Unknown"/>.
-    /// </param>
-    /// <param name="runtimeDigest">
-    /// The runtime digest from the Launch Record (<see cref="Host.AndroidLaunch.RuntimeDigest"/>);
-    /// null compares with the installed manifest's.
-    /// </param>
-    /// <param name="manifestOverride">
-    /// A loopback manifest for device tests (<see cref="DevManifest"/>); null reads the published one.
-    /// </param>
     public AndroidVersionCheck(
         string installRoot,
         string dataRoot,
@@ -94,9 +53,8 @@ internal sealed class AndroidVersionCheck : IDisposable
             manifestOverride
             ?? ReleaseManifestEndpoints.ForPlatformKey(ReleaseManifestEndpoints.AndroidPlatformKey);
         _selfUpdate = CreateSelfUpdate(installRoot, dataRoot, runtimeDigest);
-        // One client for the process, created last so a throwing constructor leaks none: each
-        // visit reuses its pooled connection while it is still open, and the manifest client
-        // keeps the last tagged answer for a conditional request.
+        // Reuse the manifest client across visits so it can retain the last response's ETag for
+        // conditional requests.
         _httpClient = CreateClient("VersionCheck", RequestTimeout);
         _client = new ReleaseManifestClient(
             _httpClient,
@@ -105,11 +63,8 @@ internal sealed class AndroidVersionCheck : IDisposable
         );
     }
 
-    /// <summary>
-    /// The host's self-update: no download transport, since the Android App stages the Managed
-    /// Payload, so a payload this copy could take reads "restart from the BPP App"; the running
-    /// runtime is the Launch Record's when it names one.
-    /// </summary>
+    // The Android App stages the Managed Payload, so the mod's self-update has no download
+    // transport.
     internal static MainMenuSelfUpdate CreateSelfUpdate(
         string installRoot,
         string dataRoot,
@@ -125,12 +80,7 @@ internal sealed class AndroidVersionCheck : IDisposable
             runtimeDigest
         );
 
-    /// <summary>
-    /// The developer seam <c>[Dev] ReleaseManifestPort</c>:a port above zero reads the Platform
-    /// Release Manifest from <c>http://127.0.0.1:&lt;port&gt;/latest/android-aarch64.json</c>, a
-    /// server on the developer's machine reached through <c>adb reverse</c>. Zero, the default,
-    /// and anything outside the port range read the published manifest.
-    /// </summary>
+    // Device tests reach a manifest server on the developer's machine through adb reverse.
     public static Uri? DevManifest(int port) =>
         port is > 0 and <= 65535
             ? new Uri(
@@ -138,10 +88,8 @@ internal sealed class AndroidVersionCheck : IDisposable
             )
             : null;
 
-    /// <summary>The manifest this check reads.</summary>
     public Uri Manifest => _manifest;
 
-    /// <summary>What this copy needs beyond the Managed Payload, and why; null otherwise.</summary>
     public AndroidUpdate? Update
     {
         get
@@ -151,7 +99,6 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
     }
 
-    /// <summary>The product version the last successful check read; null before one.</summary>
     public string? LatestVersion
     {
         get
@@ -161,10 +108,6 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
     }
 
-    /// <summary>
-    /// What the last check said about the game. A failed check reads as
-    /// <see cref="AndroidGameUpdateStatus.CheckFailed"/>, never as current.
-    /// </summary>
     public AndroidGameUpdateStatus GameUpdateStatus
     {
         get
@@ -174,10 +117,6 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
     }
 
-    /// <summary>
-    /// How the running game stands against the release's adapted games;
-    /// <see cref="AndroidGameAdaptation.Unknown"/> before a successful check and after a failed one.
-    /// </summary>
     public AndroidGameAdaptation Adaptation
     {
         get
@@ -187,10 +126,8 @@ internal sealed class AndroidVersionCheck : IDisposable
         }
     }
 
-    /// <summary>Starts this main-menu visit's check, replacing one still in flight.</summary>
     public void Begin()
     {
-        // The lifecycle only cancels a replaced visit; the shared client outlives every visit.
         var lease = _lifecycle.Begin(NoOwner.Instance);
         var client = _client;
         var selfUpdate = _selfUpdate;
@@ -210,7 +147,6 @@ internal sealed class AndroidVersionCheck : IDisposable
         );
     }
 
-    /// <summary>Main thread: surfaces a check that ended in a fault instead of dropping it.</summary>
     public void Tick()
     {
         var check = _check;

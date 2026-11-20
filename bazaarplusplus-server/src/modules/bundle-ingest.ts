@@ -169,8 +169,7 @@ export async function ingestBundle(
   env: Env,
   requestId: string
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
-  // Workers advance Date.now() only across I/O, so each span below is the wait
-  // on the client body, R2, or D1; CPU work inside a span reads as zero.
+  // Workers advance Date.now() only across I/O, so these timings omit CPU work.
   const startedAt = Date.now();
   if (request.headers.get('Content-Type') !== BUNDLE_CONTENT_TYPE) {
     throw apiError(
@@ -250,8 +249,7 @@ export async function ingestBundle(
     bytes: descriptor.objectBytes,
     has_screenshot: descriptor.screenshot !== null,
     outcome: 'stored',
-    // Prefix and manifest arrive first; store_ms is the rest of the body
-    // streaming into R2 plus R2 finishing the PUT, and body_ms its first part.
+    // store_ms includes both the remaining body transfer and R2 finishing the PUT.
     manifest_ms: manifestReadAt - startedAt,
     inspect_ms: inspectedAt - manifestReadAt,
     body_ms:

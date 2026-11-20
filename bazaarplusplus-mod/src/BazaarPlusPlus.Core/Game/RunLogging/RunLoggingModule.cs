@@ -9,11 +9,6 @@ using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Game.RunLogging;
 
-/// <summary>
-/// Run Logging: turns run lifecycle, run initialization, recorded PvP battles, and replay drains
-/// into runs, run events, and battle-to-run links in the history database. Every host composes it
-/// the same way; the host supplies the store, the snapshot probe, and the battle link.
-/// </summary>
 public sealed class RunLoggingModule : IBppFeature
 {
     private static readonly TimeSpan ReplayPersistenceCompletionGracePeriod = TimeSpan.FromSeconds(
@@ -61,15 +56,8 @@ public sealed class RunLoggingModule : IBppFeature
     private bool _started;
     private bool _stopped;
 
-    /// <summary>
-    /// Builds the module; nothing opens until <see cref="Start"/>. <c>attachBattleToRun</c> links a
-    /// saved battle (battle id) to a run (run id) in the host's battle store.
-    /// <c>subscribeRankRefreshed</c> calls back on the main thread each time the game replaces its
-    /// cached rank; a completed Ranked Run waits for that refresh to record its final rating.
-    /// <c>gameDataEtagResolver</c> reads the ETag of the game's loaded <c>GameData.db</c> when a
-    /// run_started or run_resumed event is written, and must not throw; null where the host does
-    /// not read it.
-    /// </summary>
+    // Rank refresh callbacks arrive on the main thread after the game replaces its cached rating.
+    // The GameData ETag resolver must be safe during run-event writes, including when the host cannot read it.
     public RunLoggingModule(
         IBppEventBus eventBus,
         IRunContext runContext,
@@ -232,7 +220,6 @@ public sealed class RunLoggingModule : IBppFeature
         _runLifecycleSubscription = null;
     }
 
-    // Without the subscription a Ranked Run completes at once with the rating cached at exit.
     private IDisposable? TrySubscribeRankRefreshed()
     {
         if (_subscribeRankRefreshed == null)
@@ -587,8 +574,7 @@ public sealed class RunLoggingModule : IBppFeature
         sessionManager.SetPlayerAccountIdOnce(_playerAccountIdResolver());
         if (string.Equals(_startedEventRunId, session.RunId, StringComparison.Ordinal))
         {
-            // A run the game initializes again in the same session writes no second start event;
-            // the frames held since that initialization still belong to it.
+            // A same-session reinitialization has no new start event, but its queued message frames still belong to this run.
             _messageStream.Attach(session.RunId, sessionManager);
             return session;
         }

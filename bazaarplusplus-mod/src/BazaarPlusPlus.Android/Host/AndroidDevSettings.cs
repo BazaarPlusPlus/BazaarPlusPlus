@@ -2,10 +2,6 @@ using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// Developer-only settings, in the <c>[AndroidDev]</c> section of <c>BazaarPlusPlus.cfg</c>. Each
-/// defaults off, no settings dialog offers it, and the host logs a warning whenever one is on.
-/// </summary>
 internal sealed class AndroidDevSettings
 {
     public AndroidDevSettings(IBppSettingsStore store)

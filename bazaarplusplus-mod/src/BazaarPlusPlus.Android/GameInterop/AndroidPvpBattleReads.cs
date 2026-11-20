@@ -11,13 +11,8 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The Android host's reads for <see cref="PvpBattleCaptureWindow{TMessage}"/>, over IL2CPP
-/// proxies: the opening message's battle, opponent and opponent boards, the player's facts and
-/// boards from the live game state, and each replay part serialized as its message arrives
-/// (<see cref="AndroidReplayMessages"/>), since a proxy is not kept past the call that delivered
-/// it. Every read may throw; the window guards each one. Main thread only.
-/// </summary>
+// Serialize each IL2CPP message before its delivery callback returns because its proxy cannot be
+// retained.
 internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
 {
     public PvpBattleSignal Classify(INetMessage message)
@@ -109,14 +104,10 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
     public IReadOnlyList<PvpBattleCardSnapshot> PlayerBoard(PvpSnapshotSection section) =>
         section == PvpSnapshotSection.Hand ? PlayerHand() : PlayerSkills();
 
-    // Not read on this host: it would enumerate two IL2CPP dictionaries, which no device run has
-    // proved yet.
     public IReadOnlyDictionary<string, int>? PlayerAttributes(INetMessage opening) => null;
 
-    // Not read on this host either: no device run has proved the stash read.
     public IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash() => null;
 
-    // The proxy is serialized now, so the window keeps bytes, never the message.
     public PvpReplayPart KeepReplayPart(PvpReplayStage stage, INetMessage message, string battleId)
     {
         var bytes = stage switch
@@ -134,10 +125,7 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         return PvpReplayPart.Serialized(bytes);
     }
 
-    /// <summary>
-    /// The live player can be read: in a run and outside a fight. The game throws for the fight
-    /// flag before a run has started.
-    /// </summary>
+    // The game's fight flag throws before a run starts.
     public static bool PlayerReadable()
     {
         try
@@ -153,7 +141,6 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         }
     }
 
-    /// <summary>A game sim through the replay serializer, its bytes discarded.</summary>
     public static void SerializeGameSim(INetMessage message) =>
         AndroidReplayMessages.Serialize(AsGameSim(message));
 
@@ -167,8 +154,6 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
     private static int? Attribute(EPlayerAttributeType attribute) =>
         Data.Run?.Player is { } player ? AndroidGameIds.Attribute(player, attribute) : null;
 
-    // One message's bytes, or none when the game's serializer failed: the battle is still
-    // recorded, without its Replay Payload.
     private static byte[] Serialize<T>(T message, string battleId, string part)
         where T : Il2CppObjectBase
     {
@@ -201,8 +186,7 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         }
     }
 
-    // Data.GetCards<Card>(Player, Hand) without its Nullable<EInventorySection> argument: the
-    // cards in Data.Entities the run's player owns in that section.
+    // Walk Data.Entities to avoid the IL2CPP nullable inventory-section argument on Data.GetCards.
     private static List<PvpBattleCardSnapshot> PlayerHand()
     {
         var player = Data.Run?.Player;
@@ -310,8 +294,6 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
             Attributes = Attributes(card.Attributes),
         };
 
-    // The desktop's opening snapshot: the message's card update first, then the card the client
-    // already holds, then the fallback type.
     private static PvpBattleCardSnapshot FromOpening(
         string instanceId,
         SimUpdateCard? update,
@@ -369,8 +351,7 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         };
     }
 
-    // The client's card cache is a fallback for the opening message: a lookup that throws, as it
-    // does outside a run, leaves the message's own fields.
+    // The game's card cache lookup can throw outside a run.
     private static Card? ExistingCard(string instanceId)
     {
         try
@@ -383,7 +364,6 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         }
     }
 
-    // The desktop's CardExtensions.GetEnchantment: only an item card carries one.
     private static EEnchantmentType? Enchantment(Card card)
     {
         var item = card.TryCast<ItemCard>();

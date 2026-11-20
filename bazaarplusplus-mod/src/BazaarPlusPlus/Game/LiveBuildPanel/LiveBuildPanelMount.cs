@@ -10,7 +10,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-/// <summary>Mounts Ten-Win Builds: the desktop's <see cref="LiveBuildPanel"/>.</summary>
 internal sealed class LiveBuildPanelMount : IBppMountable
 {
     private readonly Func<DesktopOverlayPanels?> _overlayHost;

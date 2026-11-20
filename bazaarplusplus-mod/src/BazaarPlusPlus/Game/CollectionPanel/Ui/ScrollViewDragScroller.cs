@@ -4,8 +4,6 @@ using UnityEngine.UIElements;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// Adds touch-style primary-button dragging to a ScrollView without stealing ordinary clicks
-// from the filter controls it contains. The scrollbars and mouse-wheel behavior remain native.
 internal sealed class ScrollViewDragScroller : IDisposable
 {
     private const float DragThresholdPoints = 4f;

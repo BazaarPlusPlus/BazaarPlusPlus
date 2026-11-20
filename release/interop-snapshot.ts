@@ -44,27 +44,14 @@ import type {
   PatcherPin
 } from './snapshot-lock.ts';
 
-// Interop Snapshots (root GLOSSARY.md, ADR 0008). Each Android lock entry
-// (android-<source>, ADR 0019) pins an official build's APKs and the toolchain
-// that turned them into Il2CppInterop assemblies. Locally the snapshot lives at
-// game-libs/android-<source>-<versionCode>/interop/, the Loader Release at
-// game-libs/loader-<tag>/, and other inputs fetched by sha256 under
-// game-libs/inputs/. Each input is stored in the private bucket under its own
-// content address. It also holds checkGameLibsLock, the lock-check gate, which
-// verifies both a Managed directory and the local Interop Snapshot; this is the
-// lowest module that sees both, since it imports game-assembly-snapshot.ts.
-
-/** An Interop Snapshot's manifest.json: its lock entry plus its identity. */
 export interface InteropSnapshotManifest extends InteropLockEntry {
   schemaVersion: typeof SNAPSHOT_MANIFEST_SCHEMA_VERSION;
   platform: 'android';
   channel: AndroidSource;
 }
 
-/** A pinned input of an Android lock entry, stored by its sha256. */
 export type AndroidInputKind = 'apk' | 'loader' | 'patcher' | 'cpp2il';
 
-/** Where an Android input lives and which entry fields pin it. */
 export interface AndroidInput {
   extension: string;
   sha256s: (entry: InteropLockEntry) => string[];
@@ -131,9 +118,6 @@ function androidInputFile(
   );
 }
 
-// Every top-level file of an interop directory, keyed interop/<name>: the
-// proxy assemblies plus the generator's databases and manifest, which the
-// injector packs beside them. Ordinal order, as for Managed.
 export function interopDirectoryRecords(
   interopPath: string
 ): DirectoryRecord[] {
@@ -155,9 +139,7 @@ export function interopDirectoryDigest(interopPath: string): string {
   return hash(JSON.stringify(interopDirectoryRecords(interopPath)));
 }
 
-// Every member name of a gzipped tar, as GNU tar extracts it: pax `path`
-// records and GNU long names resolved. tar -t on macOS hides AppleDouble
-// members, so this reads the headers itself.
+// macOS tar -t hides AppleDouble members, so inspect the headers directly.
 export function tarballEntries(file: string): string[] {
   const bytes = zlib.gunzipSync(fs.readFileSync(file));
   const entries: string[] = [];
@@ -199,9 +181,7 @@ export function tarballEntries(file: string): string[] {
   return entries;
 }
 
-// An interop archive holds `interop/` and its files, nothing else; a member
-// GNU tar would extract beside them (an AppleDouble `._` file, a nested
-// directory) changes the digest on Linux.
+// Extra members, including AppleDouble files, change the digest on Linux.
 export function assertPortableInteropArchive(
   file: string,
   description: string = file
@@ -220,20 +200,17 @@ export function assertPortableInteropArchive(
     );
 }
 
-// What interop-manifest.json is read for; the generator writes more.
 interface InteropGeneratorManifest {
   unityVersion?: string;
   tools?: { cpp2IlVersion?: string; il2CppInteropVersion?: string };
 }
 
-/** The toolchain an interop directory was generated with. */
 interface InteropToolchain {
   unityVersion: string;
   cpp2ilVersion: string;
   il2cppInteropVersion: string;
 }
 
-// The generator records its own toolchain in interop-manifest.json.
 function readInteropManifest(interopPath: string): InteropToolchain {
   const file = path.join(interopPath, 'interop-manifest.json');
   let manifest: InteropGeneratorManifest;
@@ -306,13 +283,10 @@ function lazyStore<Store>(
 const STORE_REMEDY =
   'Fetch from the private store with the Cloudflare operator token (just with-config release just mod::fetch android <source>)';
 
-// Makes one pinned Android input available as a verified local file: the
-// game-libs/inputs/ cache, else the private store.
 export interface FetchAndroidInputOptions {
   modRoot: string;
   kind: AndroidInputKind;
   sha256: string;
-  /** The store, created on first use. */
   store: () => Pick<ObjectStore, 'getFile'>;
   log?: (message: string) => void;
 }
@@ -351,9 +325,7 @@ export async function fetchAndroidInput({
   return file;
 }
 
-// Stores official APKs pulled from a device under their content address, so a
-// Linux runner can capture them (android-apk-watch.yml play_apks). Returns
-// their sha256 values in the order given.
+// Publishing device APKs by digest lets android-apk-watch.yml capture them on Linux.
 export async function uploadApks(
   files: readonly string[],
   store: Pick<ObjectStore, 'head' | 'putFile'>,
@@ -371,9 +343,6 @@ export async function uploadApks(
   return sha256s;
 }
 
-// Whether `directory` holds the Loader Release `loader` (a lock entry's tag and
-// sha256) as ensureLoader unpacked it: the managed loader assemblies and the
-// marker recording the zip's sha256.
 export function isLockedLoader(
   directory: string,
   loader: Pick<LoaderPin, 'sha256'>
@@ -393,8 +362,6 @@ function verifiedLoader(modRoot: string, loader: LoaderPin): string | null {
   return isLockedLoader(directory, loader) ? directory : null;
 }
 
-// Unpacks the Loader Release zip whose sha256 the lock entry pins into
-// game-libs/loader-<tag>/, recording that sha256 beside it.
 interface EnsureLoaderOptions {
   modRoot: string;
   entry: InteropLockEntry;
@@ -446,10 +413,7 @@ async function ensureLoader({
   return directory;
 }
 
-// Runs the Patcher's generate-interop with the pinned Cpp2IL and the
-// Il2CppInterop CLI the Patcher release carries. The Patcher CLI is a Linux x64
-// binary; elsewhere a capture reuses an interop directory generated from the
-// same APK (--interop).
+// The Patcher CLI requires Linux x64. Other hosts reuse output for the same APK via --interop.
 export interface GenerateInteropOptions {
   patcher: string;
   cpp2il: string;
@@ -510,8 +474,6 @@ function defaultNugetRoot(): string {
   );
 }
 
-// Native libraries a host ships beside the loader, pinned by NuGet package:
-// every runtimes/android-arm64/native/*.so of <id>@<version>.
 export function nativeLibsFromPackages(
   packages: readonly string[],
   nugetRoot: string = defaultNugetRoot()
@@ -549,9 +511,7 @@ export function nativeLibsFromPackages(
   return libs;
 }
 
-// The toolchain of a capture: files given on the command line pin a new tag,
-// otherwise the current entry's pins are reused and fetched by sha256.
-// The toolchain files a capture names on the command line; '' reuses a pin.
+// Empty input paths reuse the current toolchain pins.
 interface ToolchainOptions {
   loader: string;
   loaderTag: string;
@@ -568,14 +528,12 @@ interface CaptureToolchainOptions {
   log: (message: string) => void;
 }
 
-// A toolchain file of a capture and the pin it records.
 interface CaptureToolchain {
   loader: { file: string; pin: LoaderPin };
   patcher: { file: string; pin: PatcherPin };
   cpp2il: { file: string; sha256: string };
 }
 
-// What lemonloader-release.json is read for.
 interface LoaderRelease {
   managedRuntimeVersion: string;
 }
@@ -690,11 +648,7 @@ function copyInteropInto(
   }
 }
 
-// Captures an official build as the Android lock entry its versionName names
-// (gameVersionKey): reads its identity, generates (or takes, with `interop`)
-// the Interop assemblies, unpacks the Loader Release, and records the entry.
-// An empty entry takes its toolchain and native libraries from the other
-// source's, so both sources pin one App runtime. Publish uploads every input.
+// An empty entry inherits toolchain and native libraries from the other source so both share one App runtime.
 export interface CaptureInteropSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -715,7 +669,6 @@ export interface CaptureInteropSnapshotOptions {
   log?: (message: string) => void;
 }
 
-/** What an Interop Snapshot capture wrote. */
 export interface CapturedInteropSnapshot {
   key: InteropLockKey;
   directory: string;
@@ -906,7 +859,6 @@ function packInteropArchive(snapshotDirectory: string, temp: string): string {
   return archive;
 }
 
-// Why a stored interop archive cannot serve a Linux fetch, else null.
 async function storedInteropArchiveFault(
   store: Pick<ObjectStore, 'getFile'>,
   key: string,
@@ -932,10 +884,6 @@ async function storedInteropArchiveFault(
     : `it hashes to ${digest}, not the ${entry.interopSha256} the lock entry records`;
 }
 
-// Uploads the interop collection and every pinned input the store lacks, each
-// under its content address, then the manifest under the entry identity. An
-// input already stored is never read locally; the interop archive is read
-// back and verified, since its key is the directory digest, not its own.
 export interface PublishInteropSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -944,13 +892,11 @@ export interface PublishInteropSnapshotOptions {
   log?: (message: string) => void;
 }
 
-/** Where a publish stored an Interop Snapshot. */
 export interface PublishedInteropSnapshot {
   interopKey: string;
   manifestKey: string;
 }
 
-// sources.json: the local files each input was captured from.
 type InteropSources = Partial<Record<AndroidInputKind, string | string[]>>;
 
 export async function publishInteropSnapshot({
@@ -1017,7 +963,6 @@ export async function publishInteropSnapshot({
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
-  // ANDROID_INPUTS is frozen, so its keys are exactly the input kinds.
   const inputs = (Object.keys(ANDROID_INPUTS) as AndroidInputKind[]).flatMap(
     (kind) =>
       ANDROID_INPUTS[kind].sha256s(entry).map((sha256) => ({ kind, sha256 }))
@@ -1056,8 +1001,6 @@ export async function publishInteropSnapshot({
   return { interopKey: interopArchiveKey, manifestKey };
 }
 
-// Resolves an Android lock entry to a local interop directory and Loader
-// Release: verified copies under game-libs/, else the private store.
 export interface FetchInteropSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -1066,10 +1009,8 @@ export interface FetchInteropSnapshotOptions {
   log?: (message: string) => void;
 }
 
-/** Where a resolved Interop Snapshot came from. */
 export type InteropSource = 'snapshot' | 'store';
 
-/** The local interop directory and Loader Release of an Android lock entry. */
 export interface FetchedInteropSnapshot {
   interopPath: string;
   loaderPath: string;
@@ -1153,8 +1094,7 @@ export async function fetchInteropSnapshot({
   };
 }
 
-// The pinned inputs of one kind of an Android lock entry as verified local
-// files: the APKs device setup installs, base first.
+// Device setup expects APKs in install order, with the base APK first.
 export interface FetchLockedAndroidInputOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -1180,10 +1120,6 @@ export async function fetchLockedAndroidInput({
   return files;
 }
 
-// The `just mod::check` gate: a malformed lock fails, empty or stale entries
-// warn, a resolved Managed directory whose game version a lock entry names
-// must hash to that entry, and so must a local Interop Snapshot of each
-// Android entry.
 export interface CheckGameLibsLockOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -1191,13 +1127,10 @@ export interface CheckGameLibsLockOptions {
   now?: Date;
 }
 
-/** What `lock-check` found. */
 export interface GameLibsLockCheck {
   lock: GameLibsLock;
   warnings: string[];
-  /** The resolved Managed directory and the entries it matched. */
   verified: { gameVersion: string; keys: string[] } | null;
-  /** The local Interop Snapshots that matched their Android entries. */
   interop: { key: InteropLockKey; gameVersion: string }[];
 }
 

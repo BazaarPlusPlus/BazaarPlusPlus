@@ -174,10 +174,7 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
                 {
                     _services.EventBus.Publish(new CombatReplayPersistenceDrained());
                 }
-                catch
-                {
-                    // The queue is drained regardless of an observer failure.
-                }
+                catch { }
             }
         }
 
@@ -196,10 +193,7 @@ internal sealed class ReplayPersistenceOrchestrator : IDisposable
         {
             _resultObserver?.Invoke(manifest, succeeded, error);
         }
-        catch
-        {
-            // Persistence remains authoritative even if a UI-facing observer fails.
-        }
+        catch { }
     }
 
     public void Dispose()

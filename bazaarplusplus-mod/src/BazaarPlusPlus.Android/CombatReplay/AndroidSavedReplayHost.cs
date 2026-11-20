@@ -11,12 +11,6 @@ using Il2CppTheBazaar.AppFramework;
 
 namespace BazaarPlusPlus.Android.CombatReplay;
 
-/// <summary>
-/// The Android host's side of Saved Replay Playback (ADR-0020): the main-thread pump every entry
-/// point runs in, the Il2Cpp loader, bootstrap and opponent, the cleanup each exit path runs (no
-/// opening-state restore on this host), the History row probe's short cache, and the
-/// <c>android.replay.*</c> events and counters fed from the module's notices. Records no video.
-/// </summary>
 internal sealed class AndroidSavedReplayHost : ISavedReplayHost
 {
     private readonly SavedReplayOfferCache _offers;
@@ -47,13 +41,11 @@ internal sealed class AndroidSavedReplayHost : ISavedReplayHost
 
     public bool InReplayState => IsInReplayState();
 
-    // The lobby the menu return waits for is the one History's reopen waits for.
     public bool LobbyLoaded => AndroidLobbyScene.IsLoaded();
 
     public bool RecordsVideo => false;
 
-    // Keep the Android notice and unavailable fallback outside the shared cache: a failed probe
-    // must retry on the next request rather than caching the fallback as a missing payload.
+    // Keep the fallback outside the cache so a transient probe failure can be retried.
     public bool CanOfferSavedReplay(string battleId)
     {
         try
@@ -119,7 +111,6 @@ internal sealed class AndroidSavedReplayHost : ISavedReplayHost
         {
             case SavedReplayNoticeKind.StartBegun:
                 Interlocked.Increment(ref _starts);
-                // Read before the start bootstraps: StartBegun precedes the start's first await.
                 BppLog.InfoEvent(
                     new BppLogEvent(BppLogFeatureScope.Android, "android.replay.start_requested"),
                     ("battle_id", notice.BattleId, BppLogCorrelationPolicy.Short),

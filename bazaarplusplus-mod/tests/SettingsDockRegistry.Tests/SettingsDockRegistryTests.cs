@@ -52,8 +52,7 @@ public class SettingsDockRegistryTests
         }
     }
 
-    // A config that binds every entry without touching disk: nothing exists at the path and
-    // SaveOnConfigSet is off, so Bind never writes the file.
+    // Disable SaveOnConfigSet so binding entries never writes the missing config file.
     private static ConfigFile UnsavedConfigFile() =>
         new(
             Path.Combine(Path.GetTempPath(), $"bpp-settings-dock-{Guid.NewGuid():N}.cfg"),
@@ -97,7 +96,6 @@ public class SettingsDockRegistryTests
         var pairs = registry.MaterializeWithOrder(config: null!);
 
         Assert.Equal(2, pairs.Count);
-        // Materialization preserves registration order; sorting is the caller's job.
         Assert.Equal(5, pairs[0].Order);
         Assert.Equal("A", pairs[0].Definition.Key);
         Assert.Equal(1, pairs[1].Order);
@@ -288,7 +286,6 @@ public class SettingsDockRegistryTests
     [InlineData("pt-BR", false, "Prévia detalhada")]
     [InlineData("ko", false, "상세 미리보기")]
     [InlineData("it", false, "Anteprima dettagliata")]
-    // Underscore separators, case, and region subtags match; a longer base code does not.
     [InlineData("zh_CN", false, "详细预览")]
     [InlineData("ZH_hant", true, "詳細預覽")]
     [InlineData("pt_BR", false, "Prévia detalhada")]
@@ -1061,7 +1058,6 @@ public class SettingsDockRegistryTests
             return;
         }
 
-        // The next shown option after the current one; a synthetic current value goes to the first.
         var state = definition.ResolveChoiceState!("en");
         var nextShown = state.HasSyntheticCurrentOption
             ? 1

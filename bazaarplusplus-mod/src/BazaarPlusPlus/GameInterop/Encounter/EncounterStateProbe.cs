@@ -6,7 +6,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.Encounter;
 
-/// <summary>Read-only encounter state module. Keep the id and choice reads cheap.</summary>
 internal sealed class EncounterStateProbe : IEncounterStateProbe
 {
     private readonly Guid[] _pedestalEncounterTemplateId = new Guid[1];
@@ -51,7 +50,6 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
                 var pedestalTemplateId = idsOutcome.Snapshot.CurrentEncounterTemplateId;
                 if (AppState.CurrentState is PedestalState && pedestalTemplateId.HasValue)
                 {
-                    // Resolve does not retain its input, so one slot serves every read.
                     _pedestalEncounterTemplateId[0] = pedestalTemplateId.Value;
                     _choicePedestalOutcome = ChoicePedestalProbeOutcome.Success(
                         ChoiceScreenPedestalResolver.Resolve(_pedestalEncounterTemplateId)
@@ -150,10 +148,8 @@ internal sealed class EncounterStateProbe : IEncounterStateProbe
         }
     }
 
-    // SelectionSet entries are live instance ids (e.g. "ped_XtbgKux"); resolve each
-    // through Data.Entities to its stable template id, which PedestalEnchantCatalog
-    // classifies. The client cannot read the obfuscated pedestal Behavior, so the
-    // template id is the only stable handle. Falls through to a raw template GUID.
+    // SelectionSet carries live instance IDs. Resolve stable template IDs through Data.Entities
+    // because the client cannot read the obfuscated pedestal Behavior.
     private static Guid? ResolveTemplateId(string id)
     {
         if (string.IsNullOrEmpty(id))

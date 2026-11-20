@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { gitEnvironment, runGit } from './git-command.ts';
 
-// A failed execFileSync throws an Error that also carries the exit status.
 interface CommandError extends Error {
   status?: number | null;
 }
@@ -11,8 +10,7 @@ interface CommandError extends Error {
 const root = path.resolve(import.meta.dirname, '..');
 const git = (...args: string[]): string => runGit(args, { cwd: root }).trim();
 
-// Resolve existing symlinks, including parents of a not-yet-created hooks dir.
-// A dangling symlink must fail rather than be mistaken for a missing directory.
+// Resolve symlinks in parent directories too. A dangling link must fail.
 function resolvePath(file: string): string {
   try {
     fs.lstatSync(file);

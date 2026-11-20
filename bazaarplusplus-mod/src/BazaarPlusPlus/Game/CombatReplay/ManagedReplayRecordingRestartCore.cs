@@ -42,11 +42,6 @@ internal readonly record struct ManagedReplayRecordingRestartDecision(
     ) => new(ManagedReplayRecordingRestartAction.CompleteFailed, statusCode, reasonCode, endReason);
 }
 
-/// <summary>
-/// Pure transaction state for promoting one completed managed replay into a recorded restart.
-/// Runtime mutations happen only when the returned action requests them; every failure after the
-/// promotion boundary converges on one terminal action.
-/// </summary>
 internal sealed class ManagedReplayRecordingRestartCore
 {
     private ManagedReplayRecordingRestartPhase _phase;

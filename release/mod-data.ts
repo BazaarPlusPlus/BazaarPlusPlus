@@ -6,26 +6,18 @@ import {
 } from './r2-store.ts';
 import type { ObjectStore } from './r2-store.ts';
 
-/** A name `just release::mod-data` accepts. */
 export type ModDataName = 'supporters' | 'voice-lines' | 'zh-names';
 
-/** Where one mod data file lives under mod-data/, and its smallest size. */
 export interface ModDataEntry {
   key: string;
   minBytes: number;
 }
 
-/** The options of uploadModData; the upload reads and writes only through get and put. */
 export interface UploadModDataOptions {
   store?: Pick<ObjectStore, 'get' | 'put'>;
 }
 
-// Maintainer-uploaded data in mod-data/ of the public bucket,
-// https://cdn.bazaarplusplus.com/mod-data/<key>. The mod refreshes supporters
-// and voice-lines at runtime and embeds a copy at build time
-// (bazaarplusplus-mod/src/BazaarPlusPlus/RemoteEmbeddedData.targets), so their
-// minimum sizes match what that build accepts. zh-names is the game's
-// Simplified Chinese names the QQ daily report reads (scripts/qqbot/zh-names.ts).
+// Minimum sizes must match the mod's RemoteEmbeddedData.targets so builds can embed these files.
 export const MOD_DATA_PREFIX = 'mod-data';
 export const MOD_DATA: Readonly<Record<ModDataName, ModDataEntry>> =
   Object.freeze({
@@ -35,7 +27,6 @@ export const MOD_DATA: Readonly<Record<ModDataName, ModDataEntry>> =
   });
 
 export function modDataObject(name: string, bytes: Buffer): string {
-  // The name comes from the command line, so it may name no entry.
   const entries: Readonly<Partial<Record<string, ModDataEntry>>> = MOD_DATA;
   const entry = entries[name];
   if (!entry)

@@ -6,8 +6,7 @@ using Xunit;
 
 public sealed class RunLogRatingDeltaTests
 {
-    // History shows final_player_rating_delta as the Run's rating change, so a Run whose
-    // starting rating was never captured stores NULL (unknown) rather than 0 (no change).
+    // History displays 0 as no rating change, so an unknown starting rating needs NULL.
     [Fact]
     public void RatingDeltaIsNullWhenTheStartingRatingIsUnknown()
     {

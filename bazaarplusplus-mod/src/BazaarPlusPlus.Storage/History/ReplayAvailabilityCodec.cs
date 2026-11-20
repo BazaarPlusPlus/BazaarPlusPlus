@@ -3,9 +3,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
-// The one mapping between ReplayAvailability and stored columns: ghost_replay_state strings
-// (constrained by the RunLogSchema CHECK) for Ghost rows, local_payload_state for local rows, and
-// favorite_payload_state for a favorite's own replay copy.
 public static class ReplayAvailabilityCodec
 {
     public static ReplayAvailability Parse(string? ghostReplayState) =>

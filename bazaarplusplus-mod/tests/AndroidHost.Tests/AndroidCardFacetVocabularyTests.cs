@@ -8,11 +8,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android card facet adapter maps the interop enums by member name (ADR-0015), so every
-/// member the Interop Snapshot defines must name a card facet member or a documented alias.
-/// Read from the interop assembly's metadata, never loaded: its types resolve only in the game.
-/// </summary>
+// Inspect metadata because these interop types resolve only in the running game.
 public sealed class AndroidCardFacetVocabularyTests
 {
     private const string TypesNamespace = "Il2CppBazaarGameShared.Domain.Core.Types";
@@ -50,7 +46,6 @@ public sealed class AndroidCardFacetVocabularyTests
         );
     }
 
-    // Shared pedestal names must remain valid members of the Android enchantment vocabulary.
     [Fact]
     public void Every_pedestal_enchantment_is_an_interop_enum_member()
     {

@@ -6,8 +6,7 @@ import { CloseIcon } from './icons';
 export interface DialogProps {
   onClose: () => void;
   labelledBy?: string;
-  /** Whether Escape and a click on the backdrop close the dialog. Turn it off
-   *  while the dialog guards work that must finish. */
+  /** Controls Escape and backdrop clicks. Disable while the dialog guards work that must finish. */
   dismissible?: boolean;
   /** Focus the dialog itself instead of its first control. */
   focusContainerOnOpen?: boolean;
@@ -16,13 +15,8 @@ export interface DialogProps {
 }
 
 /**
- * Modal dialog backed by the native <dialog> element. showModal() gives the
- * platform's role="dialog" + aria-modal, the focus trap, initial focus and a
- * top-layer backdrop. The page behind it does not scroll, and focus returns to
- * the control that opened it.
- *
- * Mount it to open and unmount it to close; Escape and backdrop clicks call
- * onClose so the parent drives the open state.
+ * Mount to open and unmount to close. Escape and backdrop clicks call onClose.
+ * The dialog locks page scroll and restores focus to the opener on close.
  */
 export function Dialog({
   onClose,
@@ -33,9 +27,7 @@ export function Dialog({
   children
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
-  // The control that opened the dialog, read once before the first effect: in
-  // StrictMode the effect runs twice, and the second run would see focus
-  // already inside the dialog.
+  // Capture the opener once because a repeated StrictMode effect would see focus inside the dialog.
   const [opener] = useState(() =>
     typeof document !== 'undefined' &&
     document.activeElement instanceof HTMLElement
@@ -65,8 +57,7 @@ export function Dialog({
   }, []);
 
   return (
-    // Keyboard dismissal is the native Escape -> `cancel` path below; the click
-    // handler only adds the pointer-only backdrop affordance.
+    // The native cancel event handles Escape, so the click handler only covers the backdrop.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <dialog
       ref={ref}
@@ -79,7 +70,6 @@ export function Dialog({
         if (dismissible) onClose();
       }}
       onClick={(event) => {
-        // A click on the dialog itself (the backdrop area around the card) closes it.
         if (dismissible && event.target === event.currentTarget) onClose();
       }}
     >
@@ -88,7 +78,6 @@ export function Dialog({
   );
 }
 
-/** The one dialog frame: card, header, body and footer. */
 export function DialogCard({
   size = 'md',
   className,

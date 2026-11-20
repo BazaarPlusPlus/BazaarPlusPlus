@@ -20,29 +20,18 @@ import {
 } from './snapshot-lock.ts';
 import type { GameLibsLock, ManagedPlatform } from './snapshot-lock.ts';
 
-// The Game Status and the Android Game Status (root GLOSSARY.md): the public
-// documents the site's download page reads, built from the Snapshot Lock, and
-// the public store they are written to. downloads.ts owns their object keys
-// and decoders; the game-status and android-game-status verbs of game-libs.ts
-// write them.
-
-/** A branch's Steam state, as steam-stale prints it for game-status. */
 export interface SteamState {
   buildid: string | number;
   /** When the branch last changed, in Unix seconds. */
   updatedAt: number;
 }
 
-// The public Game Status (root GLOSSARY.md) from a Steam state and the lock that
-// records that build, or null while the lock holds another build of an entry:
-// staging and ptr stay private, so only online is ever written.
-/** One desktop platform of the Game Status: its game and `Managed/` digest. */
+// Staging and ptr are password-protected, so only online can be published.
 export interface GameStatusPlatform {
   gameVersion: string;
   managedSha256: string;
 }
 
-/** The public Game Status document; decodeGameStatus in downloads.ts reads it. */
 export interface GameStatusDocument {
   schemaVersion: 1;
   channel: 'online';
@@ -74,16 +63,11 @@ export function gameStatus(
   };
 }
 
-/** The options of gameStatusStoreFromEnvironment; bucket and prefix are fixed. */
 export interface GameStatusStoreOptions {
-  /** The fetch the store sends its R2 requests with. */
   fetchImpl?: FetchImpl;
 }
 
-// The public store the Game Status and the Android Game Status are written to:
-// the release bucket under game-status/. Never the bucket's default installer/
-// prefix: GAME_STATUS_KEY and the Release Manifest are both latest.json, so a
-// Game Status written there would replace the production Release Manifest.
+// Game Status and the Release Manifest both use latest.json. Use game-status/ to avoid overwriting releases.
 export function gameStatusStoreFromEnvironment(
   env: NodeJS.ProcessEnv = process.env,
   { fetchImpl }: GameStatusStoreOptions = {}
@@ -117,11 +101,6 @@ export async function publishGameStatus({
   return status;
 }
 
-// The Android Game Status (root GLOSSARY.md): the android-publisher entry's game
-// and its game code identity, or null while the lock has no such entry. The
-// Android APK watch writes it once the lock, or the lock pull request it
-// opens, records the official APK.
-/** The public Android Game Status document; decodeAndroidGameStatus reads it. */
 export interface AndroidGameStatusDocument extends AndroidGameStatus {
   schemaVersion: 1;
 }

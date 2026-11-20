@@ -1,13 +1,8 @@
 @import 'tailwindcss';
 @import './tokens.css';
-/* The Tailwind bridge: utilities read the tokens above (bg-panel, text-text-2,
-   text-body). design/build.ts generates it from design/tokens.json. */
 @import '../../../design/tailwind-theme.css';
-/* The shared bpp-* components; design/components/bundle.css owns them. */
 @import '../../../design/components/bundle.css';
 
-/* Windows swaps in Noto Sans SC once the optional background download lands
-   (features/shared/notoSansSc.ts). */
 html[data-bpp-platform='windows'] {
   --font-ui:
     'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI',
@@ -42,7 +37,6 @@ body {
   flex-direction: column;
 }
 
-/* ── Install ───────────────────────────────────────────────────────── */
 .bpp-install-status-top {
   display: flex;
   min-width: 0;
@@ -78,7 +72,6 @@ body {
   font-size: var(--type-caption);
 }
 
-/* ── History ───────────────────────────────────────────────────────── */
 .bpp-history-overview-bar {
   display: flex;
   min-width: 0;
@@ -156,7 +149,6 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
-/* Each run is a card led by its end-of-run board screenshot. */
 .bpp-history-run-list {
   display: flex;
   flex-direction: column;
@@ -183,8 +175,6 @@ body {
 .bpp-history-run-card:focus-visible {
   outline-offset: 2px;
 }
-/* Keep the reference composition at every width: the strip sets the row
-   height, and the facts scale with the list using container-relative type. */
 .bpp-history-run-preview {
   display: flex;
   min-width: 0;
@@ -232,7 +222,6 @@ body {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-/* Wins and rating lead; days and the full timestamp remain supporting facts. */
 .bpp-history-run-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -330,7 +319,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Run detail ────────────────────────────────────────────────────── */
 .bpp-run-detail-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -393,7 +381,6 @@ body {
   color: var(--text-2);
 }
 
-/* ── About ─────────────────────────────────────────────────────────── */
 .bpp-credit-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -459,11 +446,8 @@ details[open] > .bpp-panel-summary > svg {
   rotate: 180deg;
 }
 
-/* ── Native-feel base: this is a desktop app, not a web page ─────────── */
 @layer base {
-  /* Desktop apps use the arrow cursor everywhere; only text fields get a
-     caret. Listed explicitly so this beats Preflight's button cursor, while
-     Tailwind cursor-* utilities (utilities layer) still win where opted in. */
+  /* Explicit selectors override Preflight cursors while allowing utility-layer overrides. */
   *,
   *::before,
   *::after {
@@ -505,7 +489,6 @@ details[open] > .bpp-panel-summary > svg {
   }
 }
 
-/* Thin, themed scrollbars everywhere. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
@@ -527,7 +510,6 @@ details[open] > .bpp-panel-summary > svg {
   background-color: #4a4640;
 }
 
-/* Respect the OS "reduce motion" setting. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

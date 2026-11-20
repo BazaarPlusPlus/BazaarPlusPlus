@@ -23,7 +23,6 @@ internal static class AndroidMotion
         }
         catch
         {
-            // No reliable preference: keep navigation usable without spatial motion.
             return false;
         }
         finally

@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-/// <summary>
-/// Separates frames that can be encoded from wall-clock slots skipped by the pacer. Successful
-/// native frames are packed at consecutive CFR timestamps; putting a PTS gap behind a renderer
-/// hitch would make the preceding frame visibly freeze and inflate duration.
-/// </summary>
+// A PTS gap after a renderer hitch would stretch the preceding frame and inflate the video's duration.
 internal readonly record struct NativeFrameSubmissionPlan(
     int EncodeFrameCount,
     int TimelineFrameCount,

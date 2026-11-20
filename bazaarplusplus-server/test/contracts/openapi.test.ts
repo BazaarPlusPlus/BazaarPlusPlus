@@ -29,7 +29,6 @@ async function fetchDocument(): Promise<OpenApiDocument> {
   return response.json();
 }
 
-// The documented success schema for one route and status, straight from the route table.
 function documentedSchema(
   path: string,
   method: string,
@@ -53,7 +52,6 @@ function documentedSchema(
 }
 
 describe('the OpenAPI document', () => {
-  // The rendered document is reviewed as a diff like every other golden.
   test('matches its golden', async () => {
     const document = await fetchDocument();
     await expect(`${JSON.stringify(document, null, 2)}\n`).toMatchFileSnapshot(

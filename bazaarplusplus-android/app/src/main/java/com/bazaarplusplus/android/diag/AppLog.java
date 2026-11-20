@@ -12,11 +12,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/**
- * The App's own log lines: logcat, and {@code files/logs/app.log} in internal storage so a
- * diagnostics export after a failed launch still has them. The file keeps one previous
- * generation ({@code app.log.1}) once it passes {@link #LIMIT}.
- */
 public final class AppLog {
     static final long LIMIT = 256 * 1024;
     private static File file;

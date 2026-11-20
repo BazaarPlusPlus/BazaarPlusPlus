@@ -123,8 +123,7 @@ internal sealed class PortraitResourceCache
                 catch (Exception ex)
                     when (ex is IOException or UnauthorizedAccessException or JsonException) { }
             }
-            // Only the first upgraded session probes anonymous old entries. Retained v2
-            // aliases or never-used skins must not delay every future unknown portrait.
+            // Probe anonymous entries only once because obsolete aliases can delay every unknown portrait.
             var marker = Path.Combine(links, "migration-v1.done");
             if (!_unmapped.IsEmpty && !File.Exists(marker))
             {

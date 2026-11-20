@@ -10,7 +10,6 @@ internal sealed class TestGameStateProbe : IGameStateProbe
     public bool ComputeIsInGameRun() => Result;
 }
 
-/// <summary>Stands in for the game's service manager; a null <see cref="Paused"/> means none exists.</summary>
 internal sealed class TestPauseControl : ICombatPauseControl
 {
     public bool? Paused { get; set; }

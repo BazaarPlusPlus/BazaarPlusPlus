@@ -1,14 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure;
 
-/// <summary>
-/// Main-thread-only cache for asynchronous reference-type loads. Cached null values are retained
-/// as negative results; callers decide whether each completed load is cacheable.
-/// </summary>
-/// <remarks>
-/// This type is deliberately unsynchronized and must not be used across threads. It performs no
-/// logging and has no Unity or BepInEx dependencies; callers own environment-specific policy.
-/// </remarks>
+// Main-thread use only. Cached nulls represent negative results and must survive a lookup.
 public sealed class AsyncLoadCache<TKey, TValue>
     where TKey : notnull
     where TValue : class

@@ -4,11 +4,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// A captured PvP card's facets, as <see cref="AndroidCardFacets"/> maps the interop values the
-/// battle reads take: each member keeps its name, a type the facets lack fails the read, and an
-/// unnamed size, section or socket is none, as on the desktop.
-/// </summary>
 public sealed class AndroidCardFacetsCapturedTests
 {
     [Fact]

@@ -10,9 +10,7 @@ using TheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 
-// Native CardTooltipTypeHandler renders the localized title before positioning the tooltip.
-// Append the official zh-CN title at that seam so layout includes the subtitle and the active
-// game locale never needs to be switched.
+// Patch RenderCardUI before native positioning so the layout includes the subtitle.
 [HarmonyPatch(typeof(CardTooltipTypeHandler), "RenderCardUI")]
 internal static class BilingualItemNamePatch
 {
@@ -45,7 +43,6 @@ internal static class BilingualItemNamePatch
                 return;
             }
 
-            // The secondary title is English only when the active game locale is Chinese.
             if (!BilingualItemNameSubtitle.TryShow(controller, subtitle, currentLanguageIsChinese))
             {
                 BilingualItemNameSubtitle.Hide(controller);
@@ -67,9 +64,8 @@ internal static class BilingualItemNamePatch
     }
 }
 
-// Hero-level and PVP-opponent tooltips reuse the same pooled CardTooltipController but bypass
-// CardTooltipTypeHandler.RenderCardUI. Clear the BPP-owned subtitle at their shared native reset
-// seam so the previous card's translated name cannot leak beneath a non-card header.
+// Hero-level and PvP tooltips bypass RenderCardUI but reuse its controller. Clear the
+// subtitle at the shared reset seam to prevent the previous name from leaking.
 [HarmonyPatch(typeof(CardTooltipController), nameof(CardTooltipController.ResetValues))]
 internal static class BilingualItemNameResetPatch
 {

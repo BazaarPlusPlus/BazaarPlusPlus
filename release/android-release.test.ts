@@ -64,23 +64,11 @@ import type {
 } from './publish.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
 
-// The Android release job end to end, without the Android SDK, Gradle or R2:
-// prepare stages the Android Mod Payload from a stand-in host build; build
-// stages the Android App Runtime, runs a stand-in Gradle build, zipalign and
-// apksigner, packs the Interop Package and signs its statement with a
-// throwaway RSA key; upload and promote write to an in-memory store. Failure
-// modes: a host build that misses a required inventory file, an interop
-// directory that is not the locked one, a Payload changed after preparation,
-// an App signed by another key or packaging another runtime, a keystore
-// whose certificate did not sign the App, and an Interop Package key that
-// holds other bytes.
-
 const KEY = 'android-aarch64';
 const COMMIT = 'c'.repeat(40);
 const SIGNATURE = 'untrusted comment: signature from tauri secret key\nRUQ=';
 const sha = (bytes: string | NodeJS.ArrayBufferView): string =>
   crypto.createHash('sha256').update(bytes).digest('hex');
-// The stand-in host build's Updater plugin, part of the App's runtime.
 const UPDATER_SHA256 = sha(
   'bytes of MelonLoader/Plugins/BazaarPlusPlus.Updater.dll'
 );
@@ -101,7 +89,6 @@ interface ThrowawayKey {
   sha256: string;
 }
 
-// Two throwaway release keys: the one that signs, and a stranger.
 let keys: { release: ThrowawayKey; stranger: ThrowawayKey };
 let keyRoot: string;
 function throwawayKey(name: string): ThrowawayKey {
@@ -178,9 +165,7 @@ case "$1" in
     echo "${label} certificate SHA-256 digest: ${signer}" ;;
 esac`;
 
-// What Gradle's assembleRelease packages from -Pbpp.runtimeDir: assets/ as
-// is, jniLibs/<abi>/ as lib/<abi>/, beside the App's own code. `edit`
-// changes the staged files on their way into the APK.
+// Gradle packages runtime jniLibs/<abi>/ under lib/<abi>/ in the APK.
 interface GradleCall {
   version: string;
   versionCode: number;
@@ -222,8 +207,6 @@ function fakeGradle(
   };
 }
 
-// The stand-in for exportReleaseKey: the throwaway key and certificate
-// copied into `into`, which the build must remove.
 function releaseKeyFrom(
   key: ThrowawayKey,
   exported: string[]
@@ -255,7 +238,6 @@ function fixture() {
       fs.readFileSync(path.join(WORKSPACE_ROOT, file))
     );
   const tools = path.join(workspaceRoot, 'tools');
-  // One Interop Snapshot per Android source (ADR 0019).
   const interopPaths = {
     publisher: path.join(tools, 'interop'),
     play: path.join(tools, 'interop-play')
@@ -330,8 +312,6 @@ function fixture() {
     playEntry: lock.entries[interopKey('play')],
     writeLock,
     lock,
-    // Re-collecting the Snapshot Lock with another SourceGear.sqlite3: only
-    // the native library pin changes, not the game, loader or interop.
     upgradeNativeLib: (bytes: string) => {
       write(nativeLib, bytes);
       for (const source of ANDROID_SOURCES)
@@ -378,9 +358,6 @@ type Fixture = ReturnType<typeof fixture>;
 const version = (workspaceRoot: string): string =>
   fs.readFileSync(path.join(workspaceRoot, 'VERSION'), 'utf8').trim();
 
-// What the Android host's CopyToPayloadStaging target writes: every
-// MSBuild-produced MelonLoader entry of the inventory (the Managed Payload and
-// the Updater plugin), minus `omit`.
 function stageHostBuild(
   workspaceRoot: string,
   payloadRoot: string,
@@ -432,7 +409,6 @@ const promote = (
     baseUrl: RELEASE_BASE_URL,
     store,
     releaseSignerSha256: keys.release.sha256,
-    // The mainland mirror is product-release.test.ts's concern.
     withoutMainlandMirror: true,
     ...extra
   });
@@ -457,7 +433,6 @@ test('prepare stages exactly the mod-built MelonLoader entries and seals them', 
     metadataSha256: f.entry.metadataSha256,
     interopSha256: f.entry.interopSha256
   });
-  // The Play adaptation compiles against its own entry and interop.
   expect(records.play.lockEntry).toMatchObject({
     key: 'android-play',
     gameVersion: f.playEntry.gameVersion,
@@ -511,7 +486,6 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
       })
     })
   ).rejects.toThrow(/not the .* lock entry android-publisher records/);
-  // A -p:LemonLoaderPath override must still be the locked Loader Release.
   await expect(
     prepareAndroidPayload({
       ...f.options,
@@ -619,7 +593,6 @@ test('a release builds and signs its Android App and Interop Package, then strea
     });
   expect(play.interop.sha256).not.toBe(publisher.interop.sha256);
 
-  // The App carries the runtime with the fragment's digest.
   const apk = path.join(paths.root, manifest.app.path);
   const entries = readZipEntries(fs.readFileSync(apk));
   expect(entries.map(({ name }) => name)).toEqual(
@@ -638,8 +611,7 @@ test('a release builds and signs its Android App and Interop Package, then strea
     updaterSha256: UPDATER_SHA256
   });
 
-  // The App runs its own release with no download: both zips and the document
-  // that names them, with no `app`, because an APK cannot describe itself.
+  // The carried release supports offline launch and omits the APK's own digest.
   const appPath = path.join(paths.root, manifest.app.path);
   const carried = JSON.parse(
     String(
@@ -672,8 +644,6 @@ test('a release builds and signs its Android App and Interop Package, then strea
       ).equals(fs.readFileSync(path.join(paths.root, file)))
     ).toBe(true);
 
-  // The Interop Package is the locked snapshot at its content address, with
-  // a `release <version>` statement the release certificate verifies.
   const interopZip = fs.readFileSync(
     path.join(paths.root, publisher.interop.path)
   );
@@ -683,7 +653,6 @@ test('a release builds and signs its Android App and Interop Package, then strea
     `${INTEROP_ASSET_ROOT}/Assembly-CSharp.dll`,
     `${INTEROP_ASSET_ROOT}/Il2Cppmscorlib.dll`
   ]);
-  // Each statement binds its own zip to its own game.
   for (const [adaptation, entry] of [
     [publisher, f.entry],
     [play, f.playEntry]
@@ -713,14 +682,12 @@ test('a release builds and signs its Android App and Interop Package, then strea
       })
     ).toBe(true);
   }
-  // Key material sat outside the workspace and is gone.
   expect(f.exportedKeys).toHaveLength(2);
   expect(f.exportedKeys[0].startsWith(f.workspaceRoot)).toBe(false);
   expect(fs.existsSync(path.dirname(f.exportedKeys[0]))).toBe(false);
   expect(fs.existsSync(paths.work)).toBe(false);
 
-  // The Managed Payload: the signed manifest and the Mods and UserLibs it
-  // names; the Updater plugin ships only inside the App.
+  // The Updater ships only inside the App.
   const zipEntries = zipNames(
     path.join(paths.root, publisher.managedPayload.path)
   );
@@ -773,7 +740,6 @@ test('a release builds and signs its Android App and Interop Package, then strea
     'nonManagedPayloadDigest',
     'adaptations'
   ]);
-  // A second upload of the same build is a no-op on every immutable key.
   const writes = store.writes.length;
   await upload(f, store);
   expect(store.writes.length).toBe(writes);
@@ -811,8 +777,6 @@ test('the next release ships its own App, keeps the stored Interop Package, and 
     return putFile(key, ...rest);
   };
   const fragment = await upload(f, store, { log });
-  // The same snapshot is the same object: nothing to upload for it, not even
-  // a refused transfer.
   const payloads = ANDROID_SOURCES.map((source) =>
     androidManagedPayloadKey(next, source)
   );
@@ -829,7 +793,6 @@ test('the next release ships its own App, keeps the stored Interop Package, and 
   expect(fragment.nonManagedPayloadDigest).toBe(
     promotedFragment.nonManagedPayloadDigest
   );
-  // Installed Apps take it as a Managed Payload; a new install gets its App.
   expect(fragment.selfUpdatable).toBe(true);
 });
 
@@ -868,7 +831,6 @@ test('a native library change alone is a new non-managed payload, so installed A
   expect(fragment.nonManagedPayloadDigest).not.toBe(
     first.nonManagedPayloadDigest
   );
-  // The new native library needs the new App: no self-update onto it.
   expect(fragment.selfUpdatable).toBe(false);
   const apk = path.join(androidPaths(f.workspaceRoot).root, manifest.app.path);
   expect(
@@ -893,7 +855,6 @@ test('an upload that stopped before its fragment completes by uploading the same
   await upload(f, store);
   expect(store.writes.at(-1)).toBe(fragmentKey(current, KEY));
 
-  // A rebuilt App has other bytes; the stored one is never replaced.
   const other = new MemoryStore();
   await other.put(manifest.app.key, Buffer.from('another APK'), {
     ifNoneMatch: true
@@ -901,7 +862,6 @@ test('an upload that stopped before its fragment completes by uploading the same
   await expect(upload(f, other)).rejects.toThrow(
     `Immutable release object differs: ${manifest.app.key}`
   );
-  // Nor are other bytes at the Interop Package's content address.
   const poisoned = new MemoryStore();
   await poisoned.put(
     manifest.adaptations.publisher.interop.key,
@@ -1105,7 +1065,6 @@ test('the signing key and the build-tools resolve from the staged secrets and th
     zipalign: path.join(sdk, 'build-tools/37.0.0/zipalign'),
     apksigner: path.join(sdk, 'build-tools/37.0.0/apksigner')
   });
-  // The App's toolchain lock wins over a newer install.
   expect(resolveBuildTools(env, { lockedVersion: '36.1.0' })).toEqual({
     zipalign: path.join(sdk, 'build-tools/36.1.0/zipalign'),
     apksigner: path.join(sdk, 'build-tools/36.1.0/apksigner')

@@ -45,9 +45,7 @@ export function ShellUpdateModal({
     action === 'install' || action === 'retry-install'
       ? updater.install
       : updater.restart;
-  // The mainland mirror only helps users on that side of the network, and the
-  // zh locale is the closest signal the frontend has for them. The address is
-  // whatever the Release Manifest published for this host, or nothing.
+  // Use the locale as the available signal for users who may need the Mainland Mirror.
   const mainlandDownloadUrl =
     presentation.offersMainlandMirror && locale === 'zh'
       ? updater.mainlandDownloadUrl

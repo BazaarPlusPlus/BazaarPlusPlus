@@ -110,7 +110,6 @@ export type DownloadPageCopy = {
   versionUnavailable: string;
   adaptedGameLabel: string;
   onlineGameLabel: string;
-  /** The conclusion beside the online game when it is the adapted one. */
   adapted: string;
   notAdapted: string;
   versionFailed: string;
@@ -132,11 +131,8 @@ export type DownloadPageCopy = {
   android: {
     title: string;
     arch: string;
-    /** The status badge beside the title. */
     badge: string;
-    /** What experimental means, beneath the platform header. */
     notice: string;
-    /** Where the player installs the official game from, beside each adapted game. */
     sources: Record<AndroidSource, string>;
     sizeLabel: string;
     sha256Label: string;
@@ -145,19 +141,14 @@ export type DownloadPageCopy = {
     checksumFailed: string;
     actionLabel: string;
     mainlandActionLabel: string;
-    /** Followed by the QQ group number on the feedback button. */
     feedbackGroup: string;
-    /** The feedback button's tooltip: clicking copies the group number. */
     feedbackCopy: string;
-    /** Replaces the feedback button's label for a moment after copying. */
     feedbackCopied: string;
     stepsTitle: string;
     steps: { title: string; body: string }[];
-    /** Differences from the official app, expanded on demand. */
     limitsTitle: string;
     limits: string[];
   };
-  /** The install notes cover only Windows and macOS; Android has its own steps on its card. */
   desktopNoteTitle: string;
   noteParagraphs: string[];
 };

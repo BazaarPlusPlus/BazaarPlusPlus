@@ -85,8 +85,7 @@ internal static class PortraitCompositionMatcher
                 }
                 else if (error < _errors[pair.Id])
                 {
-                    // Keep the first observation's position, as the dictionary did: the
-                    // refinement's floating-point sums depend on this traversal order.
+                    // Preserve first-observation order because it affects refinement's floating-point sums.
                     _errors[pair.Id] = error;
                     _pairs[index] = pair;
                 }
@@ -173,7 +172,6 @@ internal static class PortraitCompositionMatcher
                 continue;
             if (best == null || Quality(fit) > Quality(best))
                 best = fit;
-            // A well-supported match can finish before the remaining proxy poses are built.
             if (
                 fit.Inliers >= 14
                 && fit.SpreadX >= 0.2f
@@ -326,8 +324,6 @@ internal static class PortraitCompositionMatcher
     {
         if (pairs.Count < 7)
             return null;
-        // MatchImages assigns dense target IDs. Reuse one selection across every trial
-        // and refinement instead of allocating a dictionary and list for each one.
         var selection = new InlierSelection(pairs.Max(p => p.Id) + 1);
         var rng = new Random(731);
         PortraitComposition? best = null;

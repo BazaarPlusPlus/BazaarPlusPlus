@@ -16,7 +16,6 @@ import { tauriSourceEnvironment } from './tauri-source-env.ts';
 
 const GENERATED_COMMANDS_FILE = 'commands.ts';
 
-// Runs the binding export; execFileSync fits it.
 export type BindingExportRunner = (
   file: string,
   args: string[],
@@ -34,7 +33,6 @@ export interface RunGenerateBindingsOptions {
   run?: BindingExportRunner;
 }
 
-// Every input whose change can alter the exported bindings.
 export const BINDING_INPUT_PATHS = Object.freeze([
   'src-tauri/src',
   'src-tauri/Cargo.toml',
@@ -42,9 +40,6 @@ export const BINDING_INPUT_PATHS = Object.freeze([
   'scripts/generate-bindings.ts'
 ]);
 
-// Pure staleness decision. `generatedMtimeMs` is null when the committed
-// bindings are absent; `inputMtimesMs` is empty when no input could be read.
-// Both cases force a regeneration rather than a silent skip.
 export function bindingsAreFresh(
   generatedMtimeMs: number | null,
   inputMtimesMs: readonly number[]

@@ -73,8 +73,7 @@ export default defineConfig({
     ]
   },
   plugins: lazyPlugins(() => [react(), tailwindcss()]),
-  // The Web component library lives in ../design/ui (docs/adr/0018). Its files
-  // resolve React from this project: they have no node_modules of their own.
+  // Shared @bpp/ui files resolve React from the site because design/ui has no node_modules.
   resolve: {
     alias: {
       '@bpp/ui': fileURLToPath(

@@ -55,7 +55,6 @@ public class EncounterRequirementTests
             },
         };
 
-        // The compiler serializes typed templates before parsing the event groups.
         var token = EncounterStructuredParser.TryPrepareToken(source);
         Assert.True(Choices.TryParseEventOutcomeGroups(token, out var groups));
         var reward = Assert.Single(Assert.Single(groups).QueryPools).Filter;
@@ -84,7 +83,6 @@ public class EncounterRequirementTests
         );
         var groupsToken = (Newtonsoft.Json.Linq.JArray)
             token.SelectToken("SelectionContext.SpawnContext.Groups")!;
-        // GameData treasure chest monster brackets: [2,4), [4,7), [7,10), [10,infinity).
         foreach (var (lower, upper) in new[] { (2, 4), (4, 7), (7, 10), (10, int.MaxValue) })
         {
             groupsToken.Add(
@@ -124,9 +122,7 @@ public class EncounterRequirementTests
 
     private static readonly Guid PackageId = Guid.Parse("b0000000-0000-0000-0000-000000000001");
 
-    // Runtime templates lose $type and serialize enum tags numerically; a numeric
-    // Comparison must still parse ("2" = GreaterThanOrEqual is positional — verify
-    // via names to stay robust against enum reordering).
+    // Runtime templates omit $type and serialize enums as numbers. Resolve via names to tolerate enum reordering.
     [Fact]
     public void Requirements_parse_from_prerequisites_without_type_markers()
     {

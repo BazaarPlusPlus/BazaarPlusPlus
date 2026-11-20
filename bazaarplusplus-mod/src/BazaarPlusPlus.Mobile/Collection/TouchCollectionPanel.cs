@@ -15,19 +15,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Collection;
 
-/// <summary>
-/// The Collection panel on a mobile platform (#396). Core's
-/// <see cref="CollectionViewState"/> owns every filter, the search, the sort and the render model,
-/// as it does on desktop; this class draws that model in uGUI over the host's touch canvas and
-/// forwards each tap back as a view-state command. The geometry is Core's
-/// <see cref="CollectionTouchLayout"/> inside the safe area (#425): the shared header (title, tabs,
-/// search, close), the filter rail and a grid whose column count follows its width, laid out again
-/// when the screen changes. The grid shows the game's own card prefabs through the card rental;
-/// the catalog, the run and the rest of the host's services come in
-/// <see cref="TouchCollectionData"/>. It is a Main Overlay Panel (<see cref="TouchCollectionEntry"/>):
-/// the Overlay Panel Host opens and closes it, and its own close button and a failed relayout
-/// request the close. Differences from desktop are listed in <c>docs/architecture/collection.md</c>.
-/// </summary>
 internal sealed class TouchCollectionPanel
 {
     private readonly TouchCollectionData _data;
@@ -41,11 +28,9 @@ internal sealed class TouchCollectionPanel
     private readonly List<ScrollTracker> _trackers = new();
     private CollectionTouchLayout _layout = null!;
 
-    // The tree for the current screen; none after a build failed, and Open builds again.
     private readonly TouchViewSlot<GameObject> _tree;
 
-    // An open panel lays out again only once the screen key holds still and no card is setting
-    // up, as Ten-Win Builds does; Open still rebuilds at once for a changed screen.
+    // While open, defer relayout until card setup has settled. Open handles screen changes immediately.
     private readonly TouchRelayoutDebounce _relayout = new(string.Empty);
     private NativeSkin _skin = null!;
     private TouchPlates? _plates;
@@ -86,7 +71,6 @@ internal sealed class TouchCollectionPanel
         _requestClose = requestClose ?? throw new ArgumentNullException(nameof(requestClose));
         _state = new CollectionViewState(_port, data.Sources, data.DayTiers, data.HeroPreference);
         _tree = new TouchViewSlot<GameObject>(DropTree);
-        // A failed first build leaves no tree: the first Open builds again.
         var key = TouchScreen.Key();
         if (
             _tree.Rebuild(key, () => Build(key), exception => LayoutFailed(exception, "", false))
@@ -105,16 +89,13 @@ internal sealed class TouchCollectionPanel
         }
     }
 
-    /// <summary>Times the open panel was laid out again for a new screen.</summary>
     public long Relayouts { get; private set; }
 
-    /// <summary>False when no tree could be built for the screen: the panel stays closed.</summary>
     public bool Open(string source)
     {
         if (IsOpen)
             return true;
         if (
-            // No tree first: after a failed build the skin may be the partial one's, or none.
             (_tree.View == null || _skin.NeedsRefresh || !_tree.IsCurrent(TouchScreen.Key()))
             && !Relayout()
         )
@@ -130,7 +111,6 @@ internal sealed class TouchCollectionPanel
         var cached = _data.Catalog.Cached;
         var inRun = _data.Run.IsInRun();
         var day = inRun ? _data.Run.Day() : null;
-        // A failed hero-preference load opens on the default hero; the panel does not report it.
         var opened = _state.Open(
             inRun
                 ? CollectionOpenFacts.InRun(
@@ -146,8 +126,7 @@ internal sealed class TouchCollectionPanel
         root.transform.SetAsLastSibling();
         if (cached != null)
         {
-            // The open's render has not run the query yet and the accept's supersedes it, so
-            // draw the rail once, keeping the open's scroll resets.
+            // Accept supersedes the render from Open. Preserve Open's scroll resets when drawing once.
             var accepted = _state.AcceptCatalog(cached);
             Render(
                 new CollectionRenderOutcome(
@@ -178,7 +157,6 @@ internal sealed class TouchCollectionPanel
     {
         // Hero taps only stage the preference; it reaches disk once per close.
         _data.HeroPreference.Flush();
-        // A relayout that failed while open left no tree: the host's close still ends the view state.
         var treeLost = _treeLost;
         _treeLost = false;
         if (!IsOpen && !treeLost)
@@ -190,7 +168,6 @@ internal sealed class TouchCollectionPanel
             _grid.Scroll.enabled = true;
         }
         _loading = false;
-        // The render is discarded: the root deactivates below.
         _state.Close();
         if (!treeLost)
         {
@@ -207,18 +184,12 @@ internal sealed class TouchCollectionPanel
         );
     }
 
-    /// <summary>Main thread, on app pause: writes a hero choice staged by the open panel.</summary>
     public void FlushHeroPreference() => _data.HeroPreference.Flush();
 
-    /// <summary>
-    /// A back step the panel answers before it closes: the inspected card, then an expanded rail
-    /// picker. The Overlay Panel Host reads it as the panel's modal.
-    /// </summary>
     public bool HasModalBackStep =>
         IsOpen
         && (_inspection.IsOpen || (_expandedPicker != RailPicker.None && _railModel != null));
 
-    /// <summary>The back key's modal step: the inspected card animates closed, else the picker collapses.</summary>
     public void DismissModalBackStep()
     {
         if (!IsOpen || _inspection.HandleBack())
@@ -227,7 +198,6 @@ internal sealed class TouchCollectionPanel
             SelectRail(model, null, "collapse");
     }
 
-    /// <summary>Main thread, every frame: loads the catalog, debounces the search, fills the grid.</summary>
     public void Tick()
     {
         if (!IsOpen)
@@ -258,10 +228,6 @@ internal sealed class TouchCollectionPanel
             tracker.Tick(pressed, _layout.Metrics.UnitsPerDp);
     }
 
-    // The panel's uGUI tree for the current screen, from Core's CollectionTouchLayout. Every
-    // geometry is in canvas units from the safe area and the density; a new screen builds a new
-    // tree (Relayout) and renders the same view state into it. A build that throws destroys its
-    // partial root, opaque and active until its last lines, before the exception leaves.
     private GameObject Build(string key)
     {
         var layout = _layout = CollectionTouchLayout.For(TouchScreen.Read());
@@ -278,7 +244,6 @@ internal sealed class TouchCollectionPanel
             Vector2.zero,
             Vector2.zero
         );
-        // Opaque: the panel covers the whole screen, and nothing of the scene shows through.
         var background = UiKit.PanelColor;
         background.a = 1f;
         try
@@ -306,7 +271,6 @@ internal sealed class TouchCollectionPanel
         return root.gameObject;
     }
 
-    // Everything under the root, which Build destroys when this throws.
     private void BuildContent(RectTransform root, Color background, CollectionTouchLayout layout)
     {
         var chrome = layout.Chrome;
@@ -315,9 +279,8 @@ internal sealed class TouchCollectionPanel
 
         var gridArea = TouchScreen.Child("Grid", root, layout.Grid);
         _grid = new TouchCollectionGrid(gridArea, _port, Inspect, _font, chrome.BodyFont);
-        // The grid's RectMask2D does not clip the rented cards (their prefab carries its own
-        // canvas), so the grid draws first and opaque bands above and below it hide the cards
-        // scrolled past its edges; the header and the rail draw over those.
+        // Rented cards carry canvases that bypass RectMask2D. Draw opaque bands over
+        // the grid edges to hide cards scrolled out of view.
         Band(root, background, new TouchRect(0f, 0f, metrics.CanvasWidth, layout.Grid.Top));
         Band(
             root,
@@ -398,9 +361,6 @@ internal sealed class TouchCollectionPanel
     private static BppLogEvent Scrolled() =>
         new(BppLogFeatureScope.Touch, "touch.collection.scrolled");
 
-    // The screen changed under the panel: the old tree returns its cards, and a tree laid out for
-    // the new screen renders the same view state. A build that throws leaves no tree, never the
-    // destroyed one: the panel reads closed and the next Open builds again (LayoutFailed).
     private bool Relayout()
     {
         var before = _tree.ScreenKey;
@@ -433,7 +393,6 @@ internal sealed class TouchCollectionPanel
         return true;
     }
 
-    // The old tree goes with its inspected card and its rented cards.
     private void DropTree(GameObject root)
     {
         _inspection.Close("relayout");
@@ -441,9 +400,6 @@ internal sealed class TouchCollectionPanel
         UnityEngine.Object.Destroy(root);
     }
 
-    // The build threw and destroyed its partial root. The retry finds no tree, and its inspection
-    // and grid may belong to that partial one, whose cards go back here, so it touches neither.
-    // An open panel requests the host's close, which ends the view state (Close).
     private void LayoutFailed(Exception exception, string before, bool open)
     {
         _grid?.ReturnAll();
@@ -487,7 +443,6 @@ internal sealed class TouchCollectionPanel
 
     private void RefreshSupporterButton(bool sample = false)
     {
-        // Late catalog arrival fills the credit once, without resetting filters or rotating names.
         if (sample)
         {
             _headerSupporters = _data.Supporters?.Next(1) ?? Array.Empty<BPPSupporterSample>();
@@ -511,10 +466,7 @@ internal sealed class TouchCollectionPanel
         RenderTab(_itemsTab, CollectionTabKind.Items, CollectionPanelText.ItemsTab(), model);
         RenderTab(_skillsTab, CollectionTabKind.Skills, CollectionPanelText.SkillsTab(), model);
         _searchPlaceholder.text = CollectionPanelText.SearchPlaceholder(model.ActiveType);
-        // The facets come from the whole catalog, not the search, and the selections are the
-        // view state's live sets: a search changes only the run day the query re-reads and,
-        // while loading, the source selector. Otherwise the drawn chips stay, bound to an
-        // equivalent model.
+        // Search does not change catalog facets. Keep existing chips bound to equivalent selections.
         if (
             command == "search"
             && _railModel is { } drawn
@@ -564,9 +516,6 @@ internal sealed class TouchCollectionPanel
         _skin.Select(tab.Background, active);
     }
 
-    // The rail is rebuilt from the model on every render but a search's (Render): the chips a tab,
-    // hero or source offers change with each command, and a rebuild costs one frame of a hundred
-    // buttons at most.
     private void RenderRail(CollectionPanelViewModel model)
     {
         _railModel = model;
@@ -702,8 +651,7 @@ internal sealed class TouchCollectionPanel
             flow.Note(CollectionPanelText.SourceDisclaimer(), UiKit.MutedTextColor);
         }
         flow.Divider();
-        // Sizes and tiers are one block of chips: a rule between them would push the last
-        // chip of the closed rail under its frame on a phone.
+        // Keep sizes and tiers together so a divider cannot push the last chip below the folded rail.
         if (profile.ShowSizeFilter)
         {
             foreach (var size in model.AvailableSizes)
@@ -739,8 +687,6 @@ internal sealed class TouchCollectionPanel
                 ? new LocalizedTextSet("Less", "收起", "收起")
                 : new LocalizedTextSet("More", "更多", "更多")
         );
-        // More starts a row of its own, and opening it scrolls that row to the top of the rail:
-        // no chip above it stays half in view.
         flow.Break();
         var moreTop = flow.Height;
         flow.Chip(
@@ -992,7 +938,6 @@ internal sealed class TouchCollectionPanel
         UiKit.Fill(TouchScreen.Child("GridEdge", root, area), color);
     }
 
-    // The host's encounter state: Android composes none, so its ids are empty there.
     private EncounterIdsSnapshot EncounterIds()
     {
         try

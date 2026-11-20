@@ -12,7 +12,6 @@ namespace UnityEngine
             new(minX, minY, maxX - minX, maxY - minY);
     }
 
-    // An affine geometry shim; the production measurement and fit math are compiled unchanged.
     internal sealed class RectTransform
     {
         public enum Axis

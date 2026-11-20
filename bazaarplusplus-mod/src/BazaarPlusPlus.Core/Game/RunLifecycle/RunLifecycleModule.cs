@@ -8,11 +8,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.RunLifecycle;
 
-/// <summary>
-/// Owns whether the player is in a run and which server run id is current: it follows the game's
-/// run lifecycle signals through the host's <see cref="IRunLifecycleSource"/> and the observed run
-/// initializations, keeps <see cref="IRunContext"/>, and publishes <see cref="RunLifecycleChanged"/>.
-/// </summary>
 public sealed class RunLifecycleModule : IBppFeature
 {
     private const int MaximumRecentRunIds = 256;

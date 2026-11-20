@@ -14,24 +14,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Settings;
 
-/// <summary>
-/// The BazaarPlusPlus section of the game's own settings dialog on Android. Each row's order,
-/// state, change detection, dropdown index and action tap come from Core's
-/// <see cref="BppSettingsSectionRules"/>, as on the desktop; this class reads the language, finds
-/// the donors, clones the rows and writes the states onto them. Before the dialog's scroll spy
-/// wakes, the Support section and its navigation toggle are cloned into a "BazaarPlusPlus" section
-/// and entry, and every row of <see cref="BppSettingsDockCatalog.Definitions"/> is a clone of a
-/// native row (a toggle, a dropdown, or a button) driven by its definition. The rows are the ones
-/// the host registered through Core's <see cref="SettingsDockEntryRegistry"/>, the desktop's model.
-/// On the phone the toggles stay one per line, where the desktop pairs them, so a label keeps the
-/// content column's width. The rows keep the native look and size, and each is a
-/// <see cref="TouchMetrics.MinTargetDp"/> touch target: the section's spacing grows until a row and
-/// its share of the gaps reach that height, and an invisible hit area inside the row's control
-/// covers the row and that share, so a tap anywhere on it reaches the control and no two rows'
-/// areas overlap. The geometry is applied again whenever the dialog opens or the screen changes.
-/// A plain class, not a component: the host ticks it (<see cref="Tick"/>) and the dialog's
-/// <c>OnEnable</c> refreshes it.
-/// </summary>
 internal sealed class AndroidNativeSettingsSection
 {
     private const string SectionObjectName = "BPP_SettingsSection";
@@ -42,8 +24,7 @@ internal sealed class AndroidNativeSettingsSection
     private const float SplitContainerExtraHeight = 24f;
     private const float RefreshInterval = 0.5f;
 
-    // The dialog lays itself out over a few frames after it opens or the screen changes, so the
-    // visibility measure waits this long after the last change.
+    // Unity can take several frames to lay out the dialog after opening or resizing.
     private const float VisibilitySettleSeconds = 1f;
 
     private static readonly List<AndroidNativeSettingsSection> Sections = new();
@@ -87,7 +68,6 @@ internal sealed class AndroidNativeSettingsSection
         _navigationRoot = navigationRoot;
     }
 
-    /// <summary>Whether a BazaarPlusPlus section is on screen, which the touch button stays out of.</summary>
     public static bool AnyVisible
     {
         get
@@ -110,10 +90,7 @@ internal sealed class AndroidNativeSettingsSection
             ("settings_refreshes", _refreshes),
         ];
 
-    /// <summary>
-    /// The scroll spy of a settings dialog is about to wake: add the BazaarPlusPlus section and its
-    /// navigation entry, so the spy wires them like its own.
-    /// </summary>
+    // Install before ScrollSpyController.Awake wires up the navigation entries.
     public static void TryInstall(ScrollSpyController scrollSpy)
     {
         var dialog = scrollSpy.GetComponentInParent<OptionsDialogController>(true);
@@ -236,7 +213,6 @@ internal sealed class AndroidNativeSettingsSection
         {
             if (originalEntries != null && scrollSpy._entries?.Length != originalEntries.Length)
                 scrollSpy._entries = originalEntries;
-            // The footer comes back and the split container returns to its own frame.
             var footerRestored = footer.Undo();
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.settings.install_rolled_back"),
@@ -252,25 +228,15 @@ internal sealed class AndroidNativeSettingsSection
         }
     }
 
-    /// <summary>
-    /// <paramref name="dialog"/> was enabled: its section rereads the settings. Its rows are
-    /// laid out by the section's next <see cref="Tick"/>, at or after this call, which sees it
-    /// opened; that was the later of the two passes an open used to run.
-    /// </summary>
     public static void Opened(OptionsDialogController dialog)
     {
         var section = Find(dialog);
         if (section == null || section._sectionRoot == null)
             return;
         section.Refresh(force: true);
-        // Closed and opened again between two ticks still reads as opened.
         section._wasVisible = false;
     }
 
-    /// <summary>
-    /// A settings dialog changed language: redraw every section. The section stays open, so no
-    /// tick sees it opened, and it lays out here.
-    /// </summary>
     public static void RefreshAll()
     {
         for (var index = Sections.Count - 1; index >= 0; index--)
@@ -278,7 +244,6 @@ internal sealed class AndroidNativeSettingsSection
             var section = Sections[index];
             try
             {
-                // A dialog destroyed since the last tick (a scene change) is dropped, as in Tick.
                 if (DropIfDestroyed(index, "refresh"))
                     continue;
                 section.RebuildLayout();
@@ -309,7 +274,6 @@ internal sealed class AndroidNativeSettingsSection
         return true;
     }
 
-    /// <summary>Main thread, every frame: drops dead dialogs and keeps a visible section current.</summary>
     public static void Tick(float now)
     {
         for (var index = Sections.Count - 1; index >= 0; index--)
@@ -323,7 +287,6 @@ internal sealed class AndroidNativeSettingsSection
                 var screenKey = visible ? AndroidScreenKey() : section._screenKey;
                 if (visible && (!section._wasVisible || screenKey != section._screenKey))
                 {
-                    // Opened again, or the screen changed under it: lay the rows out anew.
                     var reason = section._wasVisible ? "screen_changed" : "opened";
                     section.RebuildLayout();
                     section.Refresh(force: true);
@@ -547,10 +510,7 @@ internal sealed class AndroidNativeSettingsSection
         }
     }
 
-    // Every row becomes at least a 48dp target without changing its native size: the section's
-    // spacing grows until the shortest row and one gap reach the target in screen pixels, and each
-    // control gets a transparent hit area over its row and half a gap on either side, so
-    // neighbouring rows' areas meet and never overlap.
+    // Each hit area can claim half of the adjacent gap without overlapping the next row's target.
     private void ApplyTouchTargets(string reason)
     {
         if (_rows.Count == 0)
@@ -619,12 +579,8 @@ internal sealed class AndroidNativeSettingsSection
         );
     }
 
-    // The dropdown's open list draws one copy of its template item per option, at the item's
-    // height, keeping the item's top and bottom padding in the list's content. Every fit starts
-    // again from the clone's native template: the item grows to a 48dp target by what it lacks on
-    // this screen, the content by as much, and the list to hold every option but never below its
-    // native height. So a screen where the native item is already a full target, or fewer options,
-    // shrink it back. The game's own dropdowns keep their template.
+    // TMP_Dropdown copies its template item for each option. Grow the content with the item to
+    // preserve padding.
     private static float FitOptions(RowView row, float scale)
     {
         var choice = row.Choice;
@@ -652,8 +608,6 @@ internal sealed class AndroidNativeSettingsSection
         var missing = TouchMetrics.MissingTargetPixels(height * scale, Screen.dpi) / scale;
         if (missing > 0.5f)
         {
-            // Both keep their top edge: the content grows downwards, and the item, anchored in it,
-            // grows by as much, so the padding above and below the item stays what it was.
             content.sizeDelta = new Vector2(content.sizeDelta.x, content.sizeDelta.y + missing);
             content.anchoredPosition = new Vector2(
                 content.anchoredPosition.x,
@@ -678,7 +632,6 @@ internal sealed class AndroidNativeSettingsSection
         return height * scale;
     }
 
-    // World units per screen pixel: one on an overlay canvas, the canvas's own on a camera one.
     private static float WorldUnitsPerPixel(Canvas? canvas)
     {
         if (canvas == null || canvas.renderMode == RenderMode.ScreenSpaceOverlay)
@@ -689,8 +642,6 @@ internal sealed class AndroidNativeSettingsSection
         return WorldHeight(root) / Screen.height;
     }
 
-    // A transparent child of the control over its row and half a gap above and below: a tap on it
-    // is a tap on the control.
     private static RectTransform EnsureHitArea(Selectable control, RectTransform rowRoot, float gap)
     {
         var existing = control.transform.Find(HitAreaObjectName)?.TryCast<RectTransform>();
@@ -759,8 +710,7 @@ internal sealed class AndroidNativeSettingsSection
             LayoutRebuilder.ForceRebuildLayoutImmediate(current);
     }
 
-    // The desktop hides the dialog's "changes are saved automatically" footer and grows the split
-    // container into the space, so the added navigation entry fits the column.
+    // Without the footer's space, the extra navigation entry can extend past the column.
     private static void HideNativeFooter(
         OptionsDialogController dialog,
         RectTransform supportSection,
@@ -803,8 +753,7 @@ internal sealed class AndroidNativeSettingsSection
         var parent = splitContainer.parent?.TryCast<RectTransform>();
         if (parent == null)
             return false;
-        // The rects' own corners, in the parent's space: the footer is hidden by now, and the
-        // container's children (the scrolled content) reach far below its frame.
+        // Measure only the rects because the scrolled content extends past the container's frame.
         var targetBottom = float.PositiveInfinity;
         foreach (var footer in new[] { footerLabel, divider })
         {
@@ -901,7 +850,6 @@ internal sealed class AndroidNativeSettingsSection
             best.text = text;
     }
 
-    // Everything the Support clone carried but its header goes: the rows are added afterwards.
     private static void RemoveDonorRows(RectTransform sectionRoot, TextMeshProUGUI? header)
     {
         var headerRoot =
@@ -1039,7 +987,6 @@ internal sealed class AndroidNativeSettingsSection
             BppLog.WarnEvent(logEvent, exception, ("stage", stage), ("reason", reason));
     }
 
-    // The content list scrolls by drag, as the game's own; a position that settled is logged.
     private void ObserveScroll(float now)
     {
         if (_scrollRect == null)
@@ -1070,8 +1017,6 @@ internal sealed class AndroidNativeSettingsSection
         );
     }
 
-    // The section's size, the touch geometry last applied to it, and whether the navigation
-    // column still holds every entry inside the split container now that BazaarPlusPlus is added.
     private static void LogVisibility(AndroidNativeSettingsSection section, string state)
     {
         var rect = section._sectionRoot.rect;
@@ -1092,8 +1037,6 @@ internal sealed class AndroidNativeSettingsSection
         );
     }
 
-    // The navigation column: its active entries, the pixels they span, and whether the lowest
-    // entry's bottom edge lies inside the split container (grown into the hidden footer's space).
     private (int Entries, float ListHeight, bool Inside) MeasureNavigation()
     {
         var list =
@@ -1117,12 +1060,9 @@ internal sealed class AndroidNativeSettingsSection
             return (0, 0f, false);
         var split = _dialog == null ? null : SplitContainer(_dialog);
         var inside = split != null && lowest >= ScreenVerticalSpan(split).Min - 0.5f;
-        // From the top entry's top edge to the lowest entry's bottom edge, in screen pixels.
         return (entries, highest - lowest, inside);
     }
 
-    // A rect's vertical extent in screen pixels, through its canvas's camera (none on an
-    // overlay canvas).
     private static (float Min, float Max) ScreenVerticalSpan(RectTransform rect)
     {
         var canvas = rect.GetComponentInParent<Canvas>(true)?.rootCanvas;
@@ -1166,7 +1106,6 @@ internal sealed class AndroidNativeSettingsSection
         public TMP_Dropdown? Choice { get; } = choice;
         public Button? Action { get; } = action;
 
-        /// <summary>The dropdown template's geometry as cloned, before any fit.</summary>
         public OptionsGeometry? NativeOptions { get; set; }
     }
 
@@ -1178,7 +1117,6 @@ internal sealed class AndroidNativeSettingsSection
         Vector2 ItemPosition
     );
 
-    // What the install changed outside the section, undone if a later stage fails.
     private sealed class FooterRollback
     {
         private RectTransform? _splitContainer;
@@ -1200,7 +1138,6 @@ internal sealed class AndroidNativeSettingsSection
             _anchoredPosition = splitContainer.anchoredPosition;
         }
 
-        /// <summary>Shows the hidden footer again and returns the container to its frame.</summary>
         public int Undo()
         {
             var restored = 0;

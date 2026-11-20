@@ -134,8 +134,6 @@ internal sealed partial class HistoryPanel
             }
         );
 
-    // Core's skills as the game's instances: the tier through the facets, the saved values by
-    // member name.
     private static List<TCardInstanceSkill> NativeHistorySkills(
         IReadOnlyList<BppItemBoardCard> skills
     ) =>

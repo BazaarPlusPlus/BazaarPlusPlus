@@ -1,7 +1,4 @@
-// Development only: runs `just mod::history-sample` with the bundle_sync token. The token is
-// config.toml's [server] BUNDLE_SYNC_TOKEN, which reaches this checkout only inside the analyzer
-// projection (`just with-config analyzer` refreshes it), so the root reads it there and the mod
-// never reads another project's file. An environment value wins.
+// Read the analyzer projection so the mod never needs access to another project's config file.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -9,7 +6,6 @@ import { spawnSync } from 'node:child_process';
 const root = path.resolve(import.meta.dirname, '..');
 const projection = path.join(root, 'bazaarplusplus-analyzer', '.env');
 
-/** The value of `key` in a dotenv file's text, without surrounding quotes. */
 export function dotenvValue(text: string, key: string): string | undefined {
   for (const line of text.split(/\r?\n/)) {
     const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);

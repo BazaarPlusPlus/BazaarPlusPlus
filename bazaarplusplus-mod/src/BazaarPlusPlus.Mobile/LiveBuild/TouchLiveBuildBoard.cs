@@ -7,17 +7,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.LiveBuild;
 
-/// <summary>
-/// One of the Live Build panel's four boards on a mobile platform: the native board mapper over
-/// the card rental, where the desktop renders an owned <c>MonsterBoardTooltip</c>. Each planned
-/// <see cref="BppItemBoardCard"/> rents the game's own card prefab at its tier, enchantment, and
-/// values, on its display socket (<see cref="LiveBuildTouchLayout.CardRect"/>). A re-render keeps
-/// the cards whose identity, socket, tier, enchantment, and values did not change and returns the
-/// rest, so toggling a candidate or browsing re-rents only what moved. Each card's footprint takes
-/// the tap (the rented card takes none) and hands the card to the panel, which toggles it as a
-/// candidate or inspects it; a candidate or matched card gets its tag in the band under it.
-/// <see cref="ReturnAll"/> gives every card back.
-/// </summary>
 internal sealed class TouchLiveBuildBoard
 {
     private readonly NativeSkin _skin;
@@ -33,11 +22,6 @@ internal sealed class TouchLiveBuildBoard
     private LiveBuildTouchLayout? _layout;
     private bool _selectable;
 
-    /// <param name="region">The board's cards and tag band, its top-left corner the board's origin.</param>
-    /// <param name="font">The game's font, for the tags.</param>
-    /// <param name="id">The board, which names its rental owner.</param>
-    /// <param name="skin">Shared native tag artwork for this view.</param>
-    /// <param name="onTap">The tapped card, and whether the board takes candidates.</param>
     public TouchLiveBuildBoard(
         RectTransform region,
         TMP_FontAsset font,
@@ -51,17 +35,13 @@ internal sealed class TouchLiveBuildBoard
         _font = font;
         _owner = "live_build." + id;
         _onTap = onTap;
-        // Tags draw over the cards.
         _tags = UiKit.Rect("Tags", region, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
     }
 
-    /// <summary>Cards rented and not yet returned, Pending or Ready.</summary>
     public int Leases => _cells.Count;
 
-    /// <summary>The rental owner the board's leases are filed under.</summary>
     public string Owner => _owner;
 
-    /// <summary>Main thread. Rents, keeps, or returns cards so the board shows <paramref name="board"/>.</summary>
     public void Render(
         BppItemBoard board,
         bool selectable,
@@ -106,7 +86,6 @@ internal sealed class TouchLiveBuildBoard
         RenderTags(tagged, tagText);
     }
 
-    /// <summary>How many of the board's cards are still loading and how many failed.</summary>
     public (int Pending, int Failed) Status()
     {
         var pending = 0;
@@ -126,7 +105,6 @@ internal sealed class TouchLiveBuildBoard
         return (pending, failed);
     }
 
-    /// <summary>The panel closed or switched off: every card goes back to the rental.</summary>
     public int ReturnAll()
     {
         var returned = _cells.Count;
@@ -138,7 +116,6 @@ internal sealed class TouchLiveBuildBoard
         return returned;
     }
 
-    // Instance, template, socket, tier, enchantment, and values: what the rented card shows and where.
     private static string Key(BppItemBoardCard card) =>
         $"{card.InstanceId}|{card.TemplateId:N}|{card.DisplaySocketId}|{card.DisplaySpan}|{card.Tier}|{card.EnchantmentType}|{CardRentalSubject.AttributesKey(card.Attributes)}";
 
@@ -148,7 +125,7 @@ internal sealed class TouchLiveBuildBoard
         var card = cell.Card!;
         var rect = layout.CardRect(card.DisplaySocketId ?? 0, card.DisplaySpan);
         TouchScreen.Place(cell.Root, rect);
-        // The rental centres the card on its slot's top-left corner at the prefab's size.
+        // The rental centers the card on its slot's top-left corner.
         cell.Slot.anchoredPosition = new Vector2(rect.Width / 2f, -rect.Height / 2f);
         cell.Slot.localScale = new Vector3(layout.CardScale, layout.CardScale, 1f);
     }
@@ -240,7 +217,6 @@ internal sealed class TouchLiveBuildBoard
                     _onTap(card, _selectable);
             }
         );
-        // Every card stays under the tag layer.
         _tags.SetAsLastSibling();
         return cell;
     }

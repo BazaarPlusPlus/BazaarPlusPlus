@@ -1,5 +1,4 @@
 using Xunit;
 
-// The capsule's fakes keep static state (the profile observable), and L is process-global.
-// Run the tests one at a time, as the capsule did.
+// The profile fake and L both hold process-wide state.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

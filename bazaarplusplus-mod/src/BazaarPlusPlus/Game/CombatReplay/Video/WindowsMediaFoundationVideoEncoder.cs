@@ -6,11 +6,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-/// <summary>
-/// Windows D3D11 replay encoder. Unity owns the persistent source texture while the native plugin
-/// converts it into an NV12 surface pool and submits those surfaces directly to a verified
-/// hardware Media Foundation H.264 transform.
-/// </summary>
+// The native plugin converts Unity's D3D11 texture into NV12 surfaces consumed directly by the hardware H.264 transform.
 internal sealed class WindowsMediaFoundationVideoEncoder : IReplayVideoEncoder
 {
     internal const string NativeLibrary = "GfxPluginBppReplayMediaFoundation";

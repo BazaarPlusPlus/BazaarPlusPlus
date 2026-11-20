@@ -1,18 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 
-// Git decides *which* repository it is operating on from the environment before
-// it ever looks at `cwd` or `-C`. Any of these variables, inherited from a
-// parent process (an editor, a hook, an agent shell, an outer git command),
-// silently redirects a child git invocation at a foreign repository or index:
-// the command still reports success while reading and writing somewhere else
-// entirely. Every git spawn in this repository targets a directory it chose
-// explicitly, so the directory must win.
-//
-// Deliberately kept minimal: only variables that relocate the repository, the
-// object store, or the index are scrubbed. `GIT_CEILING_DIRECTORIES` only
-// limits upward discovery and `GIT_AUTHOR_*`/`GIT_COMMITTER_*` only supply an
-// identity, so neither can send a command at the wrong repository.
+// Git honors these variables before cwd or -C, so inherited values could redirect writes to another repository or index.
 const REPOSITORY_LOCATION_VARIABLES = [
   'GIT_DIR',
   'GIT_WORK_TREE',
@@ -24,10 +13,6 @@ const REPOSITORY_LOCATION_VARIABLES = [
   'GIT_PREFIX'
 ];
 
-/**
- * The execFileSync options runGit forwards; the output is always text, utf8
- * unless `encoding` names another text encoding.
- */
 export interface RunGitOptions extends Omit<
   ExecFileSyncOptionsWithStringEncoding,
   'encoding'
@@ -35,7 +20,6 @@ export interface RunGitOptions extends Omit<
   encoding?: BufferEncoding;
 }
 
-// Copy of `baseEnv` with every repository-relocating variable removed.
 export function gitEnvironment(
   baseEnv: NodeJS.ProcessEnv = process.env
 ): NodeJS.ProcessEnv {
@@ -46,8 +30,6 @@ export function gitEnvironment(
   return env;
 }
 
-// The single seam for spawning git. Callers pass the directory they mean via
-// `cwd` (or `-C`) and never inherit a repository location from the environment.
 export function runGit(
   args: readonly string[],
   { env, ...options }: RunGitOptions = {}

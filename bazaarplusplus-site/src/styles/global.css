@@ -1,7 +1,6 @@
 @import 'tailwindcss';
 @import './installer-tokens.css';
 @import './tokens.css';
-/* The shared bpp-* components; design/components/bundle.css owns them. */
 @import '../../../design/components/bundle.css';
 
 @layer base {
@@ -9,8 +8,7 @@
     background: var(--bg-canvas);
     scrollbar-color: var(--line-strong) transparent;
     scrollbar-gutter: stable;
-    /* Disable the macOS/iOS rubber-band bounce: pulling past the top would
-       otherwise drag the sticky header down and expose the canvas above it. */
+    /* Pulling past the top on macOS/iOS exposes the canvas above the sticky header. */
     overscroll-behavior-y: none;
   }
 
@@ -45,5 +43,3 @@
     border-radius: 10px;
   }
 }
-
-/* `.panel` and the reduced-motion rule come from bundle.css. */

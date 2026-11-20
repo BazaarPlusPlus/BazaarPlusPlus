@@ -5,7 +5,6 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Centralizes the catalog/filter facts that are not direct UI selections.
 internal static class CollectionCardClassifier
 {
     public static bool IsCatalogCard(TCardBase template) => Classify(template).IsCatalogCard;

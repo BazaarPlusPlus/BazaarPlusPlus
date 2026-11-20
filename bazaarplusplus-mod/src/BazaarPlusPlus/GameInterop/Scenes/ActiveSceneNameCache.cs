@@ -3,11 +3,7 @@ using UnityEngine.SceneManagement;
 
 namespace BazaarPlusPlus.GameInterop.Scenes;
 
-/// <summary>
-/// Reads the active scene's name for per-frame callers. <c>Scene.name</c> marshals a fresh managed
-/// string out of the native runtime on every read, and the name is fixed for a given scene handle,
-/// so the marshalled string is cached until the active scene (or its loaded flag) changes.
-/// </summary>
+// Scene.name marshals a new managed string on each read. The name is fixed for a scene handle.
 internal static class ActiveSceneNameCache
 {
     private static Scene _scene;

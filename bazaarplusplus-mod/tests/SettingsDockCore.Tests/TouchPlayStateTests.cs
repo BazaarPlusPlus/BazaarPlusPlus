@@ -3,15 +3,8 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The Mobile UI's rules over what the game plays, which the host's port only reads: the
-/// shortcuts, the preview switches, the enchant preview and the upgrade preview, over every
-/// combination of a fight, a replay and an open recap.
-/// </summary>
 public sealed class TouchPlayStateTests
 {
-    // A fight or a replay hides the shortcuts and keeps every panel closed. A recap's card still
-    // offers its enchantments, but never previews its upgrade.
     [Theory]
     [InlineData(false, false, false, false, true, true, true)]
     [InlineData(false, false, true, false, true, true, false)]

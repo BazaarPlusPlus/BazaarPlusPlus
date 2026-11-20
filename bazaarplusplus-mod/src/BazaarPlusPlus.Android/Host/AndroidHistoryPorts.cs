@@ -5,14 +5,8 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// The host ports History's coordinator reads (<c>HistoryPanelDependencies</c>): the frame
-/// clock, the signed-in profile's account, and the BazaarDB link-hint store over
-/// <c>PlayerPrefs</c>. Each calls into IL2CPP, which from an unattached pool thread is a native
-/// fault rather than a catchable exception, so each checks the thread first, in release builds
-/// too: off the main thread it answers 0, null, or nothing, and logs
-/// <c>android.main_thread.port_off_thread</c>.
-/// </summary>
+// IL2CPP calls from an unattached pool thread fault the process before managed exception handling
+// can run.
 internal static class AndroidHistoryPorts
 {
     public static float UnscaledTime() =>

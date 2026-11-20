@@ -4,11 +4,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// Screen Fill's decisions on the screen shapes the touch host meets: 20:9 and 16:9 phones, the
-/// 16:10 tablet, 3:2, a 4:3 tablet, and a foldable's nearly square inner display (OPPO Find N6,
-/// 2480×2248).
-/// </summary>
 public sealed class ScreenFillTests
 {
     [Theory]
@@ -66,10 +61,8 @@ public sealed class ScreenFillTests
         var reference = Math.Tan(fieldOfView * Math.PI / 360) * ScreenFill.ReferenceAspect;
         Assert.True(widened > fieldOfView);
         if (ScreenFill.GathersHudAbove(aspect))
-            // The board drawn 1.3 times nearer than 16:10 does, or less where the band needs room.
             Assert.InRange(horizontal / reference, 1 / 1.3 - 1e-4, 1.0);
         else
-            // Exactly the 16:10 view's width.
             Assert.Equal(1.0, horizontal / reference, 4);
     }
 
@@ -91,7 +84,6 @@ public sealed class ScreenFillTests
     [Fact]
     public void The_board_drops_to_a_margin_above_the_safe_bottom()
     {
-        // 1536 px tall, 20 px unsafe at the bottom: the floor is 1536 - 20 - 18.4 down from the top.
         var drop = ScreenFill.BoardDrop(1536f, 20f, vaultBottomFromTop: 1300f);
         Assert.Equal(1536f - 20f - 1536f * 0.012f - 1300f, drop, 3);
         Assert.True(ScreenFill.BoardDrop(1536f, 0f, vaultBottomFromTop: 1530f) < 0f);
@@ -100,7 +92,6 @@ public sealed class ScreenFillTests
     [Fact]
     public void A_pixel_spans_the_view_height_over_the_screen_height()
     {
-        // A 90 degree view at depth 10 is 20 units tall.
         Assert.Equal(20f / 1000f, ScreenFill.WorldUnitsPerPixel(10f, 90f, 1000f), 5);
         Assert.Equal(0f, ScreenFill.WorldUnitsPerPixel(10f, 90f, 0f));
     }
@@ -121,7 +112,6 @@ public sealed class ScreenFillTests
     [Fact]
     public void The_day_clock_shrinks_into_the_band_left_aligned_with_the_board()
     {
-        // 1536 px tall; the board's top 300 px down, the safe top at the screen top: a 300 px band.
         var clock = new ScreenBox(XMin: 40f, YMin: 1100f, Width: 200f, Height: 250f);
         var placement = ScreenFill.PlaceDayClock(
             1536f,
@@ -134,7 +124,6 @@ public sealed class ScreenFillTests
             pivotY: clock.CenterY
         );
         Assert.NotNull(placement);
-        // 0.8 of its size fits the 76% of the band left between the margins.
         Assert.Equal(0.8f, placement!.Value.Scale, 4);
         Assert.Equal(400f + 200f * 0.8f / 2f, placement.Value.PivotX, 3);
         Assert.Equal(1536f - 300f + 150f, placement.Value.PivotY, 3);

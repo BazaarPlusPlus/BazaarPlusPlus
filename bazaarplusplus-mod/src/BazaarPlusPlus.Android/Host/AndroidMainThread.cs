@@ -5,19 +5,8 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// The game's main thread as a <see cref="SynchronizationContext"/>. LemonLoader installs no
-/// managed context, so an <c>await</c> started from a melon callback resumes on a pool thread,
-/// where calling into IL2CPP (the client cache, <c>Time</c>, uGUI, any game object) faults the
-/// process. History's coordinator and the replay runtime await without
-/// <c>ConfigureAwait(false)</c> and publish on the caller's context; running their entry points
-/// under <see cref="Enter"/> captures this context, so every continuation is posted here and
-/// runs at the next <see cref="Tick"/>, which <c>AndroidMod.OnUpdate</c> calls every frame.
-/// The context is scoped, never installed globally: the upload pump and the version check keep
-/// their own pool-thread work. Each frame it also polls the waits that observe IL2CPP state
-/// (<see cref="WhenAsync"/>), so a game <c>Task</c> or a condition on game objects is read on
-/// this thread only.
-/// </summary>
+// LemonLoader installs no managed context, so awaits can resume on a pool thread and fault when
+// calling IL2CPP. Scope this context to callers that need the Unity thread.
 internal sealed class AndroidMainThread : SynchronizationContext
 {
     private const int CallbacksPerTick = 512;
@@ -29,10 +18,8 @@ internal sealed class AndroidMainThread : SynchronizationContext
     private volatile bool _stopped;
     private long _callbackFailures;
 
-    /// <summary>The host's pump; <see cref="Capture"/> binds it to the main thread.</summary>
     public static AndroidMainThread Host { get; } = new();
 
-    /// <summary>True on the bound thread; false before binding and on every other thread.</summary>
     public bool IsCurrentThread
     {
         get
@@ -55,20 +42,12 @@ internal sealed class AndroidMainThread : SynchronizationContext
 
     public long CallbackFailures => Interlocked.Read(ref _callbackFailures);
 
-    /// <summary>
-    /// Binds the pump to the calling thread. Called from the first <c>OnUpdate</c>, which Unity
-    /// runs on its main thread; returns the previous binding (0 when unbound).
-    /// </summary>
     public int Capture()
     {
         _stopped = false;
         return Interlocked.Exchange(ref _threadId, Environment.CurrentManagedThreadId);
     }
 
-    /// <summary>
-    /// Sets this context as the current one until the scope is disposed, so an <c>await</c> in
-    /// it resumes on the main thread. Every History and replay entry point runs inside one.
-    /// </summary>
     public Scope Enter()
     {
         var previous = Current;
@@ -119,12 +98,6 @@ internal sealed class AndroidMainThread : SynchronizationContext
 
     public override SynchronizationContext CreateCopy() => this;
 
-    /// <summary>
-    /// Completes when <paramref name="condition"/> holds, read once per frame on the main
-    /// thread; faults with <see cref="TimeoutException"/> past <paramref name="timeout"/> and
-    /// cancels with <paramref name="cancellationToken"/>. A condition that throws faults the
-    /// wait with that exception.
-    /// </summary>
     public Task WhenAsync(
         Func<bool> condition,
         TimeSpan timeout,
@@ -141,25 +114,18 @@ internal sealed class AndroidMainThread : SynchronizationContext
         return wait.Completion.Task;
     }
 
-    /// <summary>Completes after <paramref name="frames"/> more ticks.</summary>
     public Task FramesAsync(int frames, CancellationToken cancellationToken = default)
     {
         var remaining = Math.Max(1, frames);
         return WhenAsync(() => --remaining <= 0, Timeout.InfiniteTimeSpan, cancellationToken);
     }
 
-    /// <summary>Completes once <paramref name="delay"/> of real time has passed.</summary>
     public Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken = default)
     {
         var clock = Stopwatch.StartNew();
         return WhenAsync(() => clock.Elapsed >= delay, Timeout.InfiniteTimeSpan, cancellationToken);
     }
 
-    /// <summary>
-    /// Main thread, every frame: polls the frame waits, then runs the posted callbacks, each
-    /// under this context so a nested <c>await</c> resumes here too. A callback that throws is
-    /// logged and the rest still run. Does nothing after <see cref="Stop"/>.
-    /// </summary>
     public int Tick()
     {
         if (_stopped)
@@ -191,10 +157,7 @@ internal sealed class AndroidMainThread : SynchronizationContext
         return ran;
     }
 
-    /// <summary>
-    /// Stops the pump at shutdown: posted continuations are dropped and pending waits cancel,
-    /// so nothing resumes against a torn-down panel or runtime.
-    /// </summary>
+    // Drop continuations at shutdown so they cannot resume against a torn-down runtime.
     public void Stop()
     {
         _stopped = true;
@@ -255,7 +218,6 @@ internal sealed class AndroidMainThread : SynchronizationContext
         public TaskCompletionSource Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // True once the wait is settled and can be dropped.
         public bool Poll()
         {
             if (Completion.Task.IsCompleted)

@@ -3,12 +3,8 @@ using System.Security.Cryptography;
 
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>
-/// A Managed Payload staged under the Data Root's <c>Updates/&lt;version&gt;/</c>: the signed
-/// manifest, its signature, and the files under <see cref="ManagedPayloadManifest.FilesDirectory"/>.
-/// Core's staging verifies it before publishing the directory, the Updater again before it swaps
-/// anything in; both run this same check.
-/// </summary>
+// Both Core staging and the loader-stage Updater use this check. The Updater re-verifies
+// staged files immediately before swapping them.
 internal static class StagedManagedPayload
 {
     public const string UpdatesDirectoryName = "Updates";

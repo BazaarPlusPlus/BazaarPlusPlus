@@ -9,24 +9,14 @@ using BazaarPlusPlus.Storage.Paths;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>The operation a saved replay session is running, read live.</summary>
 public sealed record ActiveSavedReplay(
     string BattleId,
     CombatReplayPlaybackSource Source,
     bool RecordVideo
 );
 
-/// <summary>
-/// Saved Replay Playback (ADR-0020): one saved or loaded battle's replay on either host, from
-/// admission to its terminal event. It owns the payload gate's playback lease, the operation and
-/// its one terminal write, the start and its failure fold, the state exit, the bootstrapped
-/// <c>ReplayState.Exit</c>, the menu return and teardown, and feeds <see cref="SavedReplayLifecycle"/>
-/// its observations in the order that core requires. The game side is the host's
-/// <see cref="ISavedReplayHost"/> and the per-start <see cref="ISavedReplayStart"/>. It never exits
-/// <c>ReplayState</c> itself (ADR-0002). Playback entry points run on the host's main thread inside
-/// its context; awaits resume on the context its caller installed. Only the managed catalog and
-/// payload read runs on a worker. Payload maintenance acquires the same gate.
-/// </summary>
+/// <summary>Playback awaits resume on the caller's Host context. Only managed storage reads run on a worker.
+/// ReplayState exits through the native Continue click or the bootstrapped Exit prefix (ADR-0002).</summary>
 public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
 {
     private const string RuntimeUnavailableReason = "Combat replay runtime is unavailable.";
@@ -66,7 +56,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
     public bool IsReplayStartInProgress =>
         _pendingRead != null || _lifecycle.IsReplayStartInProgress;
 
-    // A replay is starting, playing, or returning to the menu: History's gate.
     public bool HasSavedReplaySession =>
         _active != null
         || _pendingMenuReturn != null
@@ -93,7 +82,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return null;
     }
 
-    /// <summary>A pending read or active operation holds the payload gate's playback lease.</summary>
     public bool HoldsPayloadLease => _pendingRead != null || _active?.Lease != null;
 
     public ActiveSavedReplay? Active =>
@@ -253,8 +241,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         }
     }
 
-    // Reads a saved battle under a transient playback lease, so the sweep cannot evict it
-    // mid-read. Busy while maintenance, persistence or a playback holds the gate.
+    // Hold a transient playback lease so maintenance cannot evict the Replay Payload mid-read.
     public SavedBattleLoadOutcome TryLoadSavedBattle(
         string battleId,
         out PvpBattleManifest? manifest,
@@ -271,7 +258,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return _catalog.TryLoad(battleId, out manifest, out payload);
     }
 
-    // Plays a manifest and payload the caller already holds, so it takes no playback lease.
     public bool ReplayLoadedBattle(
         PvpBattleManifest manifest,
         PvpReplayPayload payload,
@@ -295,7 +281,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return Begin(manifest, payload, manifest.BattleId, source, recordVideo, lease: null);
     }
 
-    /// <summary>Every <c>ReplayState</c> exit, whether or not a saved replay is running.</summary>
     public void OnReplayStateExited()
     {
         if (_disposed)
@@ -307,7 +292,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         var ownership = _lifecycle.BeginReplayStateExit(now);
         var operation = _active?.Operation ?? _completedAwaitingExit;
         _completedAwaitingExit = null;
-        // The ended publish clears any publisher session, a current replay's included.
         var ended = ReplayPlaybackCleanup.PublishThenCleanup(
             () => _publisher.PublishEnded("state-exit", failed: ownership.OwnsTerminalByStart),
             (stage, exception) => LogCleanupFailure(stage, operation?.BattleId, exception),
@@ -330,10 +314,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         BeginPendingMenuReturn(operation, decision.EndReasonCode);
     }
 
-    /// <summary>
-    /// The bootstrapped <c>ReplayState.Exit</c> prefix: true when the exit is handled here and the
-    /// game's own body must be skipped, false to let the game exit as usual.
-    /// </summary>
+    /// <summary>True tells the ReplayState.Exit prefix to skip the native body.</summary>
     public bool TryExitBootstrapped()
     {
         if (_disposed)
@@ -356,7 +337,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         );
         switch (outcome)
         {
-            // Suppressed: report handled so the prefix skips the original body.
             case SavedReplayExitOutcome.Suppressed:
                 return true;
             case SavedReplayExitOutcome.NotActive:
@@ -378,13 +358,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Every frame: confirms a pending menu return and clears the exit latch once
-    /// <c>ReplayState</c> is gone. Nothing exits on a tick. With neither pending, it returns before
-    /// entering the host context or reading game state, so an idle frame costs nothing. Returns
-    /// true on the tick that clears the latch: the host's only sign that <c>ReplayState</c> is gone
-    /// on the bootstrapped exit path.
-    /// </summary>
+    /// <summary>True is the Host's signal that ReplayState is gone on the bootstrapped exit path.</summary>
     public bool Tick()
     {
         if (_disposed || (!_lifecycle.HasPendingMenuReturn && !_lifecycle.IsExitLatched))
@@ -423,16 +397,8 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         return !_host.InReplayState && _lifecycle.ObserveReplayStateGone();
     }
 
-    /// <summary>
-    /// The desktop's managed recording restart promotes the playing operation to recording.
-    /// </summary>
     public bool TryPromoteActiveToRecording() => _active?.Operation.TryPromoteToRecording() == true;
 
-    /// <summary>
-    /// A failed managed recording restart: publishes the ended signal, completes the playing
-    /// operation as a failed start, frees its lease, and parks it for the next state exit.
-    /// Returns the failure the operation was completed with.
-    /// </summary>
     public Exception? FailActiveRecordingRestart(
         string endReason,
         ReplayPlaybackReasonCode reasonCode,
@@ -502,8 +468,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
             source,
             recordVideo && _host.RecordsVideo
         );
-        // The displaced operation is not completed, but its lease goes with it: only the active
-        // operation ever holds one.
+        // Release a displaced operation's lease even if that operation never completes.
         var displaced = _active;
         _completedAwaitingExit = null;
         _active = new ActiveOperation(operation, source, lease);
@@ -528,8 +493,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         }
         _lifecycle.OnStartBegun();
         _host.Notify(new SavedReplayNotice(SavedReplayNoticeKind.StartBegun, battleId, source));
-        // Started inside the caller's host context, so its awaits resume there; it takes no scope
-        // of its own across an await.
         _ = StartAsync(manifest, source, operation, start);
         return true;
     }
@@ -585,7 +548,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
             _host.Notify(
                 new SavedReplayNotice(SavedReplayNoticeKind.StartFailed, battleId, source)
             );
-            // Unconditional: the ended publish always clears the session of a failed start.
             var ended = ReplayPlaybackCleanup.PublishThenCleanup(
                 () => _publisher.PublishEnded("start-failed", failed: true),
                 (stage, cleanupException) => LogCleanupFailure(stage, battleId, cleanupException),
@@ -645,8 +607,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         ReplayPlaybackEndReasonCode endReasonCode
     )
     {
-        // The lifecycle armed the pending window when it decided BeginMenuReturn; a failed
-        // dispatch clears it so the tick cannot later time out an operation completed here.
         try
         {
             _host.ReturnToMainMenu();
@@ -674,7 +634,6 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
         );
     }
 
-    // The operation writes its terminal event once; only the active one holds a lease.
     private void Complete(
         ReplayPlaybackLogOperation operation,
         ReplayPlaybackEndReasonCode endReasonCode,

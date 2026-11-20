@@ -184,7 +184,6 @@ esac
   );
   const capture = invoke('capture', 'diagnostic');
   assert.equal(capture.status, 0, capture.stderr);
-  // verify reads downloaded evidence: it needs no device.
   online('');
   fs.writeFileSync(path.join(out, 'version.txt'), '0.0.0');
   const verify = invoke('verify', out);
@@ -224,7 +223,6 @@ test('smoke waits for a hooks summary that counts the version label, not the fir
   assert.equal(state('1', [...early, label, summary(1)]), 'ready');
   assert.equal(state('1', [menu, summary(12)]), 'ready');
 
-  // A summary before the main menu is not evidence that the menu was reached.
   assert.equal(state('1', [summary(1), label]), 'waiting');
   assert.equal(state('1', [summary(1), menu]), 'waiting');
   assert.equal(state('0', [summary(1), menu]), 'waiting');

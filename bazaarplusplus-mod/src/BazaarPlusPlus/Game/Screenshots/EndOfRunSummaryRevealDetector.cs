@@ -36,8 +36,6 @@ internal static class EndOfRunSummaryRevealDetector
     private const string UnityAnimatorTypeName = "UnityEngine.Animator";
     private const string FaceUpParamName = "FaceUp";
 
-    // Polled every frame while the capture waits for readiness, so member lookups are cached
-    // per runtime type, misses included.
     private static readonly object MemberCacheGate = new();
     private static readonly Dictionary<(Type Type, string Name), FieldInfo?> Fields = new();
     private static readonly Dictionary<Type, FaceUpReader> FaceUpReaders = new();

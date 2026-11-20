@@ -5,9 +5,6 @@ namespace BazaarPlusPlus.GameInterop.CardPreview;
 
 internal static class NativeCardPreviewSlotFitter
 {
-    /// <summary>
-    /// Fits one preview after the caller has settled the Canvas shared by a larger layout batch.
-    /// </summary>
     internal static NativeCardPreviewSlotFitResult FitWithSettledCanvas(
         RectTransform preview,
         RectTransform slot,
@@ -58,10 +55,6 @@ internal static class NativeCardPreviewSlotFitter
         return NativeCardPreviewSlotFitResult.Applied;
     }
 
-    /// <summary>
-    /// Aligns visible artwork after the caller has settled the Canvas shared by a larger layout
-    /// batch.
-    /// </summary>
     internal static bool TryAlignVisibleArtworkLeftWithSettledCanvas(
         RectTransform preview,
         RectTransform slot,
@@ -73,10 +66,8 @@ internal static class NativeCardPreviewSlotFitter
         if (preview == null || slot == null || corners == null || corners.Length < 4)
             return false;
 
-        // CardPreviewItem.Resize offsets wider cards inside their root, while the native frame
-        // prefab itself can carry transparent horizontal inset. Align the actual artwork quad,
-        // which is the stable visible seam shared by Small/Medium/Large previews, instead of the
-        // FrameContainer's layout bounds.
+        // Resize offsets wider cards and the frame can have transparent insets. Align the actual
+        // artwork quad to keep a stable visible edge across sizes.
         var frame = FindNativeArtwork(preview);
         if (frame == null)
             return false;
@@ -123,7 +114,7 @@ internal static class NativeCardPreviewSlotFitter
             ? frameContainer
             : FindDescendant(preview, FrameContainerName);
 
-    // Depth-first pre-order, the order GetComponentsInChildren returned, without its array.
+    // Match GetComponentsInChildren's search order without allocating its array.
     private static RectTransform? FindDescendant(Transform root, string name)
     {
         if (root is RectTransform rect && root.name == name)

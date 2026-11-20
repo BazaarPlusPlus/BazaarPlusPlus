@@ -8,8 +8,6 @@ import {
   undefinedClasses
 } from '../../../design/ui-classes';
 
-// Every class a component draws with exists in a stylesheet: bundle.css for
-// the shared library, plus this app's index.css for the installer's own pages.
 describe('bpp-* classes', () => {
   it('the Web component library uses only classes bundle.css defines', () => {
     expect(

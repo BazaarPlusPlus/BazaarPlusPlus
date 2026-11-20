@@ -1,45 +1,26 @@
 #nullable enable
-// The Launch Record exists only inside the Android App, and its reader needs System.Text.Json,
-// which netstandard2.1 lacks: the desktop builds (Core's netstandard2.1 target and the BepInEx
-// patcher) compile none of this file.
+// The record reader needs System.Text.Json, which netstandard2.1 does not supply.
 #if NET
 using System.Text.Json;
 
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>How a launch runs the mod, as its Launch Record says (root GLOSSARY.md).</summary>
 public enum LaunchRecordMode
 {
-    /// <summary>No record: the mod is not running in the Android App, and runs normally.</summary>
     Absent,
 
-    /// <summary>A record for this process and this release.</summary>
     Normal,
 
-    /// <summary>
-    /// A record that cannot be trusted: unreadable, invalid, another process's, or another
-    /// release's. It is logged, and the mod runs normally (root ADR 0013).
-    /// </summary>
     Untrusted,
 }
 
-/// <summary>
-/// The Launch Record the Android App writes into LemonLoader's <c>UserData/</c> before every
-/// BPP launch (root ADR 0012, "启动记录"): which App, release, game and interop this launch
-/// uses. The App's writer owns the format and a shared golden,
-/// <c>bazaarplusplus-android/contracts/launch-record.v1.json</c>, that this reader is tested
-/// against. Parsing is strict: a missing, mistyped or unknown field, or an unknown
-/// <c>schemaVersion</c>, is no record at all.
-/// </summary>
+// The Android App owns the format. Both sides share the golden
+// bazaarplusplus-android/contracts/launch-record.v1.json.
 public sealed class LaunchRecord
 {
-    /// <summary>The record's file name in LemonLoader's <c>UserData/</c> directory.</summary>
     public const string FileName = "BazaarPlusPlus.launch.json";
 
-    /// <summary>
-    /// The one schema this reader knows. Version 1 was edited in place once, before the App's
-    /// first release (root ADR 0013); every later field change bumps it.
-    /// </summary>
+    // Any field change requires a schema version bump.
     public const int SchemaVersion = 1;
 
     // A record is a few hundred bytes; anything this large was not written by the App.
@@ -60,23 +41,19 @@ public sealed class LaunchRecord
         Interop = interop;
     }
 
-    /// <summary>The process that wrote the record, which the game then runs in.</summary>
     public int ProcessId { get; }
 
     public LaunchRecordApp App { get; }
 
-    /// <summary>The product version this launch stages or has installed.</summary>
     public string Release { get; }
 
     public LaunchRecordGame Game { get; }
 
     public LaunchRecordInterop Interop { get; }
 
-    /// <summary>The record's path under LemonLoader's <c>UserData/</c> directory.</summary>
     public static string PathIn(string userDataDirectory) =>
         Path.Combine(userDataDirectory, FileName);
 
-    /// <summary>Parses one record; throws <see cref="LaunchRecordFormatException"/> otherwise.</summary>
     public static LaunchRecord Parse(string json)
     {
         JsonDocument document;
@@ -173,7 +150,6 @@ public sealed class LaunchRecord
         }
     }
 
-    /// <summary>Reads the file; null when it does not exist. Throws on an unreadable one.</summary>
     internal static string? ReadText(string path)
     {
         if (!File.Exists(path))
@@ -195,7 +171,6 @@ public sealed class LaunchRecord
     private static JsonElement Child(JsonElement parent, string name) =>
         RequireObject(Property(parent, name), name);
 
-    // Every field named, each once, and no other: a field the App adds bumps schemaVersion.
     private static void Fields(JsonElement element, string name, params string[] expected)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -256,11 +231,7 @@ public sealed class LaunchRecord
     }
 }
 
-/// <summary>
-/// The Android App that wrote the record. <c>NonManagedPayloadDigest</c> is the digest of the
-/// runtime the App carries (loader, native libraries, Updater); null for a development build of
-/// the App.
-/// </summary>
+// A development App has no runtime payload digest, so it writes null.
 public sealed record LaunchRecordApp(
     string PackageName,
     string VersionName,
@@ -268,7 +239,6 @@ public sealed record LaunchRecordApp(
     string? NonManagedPayloadDigest
 );
 
-/// <summary>The installed official game this launch loads.</summary>
 public sealed record LaunchRecordGame(
     string PackageName,
     string VersionName,
@@ -277,10 +247,8 @@ public sealed record LaunchRecordGame(
     string MetadataSha256
 );
 
-/// <summary>The Interop Package this launch loads.</summary>
 public sealed record LaunchRecordInterop(string Sha256, string SnapshotSha256);
 
-/// <summary>A record that does not parse; <see cref="ReasonCode"/> names why for the log.</summary>
 public sealed class LaunchRecordFormatException : FormatException
 {
     public LaunchRecordFormatException(string reasonCode, string message)
@@ -289,14 +257,8 @@ public sealed class LaunchRecordFormatException : FormatException
     public string ReasonCode { get; }
 }
 
-/// <summary>
-/// One read of the Launch Record, classified (root ADR 0012 and 0013): no file is
-/// <see cref="LaunchRecordMode.Absent"/>; a record that is unreadable or invalid, has an unknown
-/// schema, was written by another process, or names another release than the running Mods is
-/// <see cref="LaunchRecordMode.Untrusted"/>. <see cref="Record"/> keeps a parsed record written
-/// for this process, another release's included, for the Updater and self-update, which compare
-/// against the runtime the App started.
-/// </summary>
+// Keep a parsed record from this process even when its release differs from the running Mods.
+// The Updater and self-update still need it to identify the runtime.
 public sealed class LaunchRecordReading
 {
     private LaunchRecordReading(LaunchRecordMode mode, string reason, LaunchRecord? record)
@@ -306,26 +268,17 @@ public sealed class LaunchRecordReading
         Record = record;
     }
 
-    /// <summary>No record: the mod runs outside the Android App.</summary>
     public static LaunchRecordReading Absent { get; } =
         new(LaunchRecordMode.Absent, "absent", null);
 
     public LaunchRecordMode Mode { get; }
 
-    /// <summary>
-    /// <c>absent</c>, <c>normal</c>, <c>unreadable</c>, <c>invalid</c>, <c>invalid_json</c>,
-    /// <c>schema_unknown</c>, <c>process_mismatch</c> or <c>release_mismatch</c>.
-    /// </summary>
     public string Reason { get; }
 
-    /// <summary>The parsed record when this process wrote it; null otherwise.</summary>
     public LaunchRecord? Record { get; }
 
-    /// <summary>
-    /// Reads the record at <paramref name="path"/>. <paramref name="runningRelease"/> is the
-    /// version of the Mods running; null skips that comparison (the Updater runs before any Mods
-    /// load, and the record's release is the version it may swap in).
-    /// </summary>
+    // The Updater runs before the Mods load. A null runningRelease lets it read the record
+    // for the version it may swap in.
     public static LaunchRecordReading Read(string path, int processId, string? runningRelease)
     {
         string? text;
@@ -344,7 +297,6 @@ public sealed class LaunchRecordReading
         return text == null ? Absent : Classify(text, processId, runningRelease);
     }
 
-    /// <summary>Classifies a record's text, as <see cref="Read"/> does a file's.</summary>
     public static LaunchRecordReading Classify(string text, int processId, string? runningRelease)
     {
         LaunchRecord record;
@@ -363,7 +315,6 @@ public sealed class LaunchRecordReading
         return new(LaunchRecordMode.Normal, "normal", record);
     }
 
-    /// <summary>A record that cannot be trusted, for <paramref name="reason"/>.</summary>
     public static LaunchRecordReading Untrusted(string reason) =>
         new(LaunchRecordMode.Untrusted, reason, null);
 

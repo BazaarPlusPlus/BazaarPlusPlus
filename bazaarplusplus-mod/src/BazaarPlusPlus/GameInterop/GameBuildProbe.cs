@@ -6,7 +6,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop;
 
-/// <summary>Reads the desktop client's build signals for <see cref="GameBuildInfoResolver"/>.</summary>
 internal static class GameBuildProbe
 {
     public static GameBuildInfo Resolve()
@@ -16,29 +15,19 @@ internal static class GameBuildProbe
         {
             rawVersion = Application.version ?? string.Empty;
         }
-        catch
-        {
-            // Fall through to Unknown below.
-        }
+        catch { }
 
         bool? hasServerOption = null;
         try
         {
             hasServerOption = AccessTools.Inner(typeof(TheBazaar.Config), "ServerOption") != null;
         }
-        catch
-        {
-            // The version signal decides alone when the probe is unreadable.
-        }
+        catch { }
 
         return GameBuildInfoResolver.Resolve(rawVersion, hasServerOption);
     }
 
-    /// <summary>
-    /// The game's data cache directory, which holds the manifest <see cref="GameDataManifest"/>
-    /// reads; null when the game cannot say. Read once on the main thread: it reads
-    /// <c>Application.persistentDataPath</c>.
-    /// </summary>
+    // Read on the Unity main thread because this accesses Application.persistentDataPath.
     public static string? GameDataCacheDirectory()
     {
         try

@@ -44,8 +44,7 @@ internal sealed partial class CombatStatusBar
     {
         if (_canvasObject != null)
             return;
-        // A switched-off bar prepares no fonts and builds no canvas. Gate on the setting alone:
-        // ShouldDraw also waits for a run and would move this one-time cost into the first run.
+        // ShouldDraw waits for a run, so using it here would defer one-time setup costs into the first run.
         if (_services?.Config.EnableCombatStatusBarConfig.Value != true)
             return;
         if (
@@ -71,7 +70,6 @@ internal sealed partial class CombatStatusBar
         );
         _canvasObject.transform.SetParent(transform, false);
         var canvas = _canvasObject.GetComponent<Canvas>();
-        // Keep the screen-space layout while participating in the native transition rendering.
         // An overlay canvas would bypass the game's camera layers and transition covers.
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
         canvas.enabled = false;
@@ -140,7 +138,6 @@ internal sealed partial class CombatStatusBar
             return false;
         }
 
-        // The load this bar waited for finished without the sprites.
         _nativeSkinRequested = false;
         var error = DesktopNativeSkin.LastLoadError;
         _nativeSkinRetryAt = Time.realtimeSinceStartup + 30f;
@@ -166,7 +163,6 @@ internal sealed partial class CombatStatusBar
         return false;
     }
 
-    // The native plaque: the brown centre inset two pixels under the frame.
     private static void ApplyPlaque(RectTransform root)
     {
         PlaqueLayer(root, "Backing", DesktopSkinPart.BrownCenter, new Vector2(2f, 2f));
@@ -300,7 +296,6 @@ internal sealed partial class CombatStatusBar
         if (!float.IsFinite(depth) || depth <= camera.nearClipPlane || depth >= camera.farClipPlane)
             return false;
         var canvas = _canvas;
-        // Write only what changed: in the shop these inputs hold still for minutes.
         var placementChanged = !_canvasEnabled;
         if (canvas.worldCamera != camera)
         {

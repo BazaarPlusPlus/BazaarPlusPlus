@@ -3,8 +3,6 @@ using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Core.GameState;
 
-/// <summary>What a choice screen's pedestal kind can only change with: the app state and the
-/// selection list (by identity), the selection's count, and the current encounter.</summary>
 public readonly record struct ChoicePedestalScreenKey(
     object? AppState,
     object? SelectionSet,
@@ -21,10 +19,7 @@ public readonly record struct ChoicePedestalScreenKey(
     public override int GetHashCode() => SelectionCount;
 }
 
-/// <summary>Reuses the pedestal kind a per-frame reader resolved while the screen key is
-/// unchanged. Reading the kind rebuilds the selection ids and pedestal snapshot, so a host that
-/// polls it every frame reads it once per key, plus once every <see cref="RecheckFrames"/> frames
-/// for an in-place selection edit that keeps the same list and count.</summary>
+// Recheck periodically because a native selection edit can keep the same list identity and size.
 public sealed class ChoicePedestalKindCache
 {
     public const int RecheckFrames = 30;
@@ -34,9 +29,6 @@ public sealed class ChoicePedestalKindCache
     private int _readFrame;
     private ChoiceScreenPedestalKind _kind;
 
-    /// <summary>The kind matters only in <see cref="PreviewVisibilityMode.AutoOnPedestalChoice"/>
-    /// with neither preview hotkey held; every other case, the default mode included, reads
-    /// nothing.</summary>
     public static bool ShouldRead(PreviewVisibilityMode mode, bool holdUpgrade, bool holdEnchant) =>
         !holdUpgrade && !holdEnchant && mode == PreviewVisibilityMode.AutoOnPedestalChoice;
 

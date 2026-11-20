@@ -3,10 +3,7 @@ using System.Globalization;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// A catalog's display-name order under the current culture, ranked once when the catalog is
-// accepted so the filter engine's sort compares integers instead of running a culture-sensitive
-// string comparison per pair. Cards whose names the culture compares equal share a rank, so the
-// ranked order is exactly the one CompareNames gives.
+// Rank names once per culture to avoid repeated culture-sensitive comparisons. Equal names share a rank to preserve the original sort.
 internal sealed class CollectionCardNameOrder
 {
     private readonly IReadOnlyList<CollectionCardVm> _cards;
@@ -22,7 +19,6 @@ internal sealed class CollectionCardNameOrder
     public static int CompareNames(CollectionCardVm a, CollectionCardVm b) =>
         string.Compare(a.DisplayName, b.DisplayName, StringComparison.CurrentCultureIgnoreCase);
 
-    // Ranks the catalog's cards; a catalog already ranked under the current culture is kept.
     public static void Assign(IReadOnlyList<CollectionCardVm> cards)
     {
         if (cards.Count == 0)
@@ -53,8 +49,6 @@ internal sealed class CollectionCardNameOrder
         }
     }
 
-    // True when every card carries the same order, ranked under the current culture; otherwise
-    // the caller compares names directly.
     public static bool Covers(IReadOnlyList<CollectionCardVm> cards)
     {
         if (cards.Count == 0)

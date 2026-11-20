@@ -18,8 +18,7 @@ export async function render(
     await document.fonts.ready;
   });
   mark('content');
-  // The report sizes itself to its content, so the shot is of <main> alone.
-  // JPEG keeps a report well under 1 MB where PNG is several times larger, so the QQ upload is faster.
+  // JPEG keeps the QQ upload under 1 MB, several times smaller than PNG.
   const main = await page.$('main');
   if (!main) throw new Error('The report has no main element');
   return new Uint8Array(await main.screenshot({ type: 'jpeg', quality: 85 }));

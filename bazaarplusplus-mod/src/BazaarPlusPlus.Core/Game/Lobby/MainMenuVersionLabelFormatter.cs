@@ -1,24 +1,17 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Lobby;
 
-/// <summary>Where the running copy stands against the published release.</summary>
 public enum MainMenuUpdateStatus
 {
     None,
 
-    /// <summary>The newer Managed Payload is downloading.</summary>
     Updating,
 
-    /// <summary>The newer Managed Payload is staged; the next start swaps it in.</summary>
     RestartToUpdate,
 
-    /// <summary>A newer release this copy cannot take by itself.</summary>
     ManualUpdate,
 
-    /// <summary>
-    /// A newer Managed Payload this copy can take, which only the Android App stages: starting
-    /// the game again from the App installs it.
-    /// </summary>
+    // The Android App alone stages updates on that host, so restart the game from the App to install them.
     RestartFromApp,
 }
 
@@ -53,7 +46,6 @@ public static class MainMenuVersionLabelFormatter
             MainMenuUpdateStatus.RestartToUpdate => RestartToUpdateText,
             MainMenuUpdateStatus.ManualUpdate => manualUpdateText,
             MainMenuUpdateStatus.RestartFromApp => restartFromAppText,
-            // The self-update status comes first; the game's adaptation only fills an empty suffix.
             _ => string.IsNullOrWhiteSpace(adaptationText) ? null : adaptationText,
         };
         var suffix = statusText == null ? string.Empty : $" | {statusText}";

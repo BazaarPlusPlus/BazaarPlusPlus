@@ -59,7 +59,6 @@ public sealed class HistoryGhostRecoveryTests
             "Compressed size rejection must retain the original file."
         );
         var data = new HistoryPanelDataService(repository, null, () => replay);
-        // Expiry is not account-scoped; restoring is. The panel reloads on either count.
         Check(
             data.MaintainGhosts("account-b", CancellationToken.None)
                 is { Expired: > 0, Restored: 0 },
@@ -102,8 +101,6 @@ public sealed class HistoryGhostRecoveryTests
         );
     }
 
-    // The detail error message reaches the History status line; a decode failure must not
-    // replace the friendly text with a serializer message.
     private static void CheckInvalidDetailMessage(
         SqliteConnection db,
         HistoryPanelRepository repository,

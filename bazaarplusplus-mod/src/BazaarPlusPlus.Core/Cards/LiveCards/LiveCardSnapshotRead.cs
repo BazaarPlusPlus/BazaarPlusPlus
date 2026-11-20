@@ -6,16 +6,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Core.Cards.LiveCards;
 
-/// <summary>
-/// Turns a host's <see cref="LiveCardWalk"/> into the <see cref="LiveCardSnapshotSet"/> and
-/// reports what it left out, the one owner of the live read's outcome on both hosts (ADR-0017).
-/// A board or stash card is kept when it fits its socket under the item boards' slot rule; a
-/// misfit is left out and becomes an issue. The fallbacks (Bronze, Small, no enchantment, empty
-/// attributes) apply here, <c>Order</c> numbers the kept cards in walk order, and nothing is
-/// sorted. A walk or an assembly that throws reads as empty with one read-exception issue. Each
-/// issue is written as one warning on the host's own event, which the host builds at its call
-/// site. Never throws; call it on the thread the walk may run on.
-/// </summary>
+// Call on the thread that can read the host's live cards. Diagnostics use the host's event schema.
 public static class LiveCardSnapshotRead
 {
     public static LiveCardSnapshotReadOutcome Read(
@@ -142,8 +133,6 @@ public static class LiveCardSnapshotRead
         }
     }
 
-    // A socket the facets name renders through the facet; one outside the board renders as its
-    // index.
     private static object? SocketValue(int? socket, LiveCardSnapshotLogValues values) =>
         socket switch
         {

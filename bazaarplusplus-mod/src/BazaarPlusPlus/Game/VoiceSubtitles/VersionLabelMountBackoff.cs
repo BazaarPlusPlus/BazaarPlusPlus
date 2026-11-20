@@ -2,10 +2,6 @@
 
 namespace BazaarPlusPlus.Game.VoiceSubtitles;
 
-/// <summary>When <see cref="VersionLabelScanner"/> may run a full label scan or retry a mount
-/// from the cached label path. A miss (no label found, or a mount that failed) waits one scan
-/// interval, and from the third consecutive miss on the backoff interval; a successful mount
-/// or the feature switching off resets it. It never stops retrying.</summary>
 internal sealed class VersionLabelMountBackoff
 {
     internal const float ScanIntervalSeconds = 0.75f;

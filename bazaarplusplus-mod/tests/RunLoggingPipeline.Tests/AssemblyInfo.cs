@@ -1,5 +1,4 @@
 using Xunit;
 
-// BppLog takes one process-wide sink and every test clears the process-wide SQLite pool, so the
-// tests run one at a time as the console runner did.
+// Run serially because the tests replace the global BppLog sink and clear the SQLite pool.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

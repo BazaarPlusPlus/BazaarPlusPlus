@@ -6,7 +6,6 @@ import Install from './pages/Install';
 import RunDetail from './pages/RunDetail';
 import Stream from './pages/Stream';
 
-/** The route tree without a router, so it also renders under a MemoryRouter. */
 export function AppRoutes() {
   return (
     <Routes>

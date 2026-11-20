@@ -37,7 +37,6 @@ public class InstalledGameTest {
     @Test
     public void eachSigningCertificateIsNamedByItsSha256() {
         assertEquals(Set.of(), InstalledGame.signerDigests(List.of()));
-        // The sha256 of "abc" (FIPS 180-2), standing in for a DER certificate.
         assertEquals(Set.of("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
                 InstalledGame.signerDigests(List.of("abc".getBytes(StandardCharsets.UTF_8))));
     }

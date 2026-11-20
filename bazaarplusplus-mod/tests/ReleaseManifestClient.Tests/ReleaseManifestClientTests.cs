@@ -8,7 +8,6 @@ using Xunit;
 // Not ReleaseManifestClient.Tests: that namespace would hide the Core type of the same name.
 namespace ReleaseManifest.Tests;
 
-// Each test is one check of the capsule it replaces, with the same calls and messages.
 public sealed class ReleaseManifestClientTests
 {
     [Fact]
@@ -188,7 +187,6 @@ public sealed class ReleaseManifestClientTests
         );
         True(desktop.AndroidApp == null, "Another platform's record names no Android App.");
 
-        // Each record below is complete but for the one defect its name says.
         True(
             await ReadAndroidApp(AndroidRecord(App, Adaptations(("publisher", Game)))) != null,
             "A complete record is a release."
@@ -742,7 +740,6 @@ public sealed class ReleaseManifestClientTests
     private static HttpResponseMessage Response(HttpStatusCode status, string body) =>
         new(status) { Content = new StringContent(body) };
 
-    // The capsule's checks kept their messages; xUnit reports them with the values compared.
     private static void Equal<T>(T expected, T actual, string message) =>
         Assert.True(
             EqualityComparer<T>.Default.Equals(expected, actual),

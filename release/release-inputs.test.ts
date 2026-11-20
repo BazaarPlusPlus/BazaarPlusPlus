@@ -8,9 +8,7 @@ import { PAYLOAD_TOOLING_INPUTS } from './payload.ts';
 const workspaceRoot = path.resolve(import.meta.dirname, '..');
 const installerRoot = path.join(workspaceRoot, 'bazaarplusplus-installer');
 
-// Both lists name release inputs by path and skip a missing path without an
-// error, so a rename that misses them would silently drop the file from the
-// release source identity or the Payload input digest.
+// Missing paths are skipped, so a rename can silently drop a file from the release digests.
 test('every named release source path exists', () => {
   expect(
     RELEASE_SOURCE_PATHS.filter(
@@ -27,10 +25,7 @@ test('every named Payload tooling input exists', () => {
   ).toEqual([]);
 });
 
-// computePayloadInputs hashes release/, the installer's scripts/release/, the
-// mod and the named tooling inputs. A release module that starts loading any
-// other workspace file at runtime would leave that file out of the digest.
-// Type-only imports are erased, so they do not count.
+// Value imports load inputs that must be hashed. Type-only imports are erased.
 const VALUE_IMPORT =
   /^\s*(?:import|export)\s+(?!type\s)[^;'"]*?\bfrom\s+['"](\.[^'"]+)['"]|^\s*import\s+['"](\.[^'"]+)['"]|\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/gm;
 const SCANNED = ['release/', 'bazaarplusplus-installer/scripts/release/'];

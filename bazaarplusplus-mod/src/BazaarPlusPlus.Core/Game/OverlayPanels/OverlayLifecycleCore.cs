@@ -2,10 +2,6 @@
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The pure lifecycle rules of the Overlay Panel Host (GLOSSARY.md §Overlay panels, ADR-0005): it
-// holds no delegate and calls nothing. OverlayPanelHost reads each evaluation's facts, asks this
-// core for directives, and runs them.
-
 internal enum OverlayDirectiveKind
 {
     Close,
@@ -20,7 +16,6 @@ internal readonly struct OverlayDirective
 {
     public OverlayDirectiveKind Kind { get; init; }
 
-    // Empty for Release, which belongs to the Host rather than a panel.
     public string PanelId { get; init; }
     public OverlayCloseReason CloseReason { get; init; }
     public OverlayReleaseReason ReleaseReason { get; init; }
@@ -54,11 +49,6 @@ internal readonly struct OverlayDirective
         };
 }
 
-// One evaluation's facts. The host reads IsInCombat only when a rule can use it (a panel is
-// open or a toggle is pending) and passes false otherwise. SwitchedOff lists the panels whose
-// Enabled predicate went from true to false since the last evaluation; the host keeps that
-// bookkeeping, since reading a predicate is a call. ObservesRules false runs only the scene,
-// switch-off and release rules.
 internal readonly struct OverlayFrameSnapshot
 {
     public string? SceneToken { get; init; }
@@ -98,11 +88,8 @@ internal sealed class OverlayLifecycleCore
 
     public bool IsRegistered(string panelId) => FindPanel(panelId) != null;
 
-    // Rule order: scene change -> switch-off -> release -> combat close -> modal -> toggle, else
-    // escape.
     public IReadOnlyList<OverlayDirective> Evaluate(OverlayFrameSnapshot frame)
     {
-        // Most frames produce nothing; the list is allocated only once a directive exists.
         List<OverlayDirective>? directives = null;
         OverlayReleaseReason? release = null;
 
@@ -123,8 +110,7 @@ internal sealed class OverlayLifecycleCore
                         ClosePanel(ref directives, OverlayCloseReason.SceneChange);
                 }
 
-                // Side-effect fan-out runs after the policy close (matching CollectionPanel's
-                // close-then-dispose order) and reaches every registrant, open or closed.
+                // Close before disposing so panels can release visible state first.
                 foreach (var panel in _panels)
                     (directives ??= []).Add(OverlayDirective.NotifySceneChanged(panel.PanelId));
                 release = OverlayReleaseReason.SceneChange;
@@ -174,7 +160,6 @@ internal sealed class OverlayLifecycleCore
                 (directives ??= []).Add(OverlayDirective.Open(toggledPanelId));
                 _openPanelId = toggledPanelId;
             }
-            // In combat or switched off: the open is suppressed.
         }
         else if (frame.EscapePressed && _openPanelId != null)
         {
@@ -184,8 +169,7 @@ internal sealed class OverlayLifecycleCore
         return (IReadOnlyList<OverlayDirective>?)directives ?? Array.Empty<OverlayDirective>();
     }
 
-    // The synchronous Escape (the Android back key, answered inside a Harmony prefix): only the
-    // modal and escape rules, never the scene, switch-off or combat ones.
+    // Android's Harmony back-key prefix needs the Escape decision synchronously.
     public IReadOnlyList<OverlayDirective> EvaluateEscape(bool isModalInputActive)
     {
         if (_openPanelId == null)
@@ -197,9 +181,7 @@ internal sealed class OverlayLifecycleCore
         return directives!;
     }
 
-    // Synchronous external open (dock entries, menu rows): enabled and combat gates, then
-    // close-others and open, resolved at the call site so mutual exclusion stays same-frame.
-    // The host reads isInCombat only after the unknown, already-open and disabled checks pass.
+    // Dock and menu opens resolve synchronously so mutual exclusion holds in the same frame.
     public OverlayRequestOutcome ExecuteOpenRequest(
         string panelId,
         bool isEnabled,
@@ -245,7 +227,6 @@ internal sealed class OverlayLifecycleCore
         return OverlayRequestOutcome.Executed;
     }
 
-    // An Open directive whose panel could not open: the panel never became the open one.
     public void RollbackOpen(string panelId)
     {
         if (string.Equals(_openPanelId, panelId, StringComparison.Ordinal))

@@ -8,10 +8,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// Core's Replay Payload sweep as <see cref="AndroidComposition"/> runs it: over the battle store
-/// opened with the host's DELETE journal mode and the host's combat replay directory.
-/// </summary>
 public sealed class AndroidReplayMaintenanceTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 20, 0, 0, 0, TimeSpan.Zero);

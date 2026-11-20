@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
-/// <summary>
-/// One discovered Ghost battle as <see cref="HistoryPanelRepository.UpsertGhostBattles"/> stores
-/// it in a <c>battles</c> row, in the recorder's perspective. Core maps the Mod API's discovery
-/// record onto it; Storage references no other BPP assembly.
-/// </summary>
+// The values use the recorder's perspective.
 public sealed class GhostBattleImportRow
 {
     public string BattleId { get; set; } = string.Empty;

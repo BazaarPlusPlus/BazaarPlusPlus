@@ -1,17 +1,13 @@
-//! The mod stores every instant as Unix-epoch milliseconds in `*_at_ms` columns;
-//! History DTOs and stream records keep RFC 3339 text, so these convert at the
-//! column boundary.
+//! The mod stores Unix milliseconds. History DTOs and stream records use RFC 3339.
 
 use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone, Utc};
 use rusqlite::types::Type;
 
-/// RFC 3339 UTC text for a stored instant: `Z`, with milliseconds only when present.
 pub(crate) fn utc_text(millis: i64) -> Option<String> {
     DateTime::<Utc>::from_timestamp_millis(millis)
         .map(|value| value.to_rfc3339_opts(SecondsFormat::AutoSi, true))
 }
 
-/// RFC 3339 text of a stored instant at the UTC offset recorded beside it.
 pub(crate) fn local_text(millis: i64, utc_offset_minutes: i64) -> Option<String> {
     let offset = FixedOffset::east_opt(i32::try_from(utc_offset_minutes.checked_mul(60)?).ok()?)?;
     DateTime::<Utc>::from_timestamp_millis(millis).map(|value| {
@@ -21,13 +17,11 @@ pub(crate) fn local_text(millis: i64, utc_offset_minutes: i64) -> Option<String>
     })
 }
 
-/// Reads an `*_at_ms` column as RFC 3339 UTC text.
 pub(crate) fn utc_column(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<String> {
     let millis: i64 = row.get(index)?;
     utc_text(millis).ok_or_else(|| out_of_range(index, millis))
 }
 
-/// Reads a nullable `*_at_ms` column as RFC 3339 UTC text.
 pub(crate) fn optional_utc_column(
     row: &rusqlite::Row<'_>,
     index: usize,
@@ -37,9 +31,7 @@ pub(crate) fn optional_utc_column(
         .transpose()
 }
 
-/// The start of local `date` in the timezone of `now`: local midnight, or,
-/// when a DST gap skips midnight (zones that switch at 00:00), 01:00, the end
-/// of every such gap. Noon stands in last, since no timezone skips it.
+/// Some time zones skip midnight on DST transitions. Use the end of the gap, with noon as a fallback.
 pub(crate) fn local_day_start<Tz: TimeZone>(
     now: &DateTime<Tz>,
     date: NaiveDate,

@@ -2,10 +2,7 @@ using System.Text.Json;
 
 namespace BazaarPlusPlus.SteamSnapshot;
 
-/// <summary>
-/// The access codes of password-protected Steam branches, keyed by branch: one line of JSON, the
-/// value of STEAM_BETA_PASSWORDS. Messages never repeat a code.
-/// </summary>
+// STEAM_BETA_PASSWORDS is one JSON line keyed by branch. Keep access codes out of diagnostics.
 public sealed class BetaPasswords
 {
     public const string EnvironmentVariable = "STEAM_BETA_PASSWORDS";

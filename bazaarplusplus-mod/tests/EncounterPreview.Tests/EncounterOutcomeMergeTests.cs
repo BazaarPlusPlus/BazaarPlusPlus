@@ -10,8 +10,7 @@ public class EncounterOutcomeMergeTests
     [Fact]
     public void Combat_pools_with_the_same_eligibility_merge_into_one_view()
     {
-        // Mountain Pass shape: 25% fight + 25% fight + 40% loot + 10% skill; the
-        // two combat groups carry no visible monster names, so they collapse to 50%.
+        // Models Mountain Pass, where the two combats expose no monster names.
         var views = EncounterEventDetailResolver.BuildOutcomeViews(
             new List<EncounterEventDetailResolver.OutcomeGroupResolution>
             {
@@ -27,7 +26,6 @@ public class EncounterOutcomeMergeTests
         Assert.Equal(50, combat.Percent);
         Assert.Equal(2, combat.OptionCount);
         Assert.Equal(3, views.Count);
-        // Merged combat keeps the first combat group's position.
         Assert.True(views[0].IsCombatPool);
     }
 
@@ -111,8 +109,6 @@ public class EncounterOutcomeMergeTests
             }
         );
 
-    // Farai/Underground Resistance: dozens of title-only package outcomes collapse
-    // into one pooled line with the summed probability.
     [Fact]
     public void Large_title_only_clusters_collapse_into_one_pool_view()
     {
@@ -171,8 +167,6 @@ public class EncounterOutcomeMergeTests
         Assert.Equal(10, ineligible.OptionCount);
     }
 
-    // Shops (limit > 1) with nothing but nameless pools or a single view describe
-    // stock composition, not outcome odds; one-shot rolls (limit 1) always render.
     [Fact]
     public void Multi_spawn_events_without_real_alternatives_suppress()
     {
@@ -232,8 +226,6 @@ public class EncounterOutcomeMergeTests
             }
         );
 
-    // Same rendered content in several weighted groups (Farai's per-NPC package
-    // split) collapses into one line with the weights summed.
     [Fact]
     public void Same_content_groups_merge_with_summed_weights()
     {

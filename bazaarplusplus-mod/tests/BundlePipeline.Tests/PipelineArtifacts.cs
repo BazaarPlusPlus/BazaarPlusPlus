@@ -12,19 +12,7 @@ using Microsoft.Data.Sqlite;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-/// <summary>
-/// The Bundle pipeline anchor's artifact: every sealed Bundle and manifest under
-/// <c>artifacts/bundle-pipeline/</c>, and one normalized summary compared byte for byte with
-/// <c>fixtures/bundle-pipeline.golden.json</c>. Regenerate with
-/// <c>BPP_UPDATE_GOLDENS=1 dotnet run --project tests/BundlePipeline.Tests/BundlePipeline.Tests.csproj</c>
-/// from the mod root, then review <c>git diff tests/BundlePipeline.Tests/fixtures/</c>.
-///
-/// <c>bundle_id</c>, <c>created_at_ms</c> (UlidV6Generator and the seal clock), the values
-/// derived from them (file name, whole-Bundle SHA-256 and Content-Digest), and <c>*_at_ms</c>
-/// are normalized. Gzip/JPEG bytes may differ across runtimes and CPU architectures: pin the
-/// decompressed MessagePack bytes and check decoded screenshot pixels against the input instead.
-/// Encoded lengths and digests are checked against the real Bundle before normalization.
-/// </summary>
+// Normalize IDs and times that vary by run. Gzip and JPEG bytes vary by runtime, so goldens pin decompressed bytes and decoded pixels.
 internal sealed class PipelineArtifacts
 {
     private const string GoldenRelativePath =
@@ -62,10 +50,6 @@ internal sealed class PipelineArtifacts
         VerifyServerChecksumsUseOurMeasure();
     }
 
-    /// <summary>
-    /// Writes the raw Bundle and manifest, validates the manifest against the server-owned
-    /// schema before normalization, and records the normalized manifest and checksum entry.
-    /// </summary>
     internal OpenedBundleV6 RecordBundle(string name, byte[] bytes)
     {
         var opened = BundleV6Codec.Open(bytes);
@@ -121,7 +105,6 @@ internal sealed class PipelineArtifacts
         return opened;
     }
 
-    /// <summary>Snapshots the queue rows of <paramref name="runIds"/> at the end of a step.</summary>
     internal void RecordQueue(string step, string database, params string[] runIds)
     {
         using var connection = new SqliteConnection($"Data Source={database}");
@@ -181,12 +164,6 @@ internal sealed class PipelineArtifacts
         );
     }
 
-    /// <summary>
-    /// Writes <c>bundle-pipeline.actual.json</c> and compares it with the golden, or rewrites
-    /// the golden under <c>BPP_UPDATE_GOLDENS=1</c>. Returns false on a mismatch.
-    /// </summary>
-    // Null when the summary matches the golden (or BPP_UPDATE_GOLDENS=1 rewrote it); otherwise
-    // the failure with its diff, for the test to report.
     internal string? GoldenMismatch()
     {
         var summary = new JsonObject
@@ -232,7 +209,6 @@ internal sealed class PipelineArtifacts
         return reader.ReadToEnd();
     }
 
-    // The checksums section reuses the server fixture's measure; prove it on the server golden.
     private static void VerifyServerChecksumsUseOurMeasure()
     {
         var bytes = Convert.FromBase64String(Resource("run-only.bundle.b64").Trim());

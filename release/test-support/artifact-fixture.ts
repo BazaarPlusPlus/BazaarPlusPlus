@@ -7,7 +7,6 @@ import type { ManagedPayloadArtifact } from '../artifact-manifest.ts';
 import type { TauriBuildPlatform } from '../release-platforms.ts';
 import type { ProductVersion } from '../product.ts';
 
-/** Where a native build leaves one platform's artifacts. */
 export interface ArtifactPaths {
   bundleRoot: string;
   bundleDir: string;
@@ -18,7 +17,6 @@ export interface ArtifactPaths {
   payloadBuild: string;
 }
 
-/** The bytes writeArtifacts writes; every one but version has a default. */
 export interface WriteArtifactsOptions {
   version: ProductVersion;
   installer?: string;
@@ -28,15 +26,12 @@ export interface WriteArtifactsOptions {
   managedSignature?: string;
 }
 
-/** The written artifacts, and the createArtifactManifest managedPayload. */
 export interface WrittenArtifacts extends ArtifactPaths {
   rootDir: string;
   managed: ManagedPayloadArtifact;
 }
 
-// Where a native build leaves one platform's installer, updater and updater
-// signature under the installer project, laid out by RELEASE_PLATFORMS.
-// Windows ships its NSIS installer as the updater; macOS ships an app archive.
+// Windows reuses its NSIS installer for the updater. macOS ships an app archive.
 export function artifactPaths(
   rootDir: string,
   platform: TauriBuildPlatform,
@@ -76,14 +71,11 @@ export function artifactPaths(
   };
 }
 
-// The self-update facts every shared fixture records for a desktop build.
 export const MANAGED_PAYLOAD_FACTS = Object.freeze({
   historyDatabaseUserVersion: 1,
   nonManagedPayloadDigest: 'e'.repeat(64)
 });
 
-// The Snapshot Lock entry each platform's sealed build record names; the
-// shared fixtures record it as `game`.
 export const LOCK_ENTRIES = Object.freeze({
   macos: {
     key: 'macos-online',
@@ -103,10 +95,6 @@ export const LOCK_ENTRIES = Object.freeze({
   }
 } as const);
 
-// Replaces the platform's bundle with literal bytes, plus the sealed Payload
-// receipt and the signed Managed Payload createArtifactManifest records.
-// `signature` is written verbatim. The result's `managed` is the
-// createArtifactManifest `managedPayload` argument.
 export function writeArtifacts(
   rootDir: string,
   platform: TauriBuildPlatform,

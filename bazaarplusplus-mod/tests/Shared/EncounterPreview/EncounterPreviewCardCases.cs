@@ -3,11 +3,8 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.TestSupport.EncounterPreview;
 
-/// <summary>
-/// One table of static-data cards and the plans Core's card reader must read off them. The Android
-/// host reads each card's JSON as it is; the desktop reads the JSON the game's serializer writes
-/// for the typed template, so both hosts are held to the same expectations.
-/// </summary>
+// Both hosts use these expected plans. Android reads the static JSON directly, while desktop
+// reads JSON emitted by the game's serializer for the typed template.
 internal static class EncounterPreviewCardCases
 {
     private static readonly Lazy<JArray> Cases = new(() =>
@@ -24,7 +21,6 @@ internal static class EncounterPreviewCardCases
 
     public static JObject Expected(string name) => (JObject)Case(name)["expect"]!;
 
-    /// <summary>What a host's preview can show of the card's plans.</summary>
     public static JObject Describe(
         EncounterPreviewTemplatePlan template,
         EncounterPreviewEventPlan? plan

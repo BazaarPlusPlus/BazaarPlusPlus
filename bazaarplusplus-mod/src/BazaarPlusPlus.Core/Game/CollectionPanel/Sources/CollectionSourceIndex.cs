@@ -4,8 +4,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
 
-// A built source catalog with its lookups; each host loads the catalog JSON and wraps the
-// entries here.
 public sealed class CollectionSourceIndex : ICollectionSourceCatalog
 {
     private readonly IReadOnlyDictionary<Guid, CollectionSourceEntry> _bySourceTemplateId;

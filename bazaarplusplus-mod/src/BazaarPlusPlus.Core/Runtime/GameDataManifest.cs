@@ -3,17 +3,8 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Core.Runtime;
 
-/// <summary>
-/// Reads the ETag of the <c>GameData.db</c> the game has loaded from the manifest the game keeps
-/// beside it: <c>manifest.json</c> in its data cache directory
-/// (<c>TheBazaar.DataManagement.DataManifestActions.GetCachePath()</c>), shaped
-/// <c>{"Entries":{"GameData":{"ETag":"\"…\""}}}</c>. The game writes the entry after a download and
-/// before it rebuilds its data manager, and refreshes it at every run start before
-/// <c>Events.RunStarted</c>, so the entry names the loaded data from then on.
-/// The value has its HTTP quotes removed, the form <c>release/card-art.ts</c> (<c>gameDataEtag</c>)
-/// reads from the public URL. A missing file or entry (the game fell back to its bundled data), a
-/// malformed file, or a read error gives null: the read must never block the run it describes.
-/// </summary>
+// The game writes the cache manifest before rebuilding its data manager and updates it before Events.RunStarted.
+// Strip HTTP quotes to match the ETag form used by release/card-art.ts.
 public static class GameDataManifest
 {
     public const string FileName = "manifest.json";

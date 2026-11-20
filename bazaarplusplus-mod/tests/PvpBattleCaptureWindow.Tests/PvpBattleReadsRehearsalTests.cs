@@ -5,7 +5,6 @@ namespace BazaarPlusPlus.Tests.PvpBattles;
 
 public sealed class PvpBattleReadsRehearsalTests
 {
-    // Hand, skills, three texts and five numbers.
     private const int PlayerSteps = 10;
 
     [Fact]
@@ -211,7 +210,6 @@ public sealed class PvpBattleReadsRehearsalTests
         }
     }
 
-    // Records each read but the classification, which the rehearsal runs on every offer.
     private sealed class RecordingReads(ScriptedBattleReads inner, List<string> reads)
         : IPvpBattleReads<FakeMessage>
     {

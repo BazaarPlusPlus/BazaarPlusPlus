@@ -1,8 +1,3 @@
-//! History Thumbnails: the cropped strip of a run's screenshot on a History
-//! List card. This module owns the process-local source registry, the only
-//! thumbnail URL builder, the image route, and its namespace of the strip
-//! cache.
-
 use super::{
     http::{png_response, run_record_task},
     overlay_settings::OverlaySettingsStore,
@@ -40,9 +35,7 @@ pub(crate) struct HistoryThumbnails {
 }
 
 impl HistoryThumbnails {
-    /// Registers the installation a History page was read from. The path is
-    /// stored as given and its database is resolved on each uncached request,
-    /// so a database that appears after startup is still found.
+    /// Resolve the database on demand so thumbnails can find one created after startup.
     pub(crate) fn register(&self, game_path: &Path) -> ThumbnailSource {
         let mut sources = self.sources.lock().expect("thumbnail sources poisoned");
         let index = match sources.iter().position(|path| path == game_path) {
@@ -64,7 +57,6 @@ impl HistoryThumbnails {
     }
 }
 
-/// The absolute URL of a screenshot's History Thumbnail.
 pub(crate) fn url(source: ThumbnailSource, screenshot_id: &str) -> String {
     let route = ROUTE
         .replace("{source}", &source.0.to_string())
@@ -126,7 +118,6 @@ async fn thumbnail(
     }
 }
 
-/// `None` when the database, the screenshot row or its image is missing.
 fn render(
     game_path: &Path,
     screenshot_id: &str,
@@ -154,7 +145,6 @@ fn render(
     .map(Some)
 }
 
-/// One directory per installation path, stable across restarts.
 fn cache_directory(cache_root: &Path, game_path: &Path) -> PathBuf {
     cache_namespace(cache_root, HISTORY_THUMBNAIL_CACHE, game_path)
 }

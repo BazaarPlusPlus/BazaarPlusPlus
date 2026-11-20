@@ -17,20 +17,17 @@ import {
   requiredPayloadPaths
 } from './payload-inventory.ts';
 
-/** One staged Payload file, as listPayloadFiles returns it. */
 export interface PayloadFile {
   path: string;
   absolutePath: string;
   mode: number;
 }
 
-/** The options of listPayloadFiles. */
 export interface ListPayloadFilesOptions {
   platform?: BuildPlatform | null;
   hostPlatform?: NodeJS.Platform;
 }
 
-/** One entry buildZipBuffer writes. An entry without mode gets no mode bits. */
 export interface ZipEntryInput {
   name: string;
   data: Buffer | Uint8Array;
@@ -38,7 +35,6 @@ export interface ZipEntryInput {
   isDirectory?: boolean;
 }
 
-/** One entry readZipEntries reads back. */
 export interface ZipEntry {
   name: string;
   isDirectory: boolean;
@@ -46,13 +42,11 @@ export interface ZipEntry {
   data: Buffer;
 }
 
-/** The entry fields validateZipEntrySet checks. */
 export interface ZipEntryName {
   name: string;
   isDirectory?: boolean;
 }
 
-/** One file of the Payload checksum manifest. */
 export interface PayloadZipManifestEntry {
   path: string;
   size: number;
@@ -60,7 +54,6 @@ export interface PayloadZipManifestEntry {
   mode: number;
 }
 
-/** The Payload checksum manifest, BepInEx.zip.manifest.json. */
 export interface PayloadZipManifest {
   schemaVersion: 1;
   platform: BuildPlatform;
@@ -68,7 +61,6 @@ export interface PayloadZipManifest {
   entries: PayloadZipManifestEntry[];
 }
 
-/** The options of preparePayloadZip and validatePayloadZip. */
 export interface PayloadZipOptions {
   rootDir: string;
   platform: TauriBuildPlatform;
@@ -77,7 +69,6 @@ export interface PayloadZipOptions {
   requiredStagingPaths?: readonly string[];
 }
 
-/** The options of writeDeterministicZip. */
 export interface WriteDeterministicZipOptions {
   sourceDir: string;
   outputPath: string;
@@ -86,7 +77,6 @@ export interface WriteDeterministicZipOptions {
   hostPlatform?: NodeJS.Platform;
 }
 
-/** What writeDeterministicZip wrote. */
 export interface DeterministicZip {
   zipPath: string;
   manifestPath: string | undefined;
@@ -95,7 +85,6 @@ export interface DeterministicZip {
   entries: { name: string; data: Buffer; mode: number }[];
 }
 
-/** What validatePayloadZip checked. */
 export interface ValidatedPayloadZip {
   zipPath: string;
   manifestPath: string;
@@ -222,9 +211,6 @@ function assertRequiredStagingInputs(
   );
 }
 
-// The staged mod must be the product version being packaged. Callers pass a
-// VERSION that already passed assertProductVersion, so equality also rejects
-// every unparseable or older staged version.
 function assertStagedModVersion(
   sourceDir: string,
   productVersion: ProductVersion
@@ -536,7 +522,6 @@ export function writeDeterministicZip({
     mode: file.mode
   }));
   const buffer = buildZipBuffer(entries);
-  // A manifest without a platform is refused below, before anything is written.
   const manifest: PayloadZipManifest | undefined =
     manifestPath && platform
       ? {
@@ -657,8 +642,6 @@ export function validatePayloadZip({
   return { zipPath, manifestPath, entries: mapping };
 }
 
-// `pack` is internal to the locked product build (bazaarplusplus-installer
-// scripts/bundle.sh); Payloads are prepared with bun release/cli.ts prepare.
 const PACK_USAGE =
   'Usage: payload-zip.ts pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]';
 

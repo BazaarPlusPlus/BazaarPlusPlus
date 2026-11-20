@@ -27,15 +27,9 @@ import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Everything the launcher decides on, gathered off the UI thread: the installed game and its
- * Game Code Hash, the Platform Release Manifest (or its cached copy), and the result of
- * {@link LaunchGate}.
- */
 final class LaunchCheck {
     final InstalledGame game;
     final GameCodeHash hash;
-    /** Null when this build carries no Android App Runtime. */
     final RuntimeFacts facts;
     final ReleaseOrigin origin;
     final ReleaseCache.ManifestState manifest;
@@ -43,13 +37,8 @@ final class LaunchCheck {
     final List<PublicKey> trusted;
     final String installedModsVersion;
     final boolean lastModsInstallFailed;
-    /**
-     * A debug build's Development interop, which skips the manifest; null otherwise. The gate got
-     * the same fact, as {@link LaunchGate.Decision#developmentInterop}.
-     */
     final File devInterop;
 
-    /** Package-private so a JVM test can build {@link #inputs} from a refused decision. */
     LaunchCheck(InstalledGame game, GameCodeHash hash, RuntimeFacts facts, ReleaseOrigin origin,
             ReleaseCache.ManifestState manifest, LaunchGate.Decision decision, List<PublicKey> trusted,
             String installedModsVersion, boolean lastModsInstallFailed, File devInterop) {
@@ -118,7 +107,6 @@ final class LaunchCheck {
         return override != null ? override : InstalledGame.PACKAGE;
     }
 
-    /** The release certificate the App carries, plus a debug build's development certificate. */
     static List<PublicKey> trustedKeys(Context context) throws IOException {
         List<PublicKey> keys = new ArrayList<>();
         try (InputStream in = context.getResources().openRawResource(R.raw.bpp_release_cert)) {
@@ -134,23 +122,17 @@ final class LaunchCheck {
         return keys;
     }
 
-    /**
-     * What {@link BppLaunch#prepare} reads of this check. It dereferences nothing a refused decision
-     * may leave null; {@code prepare} refuses such a decision before it reads a fact.
-     */
     LaunchInputs inputs() {
         return new LaunchInputs(decision, facts != null, hash, game == null ? null : game.versionName,
                 game == null ? 0 : game.versionCode, manifest == null ? null : manifest.manifest, adaptation(),
                 installedModsVersion, trusted, devInterop);
     }
 
-    /** The manifest's adaptation the gate selected, or null. */
     PlatformManifest.Adaptation adaptation() {
         if (decision.adaptation == null || manifest == null || manifest.manifest == null) return null;
         return manifest.manifest.adaptations.get(decision.adaptation.source);
     }
 
-    /** One line per fact, for the diagnostics export. */
     String describe() {
         StringBuilder out = new StringBuilder();
         out.append("tier: ").append(decision).append('\n');

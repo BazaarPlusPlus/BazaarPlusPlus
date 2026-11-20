@@ -11,24 +11,13 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Collection;
 
-/// <summary>
-/// The Collection grid on a touch screen: the desktop's shelf geometry from Core
-/// (<see cref="CollectionGridLayout"/>, <see cref="CollectionGridPixelization"/>,
-/// <see cref="CollectionCardFitMath"/>) laid out in a uGUI scroll view, with a rented native card
-/// in each cell near the viewport. Cells scrolled more than a shelf out of view return their card
-/// to the rental; a republished grid keeps the cards whose template stays visible
-/// (<see cref="CollectionGridRetentionPlan"/>). A cell takes the tap, never the card under it. A
-/// failed rental leaves its cell empty and is logged once per reason.
-/// </summary>
 internal sealed class TouchCollectionGrid
 {
     public const string RentalOwner = "collection.grid";
 
-    // New rentals per frame: each one instantiates a prefab or sets a pooled card up.
     private const int RentBudgetPerFrame = 8;
 
-    // A rent past the first stops here: a template the catalog did not hand over (a catalog read
-    // from its cache) is one game data read inside Rent.
+    // A cached catalog may omit native templates. Each such rent adds a game data read.
     private const double RentBudgetMs = 5;
 
     private readonly TouchCollectionGridPort _port;
@@ -60,16 +49,11 @@ internal sealed class TouchCollectionGrid
         _viewport = _scroll.viewport;
     }
 
-    /// <summary>The grid's scroll view, for the panel's drag-scroll log.</summary>
     public ScrollRect Scroll => _scroll;
 
-    /// <summary>Cards held by the grid's cells, Pending or Ready.</summary>
     public int Leases => _realized.Count;
 
-    /// <summary>
-    /// A cell's card is still setting up: a relayout waits for it (<see cref="BazaarPlusPlus.Core.Ui.TouchRelayoutDebounce"/>).
-    /// Read every frame, so a plain loop, not LINQ.
-    /// </summary>
+    // Relayout waits for rentals to finish setup. This check runs every frame.
     public bool SettingUp
     {
         get
@@ -87,7 +71,6 @@ internal sealed class TouchCollectionGrid
         _content.anchoredPosition = Vector2.zero;
     }
 
-    /// <summary>Main thread, every frame while the panel is open.</summary>
     public void Tick()
     {
         var width = _viewport.rect.width;
@@ -113,7 +96,6 @@ internal sealed class TouchCollectionGrid
         ReportFailures();
     }
 
-    // A failed rental leaves its cell empty; log each failure reason once per grid.
     private void ReportFailures()
     {
         foreach (var cell in _realized.Values)
@@ -135,7 +117,6 @@ internal sealed class TouchCollectionGrid
         }
     }
 
-    /// <summary>The panel closed or switched off: every cell returns its card.</summary>
     public void ReturnAll()
     {
         foreach (var cell in _realized.Values)
@@ -144,8 +125,6 @@ internal sealed class TouchCollectionGrid
         _revision = -1;
     }
 
-    // The publish replaced the visible list: keep a cell whose template is still visible, under
-    // its new index, and return the rest.
     private void Retain()
     {
         if (_realized.Count == 0)
@@ -273,10 +252,7 @@ internal sealed class TouchCollectionGrid
         cell.Index = index;
     }
 
-    /// <summary>
-    /// A rented card's measured size: 484 high in the socket, the frame art 3.7% taller, an item as
-    /// wide as its size makes it and a skill square. Its centre sits on its slot.
-    /// </summary>
+    // Native slot height excludes the frame art, which extends 3.7% higher.
     public static CardVisualBounds NaturalBounds(CollectionCardVm card)
     {
         var width =

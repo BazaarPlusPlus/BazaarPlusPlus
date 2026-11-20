@@ -13,7 +13,6 @@ export type InstallProblemCode =
   | GameRunningProblemCode
   | 'install_unexpected';
 
-/** One code per operation that refuses while The Bazaar runs. */
 type GameRunningProblemCode =
   | 'install_blocked_by_game'
   | 'reset_blocked_by_game'

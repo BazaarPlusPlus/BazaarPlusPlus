@@ -4,12 +4,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Span-aware, viewport-independent packing for the fixed per-tab catalog grid. Skills
-// pack one square unit each (Columns per row). Items shelf-pack left-to-right by unit width
-// (small 1 / medium 2 / large 3), wrapping to the next ItemRowSpan-tall shelf when the current
-// row can't fit the next card. The result is pure grid coordinates (col / shelf / span); the
-// per-viewport base unit is applied later by ContentRectFor. Pure + UnityEngine-free so it is
-// unit-tested in tests/CollectionGridLayout.Tests.
 public sealed class CollectionGridLayout
 {
     private static readonly CollectionGridCell[] EmptyCells = Array.Empty<CollectionGridCell>();
@@ -40,8 +34,6 @@ public sealed class CollectionGridLayout
 
     public int Count => _cells.Length;
 
-    // Per-tab geometry carried on the layout so the virtualizer pixelizes with the right column
-    // count without re-deriving the active type.
     public int Columns { get; }
     public int ShelfHeightUnits { get; }
     public int ShelfCount => _shelves.Length;
@@ -49,15 +41,12 @@ public sealed class CollectionGridLayout
 
     public CollectionGridShelf ShelfAt(int shelf) => _shelves[shelf];
 
-    // The desktop's fixed display case: the tab's column count from CollectionGridConstants.
     public static CollectionGridLayout Build(
         IReadOnlyList<CollectionCardVm> visible,
         CollectionTabKind activeTab
     ) => Build(visible, activeTab, CollectionGridConstants.ColumnsFor(activeTab.CardType()));
 
-    // A host that chooses the column count from its width (the Android host, through
-    // CollectionTouchLayout.GridColumns). Items keep at least ItemLargeSpan columns, so a large
-    // item always fits a shelf.
+    // Keep enough columns to fit a Large item on the touch grid.
     public static CollectionGridLayout Build(
         IReadOnlyList<CollectionCardVm> visible,
         CollectionTabKind activeTab,
@@ -145,17 +134,11 @@ public sealed class CollectionGridLayout
         );
     }
 
-    // --- Pixelization (pure; depends only on the per-viewport base unit + gap + grid origin) ---
-
     public float ShelfPitch(float unit, float gap) => ShelfHeightUnits * (unit + gap);
 
     public float ContentHeight(float unit, float gap) => TotalRowUnits * (unit + gap);
 
-    // The contiguous index span a viewport scrolled to scrollY shows, widened by RowOverscan
-    // shelves each way; (0, -1) for an empty layout. Shelves are a uniform pitch within a tab, so
-    // the first and last visible shelf are a division. Both ends clamp into [0, maxShelf]: the
-    // scroll offset can transiently overshoot the packed content (a frame during a viewport resize
-    // before the scroll view re-clamps), which would otherwise index past the last shelf.
+    // The scroll offset can overshoot packed content during resize until the scroll view clamps it.
     public (int First, int Last) VisibleIndexRange(
         float scrollY,
         float viewportHeight,

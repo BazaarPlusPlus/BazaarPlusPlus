@@ -1,7 +1,6 @@
 import viteConfig from './vite.config';
 import { defineConfig, mergeConfig } from 'vite-plus';
 
-// Merged so tests resolve `@bpp/ui` and React the same way the build does.
 export default defineConfig(
   mergeConfig(viteConfig, {
     test: {

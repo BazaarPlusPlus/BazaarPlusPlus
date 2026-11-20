@@ -543,8 +543,7 @@ public static class BundleV6Codec
                 Run = new BundleRunManifestV6 { Projection = projection },
             }
         );
-        // Subtracting a fixed envelope is unnecessary: this conservative precheck can only reject
-        // a projection already beyond the server's limit. Open performs the exact token check.
+        // Allow for the envelope in this precheck. Open enforces the exact projection token limit.
         if (bytes.Length > BundleLimitsV6.MaxProjectionBytes + 512)
             Invalid("projection_too_large", "Run projection exceeds its byte limit.");
     }

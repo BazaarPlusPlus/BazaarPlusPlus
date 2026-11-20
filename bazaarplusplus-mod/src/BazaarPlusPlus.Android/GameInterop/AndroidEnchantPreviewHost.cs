@@ -14,12 +14,6 @@ using Il2CppTheBazaar.Utilities;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The Android host's card tooltip for the Mobile UI's enchant preview
-/// (<see cref="TouchEnchantPreview{TTooltip}"/>): the item's other enchantments and their effects
-/// as the game renders them (<see cref="RenderEffect"/>, which Collection also renders with), and
-/// the upgrade preview, <see cref="AndroidUpgradePreview"/>'s. Main thread only.
-/// </summary>
 internal sealed class AndroidEnchantPreviewHost : IEnchantPreviewHost<CardTooltipData>
 {
     public IReadOnlyList<string> Candidates(CardTooltipData tooltip)
@@ -78,16 +72,14 @@ internal sealed class AndroidEnchantPreviewHost : IEnchantPreviewHost<CardToolti
         }
     }
 
-    // The desktop's ItemEnchantPreviewEligibility: an item on a board or in a stash, or one no
-    // player owns yet, such as a shop's.
     private static bool IsEligibleSection(ItemCard item)
     {
         var section = AndroidGameIds.Unboxed(() => item.Section);
         return section is EInventorySection.Hand or EInventorySection.Stash || item.Owner == null;
     }
 
-    // The game's lock-mode preview card: the item at its tier with this enchantment applied,
-    // which carries the enchantment's attributes and lets its ability tokens resolve.
+    // The lock-mode card carries the enchantment's attributes, which its ability tokens need to
+    // resolve.
     internal static string? RenderEffect(
         CardTooltipData tooltipData,
         EEnchantmentType type,

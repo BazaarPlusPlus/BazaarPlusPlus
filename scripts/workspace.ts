@@ -21,14 +21,12 @@ import {
 } from './local-config.ts';
 import { formatInventory, inventory, push } from './secrets.ts';
 
-/** One doctor line: its scope, whether it passed, and what it found. */
 export interface DoctorRow {
   scope: string;
   ok: boolean;
   detail: string;
 }
 
-// An error that names the exit code the CLI reports.
 interface ExitError extends Error {
   exitCode?: number;
 }
@@ -38,7 +36,6 @@ interface ExecuteOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-// One line per config.toml section, derived from the section table.
 function sectionHelp(): string {
   return Object.entries(sections)
     .map(([name, spec]) => {
@@ -153,8 +150,6 @@ function probe(
   });
 }
 
-// The tool versions the checkout pins: Bun in the root package.json engines,
-// uv in the analyzer's required-version. A missing file pins nothing.
 export function pinnedToolVersions(
   repository: string
 ): Partial<Record<'bun' | 'uv', string>> {
@@ -169,9 +164,7 @@ export function pinnedToolVersions(
   try {
     const bun = JSON.parse(read('package.json') || '{}').engines?.bun;
     if (typeof bun === 'string') pins.bun = bun;
-  } catch {
-    // An unreadable package.json fails the commands that need it.
-  }
+  } catch {}
   const uv = /^required-version\s*=\s*"==([^"]+)"/m.exec(
     read('bazaarplusplus-analyzer/pyproject.toml')
   );
@@ -182,8 +175,6 @@ export function pinnedToolVersions(
 const escapeRegExp = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Direct dependencies whose node_modules copy is missing or differs from the
-// version bun.lock resolves. A dependency bun.lock does not list is skipped.
 export function staleDependencies(directory: string): string[] {
   let manifest: Record<string, Record<string, string> | undefined>;
   let lock: string;
@@ -316,7 +307,6 @@ export function doctor(
         : 'fields present; remote permissions unverified'
     );
   }
-  // A relative path already failed the projections row above.
   const data = config.sections.get('analyzer')?.values.BPP_DATA_ROOT;
   if (data && path.isAbsolute(data)) {
     add(

@@ -4,10 +4,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The run facts Run Logging asks for, read from the IL2CPP game state: the Android counterpart of
-/// the desktop's <c>RunSnapshotProbe</c>, returning the same BPP snapshots. Main thread only.
-/// </summary>
 internal sealed class AndroidRunSnapshotProbe : IRunSnapshotProbe
 {
     public bool TryGetRunBasics(out RunBasicsSnapshot basics)

@@ -48,11 +48,8 @@ public readonly struct BazaarDbLinkResult
     ) => new(outcome, statusCode, failure);
 }
 
-/// <summary>
-/// Redeems a one-time BazaarDB profile-link code. Posts to a fixed full URI, no auth header.
-/// Code is trimmed only (case-sensitive alphabet). 409 means already linked to a different
-/// BazaarDB user and is permanent.
-/// </summary>
+/// <summary>The link code is case-sensitive. HTTP 409 means the profile is already linked
+/// to a different BazaarDB user and retrying the code cannot resolve it.</summary>
 public sealed class BazaarDbLinkClient : IDisposable
 {
     public const string DefaultRedeemEndpoint = "https://bazaardb.gg/api/profile/link/redeem";

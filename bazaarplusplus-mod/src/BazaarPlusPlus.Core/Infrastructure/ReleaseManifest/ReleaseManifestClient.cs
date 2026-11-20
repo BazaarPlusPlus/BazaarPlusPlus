@@ -17,11 +17,6 @@ public enum ReleaseManifestFailureKind
     RequestException,
 }
 
-/// <summary>
-/// One game an Android release was adapted for (root ADR 0019): the Android source it comes
-/// from (the key under <c>adaptations</c>), its version as the game reports it in
-/// <c>Application.version</c>, its versionCode and its Game Code Hash.
-/// </summary>
 public sealed record AndroidAdaptedGame(
     string Source,
     string GameVersion,
@@ -30,11 +25,6 @@ public sealed record AndroidAdaptedGame(
     string MetadataSha256
 );
 
-/// <summary>
-/// What an Android Platform Release Manifest names for the Android App (root ADR 0012, 0016 and
-/// 0019): every game this release was adapted for, one per Android source, and the Android App
-/// APK to install for them, with the size and SHA-256 a download is checked against.
-/// </summary>
 public sealed record AndroidAppRelease(
     IReadOnlyList<AndroidAdaptedGame> Games,
     Uri AppUrl,
@@ -42,11 +32,6 @@ public sealed record AndroidAppRelease(
     string AppSha256
 );
 
-/// <summary>
-/// One read of a Release Manifest: the published product version and, from a Platform Release
-/// Manifest's <c>downloads[platform]</c>, that platform's Managed Payload when it is complete and
-/// its Android App release when the platform has one.
-/// </summary>
 public readonly record struct ReleaseManifestFetchResult(
     string? Version,
     ManagedPayloadRelease? ManagedPayload,
@@ -76,12 +61,6 @@ public readonly record struct ReleaseManifestFetchResult(
     ) => new(null, null, kind, httpStatus, exception);
 }
 
-/// <summary>
-/// Reads one Release Manifest endpoint. A client kept across checks remembers the last
-/// successful answer with its <c>ETag</c> and asks with <c>If-None-Match</c>, so an unchanged
-/// manifest comes back as <c>304</c> and the remembered answer is returned; every check still
-/// asks the server.
-/// </summary>
 public sealed class ReleaseManifestClient
 {
     private readonly HttpClient _httpClient;
@@ -89,10 +68,6 @@ public sealed class ReleaseManifestClient
     private readonly string? _platformKey;
     private Remembered? _remembered;
 
-    /// <summary>
-    /// <paramref name="platformKey"/> names the platform whose Managed Payload to read; null
-    /// reads only the version.
-    /// </summary>
     public ReleaseManifestClient(HttpClient httpClient, Uri endpoint, string? platformKey = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
@@ -163,8 +138,7 @@ public sealed class ReleaseManifestClient
         }
     }
 
-    // release/manifest.ts owns these fields; a record that is incomplete here is no Managed
-    // Payload, so the caller falls back to the installer.
+    // release/manifest.ts owns this schema. Incomplete Managed Payload metadata makes callers fall back to the installer.
     private ManagedPayloadRelease? ReadManagedPayload(JObject document, string version)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
@@ -203,10 +177,7 @@ public sealed class ReleaseManifestClient
         );
     }
 
-    // An Android record names every game it was adapted for (adaptations.<source>.game: the
-    // string the running game reports, its versionCode and Game Code Hash) and the Android App
-    // APK (app.url, size, sha256); release/manifest.ts owns them. The top-level game serves
-    // older mods only. Anything incomplete, in any adaptation, is no release.
+    // release/manifest.ts owns the Android schema. The top-level game field serves older mods.
     private AndroidAppRelease? ReadAndroidApp(JObject document)
     {
         if (_platformKey == null || document["downloads"]?[_platformKey] is not JObject release)
@@ -259,6 +230,5 @@ public sealed class ReleaseManifestClient
     private static bool IsSha256(string value) =>
         value.Length == 64 && value.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'));
 
-    // The last successful answer and the validator it came with, replaced as one.
     private sealed record Remembered(EntityTagHeaderValue ETag, ReleaseManifestFetchResult Result);
 }

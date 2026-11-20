@@ -10,10 +10,7 @@ using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// The battle_snapshots JSON the desktop writes, pinned byte for byte by
-// fixtures/battle-snapshots.golden.txt. Core's PvpBattleCardSetDocument owns that shape: the
-// Android host writes it directly and the Bundle composer reads it, so a desktop capture must read
-// back through it unchanged and round-trip through the desktop catalog unchanged.
+// The Android host and Bundle composer share this stored shape, so the desktop capture must round-trip through it.
 public sealed class BattleSnapshotShapeTests : IDisposable
 {
     private readonly string _root = Path.Combine(
@@ -80,10 +77,7 @@ public sealed class BattleSnapshotShapeTests : IDisposable
         SizelessAndUnnamedCards(root, catalog, database);
     }
 
-    // A card the game gave no size (its unnamed value 0) is stored with the "0" every host writes,
-    // reads back without a size, and reaches the Bundle as size 0. A stored type no facet names
-    // (a number another host wrote for a member the facets lack) drops the card from the facet
-    // view; the Bundle composer, which reads the stored JSON, still carries the game's value.
+    // Use 0 for the game's unnamed size and an unmapped card type to simulate a value supplied by another host.
     private static void SizelessAndUnnamedCards(
         string root,
         PvpBattleCatalog catalog,

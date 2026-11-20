@@ -1,26 +1,5 @@
-// Renders the daily report as three PNGs and sends them to the groups that
-// `heroReport` in groups.json names:
-//   1. 今日概览: key numbers, the seven-day runs and the hero callouts;
-//   2. 英雄与阵容: the hero table and the popular Ten-Win items, skills and
-//      enchantments;
-//   3. 玩家榜: top Ten-Win players and the day's records.
-// Hero numbers come from the published hero snapshot (heroes/latest.json); the
-// rest from the Daily Highlights `bazaarlens highlights` prints, which name
-// players and never reach a public bucket. Without --highlights the report is
-// the first two images without their Daily Highlights parts.
-//
-//   bun scripts/workspace.ts run qqbot -- bun scripts/qqbot/hero-report.ts \
-//     [--day YYYY-MM-DD] [--highlights highlights.json] [--out-dir dir]
-//     [--send test|report]
-//
-// The report covers the snapshot's newest Source Day (window.end, a UTC date).
-// --day waits until window.end is that day, because the CDN can serve the
-// previous object for a minute after an upload. --send test sends to the test
-// group only, --send report to every `heroReport` group; without --send it only writes
-// the images. Layouts are hero-report.html, hero-report-heroes.html and
-// hero-report-players.html with hero-report.css; names are the game's
-// Simplified Chinese ones zh-names.ts publishes to the CDN; values come from design/tokens.json through the installer's
-// generated tokens.css.
+// Daily Highlights name players and stay out of the public bucket.
+// --day waits for the CDN to serve the requested Source Day after upload.
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -105,7 +84,6 @@ interface HeroSum {
   perfect: number;
 }
 
-// Sums legend and non_legend into the `all` segment, per hero.
 function byHero(rows: HeroRow[]): Map<string, HeroSum> {
   const heroes = new Map<string, HeroSum>();
   for (const row of rows) {
@@ -177,7 +155,6 @@ const trend = (value: number | null) => {
   return `<span class="delta ${tone}">${sign}${percent(Math.abs(value))}</span>`;
 };
 
-// The game's Simplified Chinese names (zh-names.ts); a missing name stays English.
 const NAMES_URL =
   'https://cdn.bazaarplusplus.com/mod-data/zh-names/zh-names.json';
 export interface ZhNames {
@@ -191,7 +168,6 @@ export function useNames(names: ZhNames): void {
 const heroName = (id: string) => ZH.heroes[id] ?? id;
 const zhName = (english: string) => ZH.names[english] ?? english;
 
-// The hero-* token of each canonical hero; unknown heroes use hero-unknown.
 const HERO_TOKENS: Record<string, string> = {
   Stelle: 'stelle',
   Mak: 'mak',
@@ -246,7 +222,6 @@ const callout = (label: string, id: string | null, value: string) =>
 const table = (rows: string) =>
   `<div class="panel"><table><tbody>${rows}</tbody></table></div>`;
 
-// Beijing time is UTC+8; the UTC day runs from 08:00 to 08:00 the next day.
 const BEIJING_OFFSET = 8;
 
 function hours(hourly: number[]): string {
@@ -401,7 +376,6 @@ export function renderHeroes(
   });
 }
 
-// Each record: its label and how its value reads.
 const RECORDS: [keyof Highlights['records'], string, (v: number) => string][] =
   [
     ['legend_rating', '最高传奇分', count],

@@ -11,8 +11,6 @@ import type { AppBootstrap, AppCredit } from '../types/backend';
 import fableVerifiedBadge from '../../static/about/fable-5-verified.webp';
 import brandMark from '../../static/brand/bpp-mark.svg';
 
-// Credits are split into ordered groups by their `group` field so contributors
-// stay separate from the external data/inspiration sources we acknowledge.
 const CREDIT_GROUP_LABELS: Record<string, MessageKey> = {
   team: 'aboutContributors',
   acknowledgement: 'aboutAcknowledgements'
@@ -58,9 +56,6 @@ function AboutView({
 
 function AboutBootstrapContent({ bootstrap }: { bootstrap: AppBootstrap }) {
   const { t } = useI18n();
-  // Both values are versions, so both read with the same `v` prefix. The
-  // bundled version comes from a file inside the payload zip, so it may or may
-  // not already carry one.
   const bppVersionLabel = bootstrap.bundled_bpp_version
     ? bootstrap.bundled_bpp_version.replace(/^v?/i, 'v')
     : t('aboutUnavailableValue');

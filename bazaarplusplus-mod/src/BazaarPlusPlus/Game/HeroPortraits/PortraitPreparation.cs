@@ -12,8 +12,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-// Capture Unity resources on the main thread, then pass detached numeric inputs to a single
-// background worker. Weak process caches contain no textures, scenes, or prefab instances.
+// Unity resource capture stays on the main thread. The worker and weak caches receive detached numeric data.
 internal sealed class PortraitPreparation
 {
     internal sealed record Prepared(
@@ -234,9 +233,7 @@ internal sealed class PortraitPreparation
             var input = new PortraitCompositionInput(images.Reference, images.Pages, poses);
             Report(spriteName, "capture_completed", poses.Sum(p => p.Triangles.Length));
             using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
-            // Cold searches on the game's Mono runtime can take longer than a typical
-            // portrait. Work stays on the single background worker; native art remains
-            // visible, and the caller still cancels when the portrait goes away.
+            // A cold search on Mono can outlast the portrait, so keep native art visible while the worker runs.
             budget.CancelAfter(TimeSpan.FromSeconds(12));
             PortraitComposition? fit;
             var timedOut = false;
@@ -261,8 +258,6 @@ internal sealed class PortraitPreparation
                 {
                     if (resourceKey != null)
                         _resources.MarkMiss(resourceKey);
-                    // Unity renderer ownership is released on the main thread before
-                    // expensive matching starts on an actual cache miss.
                     cacheMiss?.Invoke();
                     fit = await Task.Run(
                         () => _disk.Compute(input, existing.Key, budget.Token),
@@ -292,8 +287,6 @@ internal sealed class PortraitPreparation
                 fit?.Inliers ?? 0,
                 watch.ElapsedMilliseconds
             );
-            // A budget timeout is a failed composition for this loaded sprite too. Keep
-            // its static fallback across setups; caller cancellation above remains retryable.
             if (sprite != null && source != null)
             {
                 _memory.Remove(sprite);
@@ -481,8 +474,6 @@ internal sealed class PortraitPreparation
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // This refinement is optional: a reliable composition still animates inside
-            // the strict frame when capture, cache, or analysis cannot be completed.
             var plan = PortraitBreakoutPlan.Empty(frame);
             if (sprite != null && source != null)
             {

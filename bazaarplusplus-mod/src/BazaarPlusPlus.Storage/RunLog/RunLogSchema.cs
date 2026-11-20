@@ -6,12 +6,10 @@ namespace BazaarPlusPlus.Storage.RunLog;
 
 public static class RunLogSchema
 {
-    // `PRAGMA user_version`: the column shape the installer reads. Bump it only with a column change
-    // and a migration; a one-time data repair does not bump it (ADR-0011). V6 starts at 1 in its own
-    // Data Root; a V5 database is imported, never opened here.
+    // The installer reads this column shape version. Only a column change and migration
+    // bumps it (ADR-0011).
     public const int LocalDatabaseSchemaVersion = 1;
 
-    // A favorite note is plain text the player types in History; the table CHECK enforces it.
     public const int FavoriteNoteMaxLength = 500;
 
     private static readonly object InitializationGate = new();
@@ -25,8 +23,7 @@ public static class RunLogSchema
     public const string BundleSealJobsTableName = "bundle_seal_jobs";
     public const string BundleOutboxTableName = "bundle_outbox";
 
-    // A favorite is a snapshot, not a link: no foreign key, so deleting the Run or expiring the
-    // Ghost row keeps it. Its display columns keep their battles names and meanings.
+    // The favorite is a snapshot without a foreign key so it survives deletion of its source.
     public const string FavoriteBattlesTableName = "favorite_battles";
     public const string CaptureSourceEndOfRunAuto = "end_of_run_auto";
 
@@ -36,15 +33,13 @@ public static class RunLogSchema
         " \t\n\v\f\r\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000";
     public const string HistoryHeroKey = "lower(trim(hero,'" + HistoryWhitespace + "'))";
 
-    // Writers store 'player'/'opponent' and 'win'/'loss' verbatim; a Ghost Battle value the server
-    // did not normalize reads as undecided.
+    // A Ghost Battle value the server did not normalize reads as undecided.
     public const string HistoryRecorderOutcome =
         "CASE lower(winner_combatant_id) WHEN 'player' THEN 1 WHEN 'opponent' THEN -1 "
         + "ELSE CASE lower(result) WHEN 'win' THEN 1 WHEN 'loss' THEN -1 ELSE 0 END END";
 
-    // Every *_at_ms column holds Unix epoch milliseconds (UTC). bundle_outbox.run_id,
-    // run_screenshots.run_id and combat_replay_videos.battle_id have no foreign key on purpose:
-    // outbox rows outlive their Run, and screenshots and videos survive a deleted Run or battle.
+    // All *_at_ms columns use Unix epoch milliseconds (UTC). Outbox rows, screenshots,
+    // and replay videos have no foreign key so they survive deletion of the Run or battle.
     public static string BootstrapSql =>
         $"""
             PRAGMA foreign_keys = ON;
@@ -382,10 +377,8 @@ public static class RunLogSchema
         }
     }
 
-    // CREATE INDEX IF NOT EXISTS never redefines an existing index, and History pages name
-    // their index in INDEXED BY, which fails when the stored definition cannot serve the query.
-    // An index whose stored SQL differs from BootstrapSql's is dropped here so BootstrapSql
-    // recreates it. Retired index names still need an explicit DROP INDEX IF EXISTS.
+    // CREATE INDEX IF NOT EXISTS leaves changed definitions alone, and History's INDEXED BY
+    // relies on them. Drop mismatches here and retired index names explicitly.
     private static void DropDriftedIndexes(
         SqliteConnection connection,
         SqliteTransaction transaction
@@ -404,8 +397,7 @@ public static class RunLogSchema
             Execute(connection, transaction, $"DROP INDEX \"{name}\";");
     }
 
-    // SQLite stores an index's CREATE statement minus IF NOT EXISTS, so the definitions
-    // BootstrapSql produces on an empty database are the exact text a current index carries.
+    // SQLite strips IF NOT EXISTS when storing an index definition.
     private static readonly Lazy<Dictionary<string, string>> ExpectedIndexDefinitions = new(() =>
     {
         using var scratch = new SqliteConnection("Data Source=:memory:");

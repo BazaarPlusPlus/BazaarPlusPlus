@@ -29,7 +29,6 @@ internal static class QuestPreviewEntryPatch
 [HarmonyPatch(typeof(TooltipQuestGroup), nameof(TooltipQuestGroup.SetData))]
 internal static class QuestPreviewLayoutPatch
 {
-    // Only after the preview restored or rewrote an entry; null in Observe mode.
     [HarmonyPostfix]
     private static void Postfix(TooltipQuestGroup __instance)
     {

@@ -247,8 +247,7 @@ public sealed class SwapTests : IDisposable
     {
         Install("6.0.0", ("A.dll", "a-old"), ("B.dll", "b-old"));
         Stage("6.0.1", ("A.dll", "a-new"), ("C.dll", "c-new"));
-        // A directory where C.dll must go: moving the staged file in fails after A.dll and the
-        // residue B.dll have moved.
+        // Block C.dll with a directory to force failure after A.dll and the residue B.dll have moved.
         Directory.CreateDirectory(InstallPath(Plugins + "C.dll"));
 
         Assert.Equal(SwapOutcome.RolledBack, Run());

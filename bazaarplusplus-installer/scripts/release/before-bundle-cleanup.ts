@@ -6,8 +6,6 @@ import {
 } from '../../../release/release-platforms.ts';
 import type { TauriReleasePlatform } from '../../../release/release-platforms.ts';
 
-// What cleanupBundleArtifacts did: the bundle path it checked (null when the
-// host builds no installer) and whether it removed anything there.
 export interface BundleCleanupResult {
   cleanupPath: string | null;
   removed: boolean;
@@ -18,7 +16,6 @@ export function resolveBundleCleanupPath(
   platformEnv: string | undefined
 ): string | null {
   const buildPlatform = resolveBuildPlatform(platformEnv);
-  // resolveBuildPlatform names only Tauri platforms.
   const platform = RELEASE_PLATFORMS.find(
     (entry): entry is TauriReleasePlatform =>
       entry.buildPlatform === buildPlatform

@@ -8,10 +8,6 @@ public readonly record struct ReplayPayloadRetentionSelection(
     int EvaluatedCount
 );
 
-/// <summary>
-/// Which Replay Payloads every host keeps: the newest <see cref="RetainedNewestCount"/>, those
-/// recorded within <see cref="RetainedAge"/>, and any a caller protects; the rest are evicted.
-/// </summary>
 public static class ReplayPayloadRetentionPolicy
 {
     public const int RetainedNewestCount = 200;

@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
-// Stroke glyphs on a 24px grid (paths from Lucide, ISC license). The container
-// sets the rendered size through CSS; `size` only sets the intrinsic size.
+// Icon paths from Lucide (ISC license). CSS can override the intrinsic size.
 export interface IconProps {
   className?: string;
   size?: number;
@@ -30,7 +29,6 @@ function Icon({
   );
 }
 
-/** The one busy mark; it spins through the shared `bpp-spin` animation. */
 export function SpinnerIcon({ className, size }: IconProps) {
   return (
     <Icon

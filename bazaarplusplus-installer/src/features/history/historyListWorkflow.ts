@@ -23,7 +23,6 @@ type HistoryListCommands = Pick<
 
 export type EndGameProcessOutcome = 'terminated' | 'already-exited' | 'failed';
 
-/** Whether History Thumbnail URLs can be shown, independently of the rows. */
 export type HistoryThumbnails = 'pending' | 'ready' | 'unavailable';
 
 type HistoryListState =
@@ -47,8 +46,7 @@ export function createHistoryListWorkflow(
   let active = false;
   let pageNumber = parseHistoryPage(String(options.initialPage));
   let filter = options.initialFilter ?? UNFILTERED;
-  // The loaded rows belong to a previous filter: shown while the new filter
-  // loads, so the page (and its filter bar) stays mounted, never after a failure.
+  // Keep the list mounted during filter changes so its filter controls remain available.
   let staleRows = false;
   let state: HistoryListState = { phase: 'initial-loading' };
   let thumbnails: HistoryThumbnails = 'pending';
@@ -74,8 +72,6 @@ export function createHistoryListWorkflow(
       busy,
       endingGameProcess: recovery !== null,
       thumbnails,
-      // Only a service that cannot start earns a notice; other failures keep
-      // to the card fallback.
       thumbnailsUnavailable:
         thumbnailProblem?.code === 'history_thumbnails_unavailable',
       // Advances with each applied preparation so a card can retry a failed image
@@ -157,7 +153,6 @@ export function createHistoryListWorkflow(
     try {
       await commands.prepareHistoryThumbnails();
     } catch (caught) {
-      // Cards use their thumbnail fallback; the list is unaffected.
       next = 'unavailable';
       problem = historyProblemFromError(caught);
     }
@@ -204,7 +199,6 @@ export function createHistoryListWorkflow(
         } finally {
           if (active && recovery === operation) {
             recovery = null;
-            // Every outcome reloads the current page, never the page that started recovery.
             void refresh();
           }
         }

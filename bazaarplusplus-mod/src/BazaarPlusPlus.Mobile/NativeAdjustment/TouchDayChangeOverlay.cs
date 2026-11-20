@@ -2,19 +2,10 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
-/// <summary>
-/// The day-change overlay on a screen <see cref="TouchScreenFill"/> adjusts the camera on. The
-/// game's <c>NewDayTransition</c> draws it as world-space meshes in front of the camera, made to
-/// cover the game's own view; the raised camera would move it down with the world and the wider
-/// view would draw it smaller, so it would stop short of the screen's top edge. While it shows, it
-/// moves with the camera and grows by the view's stretch across the view, so it covers the screen
-/// as without Screen Fill. It is placed again after every camera update; a position or scale the
-/// game writes in between is taken as the new original, so its own animations still play. Main
-/// thread only.
-/// </summary>
+// NewDayTransition uses world-space meshes sized for the game's camera. Reapply
+// the adjustment after camera updates while preserving transforms written by its animation.
 internal sealed class TouchDayChangeOverlay
 {
-    // While the overlay is missing, it is searched for at most every half second.
     private const int SearchEvery = 30;
 
     private readonly IScreenFillHost _host;
@@ -29,11 +20,6 @@ internal sealed class TouchDayChangeOverlay
 
     public TouchDayChangeOverlay(IScreenFillHost host) => _host = host;
 
-    /// <summary>
-    /// Moves the overlay by <paramref name="lift"/>, the world offset the camera was raised by, and
-    /// grows it by <paramref name="stretch"/> (<see cref="Core.Ui.ScreenFill.ViewStretch"/>) across
-    /// the view; with no lift and no stretch it stays where the game put it.
-    /// </summary>
     public void Place(Camera camera, Vector3 lift, float stretch)
     {
         if (lift == Vector3.zero && stretch == 1f)

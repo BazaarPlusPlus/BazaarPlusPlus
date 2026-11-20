@@ -8,15 +8,11 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// The desktop host's projection of a live TCardBase template into the Core CollectionCardVm,
-// mapping every game enum through DesktopCardFacets (ADR-0015).
 internal static class CollectionCardVmProjection
 {
     public static CollectionCardVm? From(TCardBase template) =>
         From(template, CollectionCardClassifier.Classify(template));
 
-    // Null when the card's type, size, or starting tier has no card facet: a game member BPP has
-    // not added yet, which the catalog counts as rejected rather than guessing a facet.
     internal static CollectionCardVm? From(
         TCardBase template,
         CollectionCardClassification classification

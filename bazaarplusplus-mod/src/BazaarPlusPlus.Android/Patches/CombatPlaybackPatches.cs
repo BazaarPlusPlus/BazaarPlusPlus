@@ -17,24 +17,14 @@ internal static class CombatPlaybackFramePatch
         AndroidPatchHost.Features?.CombatStatus?.State.AdvanceCombatFrame();
 }
 
-/// <summary>
-/// The combat speed override on <c>CombatSimHandler.SetSpeed</c>, as a native detour and not a
-/// Harmony patch. The native method never reads its receiver, so its call sites in the combat
-/// loop load none: the receiver register holds what the call before left there. That is 0 after
-/// <c>ShouldFastForward</c> returned false, 1 after it returned true, and the handler's class
-/// pointer at the reset for a fight's last frames. A Harmony patch wraps a non-zero receiver as
-/// an IL2CPP object before any prefix runs, so with the game's Fast Forward First Fight setting
-/// on, it read address 1 and the game stopped in the first Day 1 fight. This detour takes the
-/// receiver and the method pointer as opaque values, changes only the speed, and passes all of
-/// them to the original.
-/// </summary>
+// Native callers can leave a non-object value in SetSpeed's unused receiver register.
+// Harmony would wrap it before the prefix runs, so keep it opaque in a native detour.
 internal static unsafe class CombatPlaybackSpeedDetour
 {
     private const string TargetMethod = "SetSpeed";
     private const int TargetParameterCount = 2;
 
-    // The game's own call: receiver, speed, log flag, method pointer. The flag is one byte, as
-    // the native method reads it.
+    // The game reads the log flag as one byte.
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void SetSpeedNative(IntPtr receiver, float speed, byte log, IntPtr method);
 
@@ -51,7 +41,6 @@ internal static unsafe class CombatPlaybackSpeedDetour
             ("combat_speed_overrides", Interlocked.Read(ref _overrides)),
         ];
 
-    /// <summary>Installs the detour once; throws when the game has no such method.</summary>
     public static void Install()
     {
         if (_detour != null)
@@ -67,7 +56,6 @@ internal static unsafe class CombatPlaybackSpeedDetour
         if (entry == IntPtr.Zero)
             throw new InvalidOperationException("CombatSimHandler.SetSpeed has no native body.");
 
-        // The provider every Harmony patch of this host installs through.
         var detour = Il2CppInteropRuntime.Instance.DetourProvider.Create(entry, Replacement);
         detour.Apply();
         _original =
@@ -78,8 +66,7 @@ internal static unsafe class CombatPlaybackSpeedDetour
         _detour = detour;
     }
 
-    // The native code calls this, so no exception can leave it. The original's one call out,
-    // the speed event, catches its listeners' exceptions itself.
+    // No managed exception may escape this native callback.
     private static void OnSetSpeed(IntPtr receiver, float speed, byte log, IntPtr method)
     {
         try

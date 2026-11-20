@@ -6,12 +6,8 @@ using Xunit;
 
 namespace NativeCardArtwork.Tests;
 
-// Each loop of the capsule is a Theory with one row per value it walked; the checks and their
-// messages are unchanged.
 public sealed class NativeCardArtworkTests
 {
-    // Tier and enchantment round trips keep the artwork's size and centre across card sizes and
-    // pooled-frame reuse, and each re-measures the description until it is still.
     [Theory]
     [InlineData(200f, 1000f)]
     [InlineData(400f, 1000f)]
@@ -162,8 +158,6 @@ public sealed class NativeCardArtworkTests
             throw new InvalidOperationException("Unready artwork must not produce a fit.");
     }
 
-    // Each tier or enchantment change re-measures the description until it is still and centred,
-    // then the inspection stops measuring until the periodic recheck, which finds nothing new.
     private static void SettleDescription(
         CollectionInspectionLayoutSettle settle,
         ref int frame,
@@ -183,9 +177,7 @@ public sealed class NativeCardArtworkTests
                     name + ": a changed description was not measured."
                 );
             measured++;
-            // PositionDescription finds the description where the previous frame left it.
             var before = description ?? (0f, 0f);
-            // The opening animation runs for the first three frames of the first variant.
             var motionDone = !opening || measured > 3;
             var settled = settle.Observe(
                 frame,

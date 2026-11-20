@@ -1,8 +1,3 @@
-//! Golden files committed under `tests/goldens/`. A test renders its output to
-//! text and compares it with the committed file byte for byte; with
-//! `BPP_UPDATE_GOLDENS=1` it rewrites the file instead, and the diff is
-//! reviewed in the pull request.
-
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -33,8 +28,7 @@ pub(crate) fn assert_golden(relative: &str, actual: &str) {
     );
 }
 
-/// Pretty JSON with every fixture root replaced by its placeholder, in both the
-/// raw and the JSON-escaped spelling (Windows paths contain `\`).
+/// Normalize both spellings because JSON escapes Windows path separators.
 pub(crate) fn json(value: &impl Serialize, roots: &[(&Path, &str)]) -> String {
     let mut text = serde_json::to_string_pretty(value).unwrap();
     for (root, placeholder) in roots {
@@ -48,17 +42,12 @@ pub(crate) fn json(value: &impl Serialize, roots: &[(&Path, &str)]) -> String {
     text
 }
 
-/// Every file and symlink under `root`, `/`-separated relative paths in
-/// order, each with the sha256 of its bytes (`symlink:<target>` for a link).
 #[cfg(target_os = "macos")]
 pub(crate) fn tree_manifest(root: &Path) -> Vec<(String, String)> {
     crate::services::file_manifest::tree_manifest(root).unwrap()
 }
 
-/// Writes one run's full `(path, sha256)` list to
-/// `target/acceptance/<name>.manifest.json`. It is not committed: signatures
-/// and copied game files differ between machines, so it is for diffing two runs
-/// against the same inputs.
+/// Signatures and game files vary across machines, so compare full manifests only across runs with the same inputs.
 #[cfg(target_os = "macos")]
 pub(crate) fn write_run_manifest(name: &str, entries: &[(String, String)]) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))

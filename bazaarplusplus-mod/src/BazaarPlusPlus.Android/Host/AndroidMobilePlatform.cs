@@ -12,13 +12,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// The Android host's Mobile Platform Port (ADR-0025): the main-thread scope is the host's own
-/// pump (<see cref="AndroidMainThread"/>), since IL2CPP installs no synchronization context; the
-/// native skin's sprites come from <see cref="AndroidNativeArt"/>.
-/// Game reads are the host's own adapters; overlay panels register with
-/// <see cref="AndroidOverlayPanels"/>, which exists once the melon has initialized.
-/// </summary>
 internal sealed class AndroidMobilePlatform(Func<AndroidOverlayPanels?> overlayPanels)
     : IMobilePlatformPort
 {

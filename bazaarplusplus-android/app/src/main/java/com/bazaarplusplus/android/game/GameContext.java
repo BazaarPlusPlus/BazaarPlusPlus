@@ -8,11 +8,7 @@ import android.content.res.Resources;
 
 import java.io.File;
 
-/**
- * The game's identity, code and resources over the App's Context: every writable path
- * (data, files, caches) stays the App's own and external files resolve to {@link GameStorage},
- * so the game and LemonLoader write only into the App's sandbox.
- */
+/** The game sees its package identity, while writable paths must stay within the App's UID and sandbox. */
 final class GameContext extends ContextWrapper {
     private final InstalledGame game;
     private final Resources resources;

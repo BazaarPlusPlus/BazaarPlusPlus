@@ -352,10 +352,6 @@ test('check catches stale Payload projection and platform overlays', async () =>
   );
 });
 
-// Canned public release origin: an uploaded fragment and mirror record per
-// Lockstep Platform at `version`, the shared platform fixtures (Android's
-// too) as the published manifests, and a share page serving each recorded
-// installer or App.
 function publicOrigin(version: string) {
   const files = new Map();
   const pages = new Map();
@@ -497,12 +493,6 @@ test('sync changes only the version line of tauri.conf.json', async () => {
   );
 });
 
-// Release E2E anchor: the real coordinator runs upload, mirror-all and
-// promote for a lockstep 3.1.1, then a single-platform Windows 3.1.2, then an
-// Android 3.1.2 from the same commit, against an in-memory R2 store, from a
-// temporary git checkout of the release inputs. The manifests it publishes
-// must equal the shared fixtures byte for byte; BPP_UPDATE_GOLDENS=1 rewrites
-// them from this run instead.
 const goldenFiles = [
   'latest.json',
   'latest/darwin-aarch64.json',
@@ -619,10 +609,6 @@ test('publish pipeline reproduces the shared fixtures', async () => {
     now: new Date('2026-09-20T00:00:00.000Z')
   });
 
-  // Android's release job uploads the App, the Interop Packages, the Managed
-  // Payload zips and the fragment; its mainland mirror serves the App, and
-  // promotion checks the artifacts and leaves latest.json at the last
-  // lockstep release.
   await uploadAndroid(store, {
     version: '3.1.2',
     gitCommit: aheadCommit,
@@ -691,12 +677,6 @@ test('internal ownership dispatch requires a live build lock and does not run pr
   await main(['assert-build-owner'], { workspaceRoot });
 });
 
-// The Snapshot Lock gate of `check` (ADR 0004). Failure modes: a lock missing
-// one of its keys fails; an entry with a malformed sha256 fails, and so
-// does every command that runs source alignment, before any store is created;
-// an empty entry warns; an entry captured more than staleAfterDays ago warns;
-// warnings leave the command on its success path.
-// The lock file is edited as raw JSON, so a case can break its shape.
 interface EditableLock {
   entries: Record<string, object | null>;
 }

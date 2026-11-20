@@ -1,11 +1,4 @@
-//! Strip rendering: crop a screenshot, cache the PNG, and serve it. Every step
-//! blocks (SQLite, settings file, image decode, cache I/O), so callers run
-//! these functions on a blocking thread. This module also owns the strip cache
-//! both routes write and its once-per-process sweep.
-//!
-//! Float-to-integer casts here go through `pixel_offset` and `basis_points`,
-//! which spell out the saturating behavior. The cast lints keep a new bare
-//! `as` from slipping in beside them.
+//! SQLite, image decoding, and disk I/O require callers to use a blocking thread.
 #![warn(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
 use super::overlay_settings::{OverlayCropSettings, OverlaySettingsStore};
@@ -25,15 +18,10 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-/// Suffix of an in-flight cache write; a leftover one is an orphan.
 pub(super) const TEMP_SUFFIX: &str = ".tmp";
-/// The History Thumbnail cache beneath the service cache root.
 pub(super) const HISTORY_THUMBNAIL_CACHE: &str = "history-thumbnails";
-/// The OBS overlay strip cache beneath the service cache root.
 pub(super) const OBS_STRIP_CACHE: &str = "obs-strips";
-/// Every strip cache `sweep` visits; each holds one namespace per installation.
 const STRIP_CACHES: [&str; 2] = [HISTORY_THUMBNAIL_CACHE, OBS_STRIP_CACHE];
-/// Suffix of a cached strip; older versions left OBS strips at the cache root.
 const STRIP_SUFFIX: &str = "-strip.png";
 /// Part of every cache name. Bump it when `crop_strip_image` renders the same
 /// source differently, so entries from the previous rendering miss and age out.
@@ -43,17 +31,10 @@ const CACHE_LIMITS: CacheLimits = CacheLimits {
     max_entries: 1000,
     fresh_for: Duration::from_secs(10),
 };
-/// A hit rewrites an entry's modification time only once it is this old: a
-/// strip served every few seconds is written about once a day, not on every
-/// request. Kept short because the count cap removes the oldest times across
-/// both caches; a day keeps that order within a day of least recently used,
-/// so a strip OBS shows all the time outlives thumbnails viewed once.
+/// Refresh timestamps sparingly to limit disk writes while approximating LRU eviction.
 const REFRESH_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
-/// Screenshot source paths remembered per process and per route.
 const SOURCE_PATH_CAPACITY: usize = 512;
 
-/// The cache directory of one installation path inside `cache`, named by a
-/// digest of that path so it is stable across restarts.
 pub(super) fn cache_namespace(cache_root: &Path, cache: &str, game_path: &Path) -> PathBuf {
     let digest = Sha256::digest(game_path.as_os_str().as_encoded_bytes());
     let namespace = digest[..8]
@@ -63,10 +44,7 @@ pub(super) fn cache_namespace(cache_root: &Path, cache: &str, game_path: &Path) 
     cache_root.join(cache).join(namespace)
 }
 
-/// Remembers where a screenshot's source image lives, so a repeated strip
-/// request skips SQLite. A screenshot row keeps its image path once written;
-/// a remembered file that is gone is forgotten and looked up again. Clones
-/// share one bounded, least-recently-used map.
+/// Screenshot paths are immutable once published, so cached paths can bypass SQLite until the file disappears.
 #[derive(Clone, Default)]
 pub(super) struct SourcePaths {
     entries: Arc<Mutex<SourcePathEntries>>,
@@ -79,9 +57,6 @@ struct SourcePathEntries {
 }
 
 impl SourcePaths {
-    /// The source image of `screenshot_id` in `game_path`, from memory or from
-    /// `lookup`, which returns `None` when the row or its file is missing. A
-    /// miss is not remembered.
     pub(super) fn resolve(
         &self,
         game_path: &Path,
@@ -137,15 +112,10 @@ impl SourcePaths {
 #[derive(Debug)]
 pub(super) struct StripRequest {
     pub(super) record_id: String,
-    /// A crop supplied by the request; `None` uses the saved overlay settings.
     pub(super) crop: Option<OverlayCropSettings>,
-    /// Render without reading or writing the cache.
     pub(super) preview: bool,
 }
 
-/// Returns the OBS overlay's PNG strip for a record, cached in the record
-/// installation's `OBS_STRIP_CACHE` namespace, or `None` when the record or
-/// its screenshot is missing.
 pub(super) fn render_strip(
     records: &OverlayRecordRepository,
     settings: &OverlaySettingsStore,
@@ -157,7 +127,6 @@ pub(super) fn render_strip(
         Some(crop) => crop,
         None => settings.load()?.crop,
     };
-    // Without an installation no screenshot path resolves.
     let Some(game_path) = records.game_path() else {
         return Ok(None);
     };
@@ -219,10 +188,6 @@ fn crop_cache_path(
     Ok(cache_directory.join(cache_name))
 }
 
-/// Returns the strip for `source_path` and `crop` cached in `cache_directory`,
-/// rendering and storing it on a miss. A hit on an entry older than
-/// `REFRESH_AFTER` refreshes its modification time, so the age-based sweep
-/// sees it as recently used.
 pub(super) fn cached_strip(
     cache_directory: &Path,
     record_id: &str,
@@ -260,7 +225,6 @@ pub(super) fn cached_strip(
     Ok(bytes)
 }
 
-/// An entry's bytes and modification time, read through one handle.
 fn read_cache_entry(path: &Path) -> std::io::Result<(Vec<u8>, SystemTime)> {
     let mut file = std::fs::File::open(path)?;
     let modified = file.metadata()?.modified().unwrap_or(UNIX_EPOCH);
@@ -322,7 +286,6 @@ fn write_cache_entry(cache_path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     }
 }
 
-/// Sweeps the strip caches once per process, off the async runtime.
 pub(super) fn sweep_cache() {
     static SWEPT: OnceLock<()> = OnceLock::new();
     if SWEPT.set(()).is_err() {
@@ -335,18 +298,13 @@ pub(super) fn sweep_cache() {
 }
 
 struct CacheLimits {
-    /// An entry not read or written for longer is removed.
     unused_for: Duration,
-    /// The oldest entries beyond this count are removed.
     max_entries: usize,
     /// Entries this recent may be in use and are left alone.
     fresh_for: Duration,
 }
 
-/// Every deletion is best effort: Windows refuses to remove an open file.
-/// Namespace directories stay, so a concurrent write never loses its parent.
-/// The count cap spans every strip cache. Strips that older versions wrote at
-/// the cache root are removed outright.
+/// Keep namespace directories so concurrent writes retain their parent. Windows can refuse removal of open entries.
 fn sweep(cache_root: &Path, now: SystemTime, limits: &CacheLimits) {
     let age_of = |metadata: &std::fs::Metadata| {
         let modified = metadata.modified().unwrap_or(UNIX_EPOCH);
@@ -410,9 +368,7 @@ fn sweep(cache_root: &Path, now: SystemTime, limits: &CacheLimits) {
 fn crop_strip_image(source_bytes: &[u8], crop: OverlayCropSettings) -> anyhow::Result<Vec<u8>> {
     let image =
         image::load_from_memory(source_bytes).context("Failed to decode overlay source image")?;
-    // A screenshot's alpha is the game's framebuffer alpha, which the screen
-    // ignores; UI blending leaves it below opaque over cards. Earlier mods kept
-    // it, so drop it here: the strip shows the colours the player saw.
+    // The game's framebuffer alpha can be translucent over cards even where the display is opaque.
     let cropped = DynamicImage::ImageRgb8(crop_dynamic_image(image, crop)?.to_rgb8());
     let mut output = Cursor::new(Vec::new());
     cropped
@@ -455,10 +411,7 @@ fn crop_dynamic_image(
     Ok(image.crop_imm(left, top, crop_width, crop_height))
 }
 
-/// Converts a pixel coordinate that the caller has already clamped into the
-/// image's bounds. Inside those bounds the value is a whole number that fits
-/// `u32`, so nothing is lost. A NaN crop fraction survives `clamp` and becomes
-/// 0 here, because float-to-int `as` saturates and maps NaN to 0.
+/// `clamp` preserves NaN, and Rust's saturating float cast maps it to zero.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
@@ -468,9 +421,7 @@ fn pixel_offset(clamped: f64) -> u32 {
     clamped as u32
 }
 
-/// A crop fraction in ten-thousandths, used only to key the strip cache.
-/// Settings keep fractions in `[0, 1]`, so the result is at most 10 000; any
-/// other value saturates (NaN becomes 0), which at worst misses the cache.
+/// Out-of-range inputs saturate, which at worst yields a cache miss.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "a cache key; `as` saturates out-of-range values and maps NaN to 0"
@@ -494,7 +445,6 @@ mod tests {
         time::{Duration, SystemTime},
     };
 
-    /// Writes a cache file last modified `age` seconds before `now`.
     fn cache_file(path: PathBuf, now: SystemTime, age: u64) -> PathBuf {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, b"png").unwrap();
@@ -607,7 +557,6 @@ mod tests {
                 .set_modified(now - Duration::from_secs(age))
                 .unwrap();
         };
-        // Written two days ago and served ever since, every few seconds.
         set_age(&served, 2 * 24 * 60 * 60);
         let history = cache_namespace(root, HISTORY_THUMBNAIL_CACHE, Path::new("/Games/A"));
         let viewed_once = [
@@ -616,7 +565,6 @@ mod tests {
         ];
         cached_strip(&obs, "shot-1", &source, crop).unwrap();
 
-        // Swept at the next start, once the refreshed entry is past `fresh_for`.
         sweep(root, SystemTime::now() + Duration::from_secs(60), &limits);
 
         assert!(served.exists());

@@ -4,9 +4,7 @@ import { runGit } from '../../../scripts/git-command.ts';
 
 const projectDir = process.cwd();
 
-// Resolve a usable bash. On Windows, `bash` is frequently absent from the PATH
-// used by the process (PowerShell/cmd), so fall back to the Git for Windows
-// install before giving up.
+// PowerShell and cmd may lack Bash on PATH even when Git for Windows supplies it.
 export function resolveBashCommand(): string {
   if (process.platform !== 'win32') {
     return 'bash';
@@ -22,7 +20,7 @@ export function resolveBashCommand(): string {
       candidates.push(`${gitRoot}/bin/bash.exe`);
     }
   } catch {
-    // git not on PATH; fall back to the well-known install locations below.
+    // Git for Windows can be installed without adding Git to PATH.
   }
   candidates.push(
     'C:/Program Files/Git/bin/bash.exe',

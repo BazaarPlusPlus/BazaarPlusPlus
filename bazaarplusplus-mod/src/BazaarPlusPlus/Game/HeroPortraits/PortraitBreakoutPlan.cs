@@ -3,7 +3,6 @@ using BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-// A compact admission mask, not captured artwork. Runs contain only the exterior pixels.
 internal sealed record PortraitBreakoutPlan(
     PortraitFrameGeometry Frame,
     PortraitFrameGeometry Bounds,
@@ -116,8 +115,7 @@ internal sealed record PortraitBreakoutPlan(
     }
 }
 
-// Disjoint UV runs describe material, so clipping follows Spine deformation rather than
-// opening a shared screen-space hole for every attachment at that location.
+// UV clipping follows Spine deformation without opening a shared screen-space hole for other attachments.
 internal sealed record PortraitBreakoutRegion(
     string Part,
     int Page,

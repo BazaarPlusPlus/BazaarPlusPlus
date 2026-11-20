@@ -4,7 +4,6 @@ using BepInEx.Configuration;
 
 namespace BazaarPlusPlus.Host;
 
-/// <summary>Desktop settings store: binds each setting to an entry in the BepInEx config file.</summary>
 internal sealed class BepInExSettingsStore : IBppSettingsStore
 {
     private readonly ConfigFile _file;

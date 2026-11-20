@@ -10,19 +10,8 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop.CardRental;
 
-/// <summary>
-/// The IL2CPP half of the rental, as the #396 spike measured it on device: the Small, Medium,
-/// Large or Skill card UI prefab is instantiated through the game's <see cref="AssetLoader"/> in
-/// the Global asset scope (so a scene's Current scope never owns it), set up with a synthetic
-/// card instance at the subject's tier and enchantment, shown, resized, and destroyed with
-/// <c>Object.Destroy</c>. Native tasks are polled, never awaited.
-/// <para>
-/// A ready card's RectTransform is centred on its parent's top-left corner and keeps the prefab's
-/// own size: 484 high, with an item as wide as its aspect ratio makes it (252, 503 or 755) and a
-/// skill square. The renting panel positions and scales the parent, so a card set up again in
-/// place, or reused from the pool, never shows anywhere else.
-/// </para>
-/// </summary>
+// Use Global asset scope so scenes do not own rented cards. A card's parent is a position anchor,
+// so the card must keep the prefab's own dimensions.
 internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewBase, RectTransform>
 {
     private readonly Dictionary<Guid, TCardBase> _templates = new();
@@ -109,9 +98,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             return true;
         }
         root.transform.SetParent(PoolRoot(), false);
-        // A rented card is a picture: the panel above it takes the taps. The card's own canvas
-        // does not override sorting, so the renting canvas raycasts its graphics; the group
-        // turns them off there, and any raycaster inside the prefab is switched off too.
+        // The parent canvas can raycast the card's graphics even with the prefab's raycaster
+        // disabled.
         var group = Group(card);
         group.blocksRaycasts = false;
         group.interactable = false;
@@ -131,8 +119,6 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         var template =
             Template(subject.TemplateId) ?? throw new InvalidOperationException("template missing");
         var transform = card.transform;
-        // A card that moves to a new parent stays invisible until its setup has sized and
-        // placed it; a retarget in place keeps showing the previous tier meanwhile.
         if (transform.parent == null || transform.parent.Pointer != parent.Pointer)
             Group(card).alpha = 0f;
         transform.SetParent(parent, false);
@@ -147,7 +133,6 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
         );
         var kept = AndroidNativeCardSetUp.Keep(instance);
         var boardItem = subject.OnBoard && template.Type == ECardType.Item;
-        // Starts the ammo bar's template while the card sets up.
         if (boardItem)
             _ = AndroidCardAmmoBar.Settled;
         return new SetUpOperation(
@@ -170,7 +155,6 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
             failureReason = task.IsCanceled ? "setup_canceled" : "setup_faulted";
             return true;
         }
-        // A board item waits for the ammo bar's template once; a failed load shows no bar.
         if (setUp.BoardItem && !AndroidCardAmmoBar.Settled)
             return false;
         setUp.Kept.ShowOn(card);
@@ -225,9 +209,8 @@ internal sealed class AndroidCardRentalBackend : ICardRentalBackend<CardPreviewB
                 || card._frameContainer.IsChildOf(mask.transform)
             )
                 continue;
-            // The Android prefab's circle extends beyond its decorative frame. Clip beneath
-            // the metal rim with its own circular stencil; keep the artwork's size unchanged.
-            // Applied once per native instance, not on every pooled rebind.
+            // The Android prefab's artwork extends past the rim. Mask it without scaling the
+            // artwork.
             const float apertureScale = 0.85f;
             var artSize = image.rectTransform.rect.size;
             var rect = mask.graphic.rectTransform;

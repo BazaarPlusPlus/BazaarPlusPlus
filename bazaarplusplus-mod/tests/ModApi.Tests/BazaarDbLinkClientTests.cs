@@ -74,8 +74,6 @@ public sealed class BazaarDbLinkClientTests
     [Fact]
     public void ConflictStatusWithoutTokenClassifiesAsAlreadyLinked()
     {
-        // Locks the status==409 shortcut so a missing/garbled error body still maps to the contract's
-        // permanent "already linked to a different user" failure rather than a retryable outcome.
         var result = RedeemWithResponse(HttpStatusCode.Conflict, string.Empty);
         Assert(
             result.Outcome == BazaarDbLinkOutcome.AlreadyLinked,
@@ -96,8 +94,6 @@ public sealed class BazaarDbLinkClientTests
     [Fact]
     public void MissingFieldServerSentenceClassifiesAsMissingFields()
     {
-        // The documented server token is the human sentence "Missing code or account_id", matched by
-        // prefix in the client. Guards against the StartsWith branch being dropped.
         var result = RedeemWithResponse(
             HttpStatusCode.BadRequest,
             "{\"error\":\"Missing code or account_id\"}"

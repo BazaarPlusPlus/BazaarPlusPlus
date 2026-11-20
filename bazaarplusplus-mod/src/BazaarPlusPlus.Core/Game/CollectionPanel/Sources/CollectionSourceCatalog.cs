@@ -8,8 +8,7 @@ public static class CollectionSourceCatalog
 {
     public const int ExpectedSchemaVersion = 1;
 
-    // isHeroAvailable answers whether this game build defines a hero (a host answer, ADR-0015):
-    // a FixedHero rule naming an unavailable hero drops its entry instead of failing the catalog.
+    // Resolve hero availability against the running game build so an unsupported FixedHero drops only its entry.
     public static IReadOnlyList<CollectionSourceEntry> Build(
         string json,
         Func<CardHero, bool> isHeroAvailable

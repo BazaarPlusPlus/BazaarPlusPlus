@@ -180,8 +180,6 @@ public static class EncounterRewardParser
             : string.Join(" ", parts);
     }
 
-    // Matches `word` (or `word` plus one trailing `s`) bounded by the string ends or by
-    // any character outside ASCII a-z on both sides, without building a regex per call.
     private static bool ContainsWord(string lower, string word)
     {
         var start = 0;

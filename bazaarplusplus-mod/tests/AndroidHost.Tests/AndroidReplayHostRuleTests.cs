@@ -13,12 +13,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The managed rules the Android replay and History stand on: the capture never blocks the main
-/// thread on the payload gate a replay holds, the record chain's intake keeps replay messages
-/// out of the battle capture, Ghost sync's template lookup never builds its index, and the
-/// replay waits for the game's presentation tasks as the desktop waits for its own.
-/// </summary>
 public sealed class AndroidReplayHostRuleTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 20, 0, 0, 0, TimeSpan.Zero);
@@ -166,7 +160,6 @@ public sealed class AndroidReplayHostRuleTests : IDisposable
 
         Assert.True(live.CaptureBattle);
         Assert.False(replay.CaptureBattle);
-        // Run lifecycle is never dropped: the run context must not stick in a run.
         Assert.True(live.PublishRunInitialized);
         Assert.True(replay.PublishRunInitialized);
     }

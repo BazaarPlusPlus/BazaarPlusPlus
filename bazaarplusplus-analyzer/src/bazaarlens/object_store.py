@@ -1,5 +1,3 @@
-"""Minimal object-store boundary with its Cloudflare R2 adapter."""
-
 import hashlib
 import re
 from dataclasses import dataclass
@@ -19,8 +17,6 @@ CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
 _ACCOUNT_ID = re.compile(r"[0-9a-fA-F]{32}")
 _TOKEN_ID = re.compile(r"[0-9a-f]{32}")
 _BUCKET = re.compile(r"[a-z0-9][a-z0-9-]*[a-z0-9]")
-# Verified token ids per process, keyed by the account and the token's digest,
-# never its value.
 _verified_token_ids: dict[str, str] = {}
 
 
@@ -29,7 +25,6 @@ class ObjectStoreError(RuntimeError):
 
 
 def _verify_token(token: str, account_id: str, client: httpx.Client | None) -> str:
-    # Only account-owned tokens are supported; a user token is rejected here.
     url = f"{CLOUDFLARE_API}/accounts/{account_id}/tokens/verify"
 
     def request(http: httpx.Client) -> httpx.Response:
@@ -68,20 +63,13 @@ def derive_s3_credentials(
     account_id: str,
     client: httpx.Client | None = None,
 ) -> tuple[str, str]:
-    """The S3 pair R2 accepts for an Account API Token.
-
-    The Access Key ID is the token's id, which only
-    ``/accounts/{account_id}/tokens/verify`` reveals, and the Secret Access
-    Key is the SHA-256 of the token value. A user token is rejected. The
-    verified id is reused for the rest of the process.
-    """
+    """R2 uses the verified Account API Token ID and SHA-256 of the token as its S3 credentials."""
     token = api_token.strip()
     if not token:
         raise ValueError("CLOUDFLARE_API_TOKEN is empty")
     if _ACCOUNT_ID.fullmatch(account_id) is None:
         raise ValueError("CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal account id")
     account = account_id.lower()
-    # Cloudflare defines the secret as this digest; it is not password storage.
     secret = hashlib.sha256(token.encode()).hexdigest()
     cache_key = f"{account}:{secret}"
     access_key_id = _verified_token_ids.get(cache_key)
@@ -94,8 +82,7 @@ def derive_s3_credentials(
 @dataclass(frozen=True, slots=True)
 class ObjectStat:
     key: str
-    # None for an object another tool wrote without the sha256 metadata
-    # R2ObjectStore.put records; it never matches a snapshot, so it is replaced.
+    # Objects written outside this adapter can lack digest metadata and will be replaced.
     sha256: str | None
     bytes: int
     cache_control: str
@@ -125,13 +112,6 @@ class ObjectStore(Protocol):
 
 
 class R2ObjectStore:
-    """Cloudflare R2 adapter using its S3-compatible boto3 endpoint.
-
-    The S3 pair is derived from ``api_token`` with one verify call before any
-    bucket request; an empty token, a malformed account id or bucket name, and
-    a rejected, malformed or inactive token all fail here.
-    """
-
     def __init__(
         self,
         *,
@@ -155,7 +135,6 @@ class R2ObjectStore:
             api_token, account_id=account_id, client=http_client
         )
         self.bucket = bucket
-        # Keys stay relative to the prefix (metrics/v6 in the public bucket).
         self._prefix = f"{prefix}/" if prefix else ""
         self._client = boto3.client(
             "s3",

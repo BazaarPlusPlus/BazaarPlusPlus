@@ -9,7 +9,6 @@ public sealed class BazaarDbAccountLinkStore
     private readonly Func<string, bool> _hasKey;
     private readonly Action<string> _markKey;
 
-    // The host's key-value store, keyed by BuildPrefsKey: the desktop passes Unity's PlayerPrefs.
     public BazaarDbAccountLinkStore(Func<string, bool> hasKey, Action<string> markKey)
     {
         _hasKey = hasKey ?? throw new ArgumentNullException(nameof(hasKey));
@@ -18,8 +17,7 @@ public sealed class BazaarDbAccountLinkStore
 
     public void SaveHint(string accountId)
     {
-        // Presence-only hint: there is no read-back / unlink endpoint, and the card no longer shows a
-        // display name, so we only remember THAT this account linked.
+        // The API has no read-back or unlink endpoint, so this local key is only a link hint.
         _markKey(BuildPrefsKey(accountId));
     }
 

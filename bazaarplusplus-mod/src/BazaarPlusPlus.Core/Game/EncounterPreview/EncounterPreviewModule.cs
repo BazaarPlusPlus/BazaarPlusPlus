@@ -4,17 +4,12 @@ using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>An inspected card: its template, its type, and the native passive text it shows.</summary>
 public readonly record struct EncounterCardPreviewQuery(
     Guid TemplateId,
     CardType Type,
     string NativeText
 );
 
-/// <summary>
-/// A hero-level badge: the level it shows, and the hero whose rewards it lists; null reads the
-/// current hero.
-/// </summary>
 public readonly record struct LevelUpPreviewQuery(int CurrentLevel, CardHero? Hero = null);
 
 public enum EncounterPreviewAvailability
@@ -31,12 +26,6 @@ public readonly record struct EncounterPreviewResult(
     string? Content
 );
 
-/// <summary>
-/// The Encounter Preview Module both hosts query: the Detailed Preview switch and the combat gate,
-/// then by card type an event's choices or outcomes, a merchant's quality, or an encounter step's
-/// reward odds, and a hero level's rewards. Game state comes through
-/// <see cref="IEncounterPreviewReads"/>.
-/// </summary>
 public sealed class EncounterPreviewModule(BppSettings settings, IEncounterPreviewReads reads)
 {
     private readonly BppSettings _settings =
@@ -44,7 +33,6 @@ public sealed class EncounterPreviewModule(BppSettings settings, IEncounterPrevi
     private readonly IEncounterPreviewReads _reads =
         reads ?? throw new ArgumentNullException(nameof(reads));
 
-    /// <summary>The Detailed Preview switch.</summary>
     public bool Enabled => _settings.EnableDetailedPreviewConfig.Value;
 
     public EncounterPreviewResult ResolveCard(EncounterCardPreviewQuery query)
@@ -117,7 +105,6 @@ public sealed class EncounterPreviewModule(BppSettings settings, IEncounterPrevi
                 )
                 : Result(EncounterPreviewAvailability.Unsupported);
 
-        // The event and the templates it names, as the host presents them.
         var templates = new List<EncounterPreviewTemplatePlan>();
         foreach (
             var id in plan
@@ -163,7 +150,6 @@ public sealed class EncounterPreviewModule(BppSettings settings, IEncounterPrevi
         );
     }
 
-    // The switch and a fight come first: either leaves the native tooltip as it is.
     private bool TryGetPlans(
         out IEncounterPreviewPlans plans,
         out EncounterPreviewAvailability unavailable

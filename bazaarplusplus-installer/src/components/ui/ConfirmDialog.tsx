@@ -12,7 +12,6 @@ import {
 import { useActiveModalDismissalPolicy } from './ModalCoordinator';
 import { useI18n } from '../../i18n/LocaleProvider';
 
-/** primary => install-style affirmative action; danger => destructive. */
 export type ConfirmTone = 'primary' | 'danger';
 
 export type ActiveDismissalPolicy =
@@ -21,35 +20,23 @@ export type ActiveDismissalPolicy =
   | { kind: 'cancelable'; label: string; onCancel: () => void };
 
 export interface ConfirmAcknowledge {
-  /** Already-localized label (pass t('...')). */
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }
 
 export interface ConfirmDialogProps {
-  /** Constant per-modal DOM id (e.g. "install-modal-title"), wired to the
-   *  heading id and the dialog's aria-labelledby. */
   titleId: string;
   title: string;
   subtitle?: string;
   tone: ConfirmTone;
-  /** Body blocks, laid out as a vertical stack. */
   children: ReactNode;
-  /** Optional gating checkbox, rendered after the body. Unchecked => confirm
-   *  disabled. Fully controlled; the page owns reset-on-open/on-success. */
   acknowledge?: ConfirmAcknowledge;
   confirmLabel: string;
-  /** Label swapped in while busy; the confirm button always shows a spinner
-   *  while busy. */
   busyLabel?: string;
-  /** Disables confirm + triggers busy affordance. */
   busy: boolean;
-  /** Explicitly defines what every dismiss surface means while busy. */
   activeDismissalPolicy: ActiveDismissalPolicy;
-  /** Replaces ordinary Cancel wording after a failed operation. */
   dismissLabel?: string;
-  /** Extra gate (for example, Cleanup having nothing to clean). */
   confirmDisabled?: boolean;
   onConfirm: () => unknown;
   onClose: () => void;
@@ -72,7 +59,6 @@ export function ConfirmDialog({
   onClose
 }: ConfirmDialogProps) {
   const { t } = useI18n();
-  // The modal stack can block dismissal while another modal guards work.
   const dismissible = useActiveModalDismissalPolicy() !== 'blocked';
   const dismissAllowed = !busy || activeDismissalPolicy.kind !== 'blocked';
   const activeDismissLabel =
@@ -157,7 +143,6 @@ export function ConfirmDialog({
   );
 }
 
-/** A tinted note inside a confirmation body. */
 export function ConfirmNote({
   tone,
   icon,
@@ -177,7 +162,6 @@ export function ConfirmNote({
   );
 }
 
-/** The exact filesystem or data target a confirmation acts on. */
 export function ConfirmTarget({ children }: { children: ReactNode }) {
   return <div className="bpp-confirm-target selectable">{children}</div>;
 }

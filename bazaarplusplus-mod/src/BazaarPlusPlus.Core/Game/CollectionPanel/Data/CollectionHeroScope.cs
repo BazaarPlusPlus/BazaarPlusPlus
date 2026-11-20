@@ -18,11 +18,7 @@ public static class CollectionHeroScope
         return Contains(card.Heroes, card.HeroMask, effectiveHero);
     }
 
-    // A skill matches the effective hero when it is hero-exclusive (exactly that hero,
-    // including Common-only skills in neutral mode) or general-shared: a multi-hero skill
-    // taught across heroes — never Common-scoped — that includes the selected hero.
-    // The general-shared arm self-excludes Common ("contains Common" and "no Common" cannot
-    // both hold), mirroring the in-game trainer pools that teach shared skills.
+    // The game's shared trainer pools cover multiple heroes while excluding Common.
     public static bool MatchesSkillHeroScope(
         IReadOnlyCollection<CardHero> cardHeroes,
         CardHero hero

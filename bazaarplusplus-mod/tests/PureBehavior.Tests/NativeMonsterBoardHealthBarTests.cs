@@ -24,7 +24,6 @@ public sealed class NativeMonsterBoardHealthBarTests
     [Fact]
     public void Bar_directly_under_the_board_frame_is_found()
     {
-        // The shape the earlier path MainSize/Healthbar_Parent addressed.
         var board = new Node("Tooltip_MonsterBoard_P");
         var main = board.Add("MainSize");
         var carpet = main.Add("Carpet");

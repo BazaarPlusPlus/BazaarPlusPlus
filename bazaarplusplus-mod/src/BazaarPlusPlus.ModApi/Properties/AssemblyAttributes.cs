@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 
-// Test projects only: hosts and Core use the public surface (ADR-0012).
 [assembly: InternalsVisibleTo("BppLog.Tests")]
 [assembly: InternalsVisibleTo("BundlePipeline.Tests")]
 [assembly: InternalsVisibleTo("BundleV6Codec.Net10.Tests")]

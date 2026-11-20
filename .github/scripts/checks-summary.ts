@@ -2,24 +2,20 @@ import fs from 'node:fs';
 import { SCOPES, manualSelection } from './checks-scope.ts';
 import type { ChecksPlan, ManualInputs } from './checks-scope.ts';
 
-// One entry of the workflow `needs` context.
 export interface JobNeed {
   result?: string;
   outputs?: Record<string, string>;
 }
 
-// The classify job's entry: its outputs carry the plan and one flag per lane.
 export interface ClassifyNeed extends JobNeed {
   outputs: Record<string, string>;
 }
 
-// The workflow `needs` context, as CHECK_NEEDS passes it.
 export interface CheckNeeds {
   classify?: ClassifyNeed;
   [job: string]: JobNeed | undefined;
 }
 
-// The fields of the GitHub event payload that the summary reads.
 export interface SummaryEvent {
   pull_request?: { head?: { repo?: { full_name?: string } } };
   repository?: { full_name?: string };
@@ -62,7 +58,6 @@ export function summarize({
   const errors: string[] = [];
   const rows: SummaryRow[] = [];
   const coverage: string[] = [];
-  // Read only after the classification below validated it.
   let plan: ChecksPlan = {};
   try {
     if (needs.classify?.result !== 'success')

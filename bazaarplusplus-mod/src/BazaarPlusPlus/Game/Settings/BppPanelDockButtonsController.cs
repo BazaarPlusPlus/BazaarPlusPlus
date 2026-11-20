@@ -186,8 +186,6 @@ internal sealed class BppPanelDockButtonsController
         _layoutLogState.Observe(ToLayoutObservation(available, blockerName));
     }
 
-    // Ten-Win Builds hides while the slot left of the gear is taken; the change is logged with
-    // the blocker's name, once per change, so a recurring blocker can be found.
     private void ObserveLiveBuildBlocker(string? blocker)
     {
         if (

@@ -1,11 +1,5 @@
 // @vitest-environment jsdom
 
-// Shell DOM snapshot anchor: the whole app (GlobalShell, nav rail, header and
-// the routed page) rendered per route x state from Browser Preview commands
-// seeded with src/test-fixtures/shell/. Each case writes
-// src/__shell_snapshots__/<route>.<state>.html; review those diffs in the PR.
-// Regenerate: BPP_UPDATE_GOLDENS=1 bun run vp test run src/shell.snapshot.test.tsx
-
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
@@ -58,7 +52,6 @@ type Case = {
   state: string;
   seed?: Seed;
   windows?: boolean;
-  /** Runs inside the Tauri runtime; only the updater case needs it. */
   runtime?: boolean;
   update?: boolean;
 };
@@ -290,9 +283,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-/** Each pass waits one animation frame and then a macrotask, so loads, their
- *  follow-up reads and frame-deferred UI (a toast's `is-present`) have all
- *  settled however fast the host runs. */
+/** Let frame-deferred UI and follow-up reads settle before snapshotting. */
 async function settle() {
   for (let pass = 0; pass < 5; pass += 1) {
     await act(async () => {
@@ -303,11 +294,7 @@ async function settle() {
   }
 }
 
-/** Drops only React's generated ids, the compiled-in package version (the
- *  header stamp and the packaged About fallback) and lucide's glyph paths,
- *  keeping each icon's tag and name, so a version or dependency bump does not
- *  rewrite every snapshot. Copy and ARIA attributes stay. One tag per line
- *  keeps the snapshot diff reviewable. */
+/** Omit volatile generated markup so dependency and version bumps do not rewrite every snapshot. */
 function normalize(html: string): string {
   return html
     .replace(/«r[0-9a-z]+»|_r_[0-9a-z]+_|:r[0-9a-z]+:/g, '«id»')

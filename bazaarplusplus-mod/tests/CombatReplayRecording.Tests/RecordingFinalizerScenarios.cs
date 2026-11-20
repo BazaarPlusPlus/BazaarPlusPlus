@@ -4,13 +4,8 @@ using BazaarPlusPlus.Game.CombatReplay.Audio;
 using BazaarPlusPlus.Game.CombatReplay.Video;
 using Xunit;
 
-// Terminal outcomes the recorder's background finalizers report. Each scenario drives the real
-// finalizer with a real encoder drain over a scripted encoder and observes the one terminal the
-// recording lifecycle publishes.
 public sealed class RecordingFinalizerScenarios : IDisposable
 {
-    // Each scenario gets its own scratch directory, as the capsule's one directory held each
-    // scenario's files under its own name.
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
         "bpp-recording-finalizer-tests",
@@ -95,8 +90,6 @@ public sealed class RecordingFinalizerScenarios : IDisposable
         Assert(!File.Exists(tempPath), "An abort without a drain deletes its temp video.");
     }
 
-    // The start threw after its operation became active, so the abort dispatched a finalizer
-    // that owns the terminal. The start's catch runs while that finalizer is still draining.
     [Fact]
     public async Task BeginExceptionLeavesActiveOperationToAbortFinalizer()
     {
@@ -223,8 +216,6 @@ public sealed class RecordingFinalizerScenarios : IDisposable
         );
     }
 
-    // The persisted duration is what the History page shows as the video's length, so it comes
-    // from the encoded timeline, not from the session span that includes encoder start and drain.
     [Fact]
     public void DrainReportsTheVideoTimelineLength()
     {

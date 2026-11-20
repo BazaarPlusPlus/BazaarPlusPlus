@@ -3,11 +3,7 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Whether the player is in a run, read from the IL2CPP app state as the desktop's
-/// <c>GameStateProbe</c> reads the Mono one. Proxies never satisfy <c>is</c>; type tests go
-/// through <c>TryCast</c>.
-/// </summary>
+// IL2CPP proxies require TryCast for game type tests.
 internal sealed class AndroidGameStateProbe : IGameStateProbe
 {
     public bool ComputeIsInGameRun()

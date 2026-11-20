@@ -76,17 +76,6 @@ import type {
 } from './manifest.ts';
 import type { GitState } from './artifact-manifest.ts';
 
-// The Android release (docs/adr/0012-android-app.md, docs/release.md
-// "Android 发布"): prepare compiles the Android host against the locked
-// Interop Snapshot and stages the Android Mod Payload; build zips and signs
-// that Payload as the Managed Payload zip, stages the Android App Runtime,
-// builds the Android App with Gradle and signs it with the BPP Android release
-// key (ADR 0009), and packs the Interop Package and signs its interop
-// statement with the same key; upload (publish.ts) streams the three
-// artifacts to R2. Every output lives under target/android/ at the workspace
-// root, outside the release inputs, and is replaced as a whole by the next
-// run; key material only ever sits in a temporary directory outside it.
-
 const PLATFORM = 'android';
 const sha256 = (bytes: string | NodeJS.ArrayBufferView): string =>
   crypto.createHash('sha256').update(bytes).digest('hex');
@@ -97,20 +86,14 @@ const readJson = (file: string): unknown =>
 
 const ANDROID_BUILD_RECORD_SCHEMA_VERSION = 3;
 const ANDROID_ARTIFACT_SCHEMA_VERSION = 3;
-// The Android host project, relative to bazaarplusplus-mod/.
 const ANDROID_HOST_PROJECT =
   'src/BazaarPlusPlus.Android/BazaarPlusPlus.Android.csproj';
-// The Android App project, relative to the workspace root.
 const ANDROID_APP_ROOT = 'bazaarplusplus-android';
-// Inventory producers the mod build stages: the Managed Payload, the Updater
-// plugin, and the Managed Payload Manifest prepare writes beside them;
-// everything else on Android is the Android App's or written at runtime.
 const MOD_PRODUCERS: ReadonlySet<string> = new Set([
   ...MANAGED_PRODUCERS,
   'updater',
   'managed-manifest'
 ]);
-// What MSBuild produces; prepare writes the manifest after it.
 const BUILD_PRODUCERS: ReadonlySet<string> = new Set([
   ...MANAGED_PRODUCERS,
   'updater'
@@ -122,7 +105,6 @@ const MOD_ROOT = 'MelonLoader';
 const PAGE_ALIGNMENT_KIB = '16';
 const MIN_BUILD_TOOLS_MAJOR = 35;
 
-// Every output of the Android release under target/android/.
 export interface AndroidPaths {
   root: string;
   artifactManifest: string;
@@ -130,15 +112,12 @@ export interface AndroidPaths {
   work: string;
 }
 
-// One Game Adaptation's staged Payload and its prepare record, under
-// target/android/<source>/ (ADR 0019).
 export interface AdaptationPaths {
   root: string;
   payload: string;
   buildRecord: string;
 }
 
-// The lock entry a prepare record seals.
 export interface AndroidLockEntryRecord {
   key: string;
   gameVersion: string;
@@ -150,14 +129,11 @@ export interface AndroidLockEntryRecord {
   nativeLibs: Record<string, NativeLibPin>;
 }
 
-// One file of the staged Android Mod Payload.
 export interface PayloadOutputRecord {
   path: string;
   sha256: string;
 }
 
-// target/android/<source>/payload-build.json: what prepare sealed for one
-// Game Adaptation.
 export interface AndroidBuildRecord {
   schemaVersion: number;
   productVersion: ProductVersion;
@@ -171,8 +147,6 @@ export interface AndroidBuildRecord {
   output: PayloadOutputRecord[];
 }
 
-// The Interop Snapshot and Loader Release directories the host compiles
-// against.
 export interface LockedSnapshot {
   interopPath: string;
   loaderPath: string;
@@ -216,15 +190,12 @@ interface RunOptions {
   quiet?: boolean;
 }
 
-// execFileSync fails with the child's stderr attached.
 type RunError = Error & { stderr?: string | Buffer | null };
 
-// The staged Android release keystore, its password file and key alias.
 export interface AndroidSigningKey extends ReleaseKeystore {
   alias: string;
 }
 
-// The App's toolchain lock, as far as the build-tools lookup reads it.
 interface AndroidToolchainLock {
   androidSdk: { buildTools: string };
 }
@@ -281,7 +252,6 @@ interface PackInteropOptions {
   signerSha256: string;
 }
 
-// The Interop Package beside the APK and its signed statement.
 export interface InteropPackageRecord {
   key: string;
   path: string;
@@ -292,7 +262,6 @@ export interface InteropPackageRecord {
   statementPath: string;
 }
 
-// signWithUpdaterKey, or a test stand-in: the minisign signature of a file.
 export type SignFile = (options: {
   workspaceRoot: string;
   file: string;
@@ -311,8 +280,6 @@ export interface BuildAndroidReleaseOptions extends PrepareAndroidPayloadOptions
   captureIdentity?: (rootDir: string) => GitState;
 }
 
-// One Game Adaptation of a build receipt: the game, its Interop Package and
-// the Managed Payload compiled against it.
 export interface AdaptationArtifacts {
   game: {
     gameVersion: string;
@@ -330,7 +297,6 @@ export interface AdaptationArtifacts {
   lockEntry: AndroidLockEntryRecord;
 }
 
-// target/android/android-aarch64.json: the build receipt upload publishes.
 export interface AndroidArtifactManifest {
   schemaVersion: number;
   platform: ReleasePlatformKey;
@@ -352,7 +318,6 @@ export interface AndroidArtifactManifest {
   adaptations: Record<AndroidSource, AdaptationArtifacts>;
 }
 
-// The artifacts of a build receipt as absolute paths.
 export interface AndroidArtifactFiles {
   app: string;
   adaptations: Record<
@@ -389,9 +354,7 @@ export function adaptationPaths(
   };
 }
 
-// The non-managed payload digest of a Snapshot Lock android-publisher entry and
-// the Updater plugin the Android App carries (ADR 0012): the Updater ships
-// only inside the App, so a changed Updater needs the new App.
+// The Updater ships inside the App, so a changed Updater requires a new App (ADR 0012).
 export const androidEntryNonManagedPayloadDigest = (
   entry: InteropLockEntry,
   updaterSha256: string
@@ -411,7 +374,6 @@ function stagedUpdater(payloadRoot: string): string {
   return path.join(payloadRoot, ...entry.path.split('/'));
 }
 
-// The SHA-256 of the Updater plugin in a staged Android Payload.
 export function stagedUpdaterSha256(payloadRoot: string): string {
   return sha256(fs.readFileSync(stagedUpdater(payloadRoot)));
 }
@@ -445,11 +407,7 @@ function msbuildProperty(
 const withSlash = (directory: string): string =>
   directory.endsWith(path.sep) ? directory : `${directory}${path.sep}`;
 
-// The Interop Snapshot and Loader Release one Game Adaptation compiles
-// against: the locked copies under game-libs/ (fetched when absent). A
-// -p:LemonLoaderPath override names the one loader every adaptation shares;
-// prepare still checks it against the lock entry. Each adaptation has its
-// own interop, so one -p:InteropPath cannot name them.
+// A Loader Release override can serve every adaptation. Each adaptation needs its own Interop Snapshot.
 async function resolveLockedSnapshot({
   workspaceRoot,
   source,
@@ -492,10 +450,6 @@ function payloadOutput(payloadRoot: string): PayloadOutputRecord[] {
   );
 }
 
-// The staged Android Mod Payload holds every required mod-built file of the
-// Android inventory and nothing the inventory does not give to the mod build.
-// `producers` narrows the check to what the host build alone produces,
-// before prepare writes the Managed Payload Manifest.
 function validateAndroidPayload(
   payloadRoot: string,
   productVersion: ProductVersion,
@@ -551,7 +505,6 @@ function androidInputs({ workspaceRoot, interopPath }: AndroidInputsOptions) {
   });
 }
 
-// Every Android Game Adaptation's prepared Payload, by source.
 export type AndroidBuildRecords = Record<AndroidSource, AndroidBuildRecord>;
 
 async function prepareUnlocked({
@@ -672,8 +625,6 @@ export async function prepareAndroidPayload(
   );
 }
 
-// Each sealed prepare record still describes its staged Payload: same product
-// version, same lock entry, same inputs, same output bytes.
 export function verifyAndroidPayload(
   workspaceRoot: string
 ): AndroidBuildRecords {
@@ -744,8 +695,6 @@ function run(
   }
 }
 
-// The BPP Android release keystore (ADR 0009) staged in BPP_SIGNING_SECRETS_DIR
-// by `bun scripts/workspace.ts run signing` or release-secrets.sh stage.
 export function androidSigningKey(
   env: NodeJS.ProcessEnv = process.env
 ): AndroidSigningKey {
@@ -775,7 +724,6 @@ export function androidSigningKey(
   };
 }
 
-// The build-tools version the Android App's toolchain lock pins.
 function lockedBuildToolsVersion(workspaceRoot: string): string | null {
   try {
     return (
@@ -788,8 +736,6 @@ function lockedBuildToolsVersion(workspaceRoot: string): string | null {
   }
 }
 
-// zipalign and apksigner: on PATH, else the Android SDK's build-tools the
-// App's toolchain lock pins, else its newest build-tools that page-aligns.
 export function resolveBuildTools(
   env: NodeJS.ProcessEnv = process.env,
   {
@@ -839,9 +785,6 @@ function defaultNugetRoot(env: NodeJS.ProcessEnv = process.env): string {
   return env.NUGET_PACKAGES || path.join(os.homedir(), '.nuget', 'packages');
 }
 
-// One locked native library (nativeLibs of the lock entry) as a verified file:
-// the NuGet cache when a restore put it there, else the package downloaded
-// from nuget.org. Either way its sha256 must be the locked one.
 export async function resolveNativeLib({
   name,
   pin,
@@ -885,7 +828,6 @@ export async function resolveNativeLib({
   return target;
 }
 
-// Every native library of the lock entry as a verified file in `into`.
 async function resolveLockedNativeLibs({
   entry,
   into
@@ -896,9 +838,7 @@ async function resolveLockedNativeLibs({
   return nativeLibs;
 }
 
-// The Android App's release build: Gradle's unsigned release APK of
-// bazaarplusplus-android/ with the product version, its versionCode and the
-// staged runtime (app/build.gradle.kts reads the three properties).
+// app/build.gradle.kts consumes the version, versionCode and staged runtime as properties.
 export function assembleWithGradle({
   workspaceRoot,
   version,
@@ -906,8 +846,6 @@ export function assembleWithGradle({
   runtimeDir
 }: AssembleOptions): string {
   const appRoot = path.join(workspaceRoot, ANDROID_APP_ROOT);
-  // AGP names an unsigned release app-release-unsigned.apk; the build takes
-  // whichever one APK the output directory holds.
   const outputs = path.join(appRoot, 'app/build/outputs/apk/release');
   fs.rmSync(outputs, { recursive: true, force: true });
   execFileSync(
@@ -931,9 +869,7 @@ export function assembleWithGradle({
   return path.join(outputs, apks[0]);
 }
 
-// Page-aligns the unsigned App with zipalign and signs it with apksigner and
-// the Android release key; the keystore password reaches apksigner only
-// through its file. Returns the signer certificate digest apksigner reports.
+// Pass the password only via a file to keep it out of the command line.
 export function signAndroidApp({
   unsigned,
   signing,
@@ -955,9 +891,8 @@ export function signAndroidApp({
     'PKCS12',
     '--ks-key-alias',
     signing.alias,
-    // No --key-pass: apksigner reads a file named twice line by line, so the
-    // key password would come from a second line that does not exist. The
-    // key's password is the keystore's (PKCS12), which apksigner tries first.
+    // Reusing a password file makes apksigner read successive lines.
+    // For PKCS12, apksigner defaults to the keystore password for the key.
     '--ks-pass',
     `file:${signing.passwordFile}`,
     '--out',
@@ -973,11 +908,7 @@ export function signAndroidApp({
   return signerCertificateSha256(certificates, output);
 }
 
-// The one signer certificate digest `apksigner verify --print-certs` reports.
-// It labels the signer by scheme: "Signer #1 certificate SHA-256 digest" when
-// v1 or v2 signed, "V3.0 Signer: certificate SHA-256 digest" for an APK signed
-// with v3 only (build-tools 37 when the minimum SDK is 24 or later). The release
-// key is one certificate, so every line must name the same digest.
+// apksigner labels the digest differently by scheme. Build-tools 37 can emit v3 only for minSdk 24+.
 export function signerCertificateSha256(output: string, apk: string): string {
   const digests = new Set(
     [
@@ -1003,10 +934,7 @@ function apkEntries(apk: string): Set<string> {
   );
 }
 
-// The signed App carries the runtime this release names: the Payload
-// Inventory's android-app entries inside the APK, and the runtime facts the
-// staging wrote, read back out of the APK, so the fragment and the App can
-// never compute their digests apart.
+// Read back the runtime digest from the signed APK so the fragment matches the distributed App.
 function assertAppRuntime(
   apk: string,
   facts: RuntimeFacts,
@@ -1052,10 +980,7 @@ function assertAppRuntime(
       throw new Error(`The Android App lacks ${carriedAsset}/${digest}.zip`);
 }
 
-// The Interop Package of the locked snapshot and its signed `release
-// <version>` statement, written beside the APK as <zip sha256>.zip,
-// .statement and .statement.sig. The signing certificate must be the
-// release certificate the App was signed with.
+// The App verifies the Interop Package with the same certificate used to sign the APK.
 function packInterop({
   root,
   interopPath,
@@ -1137,9 +1062,6 @@ async function buildUnlocked({
   fs.rmSync(paths.work, { recursive: true, force: true });
 
   const signing = signingKey();
-  // Each Game Adaptation: its Managed Payload zip and its Interop Package,
-  // before the App, which carries them all. The certificate is the pin: the
-  // App signed below must match it too.
   const built = {} as Record<
     AndroidSource,
     AdaptationArtifacts & { zipPath: string; nonManagedPayloadDigest: string }
@@ -1336,8 +1258,6 @@ export async function buildAndroidRelease(
   );
 }
 
-// The build receipt upload publishes, checked against the checkout and the
-// files it names.
 export async function readAndroidArtifacts(
   workspaceRoot: string
 ): Promise<AndroidArtifacts> {

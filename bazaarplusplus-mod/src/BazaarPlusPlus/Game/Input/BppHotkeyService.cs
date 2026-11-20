@@ -107,9 +107,6 @@ internal static class BppHotkeyService
     internal static bool WasShiftPressedThisFrame(Keyboard? keyboard = null) =>
         KeyBindings.Modifiers.WasShiftPressedThisFrame(keyboard ?? Keyboard.current);
 
-    // Toggle-style hotkeys fire on a plain press: while the user is capturing a rebind
-    // no toggle may fire, and unless the binding itself is a modifier key, a held
-    // Ctrl/Alt/Shift suppresses the press (preserves the legacy plain-Tab semantics).
     internal static bool WasToggleHotkeyPressedThisFrame(
         BppHotkeyActionId actionId,
         Keyboard? keyboard = null
@@ -134,7 +131,6 @@ internal static class BppHotkeyService
             && !KeyBindings.Modifiers.IsShiftPressed(keyboard);
     }
 
-    // normalizedPath must already be normalized (GetBindingPath output).
     private static bool IsPressed(
         string normalizedPath,
         Keyboard? keyboard = null,
@@ -184,8 +180,6 @@ internal static class BppHotkeyService
         {
             ReportBindingFailure(actionId, raw, SettingsLogReasonCode.InvalidBindingPath);
         }
-        // Any route that changes the config value (rebind, reset, a BepInEx config reload)
-        // lands here, so the replaced path's action is released here.
         if (
             hadCached
             && !string.Equals(cached.Resolved, resolved, StringComparison.OrdinalIgnoreCase)
@@ -194,8 +188,7 @@ internal static class BppHotkeyService
         return resolved;
     }
 
-    // An enabled InputAction keeps the Input System monitoring its controls until disposed.
-    // Dispose a replaced binding's action unless another hotkey still resolves to that path.
+    // The Input System monitors an enabled action until it is disposed. Other hotkeys may still share that action.
     private static void ReleaseUnboundAction(string stalePath)
     {
         if (HotkeyBindingPathCore.IsBoundToAnyAction(stalePath, GetConfigValue))
@@ -298,8 +291,6 @@ internal static class BppHotkeyService
         return conflict.HasValue;
     }
 
-    // normalizedPath must already be normalized; every caller passes a
-    // HotkeyBindingPathCore.Normalize or GetBindingPath result.
     private static InputAction GetOrCreateAction(string normalizedPath)
     {
         if (CachedActions.TryGetValue(normalizedPath, out var existingAction))

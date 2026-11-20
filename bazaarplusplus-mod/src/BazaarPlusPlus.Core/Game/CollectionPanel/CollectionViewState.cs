@@ -7,11 +7,6 @@ using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Single owner of Collection Panel presentable state: filter selections, search mode/debounce,
-// catalog acceptance, and the derived render model. Commands and lifecycle events go in; a
-// complete render outcome (view model plus scroll intents) comes out. Pure — no Unity types.
-// Open and Close are the panel's lifecycle; catalog arrival is AcceptCatalog / CatalogUnavailable /
-// BeginCatalogLoad.
 public sealed class CollectionViewState
 {
     private const float SearchRefreshDebounceSeconds = 0.16f;
@@ -87,10 +82,6 @@ public sealed class CollectionViewState
 
     public int CatalogCardCount => _catalogCards.Count;
 
-    // The whole open order: search reset, catalog readiness from the host's cached catalog, the
-    // remembered-hero load (out of a run only), the open selection, and its apply. Never
-    // publishes, never saves the hero preference, and never accepts the catalog: the host
-    // delivers it afterwards with AcceptCatalog, CatalogUnavailable or BeginCatalogLoad.
     public CollectionOpenOutcome Open(CollectionOpenFacts facts)
     {
         if (facts == null)
@@ -154,10 +145,7 @@ public sealed class CollectionViewState
         return new CollectionOpenOutcome(render, selection, heroPreferenceFailure);
     }
 
-    // Resets the search (default expanded mode, empty query, no pending debounce) and clears the
-    // loading flag. The render is built before the flag is cleared, so it shows the loading state
-    // the panel closes with. Never publishes and leaves readiness, the filter, the cards and the
-    // preference alone; harmless while closed.
+    // Build the closing render before clearing the loading flag so it reflects the state the panel closes with.
     public CollectionRenderOutcome Close()
     {
         ResetSearchForLifecycle();
@@ -191,9 +179,7 @@ public sealed class CollectionViewState
     {
         if (_filter.ToggleAllHeroes())
         {
-            // A selected merchant/trainer resolves one concrete hero's offer pool before the
-            // hero predicate runs. Leaving it selected would make an all-heroes scope appear
-            // active while still showing only that prior hero's cards.
+            // A selected source resolves offers for one concrete hero before filtering, which would silently narrow All Heroes.
             _filter.ClearSelectedSource();
         }
         else
@@ -342,9 +328,7 @@ public sealed class CollectionViewState
         if (cards == null)
             throw new ArgumentNullException(nameof(cards));
 
-        // An Open from the host's cached catalog already accepted this list: its heroes and facet
-        // snapshot stand, and only the source options are recomputed. The query still runs here,
-        // since Open renders without one.
+        // Open already derives facets from the cached catalog but defers querying cards to catalog acceptance.
         if (
             _catalogReadiness == CollectionCatalogReadiness.Accepted
             && ReferenceEquals(cards, _catalogCards)
@@ -390,15 +374,13 @@ public sealed class CollectionViewState
 
     private CollectionRenderOutcome QueryAndRender(bool resetControlsScroll)
     {
-        // Debounce cancel happens only after a confirmed state change (callers already decided
-        // the command is not a same-value no-op). Matches prior ApplyFilters entry.
+        // A no-op command leaves the pending search refresh armed.
         _searchRefreshGate.Cancel();
 
         var projection = RunQueryAndPublish();
         if (projection == null)
         {
-            // Grid unavailable: skip normalization write-back; still emit a model so lifecycle
-            // renders can update chrome when the view exists without a virtualizer.
+            // An unavailable grid still needs a model to refresh the panel chrome.
             return new CollectionRenderOutcome(
                 BuildModel(CollectionGridProjection.Empty),
                 resetScroll: true,
@@ -434,7 +416,6 @@ public sealed class CollectionViewState
             dayTiers.MaximumTier
         );
 
-        // Publish first so a null (unavailable grid) skips normalization write-back.
         var projection = _grid.Publish(query.Cards, _filter.ActiveTab);
         if (projection == null)
             return null;
@@ -551,8 +532,6 @@ public sealed class CollectionViewState
         return (result, groups);
     }
 
-    // Each source's fold key on the desktop: its catalog fold value. Without keys each source stays
-    // alone.
     private IReadOnlyDictionary<string, string> FoldKeysFor(
         IReadOnlyList<CollectionSourceEntry> roster
     )

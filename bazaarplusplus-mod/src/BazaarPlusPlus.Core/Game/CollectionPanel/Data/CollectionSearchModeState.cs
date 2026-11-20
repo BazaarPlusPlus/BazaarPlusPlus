@@ -1,8 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Presentation state for the operation-row search overlay. The query itself remains owned by
-// CollectionFilterState so the existing debounce and filter engine keep one source of truth.
 public sealed class CollectionSearchModeState
 {
     public bool IsExpanded { get; private set; } = true;

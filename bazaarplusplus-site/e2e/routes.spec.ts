@@ -7,7 +7,6 @@ import {
 } from './golden';
 import { historyActions, recordHistory, relativeUrl, settle } from './page';
 
-// Each URL a reader can enter, rendered through the real App on the preview build.
 const INPUTS = [
   '/',
   '/support',
@@ -26,7 +25,6 @@ const INPUTS = [
   '/heroes?campaign=two%20words&w=3d'
 ];
 
-/** Everything a route resolves to that a reader can see: URL, history, metadata, chrome. */
 async function describeRoute(page: Page) {
   const nav = page.getByRole('navigation').first();
   const languageGroup = page.locator('header [role="group"]');
@@ -80,7 +78,6 @@ test('internal clicks push, popstate refreshes, and the language switch keeps th
 }) => {
   const routes = await installGoldenRoutes(page);
   await recordHistory(page);
-  // One document, so pushes, popstate, and history accumulate.
   await page.goto('/tutorial?lang=en');
   await settle(page);
   interactions.start = await describeRoute(page);

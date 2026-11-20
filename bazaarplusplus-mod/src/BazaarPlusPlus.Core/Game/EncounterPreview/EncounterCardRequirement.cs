@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// One TPrerequisiteCardCount: the number of owned cards matching the conditional is
-// compared against Amount. The dominant shape in random-outcome groups is
-// "Equal 0" (the outcome only rolls while you do NOT own the card — e.g. Farai's
-// Package results), so ownership can never be read as plain "must have";
-// choice steps also use count thresholds ("GreaterThanOrEqual 12").
+// Equal 0 makes a reward eligible only while the player lacks the matching card, as with Farai's Packages.
 public sealed class EncounterCardRequirement
 {
     public EncounterCardRequirement(
@@ -23,18 +19,13 @@ public sealed class EncounterCardRequirement
         Amount = amount;
     }
 
-    // Any-of card ids ("Powder Keg or the Big One") — mutually exclusive with tags.
     public IReadOnlyList<Guid> Ids { get; }
 
-    // One group per tag token of the conditional. Each group lists the candidate
-    // names for that token: a single name when the source spelled it out, or the
-    // plausible enum names when a runtime-serialized token only carried the number.
+    // A numeric tag token can map to several plausible enum names, all treated as one tag for comparison.
     public IReadOnlyList<IReadOnlyList<string>> TagCandidateGroups { get; }
 
-    // EListComparisonOperator name (Any/All/None) applied over the tag groups.
     public string TagOperator { get; }
 
-    // EComparisonOperator name applied to the matching-card count.
     public string Comparison { get; }
 
     public int Amount { get; }

@@ -25,8 +25,6 @@ public sealed class BundleV6CodecTests
     [Fact]
     public void RunPayloadFormattersAreSourceGenerated()
     {
-        // The codec's resolver must reach the formatters MessagePack's source generator compiled
-        // into ModApi, not ones the runtime builds by reflection.
         foreach (var type in MessagePackDtoTypes())
         {
             var formatter = ContractlessStandardResolverAllowPrivate.Instance.GetFormatterDynamic(
@@ -380,8 +378,6 @@ public sealed class BundleV6CodecTests
             "golden Run payload decode and re-encode"
         );
 
-        // A mod already shipped reads Ghost Bundles from a newer mod: a replay array longer than
-        // the keys this decoder knows must still decode and stay replayable.
         var untyped = MessagePackSerializerOptions.Standard.WithResolver(
             PrimitiveObjectResolver.Instance
         );
@@ -398,7 +394,6 @@ public sealed class BundleV6CodecTests
         );
         Equal(12, future.Battles[0].Replay!.PlayerAttributes!["HealthRegen"], "known keys decode");
 
-        // And the other way: a Ghost Bundle from a mod that predates key 4 has the shorter array.
         futureBattle[4] = replaySlots.Take(4).ToArray();
         var earlier = RunPayloadV6Codec.Decode(
             Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
@@ -410,7 +405,6 @@ public sealed class BundleV6CodecTests
         True(earlier.Battles[0].Replay!.PlayerAttributes == null, "an absent key decodes as null");
         True(earlier.Battles[0].Replay!.PlayerStash == null, "an absent stash decodes as null");
 
-        // A Ghost Bundle from a mod that predates key 5 has attributes but no stash.
         futureBattle[4] = replaySlots.Take(5).ToArray();
         var beforeStash = RunPayloadV6Codec.Decode(
             Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
@@ -428,8 +422,6 @@ public sealed class BundleV6CodecTests
         );
         futureBattle[4] = replaySlots;
 
-        // The same holds for the Run facts: a shipped mod reads a Run array longer than its keys,
-        // and this one reads a Run sealed before keys 22 and 23 existed.
         var run = (object[])graph[3];
         graph[3] = run.Append("future").ToArray();
         var futureRun = RunPayloadV6Codec.Decode(
@@ -448,8 +440,6 @@ public sealed class BundleV6CodecTests
         );
         graph[3] = run;
 
-        // And for the root: a shipped mod reads a root array longer than its keys, and this one
-        // reads a payload sealed before the Run Message Stream (key 8) existed.
         var stream = RunPayloadV6Codec.Decode(golden).MessageStream!;
         Equal(2, stream.Count, "the golden carries a message and its command");
         Equal(stream[0].Seq, stream[1].RespondsToSeq, "the message names the command it answers");

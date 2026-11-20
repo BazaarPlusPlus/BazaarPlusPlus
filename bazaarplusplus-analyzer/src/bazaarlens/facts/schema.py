@@ -1,5 +1,3 @@
-"""The owned schemas of the five hourly fact tables."""
-
 from collections.abc import Mapping
 
 import pyarrow as pa

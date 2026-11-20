@@ -1,11 +1,8 @@
 #nullable enable
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>
-/// BLAKE2b-512 (RFC 7693), unkeyed: the prehash a minisign "ED" signature covers. Self-contained
-/// because the Updater may reference nothing it could replace, and neither host's base library
-/// provides it.
-/// </summary>
+// Minisign's ED mode uses the BLAKE2b-512 prehash (RFC 7693). The Updater cannot
+// depend on a library it may replace, and neither host's base library supplies it.
 internal static class Blake2b
 {
     private const int BlockBytes = 128;

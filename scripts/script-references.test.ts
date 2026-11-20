@@ -4,10 +4,7 @@ import { expect, test } from 'vite-plus/test';
 
 import { runGit } from './git-command.ts';
 
-// Recipes, build files, workflows, tests in other projects and agent skills
-// start or read root tooling by path. A rename that misses one fails only when
-// that path runs, which for a release, a scheduled workflow or a Dependabot
-// pull request is long after the change merged.
+// Renamed scripts can break scheduled or release jobs that run long after merge.
 const root = path.resolve(import.meta.dirname, '..');
 const tracked = runGit(['ls-files', '-z'], { cwd: root })
   .split('\0')
@@ -35,12 +32,9 @@ const BUN_COMMAND = new RegExp(
   String.raw`\b(?:bun|node)\s+(?:--[\w-]+(?:=\S+)?\s+)*["']?(${SCRIPT})(?=["'\s);|&\x60]|$)`,
   'g'
 );
-// Import specifiers, shell variables and file arguments in build code.
 const QUOTED_PATH = new RegExp(String.raw`["'](${SCRIPT})["']`, 'g');
-// $VAR/, ${VAR}/, $(Property)/ and ${{ expression }}/ prefixes, then ./ and ../
 const PREFIX = /^(?:\$\{\{[^}]*\}\}|\$\([^)]*\)|\$\{?\w+\}?)\/|^\.{1,2}\//;
 
-// A script path one tracked file names, with the prefixes stripped in target.
 interface ScriptReference {
   file: string;
   script: string;

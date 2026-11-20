@@ -22,15 +22,11 @@ using MessagePack;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// Failure and wait behavior observed through the coordinator, durable queue rows, and structured
-// logs.
 public sealed class BundleSealFailureTests : IDisposable
 {
     private const string JsonMismatch =
         "Method not found: 'System.String Newtonsoft.Json.Linq.JToken.ToString(Newtonsoft.Json.Formatting)'.";
 
-    // Each scenario writes under its own temporary directory, as the capsule gave each one its
-    // own subdirectory of one root.
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
         "bpp-bundle-seal-failure-tests-" + Guid.NewGuid().ToString("N")
@@ -44,10 +40,6 @@ public sealed class BundleSealFailureTests : IDisposable
         Directory.Delete(_root, recursive: true);
     }
 
-    // The input deadline is the Run's end plus two minutes, fixed when the job is created, so a
-    // Run first discovered after it (at startup, on resume, or by the safety pass after a missed
-    // completion report) seals at once with every input that has landed by then: discovering
-    // later can delay a Bundle but never drops an input a timely discovery would have kept.
     [Fact]
     public async Task LateDiscoveryKeepsLateInputsAsync()
     {
@@ -59,7 +51,6 @@ public sealed class BundleSealFailureTests : IDisposable
             if (stage == BundleSealStage.ScreenshotTerminal)
                 Interlocked.Increment(ref passes);
         }
-        // Ended five minutes ago, its inputs landing only now, and never reported completed.
         void AddLateRun(string runId)
         {
             fixture.AddCompletedRun(runId, endedMinutesAgo: 5, screenshotRequested: true);
@@ -111,8 +102,7 @@ public sealed class BundleSealFailureTests : IDisposable
             );
         }
 
-        // The safety pass is a full pass with job discovery, the pass ReconcileAsync runs; its
-        // 300 s timing is pinned by BundleSealWakeSchedule in BundleSealConvergence.Tests.
+        // ReconcileAsync runs the same discovery pass as the safety wake.
         using (var safetyPass = DesktopBundleSealCoordinator.Create(fixture.Services))
             await safetyPass.ReconcileAsync(CancellationToken.None);
         Require(
@@ -203,8 +193,7 @@ public sealed class BundleSealFailureTests : IDisposable
                 );
                 coordinator.Resume();
             }
-            // No manual ReconcileAsync: only the upload event can wake the idle worker before
-            // its five-minute safety scan. Eventually's timeout is a liveness bound, not a benchmark.
+            // With no manual reconcile, the upload event is the only wake before the five-minute safety scan.
             await Eventually(
                 () => fixture.OutboxCount("reseal-run") == 1,
                 "Upload validation must wake the idle worker to reseal."
@@ -241,8 +230,6 @@ public sealed class BundleSealFailureTests : IDisposable
             );
     }
 
-    // The running worker discovers a Run when Run Logging reports it completed, and with nothing
-    // waiting it stays asleep: no pass on a five-second timer.
     [Fact]
     public async Task WorkerWakesOnRunCompletionAsync()
     {
@@ -269,7 +256,6 @@ public sealed class BundleSealFailureTests : IDisposable
         await Eventually(() => Volatile.Read(ref discoveries) == 1, "Start runs one discovery.");
         await Quiescent(() => Volatile.Read(ref passes));
 
-        // The Run is written without a wake; only the completion report brings the worker.
         fixture.AddCompletedRun("completed-run", endedMinutesAgo: 0);
         fixture.Services.EventBus.Publish(new RunLogRunCompleted { RunId = "completed-run" });
         await Eventually(
@@ -289,7 +275,6 @@ public sealed class BundleSealFailureTests : IDisposable
             "With nothing waiting the worker runs no pass."
         );
 
-        // A failed discovery is retried at the input-wait cadence: not at once, not at the cap.
         Interlocked.Exchange(ref failNextDiscovery, 1);
         fixture.AddCompletedRun("retried-run", endedMinutesAgo: 0);
         fixture.Services.EventBus.Publish(new RunLogRunCompleted { RunId = "retried-run" });
@@ -316,7 +301,7 @@ public sealed class BundleSealFailureTests : IDisposable
         }
     }
 
-    // Waits until the counter holds still for a second, so a pass in flight cannot land later.
+    // Wait for a quiet second so an in-flight pass cannot change the counter during assertions.
     private static async Task Quiescent(Func<int> counter)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);
@@ -332,8 +317,6 @@ public sealed class BundleSealFailureTests : IDisposable
         throw new InvalidOperationException("The seal worker never went idle.");
     }
 
-    // A Run waiting on a replay neither encodes its screenshot nor composes again until replay
-    // persistence completes or its deadline arrives.
     [Fact]
     public async Task ReplayWaitDefersScreenshotAndCompositionAsync()
     {
@@ -386,7 +369,6 @@ public sealed class BundleSealFailureTests : IDisposable
             "The replay that landed before the deadline seals with the screenshot."
         );
 
-        // No persistence follows this Run's wait, so only its deadline releases it.
         fixture.AddCompletedRun("deadline-run", endedMinutesAgo: 0);
         fixture.AddBattle("deadline-run", "deadline-battle", recordedMinutesAgo: 1);
         await coordinator.ReconcileAsync(CancellationToken.None);
@@ -447,8 +429,6 @@ public sealed class BundleSealFailureTests : IDisposable
             using var coordinator = DesktopBundleSealCoordinator.Create(fixture.Services);
             await coordinator.ReconcileAsync(CancellationToken.None);
             var payload = fixture.PendingPayload("candidate-run", out var opened);
-            // Probes trim 1, 2, 4, then 3. The last probe is too large: the selected bytes
-            // must still represent four trims, including the final screenshot flag.
             Require(
                 payload.Degradation.ReplayOmittedBattleIds.SequenceEqual(
                     new[] { "candidate-1", "candidate-2", "candidate-3", "candidate-4" }
@@ -896,7 +876,6 @@ public sealed class BundleSealFailureTests : IDisposable
         Require(!File.Exists(orphan), "An unreadable expired orphan is still reclaimed.");
     }
 
-    // A real replay payload whose gzip stream is valid but whose MessagePack is cut in half.
     private static byte[] TruncatedReplay(string battleId)
     {
         var packed = PvpReplayPayloadCodec.Serialize(

@@ -3,14 +3,8 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Assertion vocabulary over <see cref="CompiledArtifacts"/>. A rule names its scope and its
-/// forbidden targets; both must resolve (ADR-0009), so a renamed type fails the rule instead of
-/// silently passing it.
-/// </summary>
 internal static class ArchitectureRules
 {
-    /// <summary>Evaluates the rule against every scanned configuration.</summary>
     internal static void Holds(string rule, Func<CompiledBuild, IEnumerable<string>> violations)
     {
         var all = CompiledArtifacts
@@ -36,7 +30,6 @@ internal static class ArchitectureRules
         Func<TypeName, bool> forbidden
     ) => References(new[] { scope }, forbidden);
 
-    /// <summary>Calls, field accesses, and constructions of the named members.</summary>
     internal static IEnumerable<string> Accesses(
         IEnumerable<CompiledMethod> scope,
         params (string Type, string Member)[] members
@@ -60,10 +53,7 @@ internal static class ArchitectureRules
         params (string Type, string Member)[] members
     ) => Accesses(scope.Methods, members);
 
-    /// <summary>
-    /// Whole-word occurrences of <paramref name="words"/> in string literals, which is how a
-    /// reflection-by-name or SQL reach would surface.
-    /// </summary>
+    // Reflection by name and SQL access can surface only as string literals in IL.
     internal static IEnumerable<string> Literals(
         IEnumerable<CompiledMethod> scope,
         StringComparison comparison,
@@ -92,7 +82,6 @@ internal static class ArchitectureRules
     internal static Func<TypeName, bool> FromAssembly(params string[] prefixes) =>
         type => prefixes.Any(prefix => type.Assembly.StartsWith(prefix, StringComparison.Ordinal));
 
-    /// <summary>Fails unless the build references some assembly whose name has this prefix.</summary>
     internal static string RequireAssemblyPrefix(CompiledBuild build, string prefix)
     {
         if (!build.Types.SelectMany(type => type.References).Any(FromAssembly(prefix)))
@@ -102,7 +91,6 @@ internal static class ArchitectureRules
         return prefix;
     }
 
-    /// <summary>Fails unless some type in the build references <paramref name="fullName"/>.</summary>
     internal static string RequireReferencedType(CompiledBuild build, string fullName)
     {
         if (!build.Types.SelectMany(type => type.References).Any(Is(fullName)))

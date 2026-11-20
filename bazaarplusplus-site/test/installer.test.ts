@@ -23,10 +23,6 @@ const ANDROID_PATH = 'latest/android-aarch64.json';
 
 type Manifests = Record<string, unknown>;
 
-/**
- * Stubs global `fetch` with one payload per manifest path under the release origin; an Error
- * value rejects that request, and an unknown path answers 404.
- */
 function stubManifests(manifests: Record<string, unknown>) {
   const fetchStub = vi.fn(async (url: string) => {
     const path = url.startsWith(`${RELEASE_BASE_URL}/`)
@@ -226,8 +222,6 @@ describe('Game Status', () => {
     expect(decodeAndroidGameStatus(payload)).toBeNull();
   });
 
-  // The shared fixtures: macOS runs its adapted game, Windows has a newer game, and Android has a
-  // content-only update of its adapted game.
   test('compares game code identity, not the game version', () => {
     const status = decodeGameStatus(gameStatusFixture)!;
     expect(

@@ -2,11 +2,7 @@
 
 namespace BazaarPlusPlus.Core.Cards.ItemBoards;
 
-/// <summary>
-/// One item on an item board, on card facets (ADR-0015). Sockets are positional indexes on the
-/// ten-socket board and attributes are keyed by the game's member name; both carve-outs are
-/// ADR-0017. The host's preview mapper converts back to the game's types.
-/// </summary>
+// Sockets are positional indices on the ten-socket board. Attribute keys are game member names.
 public sealed class BppItemBoardCard
 {
     public Guid TemplateId { get; init; }
@@ -26,10 +22,8 @@ public sealed class BppItemBoardCard
     public IReadOnlyDictionary<string, int> Attributes { get; init; } =
         new Dictionary<string, int>();
 
-    /// <summary>Socket index 0..9 the card occupies in its source container, if any.</summary>
     public int? SourceSocketId { get; init; }
 
-    /// <summary>Socket index 0..9 the slot planner placed the card at.</summary>
     public int? DisplaySocketId { get; init; }
 
     public int DisplaySpan => BppItemBoardSpan.Resolve(Size, Span);

@@ -8,13 +8,8 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-// The Combat Impact Corpus in BPP's own vocabulary (ADR-0019): what the Core-lane runner
-// (CombatImpact.Corpus) projects, written by the host-lane exporter (CombatImpact.CorpusExport)
-// from game replay payloads and the game catalog. Both projects compile this file; neither reads
-// the other's assembly, because the exporter reaches Core's netstandard2.1 build through the
-// desktop host and the runner Core's net10.0 build.
+// The runner and exporter compile this format separately because they bind different Core targets.
 
-/// <summary>A whole corpus: where it came from and every battle in it, ordered by battle id.</summary>
 internal sealed class CombatImpactCorpusDocument
 {
     public int FormatVersion { get; set; } = CombatImpactCorpusCodec.FormatVersion;
@@ -25,22 +20,13 @@ internal sealed class CombatImpactCorpusDocument
 
     public List<CorpusSourceArtifact> SourceArtifacts { get; set; } = [];
 
-    /// <summary>Source payloads the exporter could not decode, as <c>battle:reason</c>.</summary>
     public List<string> InvalidPayloads { get; set; } = [];
 
-    /// <summary>
-    /// The game inputs the exporter interpreted the payloads with (the catalog, the game's types,
-    /// its JSON runtime). The runner has none of them and copies these into its evidence.
-    /// </summary>
     public List<VerificationInputArtifact> VerificationInputs { get; set; } = [];
 
     public List<CombatImpactCorpusBattle> Battles { get; set; } = [];
 }
 
-/// <summary>
-/// One battle: its combat timeline, the spawn facts the inventory reads, the identities of the
-/// cards transforms create, and the entities the exporter built from the catalog.
-/// </summary>
 internal sealed class CombatImpactCorpusBattle
 {
     public string BattleId { get; set; } = string.Empty;
@@ -49,45 +35,32 @@ internal sealed class CombatImpactCorpusBattle
 
     public CombatTimeline Timeline { get; set; } = new();
 
-    /// <summary>
-    /// Core's transform events carry instance ids only; the inventory also reads each card's
-    /// template, type and side. One entry per frame that has transform events.
-    /// </summary>
+    // Transform events carry only instance IDs. The inventory also needs each card's template, type, and side.
     public List<CombatImpactCorpusTransformFrame> TransformIdentities { get; set; } = [];
 
-    /// <summary>
-    /// The player updates the game flagged as the player being dead, which Core's timeline leaves
-    /// out because attribution reads the death events instead.
-    /// </summary>
+    // The timeline omits these updates because attribution reads death events.
     public List<CombatImpactCorpusPlayerFrame> DeadPlayerUpdates { get; set; } = [];
 
-    /// <summary>The producer's entities by id, in the order the exporter built them.</summary>
     public Dictionary<string, CombatImpactEntity> Entities { get; set; } = [];
 
-    /// <summary>How many PlayerEffect entities the implicit-effect reader added.</summary>
     public int ImplicitPlayerEffects { get; set; }
 
     public bool IsPlayerDead(int frameIndex, Combatant combatant) =>
         DeadPlayerUpdates.Contains(new CombatImpactCorpusPlayerFrame(frameIndex, combatant));
 }
 
-/// <summary>One side's player update in one frame.</summary>
 internal sealed record CombatImpactCorpusPlayerFrame(int FrameIndex, Combatant Combatant);
 
-/// <summary>The spawn state the game sent before combat, as far as the inventory reads it.</summary>
 internal sealed class CombatImpactCorpusSpawn
 {
     public Dictionary<CombatPlayerAttribute, int> PlayerAttributes { get; set; } = [];
 
     public Dictionary<CombatPlayerAttribute, int> OpponentAttributes { get; set; } = [];
 
-    /// <summary>The spawn state's cards by instance id, in the game's order.</summary>
     public Dictionary<string, CombatImpactCorpusSpawnCard> Cards { get; set; } = [];
 
-    /// <summary>The spawn's card-spawned events, in order.</summary>
     public List<CombatImpactCorpusCardIdentity> SpawnedCards { get; set; } = [];
 
-    /// <summary>The spawn's effect-executed events (the opening actions), in order.</summary>
     public List<CombatEffectExecuted> Effects { get; set; } = [];
 
     public Dictionary<CombatPlayerAttribute, int> Attributes(Combatant combatant) =>
@@ -96,13 +69,11 @@ internal sealed class CombatImpactCorpusSpawn
 
 internal sealed class CombatImpactCorpusSpawnCard
 {
-    /// <summary>The side the card's placement names; null when it has none.</summary>
     public Combatant? Owner { get; set; }
 
     public Dictionary<CombatCardAttribute, int> Attributes { get; set; } = [];
 }
 
-/// <summary>A card's identity as a game event states it.</summary>
 internal sealed record CombatImpactCorpusCardIdentity(
     string InstanceId,
     string? TemplateId,
@@ -110,10 +81,6 @@ internal sealed record CombatImpactCorpusCardIdentity(
     Combatant? Combatant
 );
 
-/// <summary>
-/// The cards one frame's transforms create (in event and card order) and the originals its
-/// reverts restore.
-/// </summary>
 internal sealed class CombatImpactCorpusTransformFrame
 {
     public int FrameIndex { get; set; }
@@ -132,13 +99,8 @@ internal sealed record VerificationInputArtifact(
     string? Version
 );
 
-/// <summary>
-/// Reads and writes the corpus as gzip-compressed JSON. Every enum is written by member name,
-/// values and dictionary keys alike, because a facet's integer is BPP's own and never persisted
-/// (ADR-0015, ADR-0019). Object and dictionary order is the order the exporter observed, so the
-/// runner iterates every collection as the game did. The JSON text is deterministic; the gzip
-/// bytes around it are not promised to be, so goldens compare the text.
-/// </summary>
+// Persist facet names because their numbers are local to BPP. Preserve game iteration order.
+// Compare JSON in goldens because the gzip bytes can vary.
 internal static class CombatImpactCorpusCodec
 {
     public const int FormatVersion = 1;
@@ -171,7 +133,6 @@ internal static class CombatImpactCorpusCodec
         gzip.Write(bytes, 0, bytes.Length);
     }
 
-    /// <summary>The decompressed JSON text of a corpus file.</summary>
     public static string ReadText(string path)
     {
         using var gzip = new GZipStream(File.OpenRead(path), CompressionMode.Decompress);
@@ -202,9 +163,7 @@ internal static class CombatImpactCorpusCodec
         return options;
     }
 
-    // Core's abstract combat types carry no serializer attributes (Core is netstandard2.1 and
-    // serializer-free), so the discriminators are named here. A derived type missing from this
-    // list fails serialization instead of losing its members.
+    // Core is serializer-free. Register derived types here so an unlisted type fails serialization.
     private static void AddPolymorphism(JsonTypeInfo info)
     {
         var derived =

@@ -9,11 +9,7 @@ import type {
   StoredObjectHead
 } from '../r2-store.ts';
 
-// An in-memory stand-in for the R2 release store with the conditional-write
-// semantics `r2-store.ts` provides: `ifNoneMatch` creates only, `ifMatch`
-// replaces only the expected ETag, and an unconditional write is a bug.
-// `beforePut` lets a test interleave a competing writer or a failure.
-// putFile and getFile are the streamed transfers, read whole here.
+// beforePut lets tests interleave a competing R2 writer or simulate a lost response.
 export class MemoryStore implements ObjectStore {
   objects = new Map<string, StoredObject>();
   writes: string[] = [];

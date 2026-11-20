@@ -5,7 +5,6 @@ using Xunit;
 
 public sealed class AccountLinkCardTests
 {
-    // The capsule ran these checks with English installed.
     public AccountLinkCardTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     [Fact]

@@ -30,11 +30,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Host;
 
-/// <summary>
-/// The Desktop Host lifecycle for the game's managed code under Mono with Harmony: composition,
-/// patches, replay runtime, online services and mountables, and an ordered teardown. The owner
-/// component is the GameObject everything mounts on.
-/// </summary>
 internal sealed class DesktopHostRuntime
 {
     private readonly MonoBehaviour _owner;
@@ -53,12 +48,8 @@ internal sealed class DesktopHostRuntime
     // composition that owns the path provider is already disposed.
     private string? _runLogDatabasePath;
 
-    /// <summary>
-    /// What the desktop plugin supplies: <paramref name="openSettings"/> is opened after logging
-    /// is installed, so a broken settings file is logged; <paramref name="paths"/> is resolved
-    /// before the host starts; <paramref name="pluginAssemblyPath"/> is the mod assembly, whose
-    /// <c>.version</c> sidecar names the Product Release.
-    /// </summary>
+    // Install logging before opening settings so a broken settings file is reported.
+    // The assembly's .version sidecar supplies the Product Release.
     public DesktopHostRuntime(
         MonoBehaviour owner,
         IBppLogSink logSink,
@@ -124,8 +115,8 @@ internal sealed class DesktopHostRuntime
             RandomCosmeticPoolPatchCapabilities.Capture();
 
             phase = PluginInitializationPhase.ReplayRuntime;
-            // CombatReplayRuntime is constructed before composition.Start() because RunLifecycle
-            // and several features take a reference through CombatReplayModule. Not a mountable.
+            // Construct the replay runtime before composition starts because RunLifecycle and
+            // other features read it through CombatReplayModule.
             var combatReplayRuntime = _owner.gameObject.AddComponent<CombatReplayRuntime>();
             combatReplayRuntime.Initialize(
                 services,
@@ -192,9 +183,8 @@ internal sealed class DesktopHostRuntime
         BppLog.Flush();
     }
 
-    // Every step runs in isolation and Harmony is unpatched first: a throw in any single
-    // step must never strand the "patches applied but static utilities uninstalled"
-    // zombie state (patched game code rebuilding UI from reset catalogs).
+    // Unpatch before resetting static catalogs so game callbacks cannot rebuild UI against
+    // torn-down services, even when a teardown step throws.
     private void RunTeardownSteps(PluginTeardownAccumulator failures)
     {
         failures.Run(PluginTeardownStep.UnpatchHarmony, UnpatchHarmony);
@@ -274,10 +264,8 @@ internal sealed class DesktopHostRuntime
 
     private void BuildOnlineServices()
     {
-        // BazaarDB account linking targets a different host (bazaardb.gg) and is independent of the
-        // mod API base URL, so build it regardless of mod-api routes validity. Its dedicated bare
-        // HttpClient carries no mod-api auth/base address; a 30s timeout keeps a hung redeem from
-        // stalling the link card for the HttpClient default of ~100s.
+        // BazaarDB linking uses bazaardb.gg independently of the Mod API. The shorter timeout
+        // keeps a hung redemption from stalling the link card for the HttpClient default.
         var linkHttpClient = BppHttpClientFactory.Create(
             productVersion: BppPluginVersion.Current,
             platformKey: HostPlatformKey.Current,
@@ -289,7 +277,6 @@ internal sealed class DesktopHostRuntime
             new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
         );
 
-        // The base URL is a constant, so a null session is a build defect: fail startup.
         _modApiSession =
             ModApiSession.TryCreate(
                 ModApiUploadDefaults.ApiBaseUrl,
@@ -305,16 +292,11 @@ internal sealed class DesktopHostRuntime
 
     private void ApplyHarmonyPatches()
     {
-        // Patch classes are applied one by one instead of PatchAll(): PatchAll aborts at
-        // the first failing class, leaving earlier classes applied and later ones not —
-        // one broken game target (e.g. after a game update or on the PTR branch) must
-        // degrade only its own feature, never the whole plugin. The flag is set before
-        // the loop so a partial application is always unpatched during teardown.
+        // PatchAll aborts on the first bad target. Apply classes independently so only the affected
+        // feature degrades, and mark the attempt first so teardown unpatches partial installs.
         _patchesApplied = true;
         var failedClasses = 0;
-        // GetTypesFromAssembly (not Assembly.GetTypes) tolerates types that fail to load;
-        // CreateClassProcessor(type).Patch() is a no-op for non-patch types, so this
-        // covers exactly PatchAll's discovery set.
+        // GetTypesFromAssembly tolerates unloadable types. Harmony's class processor ignores non-patch types.
         foreach (var type in AccessTools.GetTypesFromAssembly(typeof(DesktopHostRuntime).Assembly))
         {
             try

@@ -114,9 +114,7 @@ public sealed class StartupUploadAttemptRunner
         );
         try
         {
-            // An attempt's synchronous prefix (outbox scan, queue-store round trips, the first
-            // bundle's digest) runs before the delegate's first await, so invoking it inline
-            // would put that work on the Unity main-thread frame that armed the attempt.
+            // The attempt scans the outbox and starts hashing before its first await. Run that work off Unity's main thread.
             _task = Task.Run(
                 () =>
                     startAsync(cancellationToken)

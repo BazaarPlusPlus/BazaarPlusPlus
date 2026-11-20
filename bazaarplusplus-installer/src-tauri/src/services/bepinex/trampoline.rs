@@ -1,13 +1,3 @@
-//! macOS in-bundle Mach-O launch trampoline.
-//!
-//! The trampoline is the only macOS launch bootstrap. This module installs a
-//! tiny arm64 stub as the bundle's `CFBundleExecutable`, renames the real Unity
-//! bootstrap to `<exe>.orig`, and re-signs the real binary with the JIT
-//! entitlements so Harmony can write executable memory.
-//!
-//! Every behaviour here is macOS-only; the public API has no-op / `false` stubs on
-//! other platforms so the install orchestrator can call it unconditionally.
-
 use anyhow::anyhow;
 #[cfg(target_os = "macos")]
 use anyhow::{bail, Context as _};
@@ -25,18 +15,13 @@ use tauri::AppHandle;
 #[cfg(target_os = "macos")]
 const OBSOLETE_MACOS_ARTIFACTS: &[&str] = &["run_bepinex.sh", "bpp_launcher.c", ".bpp-launch-mode"];
 
-// ---------------------------------------------------------------------------
-// Trampoline install / uninstall (macOS)
-// ---------------------------------------------------------------------------
-
 #[cfg(target_os = "macos")]
 mod imp {
     use super::*;
     use std::process::Command;
     use tauri::Manager;
 
-    /// The 3 JIT/library-validation entitlements that must live on the REAL binary
-    /// (the process that runs Harmony / `mprotect` W+X).
+    /// Harmony's writable executable memory requires JIT entitlements on the Unity binary.
     pub(super) const TRAMPOLINE_ENTITLEMENTS: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -48,14 +33,12 @@ mod imp {
 </plist>
 "#;
 
-    /// Resolved bundle paths derived from the bundle's current `CFBundleExecutable`.
     pub(super) struct BundleLayout {
         pub(super) app_path: PathBuf,
         pub(super) exe_path: PathBuf,
         pub(super) orig_path: PathBuf,
     }
 
-    /// Read `CFBundleExecutable` and derive the stub / real-binary paths.
     pub(super) fn bundle_paths(game_path: &Path) -> anyhow::Result<BundleLayout> {
         let app_path = game_path.join("TheBazaar.app");
         if !app_path.is_dir() {
@@ -96,11 +79,7 @@ mod imp {
         Ok(name)
     }
 
-    /// The real Unity bootstrap links `UnityPlayer.dylib`; our tiny stub does not.
-    /// Used to guard the rename (never rename a stray stub as if it were the game)
-    /// and to detect the trampolined state. The Mach-O is parsed in-process:
-    /// `otool` is an Xcode shim that fails until the Xcode license is accepted,
-    /// and a probe that cannot run must never read as "not the real binary".
+    /// Parse Mach-O in-process because `otool` requires an accepted Xcode license.
     pub(super) fn links_unity(path: &Path) -> anyhow::Result<bool> {
         let bytes = match std::fs::read(path) {
             Ok(bytes) => bytes,
@@ -114,8 +93,7 @@ mod imp {
             .any(|(_, image)| image_links_unity(image)))
     }
 
-    /// Whether the executable carries an arm64 image, thin or as a universal slice.
-    /// Parsed in-process for the same reason as [`links_unity`]: `lipo` is an Xcode shim.
+    /// `lipo` is an Xcode shim with the same license dependency as `otool`.
     pub(super) fn has_arm64(path: &Path) -> anyhow::Result<bool> {
         let bytes = std::fs::read(path).context("Cannot inspect game architecture")?;
         Ok(macho_images(&bytes)
@@ -147,14 +125,7 @@ mod imp {
         ExistingOrig,
     }
 
-    /// Decide which file holds the real Unity binary so [`install_trampoline`]
-    /// preserves exactly it as `.orig`. A live `<exe>` that links Unity always
-    /// wins — this covers a fresh install AND a Steam update/Verify that wrote a
-    /// NEW real binary at `<exe>` on top of a STALE `<exe>.orig` from a prior
-    /// trampoline (where re-running Repair must keep the fresh binary, never
-    /// re-stub over it and exec the stale one). Only when `<exe>` is not the real
-    /// binary do we fall back to an existing, genuinely-real `.orig`; anything
-    /// else is corrupt and only Steam can re-supply the binary.
+    /// Steam Verify can replace the stub with a new Unity binary and leave a stale `.orig`.
     pub(super) fn classify_real_binary(
         exe_is_real: bool,
         orig_exists: bool,
@@ -171,9 +142,6 @@ mod imp {
         }
     }
 
-    /// Mechanical filesystem swap (no signing, no Unity check — callers guard
-    /// first): preserve the real binary as `.orig` once, then drop the stub in
-    /// its place. Idempotent — never clobbers an existing `.orig`.
     pub(super) fn swap_in_stub(layout: &BundleLayout, stub_src: &Path) -> anyhow::Result<()> {
         if !layout.orig_path.exists() {
             std::fs::rename(&layout.exe_path, &layout.orig_path).with_context(|| {
@@ -187,11 +155,6 @@ mod imp {
         install_stub(stub_src, &layout.exe_path)
     }
 
-    /// Inverse of [`swap_in_stub`]: leave only the real binary at `<exe>`. The
-    /// choice is [`classify_real_binary`]'s, as in Repair: a Steam update/Verify
-    /// that wrote a NEW real binary at `<exe>` keeps it and discards the STALE
-    /// `.orig`; otherwise the stub goes and `.orig` moves back. A backup that is
-    /// not the real binary is an error, and nothing changes.
     pub(super) fn restore_vanilla_layout(layout: &BundleLayout) -> anyhow::Result<()> {
         if !layout.orig_path.exists() {
             return Ok(());
@@ -205,7 +168,6 @@ mod imp {
                 })?;
             }
             RealBinarySource::ExistingOrig => {
-                // exe is the stub copy; remove it so the rename can take its place.
                 let _ = std::fs::remove_file(&layout.exe_path);
                 std::fs::rename(&layout.orig_path, &layout.exe_path).with_context(|| {
                     format!(
@@ -233,8 +195,7 @@ mod imp {
             .with_context(|| format!("Cannot install trampoline stub to {}", exe_dst.display()))?;
         std::fs::set_permissions(staged.path(), std::fs::Permissions::from_mode(0o755))
             .with_context(|| format!("Cannot set permissions on {}", exe_dst.display()))?;
-        // Best-effort: an AMFI-relevant quarantine on the bundle main could block
-        // launch on macOS 27. The installer is notarized, so this is defensive.
+        // macOS 27 can block launch if the bundle main carries quarantine.
         let _ = Command::new("xattr")
             .args(["-d", "com.apple.quarantine"])
             .arg(staged.path())
@@ -334,18 +295,12 @@ mod imp {
         stub: &Path,
         finalize: impl FnOnce(&BundleLayout) -> anyhow::Result<()>,
     ) -> anyhow::Result<()> {
-        // Step 0: absolute preconditions BEFORE any filesystem mutation — a
-        // modified-but-unsigned bundle is AMFI-killed on Apple Silicon.
+        // Apple Silicon blocks a modified app bundle until it is signed.
         if !codesign_available() {
             bail!("codesign is unavailable; cannot install the macOS launch trampoline. Install the Xcode command line tools and retry.");
         }
         let layout = bundle_paths(game_path)?;
 
-        // Step 2: identify the real Unity binary and preserve exactly it as
-        // `.orig`. Critically, a Steam update/Verify can leave a FRESH real binary
-        // at <exe> on top of a STALE <exe>.orig; we keep the fresh one and discard
-        // the stale backup, never the reverse (which would re-stub over the updated
-        // binary and silently exec the old one).
         let exe_is_real = links_unity(&layout.exe_path)?;
         let orig_exists = layout.orig_path.exists();
         let orig_is_real = orig_exists && links_unity(&layout.orig_path)?;
@@ -362,32 +317,24 @@ mod imp {
         }
         read_macho_uuid(stub)?;
         super::super::bundle_root::normalize(game_path)?;
-        // Preserve the selected current game binary before codesign can rewrite it.
-        // Initial installs and already-installed repairs share this recovery path.
+        // Keep a recovery copy because `codesign` can rewrite the selected Unity binary.
         let recovery =
             tempfile::tempdir_in(game_path).context("Cannot prepare game binary recovery")?;
         let recovery_exe = recovery.path().join("game-executable");
         std::fs::copy(real, &recovery_exe).context("Cannot back up game executable")?;
         match source {
             RealBinarySource::CurrentExe => {
-                // <exe> is the real binary (fresh install, or Steam-updated over a
-                // stale backup). Drop any stale `.orig` so the swap renames the
-                // CURRENT binary into `.orig` instead of clobbering it.
                 if orig_exists {
                     std::fs::remove_file(&layout.orig_path).with_context(|| {
                         format!("Cannot remove stale {}", layout.orig_path.display())
                     })?;
                 }
             }
-            RealBinarySource::ExistingOrig => {
-                // <exe> is our stub / a partial copy; the real binary is already
-                // safely preserved as `.orig` (recover a prior interrupted run).
-            }
+            RealBinarySource::ExistingOrig => {}
         }
 
-        // Steps 3-7 with rollback on any failure.
         let result = (|| -> anyhow::Result<()> {
-            swap_in_stub(&layout, stub)?; // rename real -> .orig (if needed) + drop stub
+            swap_in_stub(&layout, stub)?;
             finalize(&layout)
         })();
 
@@ -426,7 +373,6 @@ mod imp {
             return Ok(());
         }
 
-        // .orig missing: either already vanilla (Steam verify reverted) or broken.
         if links_unity(&layout.exe_path)? {
             return Ok(());
         }
@@ -438,8 +384,7 @@ mod imp {
     }
 }
 
-/// `signature_verified` skips only the deep signature verification, for the
-/// one caller that has just sealed and verified this bundle itself.
+/// Only skip signature verification if the caller just sealed and verified this bundle.
 #[cfg(target_os = "macos")]
 pub(crate) fn is_current_trampoline(
     app: &AppHandle,
@@ -459,7 +404,6 @@ fn is_current_with_stub(
     bundled: &Path,
     signature_verified: bool,
 ) -> anyhow::Result<bool> {
-    // One `plutil` read of `CFBundleExecutable` serves the whole check.
     let layout = imp::bundle_paths(game_path)?;
     if !imp::is_trampolined(&layout)? {
         return Ok(false);
@@ -495,8 +439,7 @@ pub(super) fn with_finalized_bundle(
     }
 }
 
-/// Refuses while the game runs: rewriting the bundle under a live process
-/// would leave it unsigned.
+/// Rewriting a live bundle would leave it unsigned.
 #[cfg(target_os = "macos")]
 pub(crate) fn install_trampoline(resource_dir: &Path, game_path: &Path) -> Result<(), ActionError> {
     ensure_game_stopped(game_path, GameStoppedOperation::Install)?;
@@ -562,9 +505,6 @@ fn read_u64_be(bytes: &[u8], offset: usize) -> Option<u64> {
     Some(u64::from_be_bytes(value.try_into().ok()?))
 }
 
-/// Every 64-bit little-endian Mach-O image in `bytes` as `(cputype, image)`: the
-/// file itself when thin, or each slice of a universal binary. Anything else,
-/// including a truncated or malformed header, yields no images.
 #[cfg(target_os = "macos")]
 fn macho_images(bytes: &[u8]) -> Vec<(u32, &[u8])> {
     const FAT_MAGIC: u32 = 0xcafebabe;
@@ -604,7 +544,6 @@ fn macho_images(bytes: &[u8]) -> Vec<(u32, &[u8])> {
         .collect()
 }
 
-/// The load commands of a thin 64-bit Mach-O image as `(cmd, command bytes)`.
 #[cfg(target_os = "macos")]
 fn load_commands(image: &[u8]) -> Result<Vec<(u32, &[u8])>, &'static str> {
     const MACH_HEADER_64_SIZE: usize = 32;
@@ -632,7 +571,6 @@ fn load_commands(image: &[u8]) -> Result<Vec<(u32, &[u8])>, &'static str> {
     Ok(commands)
 }
 
-/// Whether a thin image loads `UnityPlayer.dylib` through any dylib load command.
 #[cfg(target_os = "macos")]
 fn image_links_unity(image: &[u8]) -> bool {
     const LC_REQ_DYLD: u32 = 0x8000_0000;
@@ -847,21 +785,18 @@ mod tests {
             assert!(entitlements.contains(key), "signed binary missing {key}");
         }
 
-        // Steam restores its executable and duplicate over the existing .orig.
         std::fs::copy(clean.join("Contents/MacOS/The Bazaar"), &layout.exe_path).unwrap();
         copy_tree(&clean, &layout.app_path.join("TheBazaar_ARM64.app"));
         assert!(!is_current_with_stub(game.path(), &stub, false).unwrap());
         imp::install_with_stub(game.path(), &stub).unwrap();
         assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
 
-        // Resource damage must change readiness even when the stub UUID matches.
         let resource = layout.app_path.join("Contents/Resources/Data/boot.config");
         std::fs::write(&resource, b"changed").unwrap();
         assert!(!is_current_with_stub(game.path(), &stub, false).unwrap());
         imp::install_with_stub(game.path(), &stub).unwrap();
         assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
 
-        // A shared-bootstrap uninstall removes an in-bundle plugin, then seals.
         std::fs::remove_file(&resource).unwrap();
         finalize_game_bundle(game.path()).unwrap();
         assert!(is_current_with_stub(game.path(), &stub, false).unwrap());
@@ -890,7 +825,6 @@ mod tests {
         let layout = bundle_paths(game.path()).unwrap();
         imp::install_with_stub(game.path(), &stub).unwrap();
 
-        // Steam writes a new build over the stub and leaves the old .orig behind.
         let source = game.path().join("engine.c");
         std::fs::write(
             &source,
@@ -929,7 +863,6 @@ mod tests {
         let (game, stub) = native_bundle();
         imp::install_with_stub(game.path(), &stub).unwrap();
         let error = imp::install_with_finalizer(game.path(), &stub, |layout| {
-            // Simulate a signing failure after the real binary has been rewritten.
             std::fs::write(&layout.orig_path, b"partly rewritten signature").unwrap();
             Err(anyhow!("injected signing failure"))
         })
@@ -966,9 +899,6 @@ mod tests {
             game.path().join("libdoorstop.dylib"),
         )
         .unwrap();
-        // This machine's mod has self-updated one release past the bundled
-        // one: the bundled Managed Payload with another mod DLL and version,
-        // recorded in the newer manifest the Updater installs.
         let bundled_zip =
             std::fs::read(resources.join(super::super::zip_archive::bundled_zip_relative_path()))
                 .unwrap();
@@ -1007,8 +937,6 @@ mod tests {
         .unwrap();
         std::fs::write(game.path().join(version_path), &version_file).unwrap();
         std::fs::write(game.path().join(manifest_path), &self_updated_manifest).unwrap();
-        // Repair's payload effect: it writes the bundled non-managed files and
-        // keeps the newer Managed Payload (installer ADR-0009).
         super::super::install_bepinex(&resources, game.path()).unwrap();
         assert_eq!(
             std::fs::read(game.path().join("BepInEx/plugins/BazaarPlusPlus.dll")).unwrap(),
@@ -1035,9 +963,6 @@ mod tests {
             assert!(!app.join("TheBazaar_ARM64.app").exists());
             eprintln!("Copied Steam bundle repair {iteration}: strict signature and current stub verified");
         }
-        // Readiness as detection and the planner report it for the repaired
-        // copy. Steam launch options are pinned empty (the copy has no Steam
-        // config); every other fact is read from the copied game.
         let readiness = crate::services::install::install_state_from_snapshot(
             crate::services::detect::InstallEnvironmentSnapshot {
                 steam_path: None,
@@ -1055,9 +980,7 @@ mod tests {
         );
         let payload_current = readiness.mod_state.ready;
 
-        // The game's own files differ between machines and game versions, so
-        // the committed golden holds only the Payload Inventory paths present
-        // after repair; the per-run manifest holds every file and its hash.
+        // The real game's files vary by machine and build, so the committed golden covers owned Payload paths.
         let manifest = crate::goldens::tree_manifest(game.path());
         crate::goldens::write_run_manifest("copied_steam_bundle_repair_acceptance", &manifest);
         let inventory: serde_json::Value = serde_json::from_str(
@@ -1092,8 +1015,6 @@ mod tests {
             "acceptance/repaired-tree.json",
             &crate::goldens::json(&tree, &[]),
         );
-        // The CLI is the developer deployment entry. Its manifest must match the
-        // service outcome, and repeated repairs must preserve deployed DLLs/data.
         let cli = std::env::var_os("BPP_TEST_INSTALLER_CLI").expect("BPP_TEST_INSTALLER_CLI");
         let evidence = tempfile::tempdir().unwrap();
         let manifest_path = evidence.path().join("repair.json");
@@ -1165,7 +1086,6 @@ mod tests {
         assert!(!trampoline_builds_match(&outdated, &bundled).unwrap());
     }
 
-    /// A thin arm64/x86_64 Mach-O image whose only load command is an optional dylib.
     fn macho_image(cpu_type: u32, dylib: Option<&str>) -> Vec<u8> {
         const LC_LOAD_DYLIB: u32 = 0xc;
         const DYLIB_NAME_OFFSET: u32 = 24;
@@ -1190,7 +1110,6 @@ mod tests {
         bytes
     }
 
-    /// A universal binary wrapping `slices`, with 32-bit or 64-bit fat arch entries.
     fn universal(slices: &[Vec<u8>], wide: bool) -> Vec<u8> {
         let entry_size = if wide { 32 } else { 20 };
         let magic: u32 = if wide { 0xcafebabf } else { 0xcafebabe };
@@ -1260,7 +1179,6 @@ mod tests {
         assert!(!imp::links_unity(&tmp.path().join("missing")).unwrap());
     }
 
-    /// Build a minimal `TheBazaar.app` fixture with a fake main executable.
     fn make_bundle(real_contents: &[u8]) -> tempfile::TempDir {
         let tmp = tempfile::tempdir().unwrap();
         let macos_dir = tmp.path().join("TheBazaar.app/Contents/MacOS");
@@ -1292,28 +1210,23 @@ mod tests {
     #[test]
     fn test_is_trampolined_is_false_for_vanilla_bundle() {
         let tmp = make_bundle(b"real");
-        // No `.orig` -> not trampolined; short-circuits before inspecting the executable.
         assert!(!is_trampolined(&bundle_paths(tmp.path()).unwrap()).unwrap());
     }
 
     #[test]
     fn test_classify_real_binary_prefers_live_exe_over_stale_orig() {
-        // Fresh install: exe is real, no backup.
         assert_eq!(
             classify_real_binary(true, false, false).unwrap(),
             RealBinarySource::CurrentExe
         );
-        // Steam-updated binary at <exe> on top of a STALE real .orig — keep <exe>.
         assert_eq!(
             classify_real_binary(true, true, true).unwrap(),
             RealBinarySource::CurrentExe
         );
-        // Interrupted prior run: exe is the stub, .orig is the preserved real binary.
         assert_eq!(
             classify_real_binary(false, true, true).unwrap(),
             RealBinarySource::ExistingOrig
         );
-        // Corrupt: neither side is the real binary.
         assert!(classify_real_binary(false, true, false).is_err());
         assert!(classify_real_binary(false, false, false).is_err());
     }
@@ -1329,7 +1242,6 @@ mod tests {
         assert_eq!(std::fs::read(&layout.exe_path).unwrap(), b"STUB");
         assert_eq!(std::fs::read(&layout.orig_path).unwrap(), b"REAL-UNITY");
 
-        // Second call must NOT clobber the preserved real binary.
         std::fs::write(&stub, b"STUB2").unwrap();
         swap_in_stub(&layout, &stub).unwrap();
         assert_eq!(std::fs::read(&layout.exe_path).unwrap(), b"STUB2");

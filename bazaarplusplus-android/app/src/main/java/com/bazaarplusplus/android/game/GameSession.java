@@ -19,17 +19,10 @@ import java.util.Map;
 
 import dalvik.system.PathClassLoader;
 
-/**
- * One prepared game for this process: one class loader over bridge.dex and the game's APKs, the
- * game's Resources with the LemonLoader runtime and the Interop Package added as resource loaders,
- * and a links directory for the game's native libraries. The bridge Activity reaches
- * {@link #wrap} by name, so the method stays public and static.
- */
 public final class GameSession {
     public static final String TAG = "BppGame";
     public static final String GAME_ACTIVITY = "com.bazaarplusplus.android.game.GameActivity";
 
-    /** What a BPP launch hands the game: read-only files in the App's internal storage. */
     public static final class Inputs {
         public final File bridgeDex;
         public final File runtimeZip;
@@ -42,8 +35,7 @@ public final class GameSession {
         }
     }
 
-    // One prepared game per process, held for the process's life: the bridge Activity finds it
-    // by name. wrappedApp wraps the application Context, never an Activity.
+    // The prepared game outlives each Activity, so retain only the application Context.
     private static volatile boolean prepared;
     private static InstalledGame game;
     private static Resources gameResources;
@@ -54,11 +46,10 @@ public final class GameSession {
 
     private GameSession() {}
 
-    /** Prepares the installed game once per process; later calls must name the same inputs. */
     public static synchronized void prepare(Context context, InstalledGame installed, Inputs inputs) throws Exception {
         if (prepared) return;
         Context app = context.getApplicationContext() != null ? context.getApplicationContext() : context;
-        // Set before CoreCLR starts. Only the debug source set exposes a private mailbox.
+        // CoreCLR must inherit the debug login mailbox when it starts.
         File login = DevOverrides.loginDirectory(app);
         if (login == null) android.system.Os.unsetenv("BPP_DEV_LOGIN_DIR");
         else android.system.Os.setenv("BPP_DEV_LOGIN_DIR", login.getAbsolutePath(), true);
@@ -87,7 +78,6 @@ public final class GameSession {
         prepared = true;
     }
 
-    /** Whether this process prepared the game; a system restore of the game Activity may find it unprepared. */
     public static boolean isPrepared() {
         return prepared;
     }
@@ -97,7 +87,7 @@ public final class GameSession {
         return gameLoader;
     }
 
-    /** The game's Context over the App's: called by the bridge Activity's attachBaseContext. */
+    /** The bridge dex calls this method by reflection, so it must stay public and static. */
     public static Context wrap(Context base) {
         if (!prepared) throw new IllegalStateException("The game is not prepared");
         GameContext wrapped = new GameContext(base, game, gameResources, gameLoader, libraryDir);

@@ -13,15 +13,6 @@ using GamePlayer = Il2CppBazaarGameClient.Domain.Models.Player;
 
 namespace BazaarPlusPlus.Android.CombatReplay.Bootstrap;
 
-/// <summary>
-/// The saved state a replay restores before it plays, the Android forms of the desktop's
-/// <c>ReplaySavedStateNormalizer</c>, <c>SnapshotRehydrator</c> and the opening events of
-/// <c>ReplayOpeningStateRestorer</c>: the messages' day, hour and levels from the manifest (Core's
-/// <see cref="ReplaySavedStateRules"/>), the captured cards and skills onto the game's card
-/// models, the opponent's off-hand spawns removed, and the opening socket and player events
-/// processed. Card facets map back through <see cref="AndroidCardFacets"/> (ADR-0015). Main
-/// thread only. The desktop's socket effect restoration is not ported yet.
-/// </summary>
 internal static class AndroidReplaySavedState
 {
     public static void Normalize(PvpBattleManifest? manifest, CombatSequenceMessages? sequence)
@@ -96,7 +87,6 @@ internal static class AndroidReplaySavedState
         );
     }
 
-    // The opponent's cards outside the hand are not part of the fight the replay shows.
     public static void SanitizeSpawnEvents(CombatSequenceMessages sequence, string? battleId)
     {
         var events = sequence.SpawnMessage?.Data?.Events;
@@ -131,10 +121,7 @@ internal static class AndroidReplaySavedState
             );
     }
 
-    /// <summary>
-    /// Processes the spawn's opening socket unlocks and player initializations, which the
-    /// replay's direct injection skips; a failure is a degradation.
-    /// </summary>
+    // Direct spawn injection bypasses the game's opening socket unlocks and player initialization.
     public static async Task RestoreOpeningEventsAsync(
         GameSimHandler gameSimHandler,
         NetMessageGameSim spawnMessage,

@@ -120,8 +120,6 @@ fn stream_service_problem(operation: &str, error: anyhow::Error) -> SemanticProb
         .with_error(&error)
 }
 
-/// The only failure of History Thumbnail preparation is a service start
-/// failure; History names it on its own while the Stream status keeps the error.
 fn history_thumbnails_problem(error: anyhow::Error) -> SemanticProblem {
     SemanticProblem::new(SemanticProblemCode::HistoryThumbnailsUnavailable)
         .with_param("operation", "prepare_history_thumbnails")

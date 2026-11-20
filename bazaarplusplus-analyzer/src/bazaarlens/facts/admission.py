@@ -1,5 +1,3 @@
-"""Accepted Run admission and the canonical hero and rank sets."""
-
 import json
 from dataclasses import dataclass
 
@@ -22,7 +20,6 @@ LEGEND_RANK = "Legendary"
 
 
 def _load_hero_aliases() -> dict[str, str]:
-    """Read the analyzer-owned alias table shared with the mod and installer."""
     return dict(json.loads(contract_bytes("hero-aliases.json"))["aliases"])
 
 
@@ -42,7 +39,6 @@ class RunAdmission:
 
 
 def admit_run(hero: str, final_rank: str | None) -> RunAdmission:
-    """Normalize one Run and decide whether it belongs to the analyzed population."""
     normalized_hero = normalize_hero(hero)
     assert normalized_hero is not None
     normalized_rank = normalize_rank(final_rank)

@@ -34,8 +34,6 @@ function write(file: string, bytes: string) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
 }
-// The windows-online Snapshot Lock entry the fixture's Managed directory
-// satisfies; the other five keys stay empty.
 function lockEntry(managedPath: string) {
   return {
     gameVersion: WINDOWS_ONLINE_VERSION,
@@ -446,11 +444,6 @@ test('shared release Git helper changes invalidate the Payload input digest', ()
   expect(computePayloadInputs(data).digest).not.toBe(added);
 });
 
-// Sealed build record provenance (ADR 0004). Failure modes: a Managed directory
-// no Snapshot Lock entry hashes to refuses preparation before anything is
-// staged and keeps the previous Payload (a game that updated after the lock
-// was captured is such a directory: the entry exists but the build did not use
-// it); a lock edit invalidates a prepared Payload like any other input.
 test('the build record names the lock entry the Managed directory hashes to', () => {
   const data = fixture();
   const record = preparePayload({

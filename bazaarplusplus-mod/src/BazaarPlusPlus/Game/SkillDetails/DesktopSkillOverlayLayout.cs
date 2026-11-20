@@ -11,7 +11,6 @@ internal sealed class DesktopSkillOverlayLayout
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
     );
 
-    // Native canvas units. Keep the scrollbar to the left of the native close button.
     internal void PrepareList(MobileSkillOverlayListBuilder list)
     {
         var scroll = (RectTransform)list._scrollRect.transform;
@@ -77,8 +76,6 @@ internal sealed class DesktopSkillOverlayLayout
             layout.childScaleHeight = true;
         }
 
-        // Scale the complete native icon, including its mask inset and tier frame;
-        // the layout group accounts for that scale instead of reserving 320 units.
         entry._iconContainer.transform.localScale = Vector3.one * 0.625f;
         if (entry._textColumn.GetComponent<VerticalLayoutGroup>() is { } text)
         {

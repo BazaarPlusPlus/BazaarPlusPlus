@@ -19,7 +19,6 @@ public interface ICollectionSourceCatalog
 
     IEnumerable<CollectionSourceEntry> For(CollectionSourceKind kind, CardHero effectiveHero);
 
-    // Every entry in catalog order; the open selection takes the first match.
     IReadOnlyList<CollectionSourceEntry> Entries { get; }
 }
 

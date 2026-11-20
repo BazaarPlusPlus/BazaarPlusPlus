@@ -15,8 +15,7 @@ using Xunit;
 
 public sealed class GhostBattleSyncTests
 {
-    // The discovery response is the server-owned contract file itself, carried through discovery,
-    // import, and the local battles row; the row must keep the recorder perspective.
+    // Use the server-owned discovery fixture to keep its recorder perspective under contract.
     [Fact]
     public async Task DiscoveryImportsServerGhostSummaryContract()
     {
@@ -149,8 +148,6 @@ public sealed class GhostBattleSyncTests
         );
     }
 
-    // A successful discovery stays fresh for its account: entering the Ghost section again within the
-    // TTL succeeds as up to date without a request, while another account still queries.
     [Fact]
     public async Task SuccessfulDiscoveryStaysFreshPerAccount()
     {
@@ -508,7 +505,6 @@ public sealed class GhostBattleSyncTests
         );
     }
 
-    // Each set also carries a card whose type no facet names, which the manifest drops.
     private static BattleCardSetV6 SnapshotSet(string label, string templateId) =>
         new()
         {

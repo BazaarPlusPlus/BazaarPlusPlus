@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Static rendezvous point between the live panel instance (which owns the caches) and the
-// Harmony patches (which are static and have no other handle to the panel). The panel
-// installs its caches on Open() and uninstalls them when the runtime is disposed; the
-// patches no-op when nothing is installed, which is the desired behaviour both before the
-// panel exists and after it tears down.
+// Static Harmony patches use this to reach the active panel's caches.
 internal static class CollectionCardCacheHost
 {
     public static CollectionCardCacheSession? ActiveSession { get; private set; }

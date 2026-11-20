@@ -3,12 +3,7 @@ using System.Text;
 
 namespace BazaarPlusPlus.Game.Supporters;
 
-/// <summary>
-/// A host's supporter attribution: each call names the next supporters of one shuffled rotation
-/// (<see cref="BPPSupporterSampler.SampleMany"/>), so successive panel opens show everyone before
-/// anyone repeats. The seed fixes the rotation for the process; the entries come from the caller,
-/// normally <see cref="BPPSupporterCatalog.GetCurrentEntries"/>.
-/// </summary>
+// A process-wide shuffled rotation gives every supporter a turn before any repeats.
 public sealed class BPPSupporterAttribution
 {
     private readonly object _sync = new();
@@ -30,12 +25,7 @@ public sealed class BPPSupporterAttribution
         }
     }
 
-    /// <summary>
-    /// One TextMeshPro rich-text line for a touch host's single label: the localized "Supported
-    /// by" prefix and suffix around the names, each in its tier's color, separated by dots. Empty
-    /// when no sample has a name. Names are stripped of rich-text tags so a name cannot restyle
-    /// the line.
-    /// </summary>
+    // Strip rich-text tags from submitted names so they cannot restyle the TextMeshPro label.
     public static string FormatRichLine(
         IReadOnlyList<BPPSupporterSample> samples,
         string languageCode
@@ -68,13 +58,10 @@ public sealed class BPPSupporterAttribution
         return line.ToString();
     }
 
-    /// <summary>The attribution's muted label color, the <c>ingame-ink-muted</c> token.</summary>
+    // This value mirrors the ingame-ink-muted design token.
     public const string MutedHex = "B0A187";
 
-    /// <summary>
-    /// A supporter tier's name color, the <c>ingame-supporter-*</c> tokens. Core cannot read the
-    /// generated theme, so <c>just design::check</c> compares these values with the tokens.
-    /// </summary>
+    // The design check pins these copies to the ingame-supporter-* tokens because Core cannot read the generated theme.
     public static string TierHex(int tier) =>
         tier switch
         {

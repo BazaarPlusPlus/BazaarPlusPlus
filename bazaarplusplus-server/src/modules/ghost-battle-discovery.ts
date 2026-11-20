@@ -59,8 +59,7 @@ export async function discoverGhostBattles(
   } catch {
     throw apiError('storage_unavailable', 'Ghost rate limiter is unavailable');
   }
-  // Workers advance Date.now() only across I/O, so these spans time the
-  // limiter and D1 round trips; URL signing is CPU and shows as zero here.
+  // Workers advance Date.now() only across I/O, so URL signing time reads as zero.
   const rateLimitMs = Date.now() - startedAt;
   if (!rateLimit.success) {
     logEvent('ghost.discovery', {

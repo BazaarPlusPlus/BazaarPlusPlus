@@ -1,5 +1,3 @@
-"""Select a sealed Analysis Window and open its facts in DuckDB."""
-
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -48,7 +46,6 @@ def select_analysis_window(
     *,
     source_epoch: date | str | None = None,
 ) -> AnalysisWindow | None:
-    """Return one to seven latest consecutive verified day seals."""
     epoch = parse_source_day(source_epoch) if source_epoch is not None else None
     by_day: dict[date, DaySeal] = {}
     for seal in seals:
@@ -84,7 +81,7 @@ class AnalysisResources:
 def open_analysis(
     store: FactStore, window: AnalysisWindow, tables: tuple[str, ...], resources: AnalysisResources
 ) -> Generator[duckdb.DuckDBPyConnection]:
-    """Resolve paths from checked seals; each caller owns one independent connection."""
+    """Each caller owns an independent DuckDB connection."""
     if (
         not isinstance(resources.threads, int)
         or isinstance(resources.threads, bool)

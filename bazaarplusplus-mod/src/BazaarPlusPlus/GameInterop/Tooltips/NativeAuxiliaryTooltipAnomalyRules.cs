@@ -2,7 +2,6 @@
 
 namespace BazaarPlusPlus.GameInterop.Tooltips;
 
-/// <summary>Pure anomaly rules for the pooled native auxiliary tooltip.</summary>
 internal static class NativeAuxiliaryTooltipAnomalyRules
 {
     internal static bool RequestedTextNeedsRecovery(
@@ -19,10 +18,8 @@ internal static class NativeAuxiliaryTooltipAnomalyRules
         bool bodyRenderable
     ) => frameVisible && !pairedContentActive && !headerRenderable && !bodyRenderable;
 
-    /// <summary>Only a paired-tooltip takeover deactivates the pooled controller's text nodes, so
-    /// the frame audit can stand down once, with no takeover in progress, a visible native frame
-    /// shows both nodes active and some text renderable: no inactive-node leftover survives
-    /// that, and the next takeover re-arms the audit.</summary>
+    // A paired takeover is the only writer that deactivates these text nodes. Once both
+    // render natively, the audit can stand down until the next takeover.
     internal static bool TextNodesProvenRestored(
         bool takeoverInProgress,
         bool frameVisible,

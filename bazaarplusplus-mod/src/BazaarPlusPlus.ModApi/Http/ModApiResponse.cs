@@ -131,8 +131,8 @@ public sealed class ModApiResponse
         var error = ParseError(body);
         var requestId = headerRequestId ?? error.RequestId;
         var isSuccess = response.IsSuccessStatusCode;
-        // Remote codes remain protocol metadata. Endpoint clients may explicitly allow-list a
-        // code for product behavior, but arbitrary server text must never become user-facing.
+        // Only explicitly allow-listed protocol codes may affect product behavior.
+        // Keep arbitrary server text out of the user-facing response.
         var userCode = isSuccess ? "ok" : $"http_{statusCode}";
         return new ModApiResponse(
             statusCode,
@@ -197,10 +197,7 @@ public sealed class ModApiResponse
                 );
             }
         }
-        catch
-        {
-            // Malformed and non-JSON bodies deliberately collapse to the status-derived user code.
-        }
+        catch { }
         return default;
     }
 

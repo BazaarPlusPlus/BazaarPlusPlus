@@ -10,10 +10,6 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 
-// Manages BPP-owned text sections cloned into the pooled native tooltip. Each section
-// is a clone of the tooltip's passive-text block, keyed per controller + purpose,
-// inserted after a caller-supplied anchor sibling. Native typography is preserved;
-// BPP-authored CJK content receives the game's own zh-CN fallback chain.
 internal static class BppTooltipSections
 {
     // Clearly below the native body size so appended blocks read as secondary info.
@@ -170,9 +166,7 @@ internal static class BppTooltipSections
         blockClone.name = $"BppTooltipSection_{key}";
         var sourceLayout = anchor.GetComponent<UnityEngine.UI.LayoutGroup>();
         var sourceBottomPadding = sourceLayout?.padding.bottom ?? 0;
-        // Quest rows sit inside the source block but carry their own trailing padding.
-        // Cache both baselines so a quest-only section can trim the stacked gap and
-        // pooled tooltips still restore the native layout when the section is hidden.
+        // Cache both padding baselines so trimming a quest-only section can be undone on pool reuse.
         var questGroupLayout =
             style?.QuestGroupBottomPaddingScale == null
                 ? null
@@ -237,9 +231,7 @@ internal static class BppTooltipSections
         foreach (var group in blockClone.GetComponentsInChildren<CanvasGroup>(true))
             group.alpha = 1f;
 
-        // Only the text participates: the clone inherits the passive box's other
-        // children and the quest-row container among them stays active, silently
-        // padding the section with dead height.
+        // The cloned quest container can stay active and add dead height.
         var textTransform = textController.transform;
         foreach (Transform child in blockClone.transform)
             if (child != textTransform && !textTransform.IsChildOf(child))
@@ -263,11 +255,8 @@ internal static class BppTooltipSections
                 layoutGroup.padding.bottom = Mathf.RoundToInt(sourceTopPadding * bottomScale);
         }
 
-        // The source block's LayoutElement.ignoreLayout is toggled together with its
-        // visibility; a clone taken while the source was hidden (e.g. the hero-level
-        // tooltip, where the passive box is off) inherits ignore=true, so the tooltip's
-        // vertical layout/fitter reserves no space and the frame fails to grow around
-        // the section. Always participate in layout.
+        // Cloning a hidden native block can inherit ignoreLayout, which prevents the tooltip's
+        // fitter from growing around this section.
         var rootLayoutElement =
             blockClone.GetComponent<UnityEngine.UI.LayoutElement>()
             ?? blockClone.AddComponent<UnityEngine.UI.LayoutElement>();

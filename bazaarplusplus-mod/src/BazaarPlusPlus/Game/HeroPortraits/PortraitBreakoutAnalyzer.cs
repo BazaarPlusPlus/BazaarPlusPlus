@@ -360,8 +360,7 @@ internal static class PortraitBreakoutAnalyzer
         }
         if (regions.Count == 0)
             return PortraitBreakoutPlan.Empty(frame);
-        // This swept silhouette is diagnostic/cache metadata only. Playback clips each
-        // live native triangle by its own UV region, never by this shared union.
+        // The swept silhouette is diagnostic metadata. Playback clips each live triangle by its own UV region.
         var union = new bool[interior.Length];
         var byName = regions.ToDictionary(r => r.Part, StringComparer.Ordinal);
         foreach (var cells in coverage)
@@ -437,8 +436,7 @@ internal static class PortraitBreakoutAnalyzer
         CancellationToken cancellation
     )
     {
-        // The denominator includes all captured UV geometry, not just the visible
-        // candidate pose: clipping and occlusion must count as unknown, not disappear.
+        // Include all captured UV geometry in the denominator so clipping and occlusion count as unknown.
         var core = new bool[surface.Width * surface.Height];
         foreach (var triangle in surface.Geometry)
             VisitUv(surface, triangle, (i, a, b, c) => core[i] = true, cancellation);

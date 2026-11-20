@@ -3,7 +3,6 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectNoUnexpectedRequests, installGoldenRoutes } from './golden';
 import { settle } from './page';
 
-// Exercise the scrollbar appearing on long pages, as it does in a desktop browser.
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
 async function headerPositions(page: Page) {

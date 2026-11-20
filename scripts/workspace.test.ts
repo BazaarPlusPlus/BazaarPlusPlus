@@ -557,9 +557,6 @@ test('CLI refuses an unknown profile naming the profiles the table defines', (t)
   );
 });
 
-// A gh stand-in on PATH: lists come from a JSON state file keyed by scope,
-// every call is recorded with its stdin, and nothing is ever printed back.
-// One recorded gh call: its arguments and what it read from stdin.
 interface GhCall {
   args: string[];
   stdin: string;

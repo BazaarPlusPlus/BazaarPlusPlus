@@ -6,9 +6,6 @@ using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// What a host read from the game and its own caches when the Collection Panel opens, handed to
-// CollectionViewState.Open. Values only; no Unity or IL2CPP types. Built only through InRun and
-// OutOfRun, so an out-of-run open cannot carry a hero, day or encounter by mistake.
 public sealed class CollectionOpenFacts
 {
     private CollectionOpenFacts(
@@ -28,8 +25,6 @@ public sealed class CollectionOpenFacts
         Supporters = supporters ?? throw new ArgumentNullException(nameof(supporters));
     }
 
-    // hero: the host's concrete-hero read, else null. encounter: a host with no encounter probe
-    // passes EncounterIdsSnapshot.Empty. cachedCatalog: null while the host's catalog is building.
     public static CollectionOpenFacts InRun(
         CardHero? hero,
         int? runDay,
@@ -45,13 +40,10 @@ public sealed class CollectionOpenFacts
 
     public bool IsInGameRun { get; }
 
-    // Null out of a run.
     public CardHero? Hero { get; }
 
-    // Null out of a run.
     public int? RunDay { get; }
 
-    // Empty out of a run.
     public EncounterIdsSnapshot Encounter { get; }
 
     public IReadOnlyList<CollectionCardVm>? CachedCatalog { get; }

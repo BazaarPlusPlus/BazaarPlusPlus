@@ -53,13 +53,6 @@ import type {
   SnapshotPlatform
 } from './snapshot-lock.ts';
 
-// The Game Assembly and Interop Snapshot CLI: argument parsing and dispatch.
-// game-assembly-snapshot.ts, interop-snapshot.ts, official-apk.ts and
-// game-status.ts hold what each verb does; snapshot-lock.ts owns the Snapshot
-// Lock schema. bazaarplusplus-mod/scripts/game.sh and the snapshot workflows
-// drive this module; build/ManagedPath.props and build/InteropPath.props read
-// the lock file directly. No library module imports it.
-
 function printLine(value: string): void {
   process.stdout.write(`${value}\n`);
 }
@@ -120,21 +113,13 @@ fetch when no verified local copy exists, use the private bucket
 ${GAME_LIBS_BUCKET} through CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the
 S3 pair is derived from the token).`;
 
-// Every option but workspaceRoot is a test seam; each default is what the
-// command line uses.
 export interface CliOptions {
   workspaceRoot?: string;
-  /** Where the stores read CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID. */
   env?: NodeJS.ProcessEnv;
-  /** The fetch the Game Status store sends its R2 requests with. */
   r2Fetch?: FetchImpl;
-  /** The private store of publish, official-apk and snapshot-android. */
   gameLibsStore?: () => ObjectStore;
-  /** The HEAD request official-apk sends to the APK publisher. */
   apkFetch?: ApkHeadFetch;
-  /** Runs tools/SteamSnapshot for steam-stale and steam-capture. */
   runTool?: SteamToolRunner;
-  /** Generates interop for snapshot-android without --interop. */
   generate?: (options: GenerateInteropOptions) => void;
 }
 
@@ -184,7 +169,6 @@ export async function cliMain(
       }
     });
     const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');
-    // The options that take one string value.
     type StringOption = {
       [Name in keyof typeof values]-?: (typeof values)[Name] extends
         | string
@@ -268,7 +252,6 @@ export async function cliMain(
             steamStale({
               workspaceRoot,
               modRoot,
-              // steamStale checks the channel.
               channel: required('channel') as SnapshotChannel,
               runTool
             })
@@ -277,7 +260,6 @@ export async function cliMain(
         return 0;
       }
       case 'steam-capture': {
-        // steamCapture checks the platform and channel.
         const result = steamCapture({
           workspaceRoot,
           modRoot,
@@ -298,7 +280,6 @@ export async function cliMain(
               JSON.parse(fs.readFileSync(required('previous'), 'utf8'))
             ),
             readGameLibsLock(workspaceRoot),
-            // steamChangeKind checks the channel.
             required('channel') as SnapshotChannel
           )
         );
@@ -383,15 +364,12 @@ export async function cliMain(
           await publishInteropSnapshot({
             workspaceRoot,
             modRoot,
-            // lockKey checked the source.
             source: channel as AndroidSource,
             store: gameLibsStore(),
             log
           });
           return 0;
         }
-        // Every platform that is not an interop one is a Managed one;
-        // publishSnapshot checks the channel.
         await publishSnapshot({
           workspaceRoot,
           modRoot,
@@ -408,7 +386,6 @@ export async function cliMain(
           const result = await fetchInteropSnapshot({
             workspaceRoot,
             modRoot,
-            // lockKey checked the source.
             source: required('channel') as AndroidSource,
             storeFactory: gameLibsStore,
             log
@@ -417,8 +394,6 @@ export async function cliMain(
           printLine(result.interopPath);
           return 0;
         }
-        // Every platform that is not an interop one is a Managed one;
-        // fetchSnapshot checks the channel.
         const result = await fetchSnapshot({
           workspaceRoot,
           modRoot,

@@ -5,12 +5,7 @@ import path from 'node:path';
 import { runGit } from '../git-command.ts';
 import type { RunGitOptions } from '../git-command.ts';
 
-// A test fixture repository must be hermetic in both directions: it may never
-// be redirected into a real repository (handled by `runGit`, which scrubs
-// GIT_DIR and friends), and it may never read or write the developer's own
-// configuration. Refusing the system config and pointing the global config at
-// an empty file keeps a fixture off the developer's identity, hooks, gpgsign
-// and templates, and keeps `git config` writes inside the fixture.
+// Isolate fixture Git config from the developer's identity, hooks, signing and templates.
 let sharedEmptyGlobalConfig: string | null = null;
 
 function emptyGlobalConfigPath(): string {
@@ -27,11 +22,8 @@ function emptyGlobalConfigPath(): string {
   return sharedEmptyGlobalConfig;
 }
 
-/** The options of runFixtureGit: runGit's, with `cwd` the fixture directory. */
 export type RunFixtureGitOptions = RunGitOptions;
 
-// The only supported way for a test to spawn git. `cwd` is required so a
-// fixture command always names the temporary directory it operates on.
 export function runFixtureGit(
   args: readonly string[],
   { cwd, ...options }: RunFixtureGitOptions = {}

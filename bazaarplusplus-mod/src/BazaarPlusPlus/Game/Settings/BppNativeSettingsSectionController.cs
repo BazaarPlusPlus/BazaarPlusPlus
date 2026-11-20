@@ -402,8 +402,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
             case BppSettingsControlKind.Action when row.Action != null:
             {
                 row.Action.interactable = state.Interactable;
-                // The donor button swaps sprites and has none for the disabled state, so it looks
-                // the same when it is not interactable. Dim the row instead, as Android does.
+                // The donor button has no disabled sprite, so dim the row to show that it is unavailable.
                 var group = row.Root.GetComponent<CanvasGroup>();
                 if (group == null)
                     group = row.Root.gameObject.AddComponent<CanvasGroup>();
@@ -858,8 +857,7 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
 
     private static string CurrentLanguageCode => PlayerPreferences.Data.LanguageCode;
 
-    // What the install changes outside the section. Each change is recorded before it is made,
-    // so a failure at any later point of the install can undo every one of them.
+    // Record each external mutation before applying it so a partial install can roll back.
     private sealed class FooterRollback
     {
         private readonly List<(GameObject Target, bool WasActive)> _hidden = [];

@@ -105,8 +105,6 @@ public sealed class DataPipelineArchitectureTests
             "Queue SQL lives in BundleQueueStore and the schema; the pipeline never opens SQLite.",
             build =>
             {
-                // PvpBattleSqliteStore's replay-maintenance query only reads both tables to keep
-                // payloads of runs with pending seal or upload work (Seal eligibility consumer).
                 var owners = new[]
                 {
                     build.Type("BazaarPlusPlus.Storage.BundleQueue.BundleQueueStore"),

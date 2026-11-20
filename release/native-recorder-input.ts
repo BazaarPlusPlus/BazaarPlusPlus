@@ -8,17 +8,14 @@ import process from 'node:process';
 import { runGit } from '../scripts/git-command.ts';
 import type { TauriBuildPlatform } from './release-platforms.ts';
 
-/** How a native recorder artifact is installed: one file or a whole tree. */
 export type NativeArtifactKind = 'file' | 'directory';
 
-/** An installer-owned native recorder artifact. */
 export interface NativeRecorderArtifact {
   id: string;
   kind: NativeArtifactKind;
   destinationPath: string;
 }
 
-/** One artifact of the mod's native artifact catalog. */
 export interface NativeArtifactPolicy extends NativeRecorderArtifact {
   buildScript: string;
   outputPath: string;
@@ -29,7 +26,6 @@ export interface NativeArtifactPolicy extends NativeRecorderArtifact {
   allowedDependencies?: string[];
 }
 
-/** One platform of the mod's native artifact catalog. */
 export interface NativePlatformPolicy {
   architecture: string;
   deploymentTarget?: string;
@@ -38,96 +34,81 @@ export interface NativePlatformPolicy {
   artifacts: NativeArtifactPolicy[];
 }
 
-/** The mod's native artifact catalog, native/artifacts.json. */
 export interface NativeArtifactCatalog {
   schemaVersion: number;
   platforms: Record<TauriBuildPlatform, NativePlatformPolicy>;
 }
 
-/** The output-affecting policy a platform requirement records. */
 export interface NativeRequirementPolicy {
   architecture: string;
   deploymentTarget?: string;
   signing: string;
 }
 
-/** The canonical inputs of one platform's native recorder artifacts. */
 export interface NativePlatformRequirement {
   inputDigest: string;
   inputFiles: Record<string, string>;
   policy: NativeRequirementPolicy;
 }
 
-/** One entry of a snapshotted artifact tree. */
 export type NativeTreeEntry =
   | { kind: 'directory' }
   | { kind: 'file'; size: number; sha256: string };
 
-/** The exact content of an artifact: one file, or every entry of its tree. */
 export type NativeArtifactSnapshot =
   | { kind: 'file'; size: number; sha256: string }
   | { kind: 'directory'; entries: Record<string, NativeTreeEntry> };
 
-/** One promoted artifact of the lock. */
 export interface NativeArtifactRecord {
   destinationPath: string;
   content: NativeArtifactSnapshot;
 }
 
-/** Where a platform's native recorder artifacts were built from. */
 export interface NativeProducerProvenance {
   repository: string;
   commit: string;
   dirty: boolean;
 }
 
-/** One platform of the native recorder input lock. */
 export interface NativePlatformRecord extends NativePlatformRequirement {
   producer: NativeProducerProvenance;
   artifacts: Record<string, NativeArtifactRecord>;
 }
 
-/** The native recorder input lock, scripts/release/native-recorder-input.lock.json. */
 export interface NativeRecorderLock {
   schemaVersion: number;
   sourceRepository: string;
   platforms: Partial<Record<TauriBuildPlatform, NativePlatformRecord>>;
 }
 
-/** Whether the staged artifacts of a platform match its current inputs. */
 export interface NativeRecorderStatus {
   fresh: boolean;
   reason: string;
   requirement: NativePlatformRequirement;
 }
 
-/** What ensureNativeRecorderInput did. */
 export interface EnsuredNativeRecorderInput extends NativeRecorderStatus {
   rebuilt: boolean;
   previousReason?: string;
 }
 
-/** What verifyNativeRecorderInput checked. */
 export interface VerifiedNativeRecorderInput {
   sourceRepository: string;
   platforms: readonly string[];
 }
 
-/** The options of verifyNativeRecorderInput. */
 export interface VerifyNativeRecorderInputOptions {
   rootDir: string;
   platforms?: readonly string[];
   lockPath?: string;
 }
 
-/** The options of computePlatformRequirement. */
 export interface ComputePlatformRequirementOptions {
   sourceRoot: string;
   platform: TauriBuildPlatform;
   catalog?: NativeArtifactCatalog;
 }
 
-/** The options of promoteNativeRecorderInput. */
 export interface PromoteNativeRecorderInputOptions {
   rootDir: string;
   sourceRoot: string;
@@ -137,7 +118,6 @@ export interface PromoteNativeRecorderInputOptions {
   lockPath?: string;
 }
 
-/** The options of nativeRecorderStatus. */
 export interface NativeRecorderStatusOptions {
   rootDir: string;
   sourceRoot: string;
@@ -145,14 +125,12 @@ export interface NativeRecorderStatusOptions {
   lockPath?: string;
 }
 
-/** The options of ensureNativeRecorderInput. */
 export interface EnsureNativeRecorderInputOptions {
   rootDir: string;
   sourceRoot: string;
   platform: TauriBuildPlatform;
 }
 
-// An artifact copied from a producer build into the installer.
 interface NativeReplacement {
   id: string;
   kind: NativeArtifactKind;

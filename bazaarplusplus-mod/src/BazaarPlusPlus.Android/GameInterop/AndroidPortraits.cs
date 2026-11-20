@@ -10,10 +10,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Native default hero and encounter art, held in the game's Global asset scope. Call under the
-/// Android main-thread context; the shared cache coalesces requests from rebuilt UI trees.
-/// </summary>
 internal static class AndroidPortraits
 {
     private static readonly AsyncLoadCache<CardHero, Sprite> Heroes = new(LoadHero);

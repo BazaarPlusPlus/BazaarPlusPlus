@@ -9,13 +9,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// A History board card, tapped, enlarged over the panel with its name and authored
-/// text: the touch counterpart of hovering a card on the desktop's native board, where the game's
-/// own tooltip shows. The card is the game's own prefab, rented at the battle's tier and
-/// enchantment. A tap outside, the close button, or the back key dismisses it, and the lease goes
-/// back to the rental.
-/// </summary>
 internal sealed class TouchHistoryInspection : IHistoryCardOverlay
 {
     public const string RentalOwner = "history.inspection";
@@ -102,7 +95,6 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
         );
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (!IsOpen)
@@ -117,14 +109,12 @@ internal sealed class TouchHistoryInspection : IHistoryCardOverlay
         return true;
     }
 
-    /// <summary>The lease goes back without a log line: the panel is closing or laid out again.</summary>
     public void ReturnCards()
     {
         MobilePlatform.Port.CardRental.Return(_lease);
         _lease = null;
     }
 
-    // A sheet rect as its parent's local rect, inset horizontally for text.
     private static TouchRect Local(TouchRect rect, TouchRect origin, float inset) =>
         new(
             rect.Left - origin.Left + inset,

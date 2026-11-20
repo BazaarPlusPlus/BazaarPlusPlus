@@ -1,13 +1,4 @@
-//! HTTP goldens for the stream service: requests go through the production
-//! `router` with `tower::ServiceExt::oneshot` against a fixture database, the
-//! committed screenshots in `tests/goldens/http/fixtures/` and a temporary
-//! cache directory.
-//!
-//! Writes `tests/goldens/http/records.json`, `records-latest.json` and
-//! `strip-hashes.json` (the sha256 of every rendered strip PNG). Regenerate with
-//! `BPP_UPDATE_GOLDENS=1 bun run generate:bindings:test` (see the installer `AGENTS.md`);
-//! an `image` crate upgrade can change the PNG bytes, which needs a regenerate
-//! and a note in the pull request.
+//! An `image` crate upgrade can change PNG bytes and require regenerating the strip-hash golden.
 
 use super::history_thumbnails::{self, HistoryThumbnails};
 use super::http::router;
@@ -20,8 +11,6 @@ use crate::services::paths;
 use sha2::{Digest, Sha256};
 use tower::ServiceExt;
 
-/// One screenshot per subtitle shape: wins and battles, wins only, battles only
-/// (its image file is missing, so it has no strip), and neither.
 fn seed(game: &std::path::Path) {
     let screenshots = paths::screenshots_dir(game);
     std::fs::create_dir_all(screenshots.join("2026-01-01")).unwrap();

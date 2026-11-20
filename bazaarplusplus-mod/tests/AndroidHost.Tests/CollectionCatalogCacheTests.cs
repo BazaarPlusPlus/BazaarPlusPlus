@@ -5,21 +5,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android Collection catalog's on-disk cache (<see cref="CollectionCatalogCacheStore"/>),
-/// which lets a launch skip the per-card build. Its failure modes, each pinned below:
-/// <list type="number">
-/// <item>Stale cards: a changed game data or translation ETag, language, game version or mod
-/// build must miss, never serve the old catalog.</item>
-/// <item>A damaged or foreign file (truncated, not JSON, another schema version) must miss
-/// without throwing, so the catalog falls back to a build.</item>
-/// <item>Lost fields: a hit must hand back every view-model field the filters, search and grid
-/// read, enchantment facets and mechanic flags included.</item>
-/// <item>Facet integers on disk: facets are stored by name (ADR-0015).</item>
-/// <item>Languages overwriting each other: each language keeps its own file.</item>
-/// <item>No game data ETag: the identity does not resolve, so nothing is cached.</item>
-/// </list>
-/// </summary>
 public sealed class CollectionCatalogCacheTests : IDisposable
 {
     private readonly string _directory = Path.Combine(

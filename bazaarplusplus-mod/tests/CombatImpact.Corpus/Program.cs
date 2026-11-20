@@ -5,13 +5,6 @@ using System.Text.Json;
 using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.TestSupport;
 
-// The Core-lane Combat Impact acceptance runner (ADR-0019). It projects a Combat Impact Corpus,
-// the BPP-owned fixture CombatImpact.CorpusExport writes from game payloads, through Core alone.
-//
-// No arguments: projects the committed corpus and compares its evidence with the committed
-// evidence golden; BPP_UPDATE_GOLDENS=1 rewrites the golden.
-// <corpus.json.gz> [report-path] [--benchmark]: projects an exported external corpus.
-
 const string pinnedCorpus = "tests/CombatImpact.Corpus/corpus/pinned-corpus.json.gz";
 const string pinnedEvidence = "tests/CombatImpact.Corpus/evidence/pinned-corpus.json";
 const string evidencePathEnvironmentVariable = "BPP_COMBAT_IMPACT_EVIDENCE_PATH";
@@ -171,8 +164,6 @@ static object BuildEvidenceSnapshot(
         corpus.SourceKind,
         corpus.SourceCount,
         corpus.SourceArtifacts,
-        // The game inputs the exporter interpreted the payloads with, copied from the corpus:
-        // this lane has no game catalog or game assemblies of its own to describe.
         corpus.VerificationInputs,
         BattleIds = report
             .BattlesSummary.Select(battle => battle.BattleId)

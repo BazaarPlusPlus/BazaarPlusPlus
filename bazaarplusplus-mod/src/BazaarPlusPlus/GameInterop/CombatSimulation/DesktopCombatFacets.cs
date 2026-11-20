@@ -7,11 +7,6 @@ using BazaarPlusPlus.Core.Combat;
 
 namespace BazaarPlusPlus.GameInterop.CombatSimulation;
 
-/// <summary>
-/// The desktop host's combat facet adapter (ADR-0019): the Mono game's combat enums mapped to
-/// Core's combat vocabulary by member name. The Android host has the same adapter over the
-/// interop enums; a pin test on each host fails when the game adds a member Core lacks.
-/// </summary>
 internal static class DesktopCombatFacets
 {
     public static readonly CardFacetNameMap<EActionCommandType, CombatActionType> ActionType =
@@ -54,7 +49,6 @@ internal static class DesktopCombatFacets
         CombatValueModifierMode
     > ValueModifierMode = new();
 
-    /// <summary>The game's card attribute map in its own order, without the attributes Core lacks.</summary>
     public static Dictionary<CombatCardAttribute, int> CardAttributes(
         IEnumerable<KeyValuePair<ECardAttributeType, int>> attributes
     )
@@ -68,7 +62,6 @@ internal static class DesktopCombatFacets
         return result;
     }
 
-    /// <summary>The game's attribute map for Core's, as a native card preview takes it.</summary>
     public static IReadOnlyDictionary<ECardAttributeType, int>? GameCardAttributes(
         IReadOnlyDictionary<CombatCardAttribute, int>? attributes
     )
@@ -84,7 +77,6 @@ internal static class DesktopCombatFacets
         return result;
     }
 
-    /// <summary>An effect-id-to-attribute map in the game's order; null when nothing maps.</summary>
     public static IReadOnlyDictionary<string, CombatCardAttribute>? AttributesByEffectId(
         IEnumerable<KeyValuePair<string, ECardAttributeType>>? attributes
     )

@@ -10,17 +10,8 @@ using Il2CppBazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Records each PvP battle Core's <see cref="PvpBattleCaptureWindow{TMessage}"/> closes over the
-/// net messages, read through <see cref="AndroidPvpBattleReads"/>. The closed battle's Replay
-/// Payload is saved to the combat replay directory, then the battle through
-/// <see cref="PvpBattleCatalog"/>, both under the persistence lease of
-/// <see cref="ReplayPayloadOperationGate"/> so the maintenance sweep never sees the file before its
-/// row, and it is announced as <see cref="PvpBattleRecorded"/>, which Run Logging links to the run.
-/// A payload that could not be taken leaves the battle saved with its replay state
-/// <c>missing</c>. Message intake is main-thread only; detached bytes and facts are persisted by
-/// <see cref="AndroidBattlePersistenceQueue"/> and results are published from the host's tick.
-/// </summary>
+// Hold one persistence lease for the payload and the battle row so maintenance cannot see an
+// orphaned file.
 internal sealed class AndroidPvpBattleCapture : IDisposable
 {
     // Bound the wait even for the queue's synchronous capacity fallback: a replay holds the
@@ -85,7 +76,6 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
     public void Accept(INetMessage message)
     {
         var capture = _window.Observe(message);
-        // The rehearsal reads only a message no battle is using, never in a battle's frame.
         if (capture == null && !_window.IsOpen)
             _rehearsal?.Offer(message);
         else
@@ -152,13 +142,6 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
             _eventBus.Publish(PvpBattleCatalog.Recorded(record));
     }
 
-    /// <summary>
-    /// Saves the Replay Payload, then the battle, under the persistence lease. A maintenance
-    /// sweep or replay can hold the gate for long, so persistence uses a bounded wait even on
-    /// the worker. When the lease stays
-    /// held past <paramref name="leaseWait"/>, the battle is saved without its payload, its
-    /// replay state <c>missing</c>, so the sweep still never sees a file before its row.
-    /// </summary>
     internal static AndroidBattlePersistenceOutcome Persist(
         ReplayPayloadOperationGate gate,
         PvpBattleCatalog battles,
@@ -178,7 +161,6 @@ internal sealed class AndroidPvpBattleCapture : IDisposable
         return new AndroidBattlePersistenceOutcome(lease != null, replaySaved, replayElapsedMs);
     }
 
-    // Saved before the battle row, so a battle whose replay state reads ready has its file.
     private static bool SaveReplay(
         CombatReplayPayloadStore replays,
         PvpBattleManifest record,

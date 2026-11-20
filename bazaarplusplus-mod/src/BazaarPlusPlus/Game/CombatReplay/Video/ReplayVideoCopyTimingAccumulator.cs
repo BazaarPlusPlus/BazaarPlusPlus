@@ -54,8 +54,7 @@ internal sealed class ReplayVideoCopyTimingAccumulator
     }
 }
 #else
-// Every reader of these percentiles is a BppLog.DebugEvent, which compiles out of Release, so a
-// Release build keeps no samples: no per-playback buffer, and no copy and sort at finalize.
+// Release omits BppLog.DebugEvent, so retaining timing samples there would only cost memory and sorting.
 internal sealed class ReplayVideoCopyTimingAccumulator
 {
     internal ReplayVideoCopyTimingAccumulator(int capacity = 2048)

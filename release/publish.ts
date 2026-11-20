@@ -60,7 +60,6 @@ import type { GitState } from './artifact-manifest.ts';
 import { readAndroidArtifacts } from './android-release.ts';
 import { ANDROID_SOURCES } from './snapshot-lock.ts';
 
-/** The inputs of uploadPlatform. */
 export interface UploadPlatformOptions {
   workspaceRoot: string;
   platform: TauriBuildPlatform;
@@ -68,7 +67,6 @@ export interface UploadPlatformOptions {
   store: ObjectStore;
 }
 
-/** The inputs of uploadAndroidPlatform. */
 export interface UploadAndroidPlatformOptions {
   workspaceRoot: string;
   baseUrl: string;
@@ -78,7 +76,6 @@ export interface UploadAndroidPlatformOptions {
   log?: (line: string) => void;
 }
 
-/** The inputs of recordMainlandMirror. */
 export interface RecordMainlandMirrorOptions {
   version: ProductVersion;
   platform: string;
@@ -89,7 +86,6 @@ export interface RecordMainlandMirrorOptions {
   log?: (line: string) => void;
 }
 
-/** The inputs of recordMainlandMirrors: one share address per build platform. */
 export interface RecordMainlandMirrorsOptions {
   version: ProductVersion;
   urls: Readonly<Record<string, string>>;
@@ -100,7 +96,6 @@ export interface RecordMainlandMirrorsOptions {
   log?: (line: string) => void;
 }
 
-/** The inputs of promotePlatform. */
 export interface PromotePlatformOptions {
   version: ProductVersion;
   platform: string;
@@ -112,14 +107,12 @@ export interface PromotePlatformOptions {
   now?: Date;
 }
 
-/** What promotePlatform published. */
 export interface PromotePlatformResult {
   platform: PlatformManifest;
   latest: ReleaseManifest | null;
   advanced: boolean;
 }
 
-/** The inputs of promoteRelease. */
 export interface PromoteReleaseOptions {
   version: ProductVersion;
   baseUrl: string;
@@ -129,7 +122,6 @@ export interface PromoteReleaseOptions {
   now?: Date;
 }
 
-// The mirror records a promotion read, by platform key.
 type MirrorRecords = Partial<Record<string, MirrorRecord>>;
 
 interface ReadMirrorsOptions {
@@ -176,7 +168,6 @@ function readOptionalJson(
   return object ? readJsonObject(object, description) : null;
 }
 
-// `F` is the shape the platform names; the validation proves it.
 async function readFragment<F extends PlatformFragment = PlatformFragment>(
   store: ObjectStore,
   version: ProductVersion,
@@ -192,7 +183,6 @@ async function readFragment<F extends PlatformFragment = PlatformFragment>(
   );
 }
 
-// `M` is the shape the platform names; the validation proves it.
 async function readPlatformManifest<
   M extends PlatformManifest = PlatformManifest
 >(store: ObjectStore, platform: string): Promise<M | null> {
@@ -250,9 +240,7 @@ async function assertArtifactsStored(
   }
 }
 
-// Mirror records are read once per promotion. A platform whose manifest is
-// already at this version is being confirmed: its published address is
-// authoritative, so its record is not even read.
+// The published mirror is authoritative on retry, even if the original mirror record has changed.
 async function readMirrors(
   store: ObjectStore,
   version: ProductVersion,
@@ -286,9 +274,7 @@ async function readMirrors(
   return mirrors;
 }
 
-// ETag compare-and-swap of one JSON object. `build(existing)` returns the
-// next value, or null to keep the existing one; a lost PUT response is
-// recognized by reading the object back.
+// Read back after a failed PUT to distinguish a lost response from a failed write.
 async function compareAndSwapJson<T>(
   store: ObjectStore,
   key: string,
@@ -300,7 +286,6 @@ async function compareAndSwapJson<T>(
     const existing = readOptionalJson(current, key) as T | null;
     const next = build(existing);
     if (next === null) {
-      // Every caller's `build` keeps only an object that exists.
       if (existing === null)
         throw new Error(`Writing ${key} kept an object that does not exist`);
       return existing;
@@ -320,7 +305,6 @@ async function compareAndSwapJson<T>(
       if (observed?.bytes.equals(bytes)) return next;
       throw error;
     }
-    // A competing writer won. Re-read and re-evaluate rollback/immutability.
   }
   throw new Error(
     `Writing ${key} conflicted repeatedly; retry after the other publisher finishes`
@@ -334,10 +318,7 @@ function objectKey(url: string, baseUrl: string): string {
   return decodeURIComponent(url.slice(base.length));
 }
 
-// The publisher's hint whether installs of the promoted release can take this
-// one as a Managed Payload: same history database schema and same non-managed
-// payload. The mod never reads it; it compares against its running copy. Once
-// `version` itself is promoted, uploading it again repeats the published hint.
+// The mod compares against its running copy. Repeat the published hint on re-upload.
 async function selfUpdatableFromPromoted(
   store: ObjectStore,
   platform: string,
@@ -395,7 +376,6 @@ export async function uploadPlatform({
   ).map(([file, record]) => {
     if (!snapshots.has(file)) snapshots.set(file, fs.readFileSync(file));
     const bytes = snapshots.get(file);
-    // The line above stored every file it reads.
     if (bytes === undefined) throw new Error(`Artifact was not read: ${file}`);
     if (
       bytes.length !== record.size ||
@@ -423,11 +403,7 @@ export async function uploadPlatform({
   return fragment;
 }
 
-// The signer of every Android App APK is the one BPP Android release key
-// (ADR 0009, 2026-11-01 note), checked in two layers: the APK's certificate
-// must be the one release code pins, and once an Android App is promoted it
-// must also be the one that App carries: Android refuses to install an APK
-// over one signed by another certificate.
+// Android upgrades require the signer to match the already-installed App (ADR 0009).
 async function assertAndroidSigner(
   store: ObjectStore,
   platform: string,
@@ -438,7 +414,6 @@ async function assertAndroidSigner(
     throw new Error(
       `The Android App APK is signed by ${signerSha256}, not the release key ${releaseSignerSha256} (docs/adr/0009-android-release-key.md)`
     );
-  // The Android platform's manifest is an Android one; the read proves it.
   const manifest = await readPlatformManifest<AndroidPlatformManifest>(
     store,
     platform
@@ -451,11 +426,6 @@ async function assertAndroidSigner(
     );
 }
 
-// Uploads the Android build of VERSION: the Android App APK, then each Game
-// Adaptation's Interop Package (content-addressed: a release or adaptation
-// that already stored the same bytes leaves it in place, other bytes are
-// refused) and Managed Payload zip with its signature, and last the fragment
-// naming them. Large files stream from disk.
 export async function uploadAndroidPlatform({
   workspaceRoot,
   baseUrl,
@@ -535,9 +505,7 @@ export async function uploadAndroidPlatform({
   ];
   for (const [record, file, contentType] of uploads) {
     const key = objectKey(record.url, baseUrl);
-    // Another release or adaptation of the same Interop Snapshot may have
-    // stored the Interop Package already; a HEAD settles that without
-    // sending the zip again.
+    // HEAD lets another adaptation reuse a stored Interop Package without sending it again.
     const stored = interops.includes(record as (typeof interops)[number])
       ? await store.head(key)
       : null;
@@ -571,9 +539,7 @@ export async function uploadAndroidPlatform({
   return fragment;
 }
 
-// A mirror can be recorded until its platform publishes the version. A
-// Lockstep Platform publishes into the Release Manifest too; Android does
-// not, so the Release Manifest moving ahead never freezes Android's mirror.
+// Android's mirror remains recordable after latest.json advances because Android releases independently.
 async function assertMirrorRecordable(
   store: ObjectStore,
   version: ProductVersion,
@@ -671,8 +637,7 @@ async function writeMirrorRecord(
     );
 }
 
-// Preflight the complete lockstep release before recording either mirror. The
-// two conditional writes are retryable, not a transaction across R2 objects.
+// R2 cannot update both mirror objects transactionally. The conditional writes are retryable.
 export async function recordMainlandMirrors({
   version,
   urls,
@@ -687,7 +652,6 @@ export async function recordMainlandMirrors({
   const lockstep = LOCKSTEP_PLATFORM_KEYS.map(releasePlatformByKey);
   for (const { buildPlatform } of lockstep)
     assertMirrorUrl(urls?.[buildPlatform]);
-  // A Lockstep Platform's fragment is a desktop one; the read proves it.
   const fragments = await Promise.all(
     lockstep.map(({ key }) =>
       readFragment<DesktopPlatformFragment>(store, version, key)
@@ -711,7 +675,6 @@ export async function recordMainlandMirrors({
       })
     );
   }
-  // A publisher may have advanced either platform during the page probes.
   for (const record of records)
     await assertMirrorRecordable(store, version, record.platform);
   for (const record of records) await writeMirrorRecord(store, record);
@@ -738,9 +701,7 @@ async function writePlatformManifest(
   );
 }
 
-// Both update entry points carry the same release facts. Copy the stored
-// platform manifest, including its original publication date and mirror,
-// so retrying a partial promotion never invents another record for a version.
+// Copy the stored manifest so a partial promotion retry preserves the original date and mirror.
 function modManifestUpdate(
   platform: string,
   manifest: PlatformManifest,
@@ -789,8 +750,6 @@ async function writeModManifest(
   );
 }
 
-// Advance the Release Manifest when every Lockstep Platform manifest names the
-// same release; otherwise leave it at the last lockstep release.
 async function writeLockstepManifest(
   store: ObjectStore,
   log: (line: string) => void
@@ -832,10 +791,6 @@ async function writeLockstepManifest(
   return { latest, advanced };
 }
 
-// Promote one platform without waiting for the others. The lockstep Release
-// Manifest advances only once every Lockstep Platform names the same release
-// (ADR 0003). Android writes only its Platform Release Manifest; like every
-// platform, it needs a mainland mirror record or an explicit waiver.
 export async function promotePlatform({
   version,
   platform,
@@ -858,7 +813,6 @@ export async function promotePlatform({
     await assertAndroidSigner(
       store,
       key,
-      // The Android platform's fragment is an Android App fragment.
       (fragment as AndroidPlatformFragment).app.signerSha256,
       releaseSignerSha256
     );
@@ -868,7 +822,6 @@ export async function promotePlatform({
     confirming: () => existing?.version === version,
     log
   });
-  // Validate against the current manifest before any remote write.
   const candidate = buildPlatformManifest({
     version,
     fragment,
@@ -893,7 +846,6 @@ export async function promotePlatform({
   };
 }
 
-// Promote every Lockstep Platform at once: the ordinary desktop release.
 export async function promoteRelease({
   version,
   baseUrl,
@@ -902,13 +854,11 @@ export async function promoteRelease({
   log = () => {},
   now = new Date()
 }: PromoteReleaseOptions): Promise<ReleaseManifest> {
-  // A Lockstep Platform's fragment is a desktop one; the read proves it.
   const fragments = await Promise.all(
     LOCKSTEP_PLATFORM_KEYS.map((platform) =>
       readFragment<DesktopPlatformFragment>(store, version, platform)
     )
   );
-  // Validate the complete set before making any remote write.
   buildLatestManifest({ version, fragments, existingLatest: null, now });
   for (const fragment of fragments)
     await assertArtifactsStored(store, fragment, baseUrl);
@@ -918,8 +868,6 @@ export async function promoteRelease({
     existingPlatforms[platform] =
       await readPlatformManifest<DesktopPlatformManifest>(store, platform);
   if (existingLatest?.version === version) {
-    // Confirming a published release: the Release Manifest is authoritative
-    // and each fragment must still match it.
     const confirmed: [string, PlatformManifest][] = [];
     for (const fragment of fragments) {
       const platform = fragment.platform;
@@ -965,9 +913,7 @@ export async function promoteRelease({
       fragment.platform,
       platformManifests[index]
     );
-  // Platform manifests first: a client that installs this release through
-  // the lockstep manifest reads its platform manifest next and must find it.
-  // The stored manifests, not this promoter's copies, feed the merge.
+  // Write platform manifests first so clients can find them as soon as latest.json advances.
   const stored: PlatformManifest[] = [];
   for (const fragment of fragments) {
     const manifest = await writePlatformManifest(store, {

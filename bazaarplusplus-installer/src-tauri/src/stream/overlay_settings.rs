@@ -60,18 +60,14 @@ pub struct OverlayCropSettingsPayload {
     pub display_mode: StreamOverlayDisplayMode,
 }
 
-/// Reads and writes the overlay settings file. Clones share one parse memo,
-/// and every `Default` store is a clone of one process-wide store, so the
-/// stream service and the Tauri commands clear the same memo when they write.
+/// Share one memo across default stores so Tauri writes invalidate the OBS HTTP reader's cache.
 #[derive(Clone, Debug)]
 pub struct OverlaySettingsStore {
     path: PathBuf,
     memo: Arc<Mutex<Option<SettingsMemo>>>,
 }
 
-/// The last parse of a regular settings file, reused while the file keeps the
-/// same modification time and length. A write through the store clears it, so
-/// only an edit from outside the installer relies on that stamp.
+/// Only outside edits depend on the file stamp because writes through the store invalidate the cache.
 #[derive(Debug)]
 struct SettingsMemo {
     modified: SystemTime,
@@ -96,9 +92,6 @@ impl OverlaySettingsStore {
         }
     }
 
-    /// The saved settings, or the defaults when the file is missing or
-    /// invalid. The OBS overlay asks every few seconds, so the file is parsed
-    /// again only after its modification time or length changes.
     pub fn load(&self) -> anyhow::Result<OverlaySettings> {
         let Ok(metadata) = std::fs::metadata(&self.path) else {
             return Ok(OverlaySettings::default());
@@ -124,8 +117,6 @@ impl OverlaySettingsStore {
             // file), so it is not remembered: the next load reads again.
             return Ok(OverlaySettings::default());
         };
-        // Invalid contents stay invalid until the file changes, so the
-        // defaults they yield are remembered like any parse.
         let settings = self.parse_settings(&raw);
         if let Some((modified, len)) = stamp {
             *self.memo() = Some(SettingsMemo {
@@ -443,7 +434,6 @@ mod tests {
             StreamOverlayDisplayMode::Hero
         );
 
-        // Same length and modification time: the memoized parse is served.
         std::fs::write(&path, document("hero").replace("\"hero\"", "\"HERO\"")).unwrap();
         stamp(1_700_000_000);
         assert_eq!(
@@ -451,7 +441,6 @@ mod tests {
             StreamOverlayDisplayMode::Hero
         );
 
-        // An outside edit that moves the stamp is read back.
         std::fs::write(&path, document("herohalf")).unwrap();
         stamp(1_700_000_100);
         assert_eq!(
@@ -459,7 +448,6 @@ mod tests {
             StreamOverlayDisplayMode::Herohalf
         );
 
-        // So is a save through another store.
         writer
             .save_display_mode(StreamOverlayDisplayMode::Current)
             .unwrap();
@@ -486,7 +474,6 @@ mod tests {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
         };
 
-        // The file keeps its stamp, but its contents cannot be read for now.
         set_mode(0o000);
         let unreadable = store.load().unwrap().crop;
         set_mode(0o600);

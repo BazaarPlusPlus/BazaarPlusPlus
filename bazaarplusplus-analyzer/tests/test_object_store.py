@@ -1,17 +1,3 @@
-"""R2 adapter tests.
-
-Credential derivation fails closed, before any bucket request, when:
-  the token is empty                        -> ValueError "Complete R2 configuration"
-  the account id is not 32 hex characters   -> ValueError "CLOUDFLARE_ACCOUNT_ID must be"
-  the bucket name is not a valid R2 bucket  -> ValueError "Invalid R2 bucket"
-  /accounts/{account}/tokens/verify is not 200 or success
-                                            -> ObjectStoreError "Cloudflare rejected"
-  the verify result has no 32-hex token id  -> ObjectStoreError "returned no token id"
-  the token is not active                   -> ObjectStoreError "not active"
-  the verify request itself fails           -> ObjectStoreError "verification failed"
-A verified id is reused for the process and account; a failed verification is not.
-"""
-
 import hashlib
 import uuid
 from datetime import UTC, datetime
@@ -70,8 +56,6 @@ def _client_error(code: str) -> ClientError:
 
 
 class _Verify:
-    """A Cloudflare API stand-in on a real httpx client; records each call."""
-
     def __init__(self, *responses: httpx.Response) -> None:
         self.responses = list(responses)
         self.requests: list[httpx.Request] = []
@@ -202,8 +186,7 @@ def test_r2_adapter_maps_not_found_errors_and_rejects_bad_metadata(monkeypatch) 
 
 
 def test_r2_adapter_reads_objects_written_without_sha256_metadata(monkeypatch) -> None:
-    # A snapshot seeded with wrangler carries no sha256 metadata; stat reports
-    # no digest so LatestPublisher replaces it, and get hashes the bytes.
+    # Wrangler uploads lack the sha256 metadata this adapter records.
     client = _FakeR2Client(datetime(2026, 10, 11, tzinfo=UTC))
     client.metadata["Metadata"] = {}
     monkeypatch.setattr(object_store_module.boto3, "client", lambda *_args, **_kwargs: client)

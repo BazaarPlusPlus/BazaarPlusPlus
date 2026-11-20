@@ -6,10 +6,7 @@ using BazaarPlusPlus.GameInterop.ItemBoardPreview;
 
 namespace BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 
-/// <summary>
-/// One item for the native board: the game's instance, which has no size of its own, and the size
-/// the board's slot was planned for, below the template's when the item is Tiny.
-/// </summary>
+// The native instance has no saved size. Carry the slot's size separately for Tiny items.
 internal readonly record struct NativeBoardItem(TCardInstanceItem Instance, ECardSize? Size);
 
 internal static class NativeMonsterBoardItemMapper

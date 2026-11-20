@@ -83,7 +83,6 @@ public sealed class IdempotentAccountWriteTests
                 "new",
                 Scalar(connection, "SELECT run_id FROM battles WHERE battle_id='unattached'")
             );
-            // Each side freezes independently; filling one must not overwrite the other's first value.
             Execute(
                 connection,
                 "UPDATE bundle_seal_jobs SET player_account_id=NULL WHERE run_id='known';"

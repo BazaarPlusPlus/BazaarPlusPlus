@@ -28,10 +28,6 @@ internal readonly record struct NativeReplayRestartReadiness(
     NativeReplayRestartBlocker Blocker
 );
 
-/// <summary>
-/// Mirrors the native recap replay action's stable interaction gates and adds the BPP requirement
-/// that a recording restart begins only after the current playback has finished.
-/// </summary>
 internal static class NativeReplayRestartGate
 {
     internal static NativeReplayRestartReadiness Evaluate(NativeReplayRestartSnapshot snapshot)

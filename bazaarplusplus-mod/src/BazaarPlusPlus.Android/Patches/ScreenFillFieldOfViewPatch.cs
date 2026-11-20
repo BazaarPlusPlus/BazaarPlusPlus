@@ -3,13 +3,7 @@ using Unity.Cinemachine;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Cinemachine's brain writes its lens to the output camera in <c>LateUpdate</c>; once it has,
-/// the Mobile UI's <c>TouchScreenFill.AfterCameraUpdate</c>
-/// widens it for a screen narrower than 16:10.
-/// <c>PushStateToUnityCamera</c> itself is not hooked: its <c>ref CameraState</c> argument crashes
-/// the native trampoline as the Gameplay scene loads.
-/// </summary>
+// Detouring PushStateToUnityCamera with its ref CameraState crashes during Gameplay scene load.
 [HarmonyPatch(typeof(CinemachineBrain), nameof(CinemachineBrain.LateUpdate))]
 internal static class ScreenFillFieldOfViewPatch
 {

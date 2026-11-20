@@ -20,7 +20,6 @@ interface FixtureOptions {
   installerDataRoot?: string | undefined;
 }
 
-// A Data Root passed as undefined is left out of the written JSON.
 function fixture({
   userVersion,
   supported,

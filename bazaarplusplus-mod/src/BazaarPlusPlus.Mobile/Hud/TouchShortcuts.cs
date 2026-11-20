@@ -8,14 +8,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Hud;
 
-/// <summary>
-/// The touch panels' shortcuts: native-style round icons by the game's settings button,
-/// Collection in the lobby, hero select and a run, Ten-Win Builds in a run only. Core places them
-/// (<see cref="TouchHudLayout.Shortcut"/>): a corner around the gear, or a row left of it in a run
-/// on a screen that gathers the HUD above the board. They hide during a fight or a replay, under
-/// a native popup or card inspection, and under an open panel. History has no shortcut: its
-/// entries live in the game's own menus, which the host adds.
-/// </summary>
 internal sealed class TouchShortcuts : IDisposable
 {
     private const string Source = "touch_icon";
@@ -34,8 +26,6 @@ internal sealed class TouchShortcuts : IDisposable
     private string? _laidOutScreen;
     private TouchRect? _laidOutAnchor;
 
-    /// <param name="openCollection">Opens Collection with the open's source.</param>
-    /// <param name="openLiveBuild">Opens Ten-Win Builds, or null when the host has none.</param>
     public TouchShortcuts(
         Func<string, OverlayRequestOutcome> openCollection,
         Func<string, OverlayRequestOutcome>? openLiveBuild
@@ -45,20 +35,15 @@ internal sealed class TouchShortcuts : IDisposable
         _openLiveBuild = openLiveBuild;
     }
 
-    /// <summary>How many times the shortcuts were laid out, for device validation.</summary>
     public long Relayouts { get; private set; }
 
-    /// <summary>The shortcuts' artwork, decoded on first use. Main thread.</summary>
     public TouchHudIcons Icons => _icons ??= new TouchHudIcons();
 
-    /// <summary>Every frame, from the host's Overlay Panel Host.</summary>
     public void Tick(bool panelOpen)
     {
         var port = MobilePlatform.Port;
         var playing = port.PlayState().IsPlaying;
-        // The gear anchors only the shortcuts, which show outside fights: no scene search
-        // otherwise. A gear hidden during a fight is kept, so it needs no search, and its
-        // shortcuts no new layout, when it shows again.
+        // Keep the hidden gear reference across combat to avoid another scene search and relayout.
         if (
             !playing
             && (_anchor == null || !_anchor.gameObject.activeInHierarchy)
@@ -164,7 +149,6 @@ internal sealed class TouchShortcuts : IDisposable
             target.SetActive(active);
     }
 
-    /// <summary>The host stops: the canvas and the artwork go.</summary>
     public void Dispose()
     {
         if (_canvas != null)

@@ -4,7 +4,6 @@ using BazaarPlusPlus.Mobile;
 
 namespace BazaarPlusPlus.Android.Supporters;
 
-/// <summary>The composition-owned supporter catalog and rotation shared by touch panels.</summary>
 internal sealed class AndroidSupporterData : ISupporterRotation
 {
     private readonly SupporterCatalogModule _catalog;

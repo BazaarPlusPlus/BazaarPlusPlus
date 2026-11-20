@@ -23,9 +23,6 @@ public sealed class CollectionCardEnchantmentFacets
     public IReadOnlyCollection<CardHiddenTag> HiddenTags { get; }
 }
 
-// Immutable projection of a card template into the fields the catalog/filters/virtualizer need.
-// Single shared instance per Guid; filter engine and grid pass the same reference around. Each
-// host projects its game templates into it (desktop: CollectionCardVmProjection).
 public sealed class CollectionCardVm
 {
     public Guid Id { get; init; }
@@ -50,10 +47,7 @@ public sealed class CollectionCardVm
         new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>();
     public bool IsPackage { get; init; }
 
-    // Search-side memoisation. Every derivation is a pure function of fields fixed at
-    // construction, but the filter engine re-runs the whole search predicate over the active tab
-    // on each filter click, so recomputing them per card per query cost two full character sweeps
-    // and two allocations per card.
+    // Filter clicks rerun the search predicate for every card. Cache derivations from the immutable fields to avoid repeated scans and allocations.
     private string? _normalizedSearchCorpus;
     private string? _compactSearchCorpus;
     private string[]? _initialismKeys;
@@ -71,13 +65,10 @@ public sealed class CollectionCardVm
     public string[] InitialismKeys =>
         _initialismKeys ??= CollectionCardSearch.BuildInitialismKeys(this);
 
-    // Filter-side memoisation: the hero scope reads one bit per CardHero instead of enumerating
-    // Heroes through its interface for every card on every query.
     private int? _heroMask;
 
     internal int HeroMask => _heroMask ??= CollectionHeroScope.MaskOf(Heroes);
 
-    // The accepted catalog's name order (CollectionCardNameOrder); null until one ranks this card.
     internal CollectionCardNameOrder? NameOrder { get; set; }
 
     internal int NameRank { get; set; }

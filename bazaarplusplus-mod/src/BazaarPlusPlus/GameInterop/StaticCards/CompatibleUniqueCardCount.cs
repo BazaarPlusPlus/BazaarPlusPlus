@@ -6,10 +6,8 @@ using BazaarGameShared.Domain.Values.ReferenceValues;
 
 namespace BazaarPlusPlus.GameInterop.StaticCards;
 
-// Bind the override to the installed game's signature, so the same plugin can
-// load on clients using either IEnumerable<ICard> or IReadOnlyList<ICard>.
-// Retain the native parent for targeting, modifiers and implicit-card conditionals.
-// Keep the generated type unregistered: native discriminator discovery must not collide.
+// Installed game signatures vary between IEnumerable<ICard> and IReadOnlyList<ICard>.
+// Leave the generated subtype unregistered to avoid native discriminator collisions.
 internal static class CompatibleUniqueCardCount
 {
     private const BindingFlags InstanceMethods =

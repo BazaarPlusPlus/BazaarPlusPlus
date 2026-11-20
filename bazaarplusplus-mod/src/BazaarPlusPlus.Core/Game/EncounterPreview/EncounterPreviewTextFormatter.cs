@@ -5,10 +5,6 @@ using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// Content for the BPP section cloned into the native encounter tooltip: one line per
-// choice, accent-colored name plus the game's own result text (run through the
-// supplied colorizer for native keyword coloring). Card rewards whose pool tier is
-// day-driven get the current GameData tier distribution appended to the text.
 public static class EncounterPreviewTextFormatter
 {
     private const string AccentColor = "#FFD37E";
@@ -42,8 +38,6 @@ public static class EncounterPreviewTextFormatter
         var lines = new List<TooltipMarkup.Block>();
         foreach (var choice in option.ChoiceDetails)
         {
-            // Rolled pools ("Advanced Training" trainings, "Epic Battle" monsters)
-            // render as one summary line instead of one line per member.
             if (choice.Pool is { } pool)
             {
                 lines.Add(ChoicePoolBlock(pool, Colorize, dayTiers));
@@ -52,8 +46,6 @@ public static class EncounterPreviewTextFormatter
 
             var result = ChoiceResultText(choice, dayTiers);
 
-            // Prerequisite-unmet options render as one flat dimmed line (no accent, no
-            // keyword coloring) at reduced size; the resolver already sorted them last.
             if (!choice.IsEligible)
             {
                 var flat = string.IsNullOrWhiteSpace(result)
@@ -111,8 +103,6 @@ public static class EncounterPreviewTextFormatter
             : string.Empty;
     }
 
-    // Random-outcome events: one block per rolled alternative with its normalized
-    // probability; prerequisite-unmet groups render dimmed without a percentage.
     private static string BuildOutcomes(
         IReadOnlyList<EncounterOutcomeView> outcomes,
         Func<string, string> colorize,
@@ -130,7 +120,6 @@ public static class EncounterPreviewTextFormatter
             }
             else if (outcome.Details.Count == 0)
             {
-                // Collapsed same-shaped cluster (Farai's NPC packages): count only.
                 content = EncounterPreviewText.LevelUpRandomPoolSingle(outcome.OptionCount);
             }
             else if (outcome.Details.Count == 1)
@@ -146,8 +135,6 @@ public static class EncounterPreviewTextFormatter
                 children = entries;
             }
 
-            // Ownership-gated groups render dimmed; their own text already carries
-            // the condition ("(if you have Powder Keg or the Big One)").
             if (!outcome.IsEligible)
             {
                 items.Add(
@@ -174,8 +161,6 @@ public static class EncounterPreviewTextFormatter
         );
     }
 
-    // One rolled-pool choice line: combat roll, small expandable entry list (with
-    // accent-colored names to match sibling choice lines), or a bare option count.
     private static TooltipMarkup.Block ChoicePoolBlock(
         EncounterChoicePool pool,
         Func<string, string> colorize,
@@ -215,8 +200,6 @@ public static class EncounterPreviewTextFormatter
         );
     }
 
-    // One outcome entry: "Name: result", bare name, or bare result — query-pool
-    // summaries have no card name, so their result text stands alone.
     private static string DetailLine(
         EncounterChoiceDetail detail,
         Func<string, string> colorize,
@@ -231,8 +214,6 @@ public static class EncounterPreviewTextFormatter
             : EncounterPreviewText.JoinTooltipLabel(detail.DisplayName, colorize(result));
     }
 
-    // Flattens embedded newlines (descriptions render as list entries) and appends
-    // the day-tier suffix where the pool is day-driven.
     private static string ChoiceResultText(
         EncounterChoiceDetail choice,
         GameDataDayTierTable? dayTiers
@@ -268,9 +249,7 @@ public static class EncounterPreviewTextFormatter
         return builder.ToString();
     }
 
-    // A pool with no tier constraint (or one spanning every dealable tier) is day-driven: show
-    // the runtime GameData distribution when available. Narrow constraints already state the tier
-    // explicitly, and unavailable GameData adds no BPP-authored tier claim.
+    // A constraint spanning all currently dealable tiers still follows the day table. Narrower constraints already appear in the reward text.
     private static string? DayTierSuffix(
         EncounterChoiceDetail choice,
         GameDataDayTierTable? dayTiers

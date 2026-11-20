@@ -4,12 +4,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
-/// <summary>
-/// A battle's board counts as its History row chips show them. They match what the host's board
-/// preview renders: a card counts only with a parseable template id, the capture's card type (an
-/// item in a hand, a skill in a skill set; a socket effect in a hand does not count), and a
-/// template the game's static data knows, which only the host can answer.
-/// </summary>
+/// <summary>Use the same card eligibility as the board preview so the chips count only cards the Host can actually render.</summary>
 public static class HistoryBattleSnapshotCounter
 {
     public static HistoryBattleSnapshotCounts Count(

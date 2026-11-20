@@ -4,13 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>
-/// A static-data card's preview plans, read off its JSON as the game stores it: the Android host
-/// reads the static-data rows, and the desktop serializes each typed template with the game's own
-/// serializer settings into the same JSON. <paramref name="normalize"/> maps a native enum value
-/// to its member name, as <see cref="EncounterChoicePlanParser"/> takes it; <paramref name="hero"/>
-/// maps a native hero name to its facet, null when it has none.
-/// </summary>
+/// <summary>Both hosts use the game's static-data JSON shape. The desktop gets it by serializing typed templates with the game's settings.</summary>
 public sealed class EncounterPreviewCardReader(
     Func<string, string?, string?> normalize,
     Func<string, CardHero?> hero
@@ -30,10 +24,6 @@ public sealed class EncounterPreviewCardReader(
             _ => EncounterPreviewTemplateKind.Other,
         };
 
-    /// <summary>
-    /// The card's template plan: its kind, heroes, names and texts, and, for an event or an
-    /// encounter step, the reward it deals. Null when the card has no id.
-    /// </summary>
     public EncounterPreviewTemplatePlan? ReadTemplate(
         JObject card,
         IReadOnlyDictionary<string, EncounterPreviewAbilityValue>? abilityValues = null
@@ -61,10 +51,6 @@ public sealed class EncounterPreviewCardReader(
         );
     }
 
-    /// <summary>
-    /// The event's plan: its random outcomes, or else its choices, its choice limit, and, for a
-    /// merchant, the quality it sells. Null when the card has no id.
-    /// </summary>
     public EncounterPreviewEventPlan? ReadEvent(JObject card)
     {
         if (!Guid.TryParse(card["Id"]?.ToString(), out var id))

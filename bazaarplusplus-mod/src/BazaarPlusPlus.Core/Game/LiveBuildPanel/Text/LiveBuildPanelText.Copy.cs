@@ -43,7 +43,6 @@ public static partial class LiveBuildPanelText
     private static readonly LocalizedTextSet CopyLabelSeparatorText = new(": ", "：", "：");
     private static readonly LocalizedTextSet CopyListSeparatorText = new(", ", "、", "、");
 
-    // TextMeshPro rich text: colours, sizes, fonts, styles and keyword sprites.
     private static readonly Regex RichTextTag = new("<[^<>]*>", RegexOptions.CultureInvariant);
     private static readonly Regex Sprite = new(
         @"<sprite\b[^>]*?\bname\s*=\s*""?([^""\s>]+)""?[^>]*>",
@@ -55,13 +54,6 @@ public static partial class LiveBuildPanelText
 
     public static string CopiedBuild() => L.Resolve(CopiedBuildText);
 
-    /// <summary>
-    /// The browsed Ten-Win Build as Markdown for a player to paste into a chat with an AI: the
-    /// hero, the build's ten-win evidence, and each item from left to right with its size,
-    /// quality, enchantment, tags, cooldown, ammo and tooltip text. <paramref name="describe"/>
-    /// is the host's read of an item as the game shows it; <paramref name="iconLabel"/> names
-    /// the keyword a tooltip icon stands for. Null without a recommendation.
-    /// </summary>
     public static string? BuildMarkdown(
         LiveBuildPanelSnapshot snapshot,
         Func<string> theDragonsDisplayName,
@@ -94,7 +86,6 @@ public static partial class LiveBuildPanelText
         );
 
         text.Append("\n## ").Append(L.Resolve(CopyItemsText)).Append('\n');
-        // In the order the panel draws them: the board's planned sockets, left to right.
         var cards = BppItemBoardSlotPlanner
             .Plan(recommendation.Board)
             .Cards.OrderBy(card => card.DisplaySocketId ?? int.MaxValue)
@@ -144,10 +135,8 @@ public static partial class LiveBuildPanelText
     private static string Number(float value) =>
         value.ToString("0.#", CultureInfo.InvariantCulture);
 
-    // The tooltip's lines without markup, one per effect, blank and repeated lines dropped. A
-    // keyword icon usually sits beside its word ("Deal [icon]20 Damage", "when it [icon]Crits")
-    // and goes; one before a value whose line never names it ("this gains [icon]3") becomes
-    // its word.
+    // Tooltip icons often duplicate nearby words. Preserve the keyword as text when the icon
+    // is the only label for a numeric value.
     private static List<string> PlainLines(string richText, Func<string, string?> iconLabel)
     {
         var lines = new List<string>();
@@ -171,7 +160,6 @@ public static partial class LiveBuildPanelText
         return lines;
     }
 
-    // Whether the text after an icon, markup aside, starts with a number.
     private static bool NamesAValue(string raw, Match icon)
     {
         var after = RichTextTag

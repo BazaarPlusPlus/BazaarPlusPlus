@@ -5,11 +5,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Mobile.LiveBuild;
 
-/// <summary>
-/// The Ten-Win Builds recommendation repository and the supporter rotation the host's composition
-/// binds (<see cref="ISupporterRotation"/>). Only Warm starts the build catalog; opening another
-/// panel that credits supporters does not load the corpus.
-/// </summary>
+// Only Warm starts the build catalog. Crediting supporters in another panel leaves it cold.
 internal sealed class TouchLiveBuildData
 {
     private readonly ISupporterRotation _supporters;
@@ -29,11 +25,6 @@ internal sealed class TouchLiveBuildData
 
     public bool Warmed { get; private set; }
 
-    /// <summary>
-    /// Main thread. The first call starts both catalogs' loads in the background: the corpus
-    /// queues its remote fetch when the cache is missing or stale, as the desktop's panel does at
-    /// mount. Later calls do nothing.
-    /// </summary>
     public void Warm(string source)
     {
         if (Warmed || _stopped)
@@ -47,10 +38,7 @@ internal sealed class TouchLiveBuildData
         );
     }
 
-    /// <summary>
-    /// The next supporters of the rotation, or none while the list has not loaded yet: the
-    /// placeholder fallback is never credited.
-    /// </summary>
+    // The fallback entry is a placeholder and never gets credited.
     public IReadOnlyList<BPPSupporterSample> NextSupporters(int count) =>
         Warmed && !_stopped ? _supporters.Next(count) : Array.Empty<BPPSupporterSample>();
 

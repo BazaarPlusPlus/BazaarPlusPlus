@@ -1,5 +1,4 @@
 pluginManagement {
-    // toolchain.lock.json owns every tool version; the wrapper owns Gradle's.
     @Suppress("UNCHECKED_CAST")
     val lock = groovy.json.JsonSlurper().parseText(
         // Read through a provider, so that a lock change invalidates the configuration cache.

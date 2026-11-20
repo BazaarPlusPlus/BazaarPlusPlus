@@ -22,11 +22,7 @@ internal sealed record ReplayVideoEncoderDrainInput(
     ReplayVideoSessionTimeline Timeline = default
 );
 
-/// <summary>
-/// Owns a sealed encoder after the Unity capture session hands it off. Completion is safe to call
-/// concurrently: one caller drains and disposes the encoder, and every caller observes the same
-/// immutable capture result. This type deliberately has no Unity dependencies.
-/// </summary>
+// Concurrent callers share one drain and disposal, then observe the same immutable result.
 internal sealed class ReplayVideoEncoderDrain
 {
     private readonly ReplayVideoEncoderDrainInput _input;
@@ -155,7 +151,6 @@ internal sealed class ReplayVideoEncoderDrain
                     ("captured_frames", result.CapturedFrames),
                     ("repeated_frames", _input.RepeatedFrames),
                     ("dropped_frames", result.DroppedFrames),
-                    // Session construction to drain end: a diagnostic span, not the video length.
                     ("duration_ms", result.DurationMs),
                     ("video_duration_ms", result.VideoDurationMs),
                     ("init_ms", timeline.InitMs),

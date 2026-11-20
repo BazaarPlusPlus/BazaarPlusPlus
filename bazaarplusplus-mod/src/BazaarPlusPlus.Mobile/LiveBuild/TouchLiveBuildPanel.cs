@@ -1,5 +1,4 @@
 using BazaarPlusPlus.Core.Cards;
-using BazaarPlusPlus.Core.Cards.CardRental;
 using BazaarPlusPlus.Core.Cards.ItemBoards;
 using BazaarPlusPlus.Core.Cards.LiveCards;
 using BazaarPlusPlus.Core.Ui;
@@ -13,24 +12,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.LiveBuild;
 
-/// <summary>
-/// Ten-Win Builds on a mobile platform: the touch shell around Core's
-/// <see cref="LiveBuildPanelState"/>, the counterpart of the desktop's <c>LiveBuildPanel</c>: the
-/// live read (<see cref="IMobilePlatformPort.WalkLiveCards"/>), the touch view, and the manual
-/// refresh. Core owns the behavior and the data; this shell feeds it taps and renders its
-/// snapshot. It is a Main Overlay Panel (<see cref="TouchLiveBuildEntry"/>): the Overlay Panel
-/// Host opens and closes it, for the touch icon, the back key, combat, a scene change, another
-/// panel and the setting switched off; its close button and a failed relayout request the close.
-/// Closing returns every rented card. A refresh's fetch finishes on a pool thread, so its result
-/// is posted to the main thread (<see cref="IMobilePlatformPort.PostToMainThread"/>) before
-/// <see cref="LiveBuildPanelState.CompleteRefresh"/> runs, as the state requires. The view is
-/// laid out for the screen it opened on and laid out again when the resolution, density, or safe
-/// area changes, once the new screen has held still (<see cref="TouchRelayoutDebounce"/>) and no
-/// card is still setting up; the view's lifetime is Core's <see cref="TouchViewSlot{TView}"/>,
-/// so a view that fails to build leaves the panel closed, and the next open builds again. A card
-/// returned while it sets up leaves the old view at once (<see cref="CardRentalCore{TCard, TParent}"/>), so
-/// destroying the view never takes one.
-/// </summary>
+// Returning a pending rental detaches it before view teardown, so destroying the old view
+// cannot destroy a card that is still setting up.
 internal sealed class TouchLiveBuildPanel
 {
     private const float ScrollLogStep = 40f;
@@ -75,7 +58,6 @@ internal sealed class TouchLiveBuildPanel
         _state.BeginCorpusLoad();
     }
 
-    /// <summary>What the view's controls call.</summary>
     internal sealed record Commands(
         Action<string> Close,
         Action Refresh,
@@ -98,10 +80,8 @@ internal sealed class TouchLiveBuildPanel
 
     public long Relayouts { get; private set; }
 
-    /// <summary>Cards the panel's boards and inspection hold.</summary>
     public int Leases => _slot.View?.Leases ?? 0;
 
-    /// <summary>False when no view could be built: the panel stays closed.</summary>
     public bool Open(string source)
     {
         if (IsOpen)
@@ -144,7 +124,6 @@ internal sealed class TouchLiveBuildPanel
         return true;
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         var view = _slot.View;
@@ -164,18 +143,15 @@ internal sealed class TouchLiveBuildPanel
         return true;
     }
 
-    /// <summary>A card is inspected: the back key closes it before the panel.</summary>
     public bool IsInspecting => IsOpen && _slot.View!.Inspection.IsOpen;
 
     public void CloseInspection() => _slot.View?.Inspection.Close("back_key");
 
-    /// <summary>Main thread, every frame.</summary>
     public void Tick()
     {
         var view = _slot.View;
         if (view == null || !view.IsVisible)
             return;
-        // The debounce reads the setup state only for a changed key: skip it while the key holds.
         var key = TouchScreen.Key();
         var settingUp =
             !string.Equals(key, _relayout.LaidOut, StringComparison.Ordinal) && view.SettingUp;
@@ -199,7 +175,6 @@ internal sealed class TouchLiveBuildPanel
         }
     }
 
-    /// <summary>The panel's lifetime ends: no later refresh completion has a view effect.</summary>
     public void Dispose()
     {
         Close("disposed");
@@ -207,7 +182,6 @@ internal sealed class TouchLiveBuildPanel
         _slot.Drop();
     }
 
-    // The view for the current screen, built when the screen changed or the last build failed.
     private TouchLiveBuildView? EnsureView()
     {
         var key = TouchScreen.Key();
@@ -231,8 +205,6 @@ internal sealed class TouchLiveBuildPanel
         return view;
     }
 
-    // The build threw: the slot holds no view, the old view's cards already returned, and the
-    // next Open builds again. An open panel's state ends with it.
     private void LayoutFailed(Exception exception, string before, string key, bool open)
     {
         if (open)
@@ -250,8 +222,6 @@ internal sealed class TouchLiveBuildPanel
         );
     }
 
-    // The screen changed under the open panel: the old view returns its cards, and a view laid out
-    // for the new screen renders the same state. False when no view could be built.
     private bool Relayout()
     {
         var before = _slot.ScreenKey;
@@ -333,8 +303,7 @@ internal sealed class TouchLiveBuildPanel
         _ = RefreshAsync(_state, request, Guid.NewGuid());
     }
 
-    // The catalog refresh resumes without a context, so the fetch may finish on a pool thread:
-    // its result is posted to the main thread, where CompleteRefresh and the redraw run.
+    // The fetch can complete on a pool thread. CompleteRefresh and redraw need the main thread.
     private async Task RefreshAsync(
         LiveBuildPanelState state,
         LiveBuildRefreshRequest request,

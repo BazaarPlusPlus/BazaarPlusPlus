@@ -2,21 +2,8 @@
 # requires-python = ">=3.13,<3.15"
 # dependencies = ["UnityPy==1.25.4", "Pillow==12.0.0"]
 # ///
-"""Extracts Card Art (root ADR 0020) from a The Bazaar Data directory.
-
-    uv run --locked --script extract.py <Data dir> <GameData.db.zip> <out dir>
-        [--buildid <id>] [--gamedata-etag <etag>] [--previous <index.json>]
-
-Reads the live GameData (the game downloads it from
-https://data.playthebazaar.com/static/GameData.db.zip; the copy in the depot is
-months older), the Addressables catalog and the card and skill bundles under
-StreamingAssets/aa, and writes one WebP per distinct art to <out dir>, named
-by its content digest, plus index.json mapping each TemplateId to its file.
-Entries of --previous whose card the new GameData no longer has are kept, so
-runs from before a patch keep their art. It fails without writing index.json
-when too few cards resolve, so a game update that moves the art stops the
-publish instead of shipping a thin set. The bot reads index.json
-(src/art.ts); release/card-art.ts publishes the directory.
+"""The live GameData is required because the depot copy lags behind.
+Previous entries preserve Card Art for Runs from older patches.
 """
 
 import argparse
@@ -45,8 +32,6 @@ NONE = 0xFFFFFFFF
 
 
 class Catalog:
-    """Reads the string keys of an Addressables v2 binary catalog (catalog.bin)."""
-
     def __init__(self, data: bytes):
         self.b = data
         magic, self.version, self.keys_offset = struct.unpack_from("<iII", data, 0)
@@ -90,7 +75,6 @@ class Catalog:
         return self._string(encoded, chr(sep))
 
     def paths(self):
-        """Maps each string key to the internal id of its first location."""
         result = {}
         offsets = self._offsets(self.keys_offset)
         for index in range(0, len(offsets), 2):
@@ -113,7 +97,6 @@ def unity_version(data_dir):
 
 
 def game_cards(game_data_zip):
-    """Returns (TemplateId, type, ArtKey) for every item and skill in GameData."""
     with zipfile.ZipFile(game_data_zip) as archive:
         name = next(n for n in archive.namelist() if n.endswith("GameData.db"))
         with tempfile.TemporaryDirectory() as directory:

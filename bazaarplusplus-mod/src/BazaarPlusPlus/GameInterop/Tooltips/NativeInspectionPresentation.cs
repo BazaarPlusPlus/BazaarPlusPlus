@@ -10,8 +10,7 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.GameInterop.Tooltips;
 
-// A reversible lease on the native tooltip's canvases. ScreenSpaceOverlay also works when
-// the native inspection backdrop originally belongs to a camera rendered below BPP's UI.
+// Use ScreenSpaceOverlay because the native inspection camera can render below BPP's UI.
 internal sealed class NativeInspectionPresentation : IDisposable
 {
     private readonly CardTooltipController _controller;
@@ -124,8 +123,6 @@ internal sealed class NativeInspectionPresentation : IDisposable
         return DescriptionVisualBounds().size;
     }
 
-    // Returns the description bounds found before the move; once they are centred on the
-    // target, the previous frame already left the description in place.
     public Rect PositionDescription(float centerX, float centerY, float scale)
     {
         var rect = _controller.TooltipRectTransform;
@@ -135,9 +132,7 @@ internal sealed class NativeInspectionPresentation : IDisposable
         return bounds;
     }
 
-    // True once after a text inside the description changed its mesh, or the description's
-    // rect changed size (a section shown or hidden, an image resized). Scale and position
-    // writes never change a rect's size, so measuring cannot report itself.
+    // Size changes can signal new content because writing position and scale leaves rect size alone.
     public bool ConsumeDescriptionChanged()
     {
         var changed = _descriptionChanged;
@@ -160,9 +155,8 @@ internal sealed class NativeInspectionPresentation : IDisposable
         return true;
     }
 
-    // TEXT_CHANGED_EVENT is global, so only texts inside the description count. It runs inside
-    // TMP's dispatch to every listener, so a failure here must not escape; re-measuring is the
-    // safe answer to one.
+    // TMP dispatches this event globally. Filter to description texts and contain failures
+    // so other listeners still run.
     private void OnTextChanged(Object changed)
     {
         try
@@ -179,8 +173,6 @@ internal sealed class NativeInspectionPresentation : IDisposable
         }
     }
 
-    // Only the variant controls and their open lists protect clicks from dismissal.
-    // Native fullscreen dropdown blockers do not protect clicks elsewhere.
     public bool PollDismiss()
     {
         var mouse = Mouse.current;

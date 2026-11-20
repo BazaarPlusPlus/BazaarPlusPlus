@@ -14,6 +14,5 @@ public interface ICollectionPanelHeroPreferenceStore
     /// <summary>Stages <paramref name="hero"/>; it reaches disk on the next <see cref="Flush"/>.</summary>
     void Save(CardHero hero);
 
-    /// <summary>Writes a staged hero to disk; does nothing when none is staged.</summary>
     void Flush();
 }

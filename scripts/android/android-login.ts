@@ -32,7 +32,6 @@ Only one login command may run on a device. After a forcibly killed command,
 confirm it has stopped before removing the debug App's files/dev/login/lock.
 `;
 
-/** One adb call: binary, arguments, stdin, environment and its label in errors. */
 export type RunCommand = (
   command: string,
   args: string[],
@@ -64,13 +63,12 @@ function execute(
   return result.stdout;
 }
 
-// What the one-use request asks the Mod to do, with credentials only to log in.
 type Credentials =
   | { mode: 'resume' }
   | { mode: 'manual' }
   | { mode: 'login'; email: string; password: string };
 
-// The request file's contents; the credentials are deleted once written.
+// Credentials are removed from the request after writing it.
 export interface LoginRequest {
   id: string;
   mode: Credentials['mode'];
@@ -79,8 +77,6 @@ export interface LoginRequest {
   expiresAt?: number;
 }
 
-// The result.json the Mod writes, read from the device; signIn checks each
-// field before it trusts one.
 interface LoginResultFile {
   id: string;
   pid: number;
@@ -90,7 +86,6 @@ interface LoginResultFile {
   submitted: boolean;
 }
 
-/** An authenticated login receipt, correlated with its request and process. */
 export interface LoginReceipt {
   id: string;
   pid: number;
@@ -100,7 +95,6 @@ export interface LoginReceipt {
   submitted: boolean;
 }
 
-/** Options of signIn; the defaults reach a real device. */
 export interface SignInOptions {
   env?: NodeJS.ProcessEnv;
   run?: RunCommand;
@@ -151,8 +145,7 @@ const failures: Record<string, string> = {
   cancelled: 'The development login request was cancelled.'
 };
 
-// One process restart and one request. setup-device uses this same operation, including its
-// manual sign-in mode, rather than restarting again and inferring authentication from logs.
+// setup-device uses the same restart and request in manual mode.
 export async function signIn(
   serial: string,
   {
@@ -304,7 +297,6 @@ export async function signIn(
   }
 }
 
-// Both entry points keep cancellation active while a private login request exists.
 export async function withLoginCancellation<T>(
   action: (signal: AbortSignal) => Promise<T>
 ): Promise<T> {

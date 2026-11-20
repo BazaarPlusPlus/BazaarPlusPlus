@@ -11,13 +11,6 @@ import {
 } from './snapshot-lock.ts';
 import type { InteropLockEntry } from './snapshot-lock.ts';
 
-// The official Android APK watch (root GLOSSARY.md, Interop Snapshot): the
-// publisher's APK address, whether it differs from the APK the android-publisher
-// entry locks, what to do with a downloaded copy, and recording the ETag it is
-// now served with. .github/workflows/android-apk-watch.yml drives it through
-// the official-apk, downloaded-apk and record-apk-etag verbs of game-libs.ts
-// and imports OFFICIAL_ANDROID_APK_URL with bun -e.
-
 // The value of a strong ETag header ("abc" -> abc); null for a weak, missing or
 // malformed one, which identifies no bytes.
 export function strongEtag(header: string | null | undefined): string | null {
@@ -30,11 +23,7 @@ export function strongEtag(header: string | null | undefined): string | null {
 export const OFFICIAL_ANDROID_APK_URL =
   'https://data.playthebazaar.com/game/android/TheBazaar.apk';
 
-// Whether the official APK differs from the one the android-publisher entry
-// locks, read without downloading either: the publisher's Content-Length
-// against the stored copy's size, and its ETag against the one the entry
-// recorded. An entry without an ETag (a manual capture) compares sizes only.
-/** The HEAD request officialApkChanged sends: `fetch`, or a test double. */
+// A manual capture has no ETag, so it must fall back to comparing sizes.
 export type ApkHeadFetch = (
   url: string,
   init: RequestInit
@@ -47,7 +36,6 @@ export interface OfficialApkChangedOptions {
   fetchImpl?: ApkHeadFetch;
 }
 
-/** The publisher's APK against the one the android-publisher entry locks. */
 export interface OfficialApkCheck {
   changed: boolean;
   officialSize: number;
@@ -85,11 +73,6 @@ export async function officialApkChanged({
   };
 }
 
-// What the watch does with the official APK it downloaded: `capture` when its
-// bytes are not the locked ones, `etag` when they are but the publisher now
-// serves them under another strong ETag (record it, or every check downloads
-// again), `none` otherwise. A download without a strong ETag never asks for a
-// record: there is nothing to write.
 export type DownloadedApkKind = 'capture' | 'etag' | 'none';
 
 export function downloadedApkKind(
@@ -112,7 +95,6 @@ export function etagOfHeaders(headers: string): string | null {
   return strongEtag(line?.slice('etag:'.length));
 }
 
-/** A downloaded official APK against the android-publisher entry. */
 export interface DownloadedApk {
   kind: DownloadedApkKind;
   size: number;
@@ -120,14 +102,12 @@ export interface DownloadedApk {
   etag: string | null;
   lockedSha256: string;
   lockedEtag: string | null;
-  /** The branch of the pull request that records the ETag; null unless `etag`. */
   etagBranch: string | null;
 }
 
 export interface InspectDownloadedApkOptions {
   workspaceRoot?: string;
   apk: string;
-  /** The file `curl --dump-header` wrote for the download. */
   headers: string;
 }
 
@@ -154,10 +134,7 @@ export async function inspectDownloadedApk({
   };
 }
 
-// Records the ETag the publisher now serves the locked APK with, after
-// checking that `apk` is that APK: the publisher can change the ETag of
-// unchanged bytes, and an entry that kept the old one would be downloaded on
-// every check.
+// The publisher can change the ETag without changing bytes. Record it to avoid downloading the same APK again.
 export interface RecordApkEtagOptions {
   workspaceRoot?: string;
   apk: string;

@@ -13,14 +13,11 @@ import com.bazaarplusplus.android.release.PlatformManifest;
 
 import java.io.File;
 
-/** {@link LaunchHost} in the App: the APK's assets, the package manager, {@link GameSession}. */
 final class AndroidLaunchHost implements LaunchHost {
     private final Context context;
     private final InstalledGame game;
-    /** Null when this build carries no runtime; {@link BppLaunch#prepare} refuses such a launch first. */
     private final RuntimeFacts runtime;
 
-    /** Reads nothing: {@link BppLaunch#prepare} decides when each fact is read. */
     AndroidLaunchHost(Context context, InstalledGame game, RuntimeFacts runtime) {
         this.context = context;
         this.game = game;

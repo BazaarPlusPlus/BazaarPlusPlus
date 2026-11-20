@@ -51,7 +51,6 @@ struct HttpAppState {
     runtime: StreamRuntime,
     overlay_settings: OverlaySettingsStore,
     cache_directory: PathBuf,
-    /// The OBS strip route's screenshot paths, kept for this service run.
     strip_sources: SourcePaths,
 }
 
@@ -160,8 +159,7 @@ fn badge_asset_path(category: &str, file_name: &str) -> PathBuf {
         .join(file_name)
 }
 
-/// Borrowed in release so the six static asset routes serve the embedded text
-/// without copying; owned only on the debug-only filesystem hot-reload path.
+/// Release borrows embedded assets to serve them without copying.
 async fn load_overlay_asset(_file_name: &str, embedded: &'static str) -> Cow<'static, str> {
     #[cfg(debug_assertions)]
     {
@@ -213,8 +211,6 @@ async fn record_list(
     }
 }
 
-/// Without a record installation no record can show, so the record routes say
-/// that instead of reporting a failure.
 fn record_error_response(error: &anyhow::Error) -> Response {
     if error.is::<NoRecordInstallation>() {
         return (StatusCode::NOT_FOUND, NO_RECORD_INSTALLATION).into_response();
@@ -329,9 +325,7 @@ pub(super) fn png_response(bytes: Vec<u8>) -> Response {
         .into_response()
 }
 
-/// Every SQLite or filesystem access a handler makes runs here: a SQLite open
-/// can sleep on a busy database, and file reads and writes block, so none may
-/// run on the shared tokio workers that also serve the Tauri async commands.
+/// SQLite busy waits and file I/O must stay off the Tokio workers that serve Tauri commands.
 pub(super) async fn run_record_task<T, F>(task: F) -> anyhow::Result<T>
 where
     T: Send + 'static,
@@ -342,8 +336,6 @@ where
         .context("Overlay record task failed")?
 }
 
-/// A crop given in the query, validated before any blocking work; `None` means
-/// the saved overlay settings apply.
 fn requested_strip_crop(query: &StripPreviewQuery) -> anyhow::Result<Option<OverlayCropSettings>> {
     if query.left.is_none()
         && query.top.is_none()
@@ -484,9 +476,6 @@ mod tests {
     };
     use axum::http::HeaderValue;
 
-    /// Failure mode: a service started before any game directory had a
-    /// database found one elsewhere later, returned its rows without screenshots,
-    /// and the overlay, which shows only rows with a strip, stayed empty.
     #[tokio::test]
     async fn record_routes_report_a_missing_record_installation() {
         use tower::ServiceExt;
@@ -804,7 +793,6 @@ mod tests {
         std::fs::remove_file(&settings_path).unwrap();
         let (written_tx, written_rx) = std::sync::mpsc::channel();
         let release = blocking_settings_file(&settings_path, move |path| {
-            // An empty read makes the save keep the default display mode.
             drop(std::fs::OpenOptions::new().write(true).open(path).unwrap());
             let mut written = String::new();
             std::fs::File::open(path)

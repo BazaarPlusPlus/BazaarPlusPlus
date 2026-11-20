@@ -1,12 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
-/// <summary>
-/// Streams 32-bit IEEE-float interleaved PCM into a canonical 44-byte WAV
-/// (WAVE_FORMAT_IEEE_FLOAT = 3) file and back-patches the RIFF + data chunk
-/// sizes on close. PCM stays float — the mux/AAC pass handles conversion.
-/// Pure System.IO; no Unity/FMOD references. Writer-thread only.
-/// </summary>
+// Use from the writer thread only.
 internal sealed class WavStreamWriter : IDisposable
 {
     private const int HeaderByteLength = 44;
@@ -32,10 +27,6 @@ internal sealed class WavStreamWriter : IDisposable
 
     public string FilePath { get; }
 
-    /// <summary>
-    /// Appends <paramref name="floatCount"/> little-endian float samples starting
-    /// at <paramref name="offset"/> within <paramref name="buffer"/>. Writer-thread only.
-    /// </summary>
     public void WriteSamples(float[] buffer, int offset, int floatCount)
     {
         if (floatCount <= 0)
@@ -50,10 +41,6 @@ internal sealed class WavStreamWriter : IDisposable
         _dataByteLength += byteLen;
     }
 
-    /// <summary>
-    /// Seeks to the start, rewrites the header with the final RIFF + data sizes,
-    /// flushes, and closes the file handle. Idempotent.
-    /// </summary>
     public void Dispose()
     {
         if (_closed)
@@ -63,8 +50,7 @@ internal sealed class WavStreamWriter : IDisposable
         try
         {
             _stream.Seek(0, SeekOrigin.Begin);
-            // Clamp to a valid 32-bit RIFF size. Combat replays never approach this, but
-            // the guard keeps an over-long capture from back-patching a negative size.
+            // The RIFF size includes header bytes and must fit in the 32-bit size field.
             var dataLen = (int)Math.Min(_dataByteLength, int.MaxValue - 36L);
             var header = BuildHeader(_sampleRate, _channels, dataLen);
             _stream.Write(header, 0, header.Length);
@@ -76,39 +62,23 @@ internal sealed class WavStreamWriter : IDisposable
         }
     }
 
-    /// <summary>
-    /// Builds the exact 44-byte canonical WAV header for 32-bit IEEE-float PCM.
-    /// All multi-byte values are little-endian. This is the byte-exact unit-tested surface.
-    /// </summary>
     internal static byte[] BuildHeader(int sampleRate, int channels, int dataByteLength)
     {
         var header = new byte[HeaderByteLength];
 
-        // 0: "RIFF"
         WriteAscii(header, 0, "RIFF");
-        // 4: uint32 LE riffChunkSize = 36 + dataByteLength
         WriteUInt32(header, 4, (uint)(36 + dataByteLength));
-        // 8: "WAVE"
         WriteAscii(header, 8, "WAVE");
-        // 12: "fmt "
         WriteAscii(header, 12, "fmt ");
-        // 16: uint32 LE fmt chunk size = 16
         WriteUInt32(header, 16, 16);
         // 20: uint16 LE audioFormat = 3 (IEEE float)
         WriteUInt16(header, 20, 3);
-        // 22: uint16 LE channels
         WriteUInt16(header, 22, (ushort)channels);
-        // 24: uint32 LE sampleRate
         WriteUInt32(header, 24, (uint)sampleRate);
-        // 28: uint32 LE byteRate = sampleRate * channels * 4
         WriteUInt32(header, 28, (uint)(sampleRate * channels * 4));
-        // 32: uint16 LE blockAlign = channels * 4
         WriteUInt16(header, 32, (ushort)(channels * 4));
-        // 34: uint16 LE bitsPerSample = 32
         WriteUInt16(header, 34, BitsPerSample);
-        // 36: "data"
         WriteAscii(header, 36, "data");
-        // 40: uint32 LE dataByteLength
         WriteUInt32(header, 40, (uint)dataByteLength);
 
         return header;

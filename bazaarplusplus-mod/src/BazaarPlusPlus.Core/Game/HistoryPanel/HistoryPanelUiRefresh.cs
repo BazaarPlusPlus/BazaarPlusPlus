@@ -1,7 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>UI-thread refresh requests consumed once by the host's visible tick.</summary>
 public sealed class HistoryPanelUiRefresh
 {
     private bool _dirty;

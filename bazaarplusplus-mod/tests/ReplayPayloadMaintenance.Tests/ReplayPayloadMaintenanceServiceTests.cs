@@ -156,10 +156,7 @@ public sealed partial class ReplayPayloadMaintenanceServiceTests
             first.GetAwaiter().GetResult();
             throw new InvalidOperationException("Canceled maintenance unexpectedly completed.");
         }
-        catch (OperationCanceledException)
-        {
-            // Expected.
-        }
+        catch (OperationCanceledException) { }
     }
 
     private static void TenThousandPayloadsUseBulkStorageAndLinearWorkTimed(bool enforceTiming)
@@ -321,9 +318,8 @@ public sealed partial class ReplayPayloadMaintenanceServiceTests
         }
     }
 
-    // A real CombatReplayPayloadStore over a temporary directory. Payload files are empty:
-    // maintenance only lists and deletes by name. DenyDelete makes File.Delete throw the way
-    // the platform does: a read-only directory on Unix, a read-only file on Windows.
+    // Maintenance only lists and deletes payloads by name, so empty files suffice.
+    // DenyDelete uses a read-only directory on Unix and a read-only file on Windows.
     private sealed class PayloadDirectory : IDisposable
     {
         private const string FileSuffix = ".payload.mpack.gz";

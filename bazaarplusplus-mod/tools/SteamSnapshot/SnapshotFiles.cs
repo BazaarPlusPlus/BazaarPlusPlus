@@ -1,13 +1,8 @@
 namespace BazaarPlusPlus.SteamSnapshot;
 
-/// <summary>One depot file a snapshot keeps, and where it goes under the output directory.</summary>
 public sealed record SnapshotFile(string DepotName, string Target);
 
-/// <summary>
-/// Chooses files from a depot listing. The directory that holds globalgamemanagers is the Data
-/// directory: Select keeps the Managed directory beside it (a Game Assembly Snapshot), and
-/// SelectCardArt keeps what Card Art is extracted from. No platform's install layout is named here.
-/// </summary>
+// Use globalgamemanagers to locate the Data directory across Steam depot layouts.
 public static class SnapshotFiles
 {
     public const string VersionFile = "globalgamemanagers";
@@ -34,10 +29,6 @@ public static class SnapshotFiles
         return selected;
     }
 
-    /// <summary>
-    /// Chooses the files Card Art is extracted from: the version file, the Addressables catalog
-    /// in StreamingAssets, and the card and skill bundles beside it.
-    /// </summary>
     public static IReadOnlyList<SnapshotFile> SelectCardArt(IEnumerable<string> depotFiles)
     {
         var (names, dataRoot) = Listing(depotFiles);

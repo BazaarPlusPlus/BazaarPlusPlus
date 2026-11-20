@@ -18,13 +18,8 @@ using Xunit;
 
 namespace CollectionCardProjections.Tests;
 
-// The desktop host's card projection (ADR-0015): game templates in, Core CollectionCardVm out.
-// Each test is one paragraph of checks the console capsule ran; a paragraph that reads a template
-// or a card an earlier paragraph built runs in the same test, after it.
 public sealed class CollectionCardProjectionTests
 {
-    // Vocabulary pin (ADR-0015): every member of the game enums this snapshot defines maps to a card
-    // facet, so a game update that adds one fails here instead of silently dropping it from cards.
     [Fact]
     public void Every_game_enum_member_maps_to_a_card_facet()
     {
@@ -62,10 +57,6 @@ public sealed class CollectionCardProjectionTests
             "This snapshot's The Dragons member should map to the canonical facet."
         );
     }
-
-    // The desktop host's projection of game card templates into the Core CollectionCardVm
-    // (CollectionCardVmProjection, CollectionCardClassifier, DesktopCardFacets): mechanics, derived
-    // keywords, catalog classification, and the search corpus built from game localization.
 
     [Fact]
     public void Derived_lifesteal_and_skill_multicast_availability_follow_card_facts()
@@ -585,9 +576,7 @@ public sealed class CollectionCardProjectionTests
         );
     }
 
-    // Destruction-reaction triggers (#156): each of the three destroy-cluster triggers matches
-    // Destroy on its own, independent of the ability's action. Non-destroy actions below keep the
-    // assertion focused on the trigger surface.
+    // Use non-destroy actions to isolate whether the trigger alone matches the Destroy filter.
     [Fact]
     public void An_active_base_ability_triggered_by_TTriggerOnBeforeCardDestroyed_should_project_Destroy()
     {
@@ -771,7 +760,6 @@ public sealed class CollectionCardProjectionTests
         );
     }
 
-    // Remaining destroy-cluster action / tag / attribute surfaces (#157).
     [Fact]
     public void A_root_TActionCardRepair_projects_Destroy_and_related_only_facts_make_the_chip_available()
     {
@@ -787,8 +775,6 @@ public sealed class CollectionCardProjectionTests
             "A root TActionCardRepair in an active base ability should project Destroy."
         );
 
-        // #158: related-only Destroy facts (no TActionCardDestroy) still make the chip available.
-        // Item/Skill stay independent; packages never contribute.
         var relatedOnlyRepairVm = Project(rootRepairTemplate);
         var relatedOnlyItemAvailability = CollectionFacetAvailability.SnapshotFor(
             new[] { relatedOnlyRepairVm }

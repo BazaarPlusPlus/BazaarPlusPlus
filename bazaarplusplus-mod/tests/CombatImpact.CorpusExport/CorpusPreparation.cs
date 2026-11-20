@@ -16,14 +16,6 @@ using MessagePack;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json;
 
-/// <summary>
-/// <c>prepare &lt;corpus-dir&gt; &lt;replay-store&gt; [battle-id ...]</c>: builds the committed
-/// pinned corpus. Run it from the mod root; <c>tests/CombatImpact.Corpus/evidence/README.md</c>
-/// owns the procedure. It writes the Ghost concert-hall fixtures of
-/// <c>tests/CombatImpactAdapter.Tests/Fixtures/</c> as a replay payload, copies each named battle
-/// out of a local <c>CombatReplays</c> store with the opponent's identity scrubbed, and trims
-/// <c>GameData.db</c> to the <c>cards</c> rows the corpus can read.
-/// </summary>
 internal static class CorpusPreparation
 {
     private const string ConcertHallBattleId = "ghost-concert-hall-tempo-20260907";
@@ -92,11 +84,7 @@ internal static class CorpusPreparation
         return (spawn, combat);
     }
 
-    /// <summary>
-    /// The repository is public. The only identity a replay carries is the opponent block of the
-    /// spawn state (name, titles, rank and rating, account id, cosmetic and collection ids);
-    /// the projection reads none of it. The despawn message is never read and is written empty.
-    /// </summary>
+    // Scrub identity before publishing fixtures. Only the spawn's opponent block carries identity.
     private static void ScrubOpponent(GameSim spawn)
     {
         if (spawn.CurrentState?.PvpOpponent is not { } opponent)
@@ -143,7 +131,6 @@ internal static class CorpusPreparation
             }
         );
 
-    /// <summary>The template ids <c>CombatImpactCorpusCatalog.BuildEntities</c> looks up.</summary>
     private static HashSet<Guid> ReferencedTemplates(
         IEnumerable<(GameSim Spawn, CombatSim Combat)> replays
     )
@@ -165,12 +152,7 @@ internal static class CorpusPreparation
         return templates;
     }
 
-    /// <summary>
-    /// Copies the referenced rows plus every PlayerEffect row:
-    /// <c>CombatImpactImplicitPlayerEffectReader.AddMissing</c> matches observed effects against
-    /// all PlayerEffect templates and resolves only a unique match, so dropping one could turn an
-    /// ambiguous signature into a resolved one.
-    /// </summary>
+    // Keep every PlayerEffect row so trimming cannot turn an ambiguous signature into a unique match.
     private static int TrimGameData(string sourcePath, string targetPath, ISet<Guid> referenced)
     {
         using var source = new SqliteConnection(

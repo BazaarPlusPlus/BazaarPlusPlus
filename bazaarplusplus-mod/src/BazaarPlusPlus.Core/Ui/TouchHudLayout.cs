@@ -1,14 +1,9 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Ui;
 
-/// <summary>Touch targets around native HUD anchors; visible artwork may be smaller.</summary>
 public static class TouchHudLayout
 {
-    /// <summary>
-    /// The target left of the settings button, level with it. A target is at least as wide as the
-    /// gear, so it ends left of <see cref="ShortcutBelow"/>'s as well, and the corner's hit areas
-    /// never meet.
-    /// </summary>
+    // Using the gear's width as a minimum keeps the two corner hit areas separate.
     public static TouchRect ShortcutBeside(TouchMetrics metrics, TouchRect gear)
     {
         var target = ShortcutSize(metrics, gear);
@@ -18,10 +13,6 @@ public static class TouchHudLayout
         return new TouchRect(Math.Max(safe.Left, right - target), top, target, target);
     }
 
-    /// <summary>
-    /// The <paramref name="index"/>th target left of the settings button (from 0), level with it:
-    /// a row along the screen's top edge for a board that reaches up to just under the gear.
-    /// </summary>
     public static TouchRect ShortcutInRow(TouchMetrics metrics, TouchRect gear, int index)
     {
         var target = ShortcutSize(metrics, gear);
@@ -32,20 +23,13 @@ public static class TouchHudLayout
         return new TouchRect(Math.Max(safe.Left, right - target), top, target, target);
     }
 
-    /// <summary>
-    /// The <paramref name="index"/>th shortcut's target by the settings button (0 Collection, 1
-    /// Ten-Win Builds). In a run on a screen that gathers the HUD above the board
-    /// (<see cref="ScreenFill.GathersHudAbove"/>), the board reaches up to just under the gear, so
-    /// all sit in a row left of it (<see cref="ShortcutInRow"/>). Elsewhere they make a corner:
-    /// the first below the gear, the second beside it.
-    /// </summary>
+    // When Screen Fill gathers the HUD, the board reaches nearly to the gear and leaves no room below it.
     public static TouchRect Shortcut(TouchMetrics metrics, TouchRect gear, int index, bool inRun) =>
         inRun && ScreenFill.GathersHudAbove(metrics.CanvasWidth / metrics.CanvasHeight)
             ? ShortcutInRow(metrics, gear, index)
         : index == 0 ? ShortcutBelow(metrics, gear)
         : ShortcutBeside(metrics, gear);
 
-    /// <summary>The target below the settings button, centred under it.</summary>
     public static TouchRect ShortcutBelow(TouchMetrics metrics, TouchRect gear)
     {
         var target = ShortcutSize(metrics, gear);
@@ -55,17 +39,9 @@ public static class TouchHudLayout
         return new TouchRect(left, top, target, target);
     }
 
-    /// <summary>
-    /// A shortcut's side: a full touch target, and room for artwork the gear's size, which the
-    /// shortcut copies.
-    /// </summary>
     private static float ShortcutSize(TouchMetrics metrics, TouchRect gear) =>
         Math.Max(metrics.MinTarget, Math.Max(gear.Width, gear.Height));
 
-    /// <summary>
-    /// Whether the clock can sit beside <paramref name="vault"/>, the box read from the board:
-    /// wholly on the canvas, right of center, and at least a touch target tall.
-    /// </summary>
     public static bool FitsBesideVault(TouchMetrics metrics, TouchRect vault) =>
         float.IsFinite(vault.Left)
         && float.IsFinite(vault.Top)
@@ -75,16 +51,7 @@ public static class TouchHudLayout
         && vault.CenterX > metrics.CanvasWidth / 2
         && vault.Height >= metrics.MinTarget;
 
-    /// <summary>
-    /// The combat clock. Where the screen leaves a band for a <see cref="TouchMetrics.MinTarget"/>
-    /// row above <paramref name="boardTop"/> (the board's top edge, when the host gathers the HUD
-    /// there), the clock is one row centred in it: the time, then speed and pause. Else, where a
-    /// band under the board fits that row, as a screen squarer than 16:10 leaves, it is that row
-    /// centred under <paramref name="vault"/>. A row's speed and pause hit areas grow about the
-    /// controls to a full <see cref="TouchMetrics.MinTarget"/>. Otherwise the clock sits right of
-    /// the vault and spans its height, the time row above a shorter control row, and the hit areas
-    /// keep a full target by extending below the plaque towards the screen edge.
-    /// </summary>
+    // When the clock sits beside the vault, extend hit areas toward the screen edge to meet the touch target floor.
     public static PlaybackLayout Playback(
         TouchMetrics metrics,
         TouchRect vault,
@@ -139,7 +106,6 @@ public static class TouchHudLayout
         float hitHeight;
         if (controls.Left >= time.Right - 0.01f)
         {
-            // A row: the hit areas are the controls, grown about their centre to a target.
             hitHeight = Math.Max(target, controls.Height);
             hitTop = Math.Clamp(
                 controls.CenterY - hitHeight / 2,
@@ -162,17 +128,11 @@ public static class TouchHudLayout
         );
     }
 
-    /// <summary>The tallest the one-row clock under the vault gets.</summary>
     public const float RowHeightDp = 52f;
 
-    /// <summary>The time's width in the one-row clock.</summary>
     public const float RowTimeWidthDp = 96f;
 }
 
-/// <summary>
-/// <see cref="Time"/> and <see cref="Controls"/> are the visible rows; <see cref="Speed"/> and
-/// <see cref="Pause"/> are the hit areas under the control row's left and right halves.
-/// </summary>
 public readonly record struct PlaybackLayout(
     TouchRect Panel,
     TouchRect Time,
@@ -181,6 +141,5 @@ public readonly record struct PlaybackLayout(
     TouchRect Pause
 )
 {
-    /// <summary>The time and the controls side by side in one row, rather than stacked.</summary>
     public bool Row => Controls.Left >= Time.Right - 0.01f;
 }

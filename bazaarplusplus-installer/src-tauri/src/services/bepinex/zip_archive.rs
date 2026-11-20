@@ -32,7 +32,6 @@ pub(super) struct ExtractReport {
     pub(super) skipped_identical: Vec<String>,
 }
 
-/// Extracts every file entry except the install-relative paths in `skip`.
 pub(super) fn extract_zip(
     zip_bytes: &[u8],
     dest_dir: &Path,
@@ -101,7 +100,6 @@ pub(super) fn zip_entry_paths(
         .collect()
 }
 
-/// The bytes of one file entry, or `None` when the zip has no such entry.
 pub(super) fn zip_entry_bytes(zip_bytes: &[u8], name: &str) -> anyhow::Result<Option<Vec<u8>>> {
     let mut archive = zip::ZipArchive::new(Cursor::new(zip_bytes))?;
     let mut file = match archive.by_name(name) {
@@ -114,9 +112,7 @@ pub(super) fn zip_entry_bytes(zip_bytes: &[u8], name: &str) -> anyhow::Result<Op
     Ok(Some(contents))
 }
 
-/// A shared dll another mod ships at the same version must not be rewritten
-/// on every BPP install; the length gate keeps the multi-MB payload entries
-/// from being read unless they could actually match.
+/// Skip identical shared DLLs so a reinstall does not rewrite another mod's copy.
 fn existing_file_is_identical(path: &Path, contents: &[u8]) -> bool {
     match std::fs::metadata(path) {
         Ok(metadata) if metadata.is_file() && metadata.len() == contents.len() as u64 => {

@@ -10,8 +10,6 @@ from bazaarlens.object_store import ObjectStat, StoredObject
 
 
 class MemoryObjectStore:
-    """Dict-backed ``ObjectStore`` that records every request in order."""
-
     def __init__(self) -> None:
         self.objects: dict[str, StoredObject] = {}
         self.requests: list[tuple[str, str]] = []
@@ -49,8 +47,6 @@ class MemoryObjectStore:
 
 
 class _NoBatches:
-    """Projection batch stream of an hour that listed no Bundles."""
-
     bundle_count = 0
 
     def __iter__(self) -> Iterator[tuple[str, pa.RecordBatch]]:

@@ -51,7 +51,6 @@ public sealed class TheDragonsHeroIdentityTests
     {
         Assert.True(TheDragonsHeroIdentity.TryResolve("Hero8", out var dragons));
 
-        // A build that only exposes the legacy member name must still write "TheDragons".
         Assert.Equal("TheDragons", TheDragonsHeroIdentity.ToCanonicalId(dragons, _ => "Hero8"));
         Assert.Equal(
             "TheDragons",

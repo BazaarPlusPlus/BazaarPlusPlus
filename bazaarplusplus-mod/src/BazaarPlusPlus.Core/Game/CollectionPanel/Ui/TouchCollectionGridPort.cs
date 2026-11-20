@@ -3,14 +3,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-/// <summary>
-/// The grid side of <see cref="CollectionViewState"/> on a touch screen, in the Android host's
-/// Collection: it keeps the visible cards and their Core <see cref="CollectionGridLayout"/>,
-/// packed into the column count the touch layout chooses for the grid viewport's width
-/// (<see cref="CollectionTouchLayout.GridColumns"/>), and reports the count and content height
-/// the view state renders. A new width that changes the
-/// column count re-packs the same cards.
-/// </summary>
 public sealed class TouchCollectionGridPort : ICollectionGridPort
 {
     private bool _published;
@@ -23,10 +15,8 @@ public sealed class TouchCollectionGridPort : ICollectionGridPort
 
     public CollectionGridLayout Layout { get; private set; } = CollectionGridLayout.Empty;
 
-    /// <summary>Bumped on every publish, so the grid knows to re-place its cards.</summary>
     public int Revision { get; private set; }
 
-    /// <summary>The touch layout the columns follow; set before the grid measures its viewport.</summary>
     public CollectionTouchLayout? Touch { get; set; }
 
     public float ViewportWidth

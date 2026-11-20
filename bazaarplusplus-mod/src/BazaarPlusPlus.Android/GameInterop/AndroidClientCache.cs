@@ -4,10 +4,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The signed-in player's profile and rank from the game's <c>ClientCache</c>, the Android
-/// counterpart of the desktop's <c>BppClientCacheBridge</c>. A cache without data reads as absent.
-/// </summary>
 internal static class AndroidClientCache
 {
     public static string? TryGetProfileAccountId()
@@ -64,10 +60,8 @@ internal static class AndroidClientCache
         }
     }
 
-    /// <summary>
-    /// Calls <paramref name="onRefreshed"/> each time the game replaces the cached rank, as the
-    /// end-of-run screen does once the server has applied the Run's rating change. Main thread.
-    /// </summary>
+    // The end-of-run screen refreshes the cached rank after the server applies the Run's rating
+    // change.
     public static IDisposable SubscribeRankRefreshed(Action<string?, int?> onRefreshed)
     {
         var listener =

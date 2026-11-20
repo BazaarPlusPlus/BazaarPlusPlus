@@ -222,7 +222,6 @@ function RunRow({
 }) {
   const { locale, t } = useI18n();
   const result = formatRunResultLabel(run);
-  // A change without a rating to anchor it is not shown.
   const ratingDelta =
     run.final_player_rating === null
       ? null
@@ -334,8 +333,7 @@ function RunThumbnail({
   return (
     <div className="bpp-history-run-preview">
       {visibleUrl ? (
-        // Preserve the complete server-generated strip. Its rounded crop
-        // dimensions can vary by a few pixels between source resolutions.
+        // The server rounds crop dimensions to source pixels, so display the entire strip.
         <img
           src={visibleUrl}
           alt=""
@@ -369,8 +367,6 @@ function HistoryProblemBanner({
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  // Only V5 data and no current database: point at the Install page's reinstall
-  // hint instead of a bare Install link.
   const guidance = useHistoryUnavailableGuidance(
     problem.code === 'history_unavailable'
   );

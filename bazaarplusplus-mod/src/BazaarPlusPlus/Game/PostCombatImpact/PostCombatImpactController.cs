@@ -16,9 +16,7 @@ namespace BazaarPlusPlus.Game.PostCombatImpact;
 
 internal sealed class PostCombatImpactController : MonoBehaviour
 {
-    // Waits on native transitions and asset loads end by wall-clock time as well as frames: the
-    // native fades run on unscaled time, so a frame-only bound gives up mid-fade at high frame
-    // rates and suppresses the hover.
+    // Native fades use unscaled time, so a frame-only timeout can expire mid-fade at high frame rates.
     private static readonly NativeTooltipWaitBudget NativeTooltipWait = new(
         frames: 60,
         seconds: 1f
@@ -549,10 +547,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
                 && TryConsumeTransientShowRetry(revision)
             )
             {
-                // TryOpen fails soft when the native controller's Destroy is already pending — a
-                // state no managed liveness check can see before frame end. Discard the dying
-                // auxiliary and re-request a fresh one instead of suppressing the still-valid
-                // hover.
+                // A pending native Destroy is invisible to managed liveness checks before frame end, so retry with a fresh auxiliary.
                 var deadAuxiliary = _pendingAuxiliaryController;
                 if (deadAuxiliary != null)
                 {
@@ -926,9 +921,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         _nativeAuxiliaryTakeoverActive = true;
     }
 
-    // The empty-frame leftover comes only from this feature handing a pooled auxiliary
-    // controller back with inactive text nodes, so the audit runs from a takeover until an idle
-    // native display proves the nodes restored, not on every frame of normal play.
+    // Audit after a pooled auxiliary takeover leaves its text nodes inactive, until native display restores them.
     private void AuditVisibleNativeAuxiliaryTooltip()
     {
         var takeoverInProgress = IsAuxiliaryTakeoverInProgress();
@@ -1157,10 +1150,6 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         : _auxiliaryRequestOutstanding ? "outstanding_request"
         : "unknown";
 
-    /// <summary>
-    /// Grants a bounded number of same-hover re-requests after a transient show failure, so a
-    /// persistent failure still ends in suppression instead of a hide/show loop.
-    /// </summary>
     private bool TryConsumeTransientShowRetry(int revision)
     {
         if (_transientShowRetryRevision != revision)
@@ -1268,8 +1257,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
         FinishPendingShow(hidePrimary: true);
         if (suppressUntilExit && revision == _hoverRevision)
             _suppressedHoverRevision = revision;
-        // A suppressed hover leaves the player with the native tooltip alone, so its reason must
-        // reach a release log: a Debug-only reason made that state impossible to attribute.
+        // Suppressed hovers show only the native tooltip, so the reason must reach release logs.
         if (exception != null)
             LogInteractionFailure(reasonCode, exception);
         else if (suppressUntilExit)
@@ -1345,9 +1333,7 @@ internal sealed class PostCombatImpactController : MonoBehaviour
             () => [("reason_code", reasonCode)]
         );
 
-    // Card-identified interaction trail. Exists because the plain observed trail proved unable
-    // to attribute silent per-card failures: it shows a hover with no outcome but not which card
-    // or which silent gate swallowed it.
+    // The general interaction trail cannot identify which card or gate suppressed a hover.
     private static void LogInteractionTrace(
         PostCombatImpactReasonCode reasonCode,
         Guid cardTemplateId,

@@ -18,10 +18,8 @@ public sealed class ReplayPlaybackPublisher
         _services = services ?? throw new ArgumentNullException(nameof(services));
     }
 
-    /// <summary>Battle id of the session currently between BeginSession and PublishEnded.</summary>
     public string? ActiveSessionBattleId => _activeBattleId;
 
-    /// <summary>Captured battle metadata for the active session, when available.</summary>
     public PvpBattleManifest? ActiveSessionManifest => _activeManifest;
 
     public bool TryPromoteActiveSessionToRecording(string battleId)
@@ -86,9 +84,7 @@ public sealed class ReplayPlaybackPublisher
 
     public ReplayPlaybackPublishOutcome PublishEnded(string reason, bool failed)
     {
-        // Always clear the session, even when no "starting" event was ever published (a start
-        // that failed before playback began). Leaving _activeBattleId set would leak the failed
-        // battle id into ActiveSessionBattleId, and from there into unrelated, later replays.
+        // Clear even a session that failed before publishing its start so its battle ID cannot leak into later replays.
         var battleId = _activeBattleId ?? string.Empty;
         var startingPublished = _startingPublished;
         _startingPublished = false;

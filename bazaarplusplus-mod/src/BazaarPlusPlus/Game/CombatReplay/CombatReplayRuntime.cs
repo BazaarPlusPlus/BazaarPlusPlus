@@ -171,8 +171,6 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
             var manifest = capture.Manifest;
             var route = CapturedReplayRouter.Resolve(manifest);
-            // A PvP battle whose replay parts failed is not latched or persisted, as before; the
-            // window has logged which part failed.
             if (route == CapturedReplayRoute.PersistedPvp && capture.Replay is null)
             {
                 BppLog.ErrorEvent(
@@ -719,9 +717,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
     {
         deferredSimulation = Task.CompletedTask;
 
-        // The coroutine invokes Simulate again after the presentation boundary. Permit exactly
-        // that message reference once so the Harmony prefix publishes CombatSimObserved and hands
-        // the simulation to Post-Combat Impact once, then reaches the native method.
+        // Admit the same message reference once so resumed native simulation cannot publish CombatSimObserved twice.
         if (ReferenceEquals(_permittedCurrentReplaySimulation, message))
         {
             _permittedCurrentReplaySimulation = null;
@@ -787,9 +783,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
                 FailCurrentReplayPresentationGateBeforeRecording(
                     "native-replay-simulation-canceled-before-recording"
                 );
-                // Native CombatSimHandler treats cancellation as a successful early return.
-                // Preserve that contract so ReplayState can still reverse the board and release
-                // its own input lock instead of faulting its async-void replay workflow.
+                // Native CombatSimHandler returns normally on cancellation so ReplayState can reverse the board and release input.
                 CompleteDeferredCurrentReplaySimulation(completion);
                 yield break;
             }
@@ -825,9 +819,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         );
         BeginCurrentReplayRecordingAtPresentationBoundary();
 
-        // Cross the rendered-frame boundary, then resume on the next Update. Even if this
-        // coroutine runs before the recorder at EndOfFrame, the capture coroutine still queues
-        // the clean pre-action frame before Simulate is invoked.
+        // Resume on Update so the recorder can queue the clean pre-action frame even if this coroutine runs first at EndOfFrame.
         yield return waitForRenderedFrame;
         yield return null;
 
@@ -1146,9 +1138,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
 
         try
         {
-            // ReplayState starts rebuilding both boards without awaiting SpawnCombatCards, then
-            // fires ReplayEnded. Recap skips any card whose controller is not registered yet, so
-            // gate the native click on the same presentation readiness used at recording start.
+            // ReplayEnded can fire before SpawnCombatCards registers controllers. Native Recap skips unregistered cards.
             _pendingCurrentReplayRecapHold = StartCoroutine(
                 OpenRecordedReplayRecapAfterBoardSettles(
                     currentNativeRecording,
@@ -1225,9 +1215,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             yield break;
         }
 
-        // The native button rejects programmatic clicks while input is blocked. Release our
-        // short post-replay lease immediately before invoking it; Recap() then owns its native
-        // 0.5-second input block while the board flips.
+        // The recap button rejects clicks while input is blocked. Recap acquires its own input lease on invocation.
         RestoreCurrentReplayRecapInput();
         try
         {
@@ -1333,10 +1321,7 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
             }
 
             recapTransitionObserved |= boardManager.StorageMoving;
-            // ShowRecapView constructs recap cards asynchronously before setting StorageMoving.
-            // Require the transition to start and then finish; observing only a false value could
-            // mistake that asset-loading gap for a fully rendered recap. Recap() also owns the
-            // game's input block for its first 0.5 seconds, so wait for that lease to settle too.
+            // ShowRecapView loads cards before setting StorageMoving, so a false value alone can be the loading gap. Recap also owns an input lease.
             if (recapTransitionObserved && !boardManager.StorageMoving && !AppState.BlockInput)
                 break;
 
@@ -1496,7 +1481,6 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         SavedReplays?.OnReplayStateExited();
     }
 
-    // The bootstrapped ReplayState.Exit prefix (CombatReplayStateExitPatch).
     internal static bool TryExitBootstrappedSavedReplayToMenu() =>
         Instance?.SavedReplays?.TryExitBootstrapped() ?? false;
 
@@ -1508,7 +1492,6 @@ internal sealed class CombatReplayRuntime : MonoBehaviour
         _managedRecordingRestartFailure = null;
     }
 
-    // Patches/Combat/CombatReplayVisualPatches.cs calls this static facade — keep the surface.
     public static void HideEncounterPickerOverlays() =>
         HealthBarBinder.HideEncounterPickerOverlays();
 }

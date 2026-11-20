@@ -12,10 +12,8 @@ using TheBazaar.Tooltips;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 
-// Package cards already identify their accepting merchant by stable encounter-template GUID.
-// Append the native-compiled merchant/rule text while the game is still building its passive
-// tooltip string. The native renderer, enchant-preview section host, and layout system then consume
-// the complete block in their normal order.
+// Patch while the native passive text is being built so enchantment previews and layout
+// both see the complete block.
 [HarmonyPatch(typeof(CardTooltipData), nameof(CardTooltipData.GetPassiveTooltipBlock))]
 internal static class PackageMerchantSummaryTooltipPatch
 {
@@ -62,8 +60,6 @@ internal static class PackageMerchantSummaryTooltipPatch
         }
     }
 
-    // Template id -> its package template, or null for a non-package card, per static-data
-    // manager. Tag identity does not vary with language, so the scope carries none.
     private static readonly StaticDataScopedCache<Guid, ITCard?> PackageTemplates = new();
 
     private static ITCard? ResolvePackageTemplate(CardTooltipData tooltipData)

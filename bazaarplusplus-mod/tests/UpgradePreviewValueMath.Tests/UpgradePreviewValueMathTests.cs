@@ -5,11 +5,6 @@ using Xunit;
 
 namespace UpgradePreviewMath.Tests;
 
-/// <summary>
-/// Core's upgrade preview arithmetic, which both hosts' value projections feed their numbers
-/// through: the additive projection of a runtime gain, the multiplier auras undone and applied
-/// again, the cooldown clock, and the tooltip's number format.
-/// </summary>
 public sealed class UpgradePreviewValueMathTests
 {
     [Theory]
@@ -59,8 +54,6 @@ public sealed class UpgradePreviewValueMathTests
     [Fact]
     public void A_doubling_aura_is_undone_before_the_delta_and_applied_again_after()
     {
-        // 40 shown under x2 is a raw 20: base 10 plus a runtime gain of 10, so the next tier's
-        // base 15 plus that gain, doubled again, is 50.
         Assert.True(
             UpgradePreviewValueMath.TryApplyMultipliers(
                 40,
@@ -194,7 +187,6 @@ public sealed class UpgradePreviewValueMathTests
         using var _ = new InvariantCulture();
         Assert.True(UpgradePreviewValueMath.HaveSameFormattedValue(1.51f, 1.54f));
         Assert.False(UpgradePreviewValueMath.HaveSameFormattedValue(8f, 7f));
-        // The game drops the decimal of a whole number only: 1 and 1.04 render differently.
         Assert.False(UpgradePreviewValueMath.HaveSameFormattedValue(1f, 1.04f));
     }
 

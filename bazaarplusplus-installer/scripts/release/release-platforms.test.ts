@@ -8,7 +8,6 @@ import {
 } from '../../../release/release-platforms.ts';
 import { resolveTargetPlatforms } from '../checks/prebuild-check.ts';
 
-// The installer builds only the platforms that ship a Tauri installer.
 const TAURI_PLATFORMS = RELEASE_PLATFORMS.filter(
   (platform) => platform.kind === 'tauri'
 );

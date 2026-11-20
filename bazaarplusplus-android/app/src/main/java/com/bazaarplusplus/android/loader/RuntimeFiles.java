@@ -10,12 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/**
- * The App's packaged files the game needs on disk: bridge.dex (the game class loader defines it)
- * and the Android App Runtime zip (a resource loader adds it to the game's assets). Each is
- * copied out of the App's assets once per App build and made read-only, because Android 14
- * refuses to load a writable dex.
- */
+/** Android 14 refuses to load a writable dex, so the bridge copy must be read-only. */
 public final class RuntimeFiles {
     public static final String BRIDGE_ASSET = "bridge.dex";
     public static final String RUNTIME_ASSET = "lemon-runtime.zip";
@@ -23,7 +18,6 @@ public final class RuntimeFiles {
 
     private RuntimeFiles() {}
 
-    /** Whether this build carries a LemonLoader runtime; a development build may not. */
     public static boolean hasRuntime(Context context) {
         try (InputStream ignored = context.getAssets().open(RUNTIME_ASSET)) {
             return true;
@@ -32,7 +26,6 @@ public final class RuntimeFiles {
         }
     }
 
-    /** The carried runtime's facts (Loader Release tag, nonManagedPayloadDigest). */
     public static RuntimeFacts facts(Context context) throws IOException {
         try (InputStream in = context.getAssets().open(RUNTIME_FACTS_ASSET)) {
             return RuntimeFacts.parse(new String(com.bazaarplusplus.android.io.AtomicFiles.readAtMost(in, 1 << 16),

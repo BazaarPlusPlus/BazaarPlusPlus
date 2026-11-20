@@ -7,14 +7,6 @@ using BazaarPlusPlus.ModApi.Http;
 
 namespace BazaarPlusPlus.Android.LiveBuild;
 
-/// <summary>
-/// The ten-win build catalog on Android: the Remote Embedded Catalog the desktop's
-/// <c>TenWinBuildCatalogFactory</c> builds, over the same parser, observer, URL, cache file name,
-/// and seed resource (<see cref="TenWinBuildCatalogSettings"/>), with the seed embedded in this
-/// assembly and the cache in the Android Data Root. The composition root owns the one instance
-/// and disposes it on stop. A developer may point the remote fetch at a local server
-/// (<c>[AndroidDev] BuildCorpusPort</c>); the default is the CDN.
-/// </summary>
 internal static class AndroidTenWinBuildCatalog
 {
     public static IRemoteEmbeddedCatalog<TenWinBuildCorpus> Create(
@@ -44,7 +36,6 @@ internal static class AndroidTenWinBuildCatalog
         );
     }
 
-    /// <summary>The CDN, or a local developer server when <paramref name="devCorpusPort"/> is set.</summary>
     internal static string RemoteUrl(int devCorpusPort)
     {
         if (devCorpusPort <= 0 || devCorpusPort > 65535)

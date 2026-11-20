@@ -3,12 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// One captured card on BPP card facets (ADR-0015). <see cref="Size"/> is null when the game
-/// reported no size for the card (its unnamed value 0, as an opening-snapshot skill without an
-/// update has); <see cref="Section"/> and <see cref="Socket"/> are null when the card had no
-/// placement or its placement maps to no facet.
-/// </summary>
+// The game's unnamed size 0 can appear on opening-snapshot skills before any size update.
 public sealed class PvpBattleCardSnapshot
 {
     public string InstanceId { get; set; } = string.Empty;

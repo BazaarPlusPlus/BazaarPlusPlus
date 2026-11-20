@@ -73,8 +73,6 @@ export default function Install() {
     setLegacyDeleteAcknowledged(false);
   }, [legacyTargetName]);
 
-  // History links here when it has no current database; bring the import or
-  // reinstall card into view once the Legacy Roots have loaded.
   const legacyLoaded = legacy.snapshot.load.phase === 'ready';
   useEffect(() => {
     if (hash !== `#${LEGACY_DATA_SECTION_ID}` || !legacyLoaded) return;

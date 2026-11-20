@@ -61,9 +61,7 @@ export default defineConfig({
       'typescript/no-unsafe-type-assertion': 'off',
       'typescript/consistent-return': 'off',
       'typescript/unbound-method': 'off',
-      // Installer-specific: the React Compiler heuristics below flag the
-      // latest-ref and trigger-dependency patterns this app uses on purpose,
-      // and it does not build with the React Compiler.
+      // This app intentionally uses latest-ref and trigger-dependency patterns and does not use the React Compiler.
       'react/refs': 'off',
       'react/exhaustive-effect-dependencies': 'off',
       'react/set-state-in-effect': 'off',
@@ -73,7 +71,6 @@ export default defineConfig({
       // Tauri and Vite inject `__NAME__` globals.
       'eslint/no-underscore-dangle': 'off',
       'import/no-named-as-default': 'off',
-      // Side-effect-only `.then` handlers are idiomatic here.
       'promise/always-return': 'off',
       'vite-plus/prefer-vite-plus-imports': 'error'
     },
@@ -122,8 +119,7 @@ export default defineConfig({
     ]
   },
   plugins: lazyPlugins(() => [tailwindcss(), react()]),
-  // The Web component library lives in ../design/ui (docs/adr/0018). Its files
-  // resolve React from this project: they have no node_modules of their own.
+  // The shared Web library has no node_modules of its own, so it resolves React from this project.
   resolve: {
     alias: {
       '@bpp/ui': fileURLToPath(

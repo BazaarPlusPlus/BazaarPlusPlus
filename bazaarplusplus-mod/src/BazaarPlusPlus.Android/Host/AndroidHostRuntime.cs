@@ -27,32 +27,17 @@ using MelonLoader;
 using MelonLoader.Utils;
 using UnityEngine;
 
-// MelonInfo is generated from VERSION by the project file. Patch classes install one at a time
-// under the startup mode, never through MelonLoader's assembly-wide PatchAll.
 [assembly: HarmonyDontPatchAll]
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// The Android host runtime: the MelonMod entry forwards its callbacks here. Startup
-/// installs the BppLog pipeline over MelonLogger, reads the settings file, logs what a device run
-/// must establish (the loaded DLL, the Data Root candidates, the build-channel probe), reads the
-/// Android App's Launch Record (<see cref="AndroidLaunch"/>), starts the record chain on the Data
-/// Root, then applies the patches and, in the enabled mode, prepares the interaction features:
-/// the touch UI, History with its saved-replay runtime, the tooltip previews, and the main menu's
-/// release check. Every frame it first runs the main-thread pump
-/// (<see cref="AndroidMainThread"/>), where History's and the replay's continuations resume.
-/// Quitting tears History and the replay down before the chain stops, which settles a pending run
-/// completion and drains the queued writes.
-/// </summary>
 internal sealed class AndroidHostRuntime
 {
     private const string SettingsFileName = "BazaarPlusPlus.cfg";
     private const string MainMenuSceneName = "MainMenuScene";
 
-    // The hooks summary is checked once a minute and written only when a count changed since the
-    // last one written. A scene load brings the next check forward and writes it even unchanged,
-    // so a device run always finds a summary after the scene it waits for.
+    // Force a summary after scene loads so device runs can verify hooks for the scene they waited
+    // for.
     private const long SummaryIntervalMs = 60_000;
     private const long SceneSummaryDelayMs = 15_000;
     private long _nextSummaryAt;
@@ -150,7 +135,6 @@ internal sealed class AndroidHostRuntime
             settings,
             endOfRunCapture: mode == AndroidPatchMode.Enabled
         );
-        // In every mode: a scene change releases the rented cards through it, open panels or not.
         _overlayPanels = new AndroidOverlayPanels(
             static () => Il2CppTheBazaar.Data.IsInCombat,
             AndroidCardRental.ReleaseAll,
@@ -208,7 +192,6 @@ internal sealed class AndroidHostRuntime
         return true;
     }
 
-    // History's sessions and the replay's lease, which a device run checks return to zero.
     private BppLogField[] InteractionSummary() =>
         [
             .. _historyPanel?.Summary() ?? [],
@@ -226,7 +209,6 @@ internal sealed class AndroidHostRuntime
             .. _endOfRunCapture?.Summary() ?? [],
         ];
 
-    // OnInitializeMelon bound the pump; the first frame confirms Unity's main thread is that one.
     private void BindMainThread()
     {
         if (_mainThreadBound)
@@ -287,8 +269,6 @@ internal sealed class AndroidHostRuntime
         _overlayPanels = null;
     }
 
-    // The interaction features read the shared settings the record chain bound, or bind their
-    // own when the chain did not start. A failure here leaves the hooks and the chain running.
     private void StartInteraction(IniSettingsStore? settings, AndroidLaunch launch)
     {
         if (settings == null || _overlayPanels is not { } panels)
@@ -304,8 +284,6 @@ internal sealed class AndroidHostRuntime
                 _frameRate = new Game.AndroidFrameRatePriority(() =>
                     android.FrameRatePriority.Value
                 );
-                // The Mobile UI's preview switches in the item tooltip, which the HUD ticks; Back
-                // collapses their effects first.
                 var tooltipPreviewHost = new AndroidTooltipPreviewHost();
                 var previewSwitches = new TouchPreviewSwitches(tooltipPreviewHost);
                 questPreview = new Game.AndroidQuestPreview(shared);
@@ -326,8 +304,6 @@ internal sealed class AndroidHostRuntime
                             ? outcome.Snapshot
                             : null
                 );
-                // The game fills a screen narrower than 16:10 instead of letterboxing it; the HUD
-                // ticks it and the camera patch drives it.
                 var screenFill = new TouchScreenFill(new AndroidScreenFillHost());
                 var melonBase = MelonEnvironment.MelonBaseDirectory;
                 var devManifest = AndroidVersionCheck.DevManifest(
@@ -404,8 +380,6 @@ internal sealed class AndroidHostRuntime
                     )
                 );
                 panels.SetTooltipPreview(previewSwitches.Collapse);
-                // The end-of-run screenshot exists for the BazaarDB Bundle, so it needs the
-                // record chain that seals it.
                 if (_composition is { } record)
                     _endOfRunCapture = new Game.Screenshots.AndroidEndOfRunCapture(
                         record.Services,
@@ -458,8 +432,6 @@ internal sealed class AndroidHostRuntime
         );
     }
 
-    // History and its replay runtime need the record chain's database and payload gate; without
-    // the chain the game's menus offer no History.
     private void StartHistory()
     {
         var composition = _composition;
@@ -507,7 +479,6 @@ internal sealed class AndroidHostRuntime
         );
     }
 
-    // Only a new Android App has a download; a game update goes through the game's own store.
     private static void OpenAppDownload(AndroidUpdate update)
     {
         if (update.App is not { } app)
@@ -539,9 +510,6 @@ internal sealed class AndroidHostRuntime
         composition?.Stop();
     }
 
-    // The record chain writes the Data Root's history database, then seals and uploads its runs.
-    // A failure here, an unreadable settings file included, leaves the hooks counting with no
-    // chain behind them; it never stops the melon.
     private static AndroidComposition? StartRecordChain(
         bool? hasServerOption,
         IniSettingsStore? settings,
@@ -552,7 +520,6 @@ internal sealed class AndroidHostRuntime
         {
             if (settings == null)
                 throw new InvalidOperationException("The settings file could not be read.");
-            // The Payload's version file is Mods/BazaarPlusPlus.version, named after the product.
             var location = Assembly.GetExecutingAssembly().Location;
             if (!string.IsNullOrEmpty(location))
                 BppPluginVersion.Initialize(
@@ -706,10 +673,7 @@ internal sealed class AndroidHostRuntime
         }
     }
 
-    // GameBuildInfoResolver on desktop corroborates the channel with this nested type, which only
-    // the PTR fork of Config declares. Neither Android Interop Snapshot (publisher, Google Play) has a ServerOption, so
-    // an Online build logs "missing", the Online answer; whether Il2CppInterop surfaces the type
-    // stays open until a PTR or staging Android build is captured.
+    // The desktop uses Config.ServerOption as a PTR signal. Both online Android snapshots lack it.
     private static bool? LogBuildChannelProbe()
     {
         try

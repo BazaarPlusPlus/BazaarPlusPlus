@@ -3,10 +3,6 @@ using System.Text.Json;
 using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 
-// Reads the shared seal-eligibility fixture and seeds one case into a mod database.
-// formatVersion 2 made run.uploadPolicy required and 3 added optional run.victories and
-// run.losses (absent is null), so a reader that predates either fails here.
-// ReplayPayloadMaintenance.Tests Compile-Includes this file to evaluate replay maintenance.
 internal sealed record BundleSealEligibilityCase(
     string Name,
     JsonElement Run,
@@ -67,7 +63,6 @@ internal sealed record BundleSealEligibilityCase(
             ? value.GetInt32()
             : null;
 
-    // Uses the case name as run id, so every case can share one database.
     internal void Seed(SqliteConnection connection)
     {
         Execute(

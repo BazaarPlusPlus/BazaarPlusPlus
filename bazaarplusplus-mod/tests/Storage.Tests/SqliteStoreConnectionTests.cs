@@ -32,8 +32,6 @@ public sealed class SqliteStoreConnectionTests
                 Equal(2000L, Scalar(connection, "PRAGMA busy_timeout;"), "busy_timeout pragma");
             }
 
-            // A shorter wait applies to its own acquisition only: the pooled connection it used
-            // goes back to the default wait on the next default acquisition.
             using (var connection = store.Acquire(250))
             {
                 Equal(1L, Scalar(connection, "PRAGMA foreign_keys;"), "short-wait foreign_keys");
@@ -44,7 +42,6 @@ public sealed class SqliteStoreConnectionTests
 
             using (var connection = store.Acquire())
             {
-                // A run_events row without its parent run must be rejected by the FK.
                 Throws<SqliteException>(
                     () =>
                         Execute(
@@ -57,7 +54,6 @@ public sealed class SqliteStoreConnectionTests
                     "orphan run_events insert"
                 );
 
-                // And a real parent must cascade its children away on delete.
                 Execute(
                     connection,
                     """

@@ -6,10 +6,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Sources;
 
-// The merchant and trainer source catalog every host filters with: Core's embedded
-// collection-sources.json, parsed once against the heroes the host's game build has. A load
-// failure logs and leaves the catalog empty, so the source filter offers nothing instead of
-// failing the panel.
 public sealed class EmbeddedCollectionSourceCatalog : ICollectionSourceCatalog
 {
     private const string ResourceSuffix = "collection-sources.json";

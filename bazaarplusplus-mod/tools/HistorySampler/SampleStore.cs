@@ -12,10 +12,8 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.HistorySampler;
 
-/// <summary>A file the tool wrote or deleted, relative to the Data Root.</summary>
 internal readonly record struct DataRootChange(bool Written, string RelativePath);
 
-/// <summary>What one import or clear did to a Data Root.</summary>
 internal sealed class SampleResult
 {
     public List<string> RunIds { get; } = new();
@@ -27,15 +25,10 @@ internal sealed class SampleResult
     public List<DataRootChange> Files { get; } = new();
 }
 
-/// <summary>Who the sampled runs belong to: the local player, never the uploader.</summary>
 internal sealed record LocalPlayer(string AccountId, string Name);
 
-/// <summary>
-/// Writes sampled runs into one Data Root's history database as History-Only Runs and removes
-/// them again. A sampled run is marked twice: <c>upload_policy='history_only'</c> keeps it out of
-/// sealing, protection and resume, and <c>mod_version='sample:…'</c> tells it apart from any
-/// other History-Only Run so <see cref="Clear"/> touches nothing else.
-/// </summary>
+// History-Only keeps sample rows out of sealing and resume. The sample: version prefix
+// lets Clear distinguish them from other History-Only Runs.
 internal sealed class SampleStore
 {
     public const string ModVersionPrefix = "sample:";
@@ -57,7 +50,6 @@ internal sealed class SampleStore
             );
     }
 
-    /// <summary>The newest local run's account and the name the local player last fought under.</summary>
     public LocalPlayer ResolveLocalPlayer(string? accountOverride)
     {
         using var connection = Open();
@@ -89,10 +81,7 @@ internal sealed class SampleStore
         return new LocalPlayer(account!, string.IsNullOrWhiteSpace(name) ? FallbackName : name!);
     }
 
-    /// <summary>
-    /// Copies one opened Bundle's run and its PvP battles. The run row commits first: the battle
-    /// store attaches a battle only to a run it can already read.
-    /// </summary>
+    // Commit the Run row first because the battle store attaches only to a Run it can read.
     public bool Import(OpenedRunBundleV6 bundle, LocalPlayer player, SampleResult result)
     {
         var payload = bundle.Payload;
@@ -121,7 +110,6 @@ internal sealed class SampleStore
                 battle,
                 CardEnumEvidence.Instance
             );
-            // A local battle is a PvP combat; the uploader is the local player here.
             manifest.CombatKind = "PVPCombat";
             manifest.Participants.PlayerAccountId = player.AccountId;
             manifest.Participants.PlayerName = player.Name;
@@ -152,10 +140,7 @@ internal sealed class SampleStore
         return true;
     }
 
-    /// <summary>
-    /// Removes every sampled run with its battles, snapshots, favorites, recorded videos and replay
-    /// files. Favorites and videos are copies with no foreign key to the battle, so they go by id.
-    /// </summary>
+    // Favorites and videos have no foreign key to the battle, so delete them by ID.
     public SampleResult Clear()
     {
         var result = new SampleResult();
@@ -249,8 +234,7 @@ internal sealed class SampleStore
         result.Files.Add(new DataRootChange(false, relative));
     }
 
-    // The run as the Bundle recorded it, under a new id; a run the Bundle left active reads as
-    // abandoned, because nothing will ever resume it.
+    // Active sampled Runs read as abandoned because the mod cannot resume them.
     private static void InsertRun(
         SqliteConnection connection,
         string runId,
@@ -311,7 +295,6 @@ internal sealed class SampleStore
 
     private SqliteConnection Open()
     {
-        // The store creates or migrates the schema exactly as the mod does before any raw read.
         _ = new PvpBattleSqliteStore(_databasePath, _options);
         var connection = new SqliteConnection(
             new SqliteConnectionStringBuilder

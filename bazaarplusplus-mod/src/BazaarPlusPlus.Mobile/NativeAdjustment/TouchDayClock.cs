@@ -3,18 +3,10 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
-/// <summary>
-/// The day clock on a screen <see cref="TouchScreenFill"/> draws the board nearer on. The clock
-/// (the encounter prefab <c>ClockViewController</c> sits on, not the board's empty
-/// <c>playerClockAnchor</c>) is board meshes left of the board, in the scenery the nearer view
-/// trims, so it would fall off the screen's left edge. Instead it shrinks into the band above the
-/// board, its left edge level with the board's (<see cref="ScreenFill.PlaceDayClock"/>). It is
-/// placed again after every camera update; a position or scale the game writes in between is taken
-/// as the new original, so its own animations still play. Main thread only.
-/// </summary>
+// The wider view crops the clock's original scenery. The clock is the encounter
+// prefab with ClockViewController, separate from the empty playerClockAnchor.
 internal sealed class TouchDayClock
 {
-    // While the clock is missing, it is searched for at most every half second.
     private const int SearchEvery = 30;
 
     private readonly IScreenFillHost _host;
@@ -30,10 +22,6 @@ internal sealed class TouchDayClock
 
     public TouchDayClock(IScreenFillHost host) => _host = host;
 
-    /// <summary>
-    /// Places the clock in the band above <paramref name="board"/>, the board's top-left corner in
-    /// screen pixels down from the top, or back where the game put it when that is null.
-    /// </summary>
     public void Place(Camera camera, Vector2? board)
     {
         if (board == null)

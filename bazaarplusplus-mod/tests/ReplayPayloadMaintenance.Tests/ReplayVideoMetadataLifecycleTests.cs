@@ -16,9 +16,7 @@ public sealed class ReplayVideoMetadataLifecycleTests
     public static void Benchmark() =>
         MainThreadReservationGivesUpOnALockedDatabaseTimed(enforceTiming: true);
 
-    // The current-replay arm reserves its row on the Unity main thread: while another writer
-    // holds the database it fails with SQLITE_BUSY after about a second (the default store wait
-    // is two), reserves nothing, and succeeds once the writer is gone.
+    // Reservation runs on Unity's main thread, so it uses a shorter SQLite busy timeout than the store default.
     private static void MainThreadReservationGivesUpOnALockedDatabaseTimed(bool enforceTiming)
     {
         var root = Path.Combine(Path.GetTempPath(), $"bpp-video-reserve-{Guid.NewGuid():N}");

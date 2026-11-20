@@ -1,5 +1,3 @@
-"""Single-machine mkdir lock with stale takeover and zombie fencing."""
-
 import contextlib
 import json
 import os
@@ -29,8 +27,6 @@ class MaximumRunTimeExceeded(LockOwnershipLost):
 
 
 class DirectoryLock:
-    """Own ``.lock`` only while its heartbeat still names this run."""
-
     def __init__(
         self,
         data_root: str | Path,
@@ -145,7 +141,6 @@ class DirectoryLock:
             raise LockOwnershipLost("Run lock ownership was replaced")
 
     def assert_current_owner(self) -> None:
-        """Fence writes without extending an exceeded run deadline."""
         if self._lost.is_set() and self._lost_reason != "Maximum run time exceeded":
             raise LockOwnershipLost(self._lost_reason)
         if self._started_monotonic is None:

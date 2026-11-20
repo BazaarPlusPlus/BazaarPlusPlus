@@ -8,16 +8,8 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The font every BPP Android surface draws with: a BPP-owned copy of the main-menu version
-/// label's font. The game loads its Noto CJK fallbacks only for a CJK language, so in any other
-/// language the label's font draws a Chinese name as empty boxes. The first text a surface hands
-/// <see cref="Cover"/> that holds a CJK character loads the fallbacks of the game's own
-/// <c>zh-CN</c> rule (<c>NotoFontFallbackRuntime</c>'s configuration), as the desktop's
-/// <c>NativeGameTypography</c> does, and appends them to the copy's chain only, so the game's
-/// own text is untouched. A dynamic source keeps its atlas: the copy is static and asks the
-/// source first for any character it lacks. Main thread only.
-/// </summary>
+// The game loads Noto CJK fallbacks only in CJK locales. Add them to the BPP copy to render
+// mixed-language names.
 internal static class AndroidGameFont
 {
     private const string ChineseLocale = "zh-CN";
@@ -36,7 +28,6 @@ internal static class AndroidGameFont
         Failed,
     }
 
-    /// <summary>The copy of the version label's font; null before the main menu has shown it.</summary>
     public static TMP_FontAsset? Font
     {
         get
@@ -52,10 +43,6 @@ internal static class AndroidGameFont
         }
     }
 
-    /// <summary>
-    /// A surface set <paramref name="label"/>'s text: when it holds a CJK character the copy
-    /// cannot draw yet, the fallbacks start loading and the label redraws once they arrive.
-    /// </summary>
     public static void Cover(TMP_Text label)
     {
         if (label == null || _state is State.Ready or State.Failed || !ContainsCjk(label.text))
@@ -66,7 +53,6 @@ internal static class AndroidGameFont
             Start();
     }
 
-    /// <summary>Main thread, every frame: joins the fallbacks to the copy once they all loaded.</summary>
     public static void Tick()
     {
         if (_state != State.Loading)
@@ -77,7 +63,6 @@ internal static class AndroidGameFont
         Finish();
     }
 
-    /// <summary>The host stops: the loaded fallbacks go back to Addressables and the copy goes.</summary>
     public static void Dispose()
     {
         foreach (var handle in Handles)
@@ -210,7 +195,6 @@ internal static class AndroidGameFont
         }
     }
 
-    // A failed load leaves the copy drawing what the label's font draws; no retry this session.
     private static void Fail(string reason, Exception? exception)
     {
         _state = State.Failed;
@@ -246,7 +230,6 @@ internal static class AndroidGameFont
 
     private static bool Alive(TMP_FontAsset? font) => font != null && !font.WasCollected;
 
-    // The ranges the desktop's coverage check reads: CJK ideographs and their compatibility block.
     private static bool ContainsCjk(string? text)
     {
         if (string.IsNullOrEmpty(text))

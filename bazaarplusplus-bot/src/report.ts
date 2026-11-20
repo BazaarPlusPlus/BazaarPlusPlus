@@ -37,7 +37,6 @@ const RANKS: Record<string, string> = {
   Legendary: '传奇'
 };
 const TIERS = ['Bronze', 'Silver', 'Gold', 'Diamond', 'Legendary'];
-// Text colours for a Run's result: perfect, ten wins, 7–9, 4–6, 0–3.
 const RESULT = ['#D8B7FF', '#E5C777', '#D8DEE8', '#C9A08A', '#A88A80'];
 const resultColour = (r: Run) =>
   RESULT[
@@ -59,13 +58,9 @@ const css = `*{box-sizing:border-box}body{margin:0;background:#0b0805;color:#f2e
 function page(title: string, top: string, head: string, body: string): string {
   return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=720"><title>${escape(title)}</title><style>${css}</style><main><section class="shell"><header><div class="top"><div class="brand">BazaarPlusPlus</div><span>${escape(top)}</span></div><h1>${escape(title)}</h1>${head}</header>${body}</section></main></html>`;
 }
-// Value over label, like the Run rows below it.
 const stat = (title: string, value: string, tone = '') =>
   `<div class="stat"><b${tone ? ` class="${tone}"` : ''}>${value}</b><small>${title}</small></div>`;
-// The art is stored square; like the game, it is stretched to the card's
-// width:height of 0.5, 1 or 1.5 for Size 1–3 (a Tiny item is one step below Small).
-// The art shows the card, so its name is drawn only when the art is missing;
-// the art never shows the enchantment.
+// Stretch the square art to the in-game card proportions. The enchantment is separate from the art.
 function cardHtml(c: Card, names: Names, art: CardArt): string {
   const name = !art[c.id] && c.name ? escape(nameOf(c.name, names)) : '';
   const enchant = c.enchant ? `<b>${escape(nameOf(c.enchant, names))}</b>` : '';
@@ -74,11 +69,9 @@ function cardHtml(c: Card, names: Names, art: CardArt): string {
     : '';
   return `<div class="card s${Math.min(Math.max(c.size, 1), 3)} t-${escape(c.tier)}"${style}>${name || enchant ? `<span>${name}${enchant}</span>` : ''}</div>`;
 }
-// The image is as wide as its widest board; a shorter board sits centred in its row.
 const row = (head: string, cards: Card[] | null, names: Names, art: CardArt) =>
   `<div class="row">${head}<div class="stage">${cards ? cards.map((c) => cardHtml(c, names, art)).join('') : '<p>这局未保留最终阵容</p>'}</div></div>`;
-// A build layout row is [card_ref, slot, tier 1–5, enchant_ref, size]; the
-// snapshot has no card names, so the art alone shows the card.
+// Build snapshots omit card names, so their boards rely on Card Art.
 function layoutCards(snapshot: BuildSnapshot, layout: number[][]): Card[] {
   return layout
     .map(([card, slot, tier, enchant, size]) => ({
@@ -106,7 +99,6 @@ export function statsText(
 ): string {
   return `${input.name} · ${span(input.from, input.before)}（北京时间）\n完成 ${s.runs} 局，十胜 ${s.tenWins}/${s.runs}，完美 ${s.perfect} 局，平均 ${n(s.meanWins)} 胜\nPvP ${s.wins}胜 ${s.losses}负（${pct(s.wins, s.wins + s.losses)}）${s.rating ? `\n分数 ${s.rating.start} → ${s.rating.end}（${signed(s.rating.delta)}）` : ''}${input.skipped ? `\n有 ${input.skipped} 份 Bundle 无法读取，以上是不完整统计。` : ''}`;
 }
-/** Rows the stats image draws, newest first; the header counts every Run. */
 export const ROWS = 10;
 export function statsHtml(input: ReportInput): string {
   const s = summarize(input.runs);

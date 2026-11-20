@@ -3,13 +3,7 @@ using BazaarPlusPlus.Core.Events;
 
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
-/// <summary>
-/// The PvP battle catalog both hosts read and write: maps manifests onto the records
-/// <see cref="PvpBattleSqliteStore"/> stores, each board capture as the JSON of Core's
-/// <see cref="PvpBattleCardSetDocument"/> (<see cref="PvpBattleSnapshotsCodec"/>). Storage owns
-/// the SQL. It wraps the host's own store, which carries the host's journal mode: a store opened
-/// without options would switch an Android database to WAL.
-/// </summary>
+// Reuse the host's store options because the default journal mode would switch Android's database to WAL.
 public sealed class PvpBattleCatalog : IPvpBattleCatalog
 {
     private readonly PvpBattleSqliteStore _store;
@@ -68,7 +62,6 @@ public sealed class PvpBattleCatalog : IPvpBattleCatalog
         DateTimeOffset now
     ) => _store.MarkReplayPayloadMissing(battleIds, now);
 
-    /// <summary>The facts Run Logging attaches to the run, for <see cref="PvpBattleRecorded"/>.</summary>
     public static PvpBattleRecorded Recorded(PvpBattleManifest manifest) =>
         new()
         {

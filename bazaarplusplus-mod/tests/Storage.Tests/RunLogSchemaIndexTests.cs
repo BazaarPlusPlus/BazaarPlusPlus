@@ -22,7 +22,7 @@ public sealed class RunLogSchemaIndexTests
 
         WithDatabase(connection =>
         {
-            // An older release that shipped a different definition under the same name.
+            // Reuse the index name to model a stale definition that would survive CREATE INDEX IF NOT EXISTS.
             RunLogSchema.EnsureInitialized(connection);
             Execute(
                 connection,
@@ -86,8 +86,6 @@ public sealed class RunLogSchemaIndexTests
         return rows;
     }
 
-    // The schema file the installer and import build against is exactly what BootstrapSql creates,
-    // so a database built from it opens with no index rebuilt and no DDL run.
     [Fact]
     public void OpeningTheShippedSchemaFileDropsNothing()
     {

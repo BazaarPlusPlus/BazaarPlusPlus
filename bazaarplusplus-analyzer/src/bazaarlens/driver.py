@@ -1,5 +1,3 @@
-"""Heal complete Source Days and independently publish two consumer snapshots."""
-
 import json
 import time
 import uuid
@@ -41,8 +39,6 @@ from bazaarlens.snapshots import SnapshotRunner
 
 
 class PipelineDriver:
-    """Converge local facts, then build and replace each consumer object independently."""
-
     def __init__(
         self,
         data_root: str | Path,
@@ -230,7 +226,6 @@ class PipelineDriver:
                 )
             except LockOwnershipLost:
                 if pending_error is not None:
-                    # Surface the original run failure, chained to the lost lock.
                     raise pending_error.with_traceback(pending_traceback)  # noqa: B904
                 raise
             if pending_error is not None:

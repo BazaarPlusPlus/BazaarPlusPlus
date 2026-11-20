@@ -6,7 +6,6 @@ using Xunit;
 
 namespace UiFoundation.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class UiFoundationTests
 {
     [Fact]

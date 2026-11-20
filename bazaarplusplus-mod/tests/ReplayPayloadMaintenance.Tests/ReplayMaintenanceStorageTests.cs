@@ -6,9 +6,8 @@ using Xunit;
 
 public sealed class ReplayMaintenanceStorageTests
 {
-    // Replay maintenance protects a superset of the fixture's protected Runs: it also keeps
-    // replays behind a pending outbox, which installer History cleanup releases. A History-Only
-    // Run is never sealed, so its replays are released.
+    // Replay maintenance also protects replays with a pending outbox entry.
+    // Installer History cleanup can release those replays.
     [Fact]
     public static void KeepsReplaysOfEveryRunTheSealEligibilityFixtureProtects()
     {

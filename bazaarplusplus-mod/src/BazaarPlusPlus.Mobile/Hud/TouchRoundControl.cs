@@ -5,14 +5,9 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Hud;
 
-/// <summary>Native circular artwork inside an independent, full-sized touch target.</summary>
+// Keep the touch target independent of the native artwork's size.
 internal static class TouchRoundControl
 {
-    /// <summary>
-    /// <paramref name="art"/> drawn at <paramref name="size"/>, the native button's own size,
-    /// centred in <paramref name="target"/>; <paramref name="icon"/> sits where the native icon
-    /// does. A tap runs <paramref name="action"/> as the control <paramref name="control"/>.
-    /// </summary>
     public static Button Create(
         RectTransform target,
         NativeRoundArt art,

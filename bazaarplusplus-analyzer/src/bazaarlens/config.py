@@ -1,5 +1,3 @@
-"""Strict repository ``.env`` configuration without ambient-env fallback."""
-
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -37,8 +35,6 @@ class Config:
     max_run_seconds: int = 21600
     duckdb_memory_limit: str = "8GB"
     duckdb_threads: int = 8
-    # One Cloudflare operator token serves every R2 bucket; the S3 pair the
-    # object store needs is derived from it (object_store.derive_s3_credentials).
     cloudflare_account_id: str | None = None
     cloudflare_api_token: str | None = field(default=None, repr=False)
     r2_bucket: str | None = None

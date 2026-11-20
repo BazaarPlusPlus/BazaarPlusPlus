@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 
 public class PlatformManifestTest {
-    /** The shared release fixture (release/fixtures/latest/); unit tests run in app/. */
     static final File SHARED = new File("../../release/fixtures/latest/android-aarch64.json");
 
     static String fixture() throws IOException {
@@ -88,7 +87,6 @@ public class PlatformManifestTest {
 
     @Test
     public void aManifestWithoutAdaptationsIsNotDecoded() throws Exception {
-        // The shape an App before ADR 0019 reads: the top-level game, interop and managedPayload only.
         JSONObject root = new JSONObject(fixture());
         record(root).remove("adaptations");
         assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(root.toString(), ReleaseOrigin.PUBLIC));
@@ -173,7 +171,6 @@ public class PlatformManifestTest {
                 new java.io.File("../../release/fixtures/android-carried-release.json").toPath()),
                 java.nio.charset.StandardCharsets.UTF_8);
         assertNull(PlatformManifest.decodeCarried(carried, ReleaseOrigin.PUBLIC).app);
-        // A published manifest that lost its app is malformed, and an APK cannot name itself.
         org.junit.Assert.assertThrows(MalformedReleaseException.class, () -> PlatformManifest.decode(carried, ReleaseOrigin.PUBLIC));
         org.junit.Assert.assertThrows(MalformedReleaseException.class,
                 () -> PlatformManifest.decodeCarried(fixture(), ReleaseOrigin.PUBLIC));

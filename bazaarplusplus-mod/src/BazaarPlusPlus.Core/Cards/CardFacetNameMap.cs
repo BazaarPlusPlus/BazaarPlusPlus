@@ -1,12 +1,8 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Cards;
 
-/// <summary>
-/// A host adapter's mapping between one game enum and one card facet, by member name
-/// (ADR-0015). Each host instantiates it over its own game enum (Mono or IL2CPP interop), so
-/// neither host writes a per-member table and a game build that adds a member needs no code
-/// change until BPP adds the facet member: until then the value maps to nothing.
-/// </summary>
+// Map game enums by member name so adding a native member cannot change existing mappings.
+// Card facet integers belong to BPP and must stay out of persisted and wire data (ADR-0015).
 public sealed class CardFacetNameMap<TSource, TFacet>
     where TSource : struct, Enum
     where TFacet : struct, Enum
@@ -15,11 +11,7 @@ public sealed class CardFacetNameMap<TSource, TFacet>
     private readonly Dictionary<TFacet, TSource> _toSource = new();
     private readonly List<string> _unmappedSourceNames = new();
 
-    /// <param name="aliases">
-    /// Game member names that map to a differently named facet member, such as the legacy
-    /// <c>Hero8</c> for <see cref="CardHero.TheDragons"/>. An exact name match wins the reverse
-    /// direction when a game build defines both.
-    /// </param>
+    // Prefer an exact reverse match when a build exposes both an alias and the canonical game member.
     public CardFacetNameMap(IReadOnlyDictionary<string, TFacet>? aliases = null)
     {
         var exactFacets = new HashSet<TFacet>();
@@ -48,7 +40,6 @@ public sealed class CardFacetNameMap<TSource, TFacet>
         }
     }
 
-    /// <summary>Game member names with no facet member: the vocabulary drift a pin test reports.</summary>
     public IReadOnlyList<string> UnmappedSourceNames => _unmappedSourceNames;
 
     public bool TryToFacet(TSource source, out TFacet facet) =>
@@ -57,7 +48,6 @@ public sealed class CardFacetNameMap<TSource, TFacet>
     public bool TryToSource(TFacet facet, out TSource source) =>
         _toSource.TryGetValue(facet, out source);
 
-    /// <summary>The mapped facets of a game collection, in order, without duplicates.</summary>
     public HashSet<TFacet> ToFacetSet(IEnumerable<TSource>? sources)
     {
         var result = new HashSet<TFacet>();

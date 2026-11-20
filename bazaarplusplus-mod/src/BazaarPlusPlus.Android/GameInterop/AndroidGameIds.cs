@@ -3,13 +3,10 @@ using Il2CppInterop.Runtime;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>The BPP forms of IL2CPP game values, as the desktop host writes them.</summary>
 internal static class AndroidGameIds
 {
-    /// <summary>The canonical hero id that leaves the process (SQLite rows, uploads).</summary>
     public static string? Hero(EHero hero)
     {
-        // A hero facet's name is its canonical id; a hero BPP has no facet for keeps its name.
         if (AndroidCardFacets.Hero.TryToFacet(hero, out var facet))
             return facet.ToString();
         var name = hero.ToString();
@@ -28,12 +25,8 @@ internal static class AndroidGameIds
             : null;
     }
 
-    /// <summary>
-    /// The value of a <c>T?</c> an IL2CPP getter returns. The runtime returns null or a boxed
-    /// <c>T</c>; the generated getter wraps it in an <c>Il2CppSystem.Nullable</c> proxy, which
-    /// throws on null and otherwise reads the box with Nullable's layout (hasValue first), so its
-    /// HasValue and Value are wrong. Never read that proxy's HasValue, Value, or ToString.
-    /// </summary>
+    // IL2CPP returns null or a boxed T for nullable getters. The generated Nullable proxy throws on
+    // null and reads a boxed T with the wrong layout, so its HasValue and Value are unreliable.
     public static unsafe T? Unboxed<T>(Func<Il2CppSystem.Nullable<T>> read)
         where T : unmanaged
     {
@@ -49,23 +42,15 @@ internal static class AndroidGameIds
         return boxed == null ? null : *(T*)IL2CPP.il2cpp_object_unbox(boxed.Pointer);
     }
 
-    /// <summary>
-    /// <paramref name="value"/> as the <c>T?</c> an IL2CPP setter or constructor takes. The
-    /// generated code unboxes that argument through <c>Il2CppObjectBaseToPtrNotNull</c>, so a
-    /// null proxy throws; an absent value is an empty proxy, whose zeroed box has no value.
-    /// </summary>
+    // Generated nullable setters unbox via Il2CppObjectBaseToPtrNotNull. A null proxy throws, so
+    // represent absence with an empty box.
     public static Il2CppSystem.Nullable<T> Optional<T>(T? value)
         where T : struct =>
         value is { } present
             ? new Il2CppSystem.Nullable<T>(present)
             : new Il2CppSystem.Nullable<T>();
 
-    /// <summary>
-    /// <paramref name="value"/> rebuilt as a fresh <c>bool</c> of the same truth. A <c>bool</c>
-    /// read through an IL2CPP struct proxy (a <c>ValueTuple</c>'s <c>Item2</c>) read as true in
-    /// C#, yet the game method it was passed back into acted as if it were false, where a literal
-    /// <c>true</c> worked; passing it through here first ended that on the device. Only the
-    /// symptom was observed, not why the proxy's value misbehaves.
-    /// </summary>
+    // A bool from an IL2CPP tuple proxy can test true in managed code but act false when passed
+    // back to the game.
     public static unsafe bool Canonical(bool value) => *(byte*)&value != 0;
 }

@@ -14,10 +14,8 @@ internal static class EndOfRunRawRevealCompletionPatch
         if (!__result.IsValid())
             return;
 
-        // DelayPlayableBehavior marks itself done from ProcessFrame, and Unity only runs that
-        // callback for branches connected to a ScriptPlayableOutput. The native raw builder
-        // creates only AnimationPlayableOutputs, unlike its non-raw sibling, so end-of-run roots
-        // otherwise play forever and the native FaceUp finalization is never reached.
+        // The raw graph has only animation outputs. DelayPlayableBehavior needs a ScriptPlayableOutput
+        // to run ProcessFrame and finish, or the native FaceUp finalization never runs.
         var rootCount = __result.GetRootPlayableCount();
         for (var index = 0; index < rootCount; index++)
         {

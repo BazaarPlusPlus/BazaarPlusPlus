@@ -28,7 +28,6 @@ public static class BppLog
         }
     }
 
-    /// <summary>Debug-build only: the call and its field factory compile out of Release.</summary>
     [Conditional("DEBUG")]
     public static void DebugEvent(BppLogEvent logEvent, Func<BppLogField[]> fieldsFactory) =>
         StructuredEmitter.Debug(logEvent, null, fieldsFactory);
@@ -61,10 +60,6 @@ public static class BppLog
         params BppLogField[] fields
     ) => StructuredEmitter.Emit(BppLogSeverity.Error, logEvent, fields, exception);
 
-    /// <summary>
-    /// Ends a storm early and writes its summary: every key of the event without fields, or the
-    /// one warning key the fields build.
-    /// </summary>
     public static void RecoverStorm(BppLogEvent logEvent, params BppLogField[] fields) =>
         StructuredEmitter.RecoverStorm(logEvent, fields);
 

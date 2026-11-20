@@ -23,7 +23,6 @@ function integer(value: unknown): number {
 function number(value: unknown): number | null {
   return value === null ? null : integer(value);
 }
-// The player_hand set keeps its Item-type cards (Type 0) in slot order.
 function cards(value: unknown): Card[] | null {
   if (value === null) return null;
   const sets = slots(slots(value, 1)[0], 0)

@@ -3,9 +3,6 @@ import type { RefObject } from 'react';
 import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { useI18n } from '../i18n/LocaleProvider';
 
-/** The rail's support entry: WeChat Pay, Ko-fi, the supporter list and a
- *  GitHub star. The menu opens beside the rail, growing upward from its
- *  trigger. */
 export function ShellSupportMenu({
   bootstrap,
   triggerRef,

@@ -59,9 +59,7 @@ public readonly struct BundleSealInputObservation
     public static BundleSealInputObservation ReplayPayload(int omittedCount) =>
         new(BundleSealInputGate.ReplayPayload, omittedCount == 0, omittedCount, false);
 
-    // The omissions a Run last waited on, without composing again: replays can only appear for an
-    // ended Run through replay persistence, so unless persistence completed since that observation
-    // the Run keeps waiting on it until its deadline.
+    // An ended Run can gain a Replay Payload only through replay persistence, so its omissions stay valid until the persistence generation changes.
     public static BundleSealInputObservation RememberedReplayPayload(
         int omittedCount,
         bool persistenceChangedSince
@@ -129,19 +127,14 @@ public static class BundleSealConvergence
     }
 }
 
-// When the seal worker wakes next, from relative seconds. A waiting job wakes it at the end of its
-// backoff, or, after an attempt, every InputWaitPollSeconds until its input deadline: an input such as a
-// replay on the Android host, which publishes no persistence-drained event, lands without a wake.
-// A job parked until the next launch never wakes it. With no job to wake for, the worker sleeps
-// until MaximumIdleWaitSeconds after its last job discovery, the pass that recovers a Run whose
-// completion signal was missed.
+// Poll for Replay Payloads because the Android Host emits no persistence-drained event.
+// The idle cap also recovers Runs whose completion signal was missed.
 public static class BundleSealWakeSchedule
 {
     public const float InputWaitPollSeconds = 5f;
     public const float MinimumWaitSeconds = 1f;
     public const float MaximumIdleWaitSeconds = 300f;
 
-    // Seconds until this waiting job needs a pass, or null when nothing in this launch makes it due.
     public static float? SecondsUntilAttempt(
         string? lastErrorCode,
         int attempts,
@@ -164,7 +157,6 @@ public static class BundleSealWakeSchedule
         // A job skipped earlier in the pass may have become due while another Run sealed.
         if (!attemptedInPass)
             return 0f;
-        // Attempted but still waiting: poll for its remaining input.
         if (secondsUntilInputDeadline > 0f)
             return Math.Min(secondsUntilInputDeadline, InputWaitPollSeconds);
         return InputWaitPollSeconds;
@@ -173,8 +165,6 @@ public static class BundleSealWakeSchedule
     public static bool DiscoveryDue(bool requested, float secondsSinceDiscovery) =>
         requested || secondsSinceDiscovery >= MaximumIdleWaitSeconds;
 
-    // How long the worker sleeps after a pass. A pass whose job discovery or file recovery failed
-    // retries them within InputWaitPollSeconds, never sooner on their account.
     public static float WaitSeconds(
         float? secondsUntilAttempt,
         float secondsSinceDiscovery,
@@ -191,9 +181,6 @@ public static class BundleSealWakeSchedule
     }
 }
 
-// Failure half of the seal decision core: what a thrown or observed failure means for durable
-// queue state. Input deadlines stay in BundleSealConvergence.Resolve; this type never waits on
-// inputs, and Resolve never inspects exceptions.
 public enum BundleSealStage
 {
     AccountResolution,
@@ -287,7 +274,6 @@ public readonly struct BundleSealFailureDecision
     // Bounded diagnostic persisted as last_error_detail; the full exception goes to the log.
     public string? Detail { get; }
 
-    // Consecutive failures with this Code, including this one.
     public int Attempts { get; }
 }
 
@@ -426,8 +412,7 @@ public static class BundleSealFailurePolicy
                 );
         }
 
-        // A job that has already failed before cannot outlive the age ceiling; a first failure
-        // always gets its normal retry or park.
+        // Give a first failure its normal retry or park even past the age ceiling.
         var pastAgeCeiling =
             retry.LastErrorCode != null
             && retry.SecondsSinceInputDeadline >= FailureAgeCeilingSeconds;
@@ -458,8 +443,7 @@ public static class BundleSealFailurePolicy
         }
 
         var code = StageCode(stage);
-        // Bytes that exist but do not decode stay bad: omit that replay, whatever the inner cause
-        // (truncated MessagePack reports EndOfStreamException, corrupt gzip reports IOException).
+        // Corrupt Replay Payloads can surface as IO exceptions, so the decode stage takes precedence over the exception type.
         if (stage == BundleSealStage.ReplayDecode)
             return Job(
                 BundleSealFailureDisposition.Degrade,
@@ -497,7 +481,6 @@ public static class BundleSealFailurePolicy
                 detail,
                 attempts
             );
-        // An exhausted replay read degrades that one battle instead of losing the whole Run.
         return stage == BundleSealStage.ReplayRead
             ? Job(
                 BundleSealFailureDisposition.Degrade,
@@ -517,8 +500,6 @@ public static class BundleSealFailurePolicy
             );
     }
 
-    // Whether a waiting job may run now. Parked jobs run once per launch; retrying jobs back off
-    // exponentially from their last recorded failure.
     public static bool IsDue(
         string? lastErrorCode,
         int attempts,
@@ -528,8 +509,7 @@ public static class BundleSealFailurePolicy
         SecondsUntilDue(lastErrorCode, attempts, secondsSinceLastAttempt, secondsSinceLaunch)
             is <= 0f;
 
-    // When a waiting job may run next: 0 when it is due now, the rest of its backoff while it
-    // backs off, and null while it is parked until the next launch.
+    // Null means the job is parked until the next launch.
     public static float? SecondsUntilDue(
         string? lastErrorCode,
         int attempts,

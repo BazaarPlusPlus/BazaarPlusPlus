@@ -39,7 +39,6 @@ export default defineConfig({
           'ts-check': false
         }
       ],
-      // Type-only imports must not introduce runtime module side effects.
       'typescript/no-import-type-side-effects': 'error',
       'typescript/no-non-null-assertion': 'error',
       'vite-plus/prefer-vite-plus-imports': 'error'

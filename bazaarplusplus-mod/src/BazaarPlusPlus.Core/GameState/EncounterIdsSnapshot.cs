@@ -1,7 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.GameState;
 
-/// <summary>Lightweight read of the currently available encounter ids.</summary>
 public readonly struct EncounterIdsSnapshot
 {
     public string? CurrentEncounterId { get; init; }

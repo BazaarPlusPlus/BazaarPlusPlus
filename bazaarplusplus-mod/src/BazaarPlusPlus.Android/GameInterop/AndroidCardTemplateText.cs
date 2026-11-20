@@ -11,15 +11,6 @@ using Il2CppTheBazaar.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// A static card template's text in the current language, the one card-text resolver every
-/// Android inspection (Collection, Ten-Win Builds, History) reads: its title (or internal name),
-/// and its description as the game's own tooltip renders it for the card's tier and enchantment
-/// (<see cref="Description(CardRentalSubject)"/>), its <c>{ability.*}</c> and <c>{aura.*}</c>
-/// values resolved to numbers. When the game cannot render it, as before static data is ready,
-/// the authored text stands in with its placeholders dropped. Null when the template is unknown
-/// or the lookup fails. Main thread only.
-/// </summary>
 internal static class AndroidCardTemplateText
 {
     public static string? Title(Guid templateId)
@@ -42,13 +33,6 @@ internal static class AndroidCardTemplateText
         return Description(new CardRentalSubject(templateId, tier));
     }
 
-    /// <summary>
-    /// The card's description and its ability and aura lines as the game's tooltip shows them for
-    /// <paramref name="subject"/>'s tier, enchantment, and saved values: the card the game's preview prefab builds
-    /// in its own set-up (<c>CardPreviewBase.SetUp</c>), rendered through its
-    /// <see cref="CardTooltipData"/>. Falls back to <see cref="Authored"/> when that throws or
-    /// renders nothing. Rich text: the game's colors and keyword sprites.
-    /// </summary>
     public static string? Description(CardRentalSubject subject)
     {
         var template = Template(subject.TemplateId);
@@ -58,12 +42,6 @@ internal static class AndroidCardTemplateText
         return tooltip == null ? Authored(template) : DescriptionFrom(tooltip, template);
     }
 
-    /// <summary>
-    /// What an inspection shows for <paramref name="subject"/>'s tier and enchantment from one
-    /// template lookup and one <see cref="CardTooltipData"/>: the text
-    /// <see cref="Description(CardRentalSubject)"/> returns, and the out-of-combat cooldown and
-    /// ammo the tooltip reads. Values are null when the tooltip cannot be built or lacks them.
-    /// </summary>
     public static (string? Text, float? Cooldown, float? Ammo) Preview(CardRentalSubject subject)
     {
         var template = Template(subject.TemplateId);
@@ -79,11 +57,6 @@ internal static class AndroidCardTemplateText
         );
     }
 
-    /// <summary>
-    /// The same enchantment-only effect renderer used by in-game tooltip previews, for a
-    /// <paramref name="template"/> the caller looked up once (<see cref="Template"/>) across its
-    /// enchantments and tiers. Null when the template is unknown or the render fails.
-    /// </summary>
     public static string? EnchantmentEffect(
         TCardBase? template,
         CardRentalSubject subject,
@@ -108,8 +81,8 @@ internal static class AndroidCardTemplateText
         );
     }
 
-    // Each block on its own: an effect token that needs the run, absent at the main menu, costs
-    // only its block. The authored text stands in when neither renders.
+    // Some tokens require live run data, so one block can fail at the main menu while the other
+    // still renders.
     private static string? DescriptionFrom(CardTooltipData tooltip, TCardBase template)
     {
         var lines = new List<string>();
@@ -152,10 +125,6 @@ internal static class AndroidCardTemplateText
         }
     }
 
-    /// <summary>
-    /// A detached card for <paramref name="subject"/>'s template, tier, enchantment, and saved
-    /// values, built as the game's preview prefab builds it; null when the template is unknown or the build fails.
-    /// </summary>
     public static Card? PreviewCard(CardRentalSubject subject)
     {
         var template = Template(subject.TemplateId);
@@ -194,7 +163,7 @@ internal static class AndroidCardTemplateText
             lines.Add(trimmed);
     }
 
-    // The description, or else the tooltips one per line, as most items author their text there.
+    // Most items store their authored description in the tooltip lines.
     private static string? Authored(TCardBase template)
     {
         var localization = template.Localization;
@@ -212,10 +181,7 @@ internal static class AndroidCardTemplateText
                     if (Formatted(Text(tooltip?.Content)) is { } line && !lines.Contains(line))
                         lines.Add(line);
         }
-        catch (Exception)
-        {
-            // A partial list is still worth showing.
-        }
+        catch (Exception) { }
         return lines.Count == 0 ? null : string.Join("\n", lines);
     }
 
@@ -227,7 +193,6 @@ internal static class AndroidCardTemplateText
         return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
     }
 
-    /// <summary>The static template for <paramref name="templateId"/>; null when unknown or not ready.</summary>
     public static TCardBase? Template(Guid templateId)
     {
         try

@@ -4,13 +4,6 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests.NativePairedTooltipHost;
 
-/// <summary>
-/// Locks the placement rules that moved out of the Combat Impact tooltip view.
-/// </summary>
-/// <remarks>
-/// These assert the pre-extraction behavior, including the deliberate right-side tie-break and the
-/// shared 0.5 epsilon. A change here is a change to what the user sees.
-/// </remarks>
 public class NativePairedTooltipPlacementMathTests
 {
     private const float Epsilon = NativePairedTooltipMetrics.Epsilon;
@@ -38,8 +31,6 @@ public class NativePairedTooltipPlacementMathTests
             )
         );
     }
-
-    // ── Side selection ─────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Prefers_the_right_side_when_the_preferred_width_fits_there()
@@ -92,7 +83,6 @@ public class NativePairedTooltipPlacementMathTests
     [Fact]
     public void Accepts_a_side_that_is_short_by_less_than_epsilon()
     {
-        // The epsilon is applied to the fit test, not just to the comparisons downstream.
         var side = NativePairedTooltipPlacementMath.ChooseSide(
             availableRight: 660f - (Epsilon * 0.5f),
             availableLeft: 5000f,
@@ -101,8 +91,6 @@ public class NativePairedTooltipPlacementMathTests
 
         Assert.Equal(PairSide.Right, side);
     }
-
-    // ── Available room ─────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Available_room_never_goes_negative()
@@ -137,8 +125,6 @@ public class NativePairedTooltipPlacementMathTests
             3
         );
     }
-
-    // ── Width clamping ─────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Content_width_is_capped_at_the_preferred_width()
@@ -182,7 +168,6 @@ public class NativePairedTooltipPlacementMathTests
             preferredContentWidth: 660f
         );
 
-        // 400 / 2 - 40
         Assert.Equal(160f, width, 3);
     }
 
@@ -200,8 +185,6 @@ public class NativePairedTooltipPlacementMathTests
 
         Assert.Equal(200f, width, 3);
     }
-
-    // ── Pair offset ────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Right_placement_puts_the_panel_one_gap_past_the_primary_and_tops_align()
@@ -236,8 +219,6 @@ public class NativePairedTooltipPlacementMathTests
         Assert.Equal(-318f, offset.x, 3);
         Assert.Equal(50f, offset.y, 3);
     }
-
-    // ── Vertical fit ───────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void A_rect_already_inside_the_bounds_is_not_moved()
@@ -284,15 +265,12 @@ public class NativePairedTooltipPlacementMathTests
         var rect = Rect.MinMaxRect(0f, -100f, 100f, 150f);
         var bounds = Rect.MinMaxRect(0f, 0f, 100f, 100f);
 
-        // Top-align: yMax 150 -> 100. Bottom is left overflowing on purpose.
         Assert.Equal(
             -50f,
             NativePairedTooltipPlacementMath.ResolveVerticalAdjustment(rect, bounds),
             3
         );
     }
-
-    // ── Overflow / collision diagnostics ───────────────────────────────────────────────────
 
     [Fact]
     public void A_pair_that_fits_the_screen_reports_no_overflow()
@@ -390,8 +368,6 @@ public class NativePairedTooltipPlacementMathTests
         );
     }
 
-    // ── Rect helpers ───────────────────────────────────────────────────────────────────────
-
     [Fact]
     public void Union_covers_both_rects()
     {
@@ -431,8 +407,6 @@ public class NativePairedTooltipPlacementMathTests
         Assert.Equal(2f, inset.yMax, 3);
     }
 
-    // ── Content height limit ───────────────────────────────────────────────────────────────
-
     [Theory]
     [InlineData(1080f, 16f, 1f, 1048f)]
     [InlineData(1080f, 16f, 0.5f, 2096f)]
@@ -469,7 +443,6 @@ public class NativePairedTooltipPlacementMathTests
             rowHeight
         );
 
-        // The longest prefix of rows the height budget can leave visible.
         var fitting = 0;
         while ((fitting + 1) * rowHeight <= contentHeightLimit + Epsilon)
             fitting++;

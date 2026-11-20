@@ -27,7 +27,6 @@ public class LauncherScreenTest {
         return LaunchGate.decide(new LaunchGate.Inputs(installed, adaptations, developmentInterop));
     }
 
-    /** A game the publisher signed: the adapted one, or other code. */
     static LaunchGate.Installed installed(long versionCode, boolean adapted) {
         return LaunchGateTest.installed(versionCode, adapted ? LaunchGateTest.ADAPTED : LaunchGateTest.OTHER);
     }
@@ -41,14 +40,8 @@ public class LauncherScreenTest {
                 playInstalled, playSource);
     }
 
-    /** No primary action. */
     static final Action NONE = null;
 
-    /**
-     * One row of the primary-action matrix: a Development interop or none, a tier, and the
-     * primary for each of the four combinations of the game installed or not (a versionName or
-     * null in the facts) and the runtime present or missing.
-     */
     static final class Row {
         final boolean devInterop;
         final Tier tier;
@@ -63,24 +56,14 @@ public class LauncherScreenTest {
         }
     }
 
-    /**
-     * The primary action as {@link LauncherScreen#ready} decides it, with Google Play installed and
-     * a game of the Google Play source. The facts are independent of the tier, so the table holds
-     * cells that {@code LaunchCheck.run} never builds: it gives a game that is not installed the tier
-     * NOT_INSTALLED and no Development interop.
-     */
+    /** The matrix intentionally includes combinations that LaunchCheck never produces. */
     static final Row[] PRIMARY = {
-        //                                       installed                                           not installed
-        //                                       runtime                   no runtime                runtime                   no runtime
         new Row(false, Tier.NOT_INSTALLED,       Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
         new Row(false, Tier.ANDROID_RELEASE_APK, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
         new Row(false, Tier.OFFLINE_NO_CACHE,    Action.RETRY,             Action.RETRY,             Action.RETRY,             Action.RETRY),
         new Row(false, Tier.NORMAL,              Action.PLAY,              NONE,                     Action.PLAY,              NONE),
         new Row(false, Tier.NEWER_WAITING,       NONE,                     NONE,                     NONE,                     NONE),
         new Row(false, Tier.OLDER,               Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY,  Action.UPDATE_FROM_PLAY),
-        // A Development interop plays where LaunchGate.Decision.bppLaunch allows it: every tier but
-        // NOT_INSTALLED and ANDROID_RELEASE_APK. Play follows the decision only, not the game's
-        // versionName, so the cells LaunchCheck.run never builds follow the tier as well.
         new Row(true,  Tier.NOT_INSTALLED,       Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
         new Row(true,  Tier.ANDROID_RELEASE_APK, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY, Action.INSTALL_FROM_PLAY),
         new Row(true,  Tier.OFFLINE_NO_CACHE,    Action.PLAY,              NONE,                     Action.PLAY,              NONE),
@@ -89,7 +72,6 @@ public class LauncherScreenTest {
         new Row(true,  Tier.OLDER,               Action.PLAY,              NONE,                     Action.PLAY,              NONE),
     };
 
-    /** A decision of {@code tier}, through the gate. */
     static LaunchGate.Decision decision(Tier tier, boolean devInterop) {
         LaunchGate.Decision decision;
         switch (tier) {
@@ -187,7 +169,6 @@ public class LauncherScreenTest {
         assertFalse(screen.busy);
     }
 
-    /** Every tier, with and without a Development interop, the game installed and the runtime present. */
     @Test
     public void everyTierHasAStatusAndOneSourceRowAtMost() {
         List<LaunchGate.Decision> decisions = new ArrayList<>();

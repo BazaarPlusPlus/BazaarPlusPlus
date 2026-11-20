@@ -9,24 +9,8 @@ using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.TestSupport;
 using Microsoft.Data.Sqlite;
 
-/// <summary>
-/// The Run Logging anchor's two artifacts, both goldens of the local history database contract
-/// (<c>RunLogSchema.LocalDatabaseSchemaVersion</c>):
-/// <list type="bullet">
-/// <item><c>src/BazaarPlusPlus.Storage/history-database-v6.schema.sql</c>, the shared schema file
-/// the installer loads: <c>PRAGMA user_version=N;</c>, then every
-/// <c>sqlite_master</c> statement ordered by type (table, index, trigger, view) and name, each ending
-/// in <c>;</c> and LF. Loadable with <c>sqlite3</c> and rusqlite <c>execute_batch</c>.</item>
-/// <item><c>fixtures/history-database-v6.rows.json</c>: every column of <c>runs</c>,
-/// <c>run_events</c>, and <c>battles</c> after each scenario step, rows in primary-key order.</item>
-/// </list>
-/// The only normalization is the collision suffix: <c>RunLogRunIdentity.CreateCollisionId</c> draws
-/// a GUID, so each <c>:bpp:&lt;32 hex&gt;</c> becomes <c>:bpp:#1</c>, <c>:bpp:#2</c>... in first-seen
-/// order, everywhere it appears. Times are raw: the module clock is fixed, so a changed time means
-/// a write picked up a second clock. Actual output lands in
-/// <c>artifacts/run-logging-pipeline/&lt;test assembly&gt;/</c>, one directory per host binding.
-/// Regenerate with <c>BPP_UPDATE_GOLDENS=1</c> and review <c>git diff</c> of both files.
-/// </summary>
+// Collision IDs contain random GUIDs, so the goldens alias them in first-seen order.
+// Timestamps stay raw to catch writes that bypass the test clock.
 internal sealed partial class HistoryDatabaseArtifacts
 {
     private const string SchemaFile = "src/BazaarPlusPlus.Storage/history-database-v6.schema.sql";
@@ -65,13 +49,8 @@ internal sealed partial class HistoryDatabaseArtifacts
 
     internal bool Failed { get; private set; }
 
-    /// <summary>The test assembly, which names the host binding the goldens ran against.</summary>
     private static string Binding => typeof(HistoryDatabaseArtifacts).Assembly.GetName().Name!;
 
-    /// <summary>
-    /// Dumps the schema of a freshly initialized database and compares it with the golden at
-    /// once, so a column change shows as a schema diff before any scenario step can trip on it.
-    /// </summary>
     internal void RecordSchema(string database)
     {
         using var connection = Open(database);
@@ -103,7 +82,6 @@ internal sealed partial class HistoryDatabaseArtifacts
         Compare(SchemaFile, schema.ToString());
     }
 
-    /// <summary>Snapshots every column of runs, run_events, and battles after a step.</summary>
     internal void RecordStep(int number, string name, string database)
     {
         using var connection = Open(database);
@@ -113,10 +91,6 @@ internal sealed partial class HistoryDatabaseArtifacts
         _steps.Add(step);
     }
 
-    /// <summary>
-    /// Compares the recorded steps with the golden. After a failed check the scenario stopped
-    /// early, so only the steps it reached are compared, and the golden is never rewritten.
-    /// </summary>
     internal void CompareRows(bool scenarioCompleted)
     {
         var actual = StepsJson(_steps);

@@ -10,19 +10,13 @@ import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * Unity loads libmain.so by absolute path from nativeLibraryDir, so the game gets a directory of
- * links: the App's own libraries (LemonLoader's libmain.so and libe_sqlite3.so) and every other
- * library from the game's extracted libs. A game library that was not extracted (a split APK
- * installed with extractNativeLibs=false) gets no link; the class loader finds it inside its APK
- * through the "apk!/lib/arm64-v8a" entries of {@link #librarySearchPath}.
- */
+// Unity loads libmain.so by absolute path from nativeLibraryDir, so it needs the links directory.
+// The APK search paths handle libraries that Android did not extract.
 public final class LibraryLinks {
     static final String ABI_DIR = "lib/arm64-v8a/";
 
     private LibraryLinks() {}
 
-    /** Every library name to the file its link points at; the App's libraries win. */
     public static Map<String, File> plan(List<String> gameLibraries, File gameLibraryDir, List<String> appLibraries,
             File appLibraryDir) {
         TreeMap<String, File> targets = new TreeMap<>();
@@ -34,7 +28,6 @@ public final class LibraryLinks {
         return targets;
     }
 
-    /** The arm64 library names inside the given APKs. */
     public static List<String> libraryNames(List<String> apks) throws IOException {
         List<String> names = new ArrayList<>();
         for (String apk : apks) {
@@ -51,7 +44,6 @@ public final class LibraryLinks {
         return names;
     }
 
-    /** The links directory first, then the App's and the game's library dirs, then each APK's libs. */
     public static String librarySearchPath(File links, File appLibraryDir, File gameLibraryDir, List<String> apks) {
         StringBuilder path = new StringBuilder(links.getAbsolutePath())
                 .append(File.pathSeparator).append(appLibraryDir.getAbsolutePath())

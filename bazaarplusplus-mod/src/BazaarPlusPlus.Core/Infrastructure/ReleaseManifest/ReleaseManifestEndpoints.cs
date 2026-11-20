@@ -1,13 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure.ReleaseManifest;
 
-/// <summary>
-/// Where the mod reads the published Product Release version from. Each platform has a dedicated
-/// mod endpoint carrying its Platform Release Manifest; the lockstep manifest at
-/// <c>latest.json</c> names the newest release Windows and macOS promoted together and serves any
-/// platform without a manifest of its own. Android has only its Platform Release Manifest, and its
-/// host passes <see cref="AndroidPlatformKey"/>.
-/// </summary>
+// latest.json is the desktop lockstep fallback. Android has its own Platform Release Manifest.
 public static class ReleaseManifestEndpoints
 {
     public const string WindowsPlatformKey = "windows-x86_64";

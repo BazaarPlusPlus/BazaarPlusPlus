@@ -12,10 +12,7 @@ internal sealed class BppDockButtonScreenLayout
     // Transforms seen in one scene; a guard against unbounded growth in a long-lived scene.
     private const int MaximumCachedBppNameVerdicts = 8192;
 
-    // Whether a Transform's own name carries the BPP prefix, keyed by instance ID. Only the name is
-    // cached, never the ancestor verdict, so a native subtree reparented under a BPP container is
-    // still seen on the next walk. BPP names its objects as it creates them, so a cached name does
-    // not go stale.
+    // Cache authored names only. Reparenting can change whether an ancestor belongs to BPP between scans.
     private static readonly Dictionary<int, bool> BppNameVerdicts = [];
     private static string? _bppNameVerdictsScene;
 
@@ -25,21 +22,12 @@ internal sealed class BppDockButtonScreenLayout
     private readonly List<CanvasGroup> _canvasGroupScratch = [];
     private readonly Vector3[] _cornerScratch = new Vector3[4];
 
-    /// <summary>
-    /// The scene-wide scan one layout probe shares across every
-    /// <see cref="TryResolveAndApplyCollection"/> call it makes.
-    /// </summary>
     internal static Button[] FindSceneButtons() =>
         UnityEngine.Object.FindObjectsByType<Button>(
             FindObjectsInactive.Exclude,
             FindObjectsSortMode.InstanceID
         );
 
-    /// <summary>
-    /// Places <paramref name="collectionRect"/> beside the anchor clear of every visible native
-    /// button in <paramref name="sceneButtons"/>. <paramref name="blockerName"/> names what stopped
-    /// the placement and is set only when this returns false.
-    /// </summary>
     internal bool TryResolveAndApplyCollection(
         Button[] sceneButtons,
         Button anchorButton,
@@ -121,8 +109,7 @@ internal sealed class BppDockButtonScreenLayout
             );
         if (!plan.CanApply)
         {
-            // Names are log labels only, so a scanned blocker's path is built here, before the
-            // next call clears the source scratch, and only when it actually blocks.
+            // Resolve the diagnostic path before the next probe clears the source scratch data.
             blockerName = DescribeBlocker(plan.Blocker);
             return false;
         }

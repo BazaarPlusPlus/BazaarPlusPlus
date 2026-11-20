@@ -50,8 +50,6 @@ internal sealed class HistoryPanelMount : IBppMountable
             return;
         }
 
-        // CombatReplayRuntime accessor is not a path and is not on services.Paths — pass it
-        // straight through to Factory. Paths are startup-stable strings.
         var dependencies = HistoryPanelFactory.Create(
             services.RunContext,
             modApiSession,
@@ -71,8 +69,6 @@ internal sealed class HistoryPanelMount : IBppMountable
         );
         var panel = host.AddComponent<HistoryPanel>();
         panel.Configure(dependencies);
-        // Register with the host only once fully configured; an unconfigured panel (skip paths
-        // above) must stay invisible to overlay lifecycle routing.
         panel.AttachToOverlayHost(overlayHost);
     }
 

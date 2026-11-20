@@ -21,8 +21,6 @@ public class LoaderDeploymentTest {
 
     @Test
     public void aNewAppBuildResetsTheWholeLoaderDeployment() {
-        // The spike's finding: a new App build with new runtime files was ignored, because
-        // LemonLoader's revision is the game's lastUpdateTime, which an App update leaves alone.
         assertEquals(LoaderDeployment.RUNTIME_MARKERS, LoaderDeployment.stalePaths(
                 new LoaderDeployment.Identity(6001000, INTEROP_A), new LoaderDeployment.Identity(6001001, INTEROP_A)));
         assertEquals(LoaderDeployment.RUNTIME_MARKERS,

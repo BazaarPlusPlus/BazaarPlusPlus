@@ -5,12 +5,8 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The run lifecycle signals of the IL2CPP game: the proxies of <c>TheBazaar.Events.RunStarted</c>,
-/// <c>RunEnded</c>, and <c>RunInterrupted</c>. Their listeners are <c>Il2CppSystem.Action</c>, so
-/// each handler is converted once and the same IL2CPP delegate is removed on dispose (the game keys
-/// its wrappers by delegate). Each signal counts its hits for the hooks summary.
-/// </summary>
+// The game keys its listener wrappers by delegate, so remove the same converted IL2CPP delegate
+// that was added.
 internal sealed class AndroidRunLifecycleSource : IRunLifecycleSource
 {
     private long _started;

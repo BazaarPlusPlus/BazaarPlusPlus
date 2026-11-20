@@ -17,7 +17,6 @@ public enum LiveBuildRefreshEffect
     Recommendations,
 }
 
-/// <summary>Owns manual refresh decisions for one Live Build Panel lifetime.</summary>
 public sealed class LiveBuildRefreshState
 {
     private enum Presence

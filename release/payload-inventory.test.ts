@@ -18,7 +18,6 @@ import type {
 import { readProductVersion, WORKSPACE_ROOT } from './product.ts';
 import type { BuildPlatform } from './release-platforms.ts';
 
-// What `dotnet msbuild -getItem -getProperty` prints, as far as these tests read.
 interface MsbuildEvaluation {
   Properties: { BppPayloadPlatform: string };
   Items: { BppPayloadFile: { PayloadPath: string }[] };
@@ -325,8 +324,7 @@ test('every published product assembly is declared in the shared inventory', () 
     )
     .map((entry) => entry.name)
     .sort();
-  // The Updater ships beside the host assemblies with its own version, so it
-  // is declared by its producer, not as a product assembly.
+  // The Updater has its own version, so it must be declared by its producer.
   const updaters = readInventory()
     .files.filter((entry) => entry.producer === 'updater')
     .map((entry) => path.posix.basename(entry.path, '.dll'));

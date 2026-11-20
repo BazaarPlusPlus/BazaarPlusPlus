@@ -49,8 +49,6 @@ public sealed partial class HistoryPanelCoordinator
         );
     }
 
-    // Once per game launch, the first time Favorites opens: copies left by a crash or a failed
-    // delete. A failed sweep leaves the copies for the next launch.
     private void SweepFavoriteCopies()
     {
         if (_favorites == null || _favoriteCopiesSwept)
@@ -68,17 +66,9 @@ public sealed partial class HistoryPanelCoordinator
         {
             await favorites.SweepOrphanCopiesAsync(cancellationToken);
         }
-        catch (Exception)
-        {
-            // Best-effort cleanup; the copies stay until a later sweep succeeds.
-        }
+        catch (Exception) { }
     }
 
-    /// <summary>
-    /// The favorite button. In Favorites it returns the selected favorite, whose note the host's
-    /// dialog edits, and does nothing else (null when none is selected). In Runs and Ghost it
-    /// favorites the active battle and returns null.
-    /// </summary>
     public HistoryFavoriteRecord? FavoriteSelected()
     {
         if (_state.SectionMode == HistorySectionMode.Favorites)
@@ -87,7 +77,6 @@ public sealed partial class HistoryPanelCoordinator
         return null;
     }
 
-    // Runs and Ghost: favorite the selected battle, or open it in Favorites when it already is.
     private async Task TryFavoriteSelectedBattleAsync(HistoryBattleRecord? battle)
     {
         if (
@@ -158,8 +147,6 @@ public sealed partial class HistoryPanelCoordinator
     public bool IsRemoveFavoriteConfirmationActive(string battleId, float now) =>
         _state.DeleteRunConfirmation.IsActiveFor(battleId, now);
 
-    // The delete button in Favorites: a first press arms a confirmation, a second removes the
-    // favorite, its note and its replay copy.
     private async Task TryRemoveSelectedFavoriteAsync()
     {
         var favorite = _state.GetSelectedFavorite();
@@ -179,7 +166,6 @@ public sealed partial class HistoryPanelCoordinator
         ClearDeleteRunConfirmation();
         _state.FavoriteActionInProgress = true;
         var session = _session.Version;
-        // The removal runs off the main thread; Remove stays disabled until it publishes.
         _requestUiRefresh();
         try
         {
@@ -201,8 +187,7 @@ public sealed partial class HistoryPanelCoordinator
         if (!_session.IsCurrent(session))
             return;
         _state.FavoriteActionInProgress = false;
-        // The removal runs off the main thread, so the user may have left Favorites meanwhile:
-        // LoadArchive reads the open section, and Favorites reloads on the way back.
+        // The user may change sections during removal. Refresh Favorites only if it is still open.
         if (_state.SectionMode != HistorySectionMode.Favorites)
         {
             _requestUiRefresh();
@@ -213,7 +198,7 @@ public sealed partial class HistoryPanelCoordinator
         _requestUiRefresh();
     }
 
-    // False keeps the note dialog open with the draft, so a failed save loses nothing.
+    // Return false to keep the note dialog open with its draft.
     public async Task<bool> TrySaveFavoriteNoteAsync(string battleId, string note)
     {
         if (_favorites == null)

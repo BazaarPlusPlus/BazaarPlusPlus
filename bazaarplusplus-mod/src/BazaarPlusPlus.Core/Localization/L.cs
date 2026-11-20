@@ -23,8 +23,7 @@ public static class L
         return set.Resolve(Language(), Mode());
     }
 
-    // Simplified text a feature shows as Chinese without a LocalizedTextSet (a Chinese-only
-    // subtitle row, a formatter's Chinese branch) still follows the Chinese locale mode.
+    // Chinese-only strings still honor the selected script mode even without a LocalizedTextSet.
     public static string ResolveChinese(string simplified) =>
         ChineseScriptConverter.Convert(simplified, null, Mode());
 

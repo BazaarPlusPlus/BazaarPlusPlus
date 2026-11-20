@@ -58,18 +58,13 @@ async function loadNotoSansSc() {
     await document.fonts.load('400 1em "Noto Sans SC"', '因热爱而生');
     if (windows) root.dataset.bppNotoSansSc = 'ready';
   } catch {
-    // The system font remains in use when the optional background download
-    // is unavailable. A later app launch retries unless the stylesheet cache
-    // was successfully written.
+    // Keep the system font when the optional download fails.
   }
 }
 
 const start = () => void loadNotoSansSc();
 
-/**
- * Starts the optional CJK font download after the first frame. It is kept out
- * of bundled assets and the stylesheet is retained in persistent Cache Storage.
- */
+/** Keep the optional font outside the bundle and start loading it after the first frame. */
 export function scheduleNotoSansScLoad() {
   if (scheduled || typeof window === 'undefined') return;
   scheduled = true;

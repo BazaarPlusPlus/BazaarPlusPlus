@@ -3,12 +3,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Reads the frame the screen shows into managed RGBA bytes, top row first. Main thread only,
-/// and only after <c>WaitForEndOfFrame</c>: before that the back buffer holds a frame still
-/// being drawn. The loader runs a managed coroutine through the game's own
-/// <c>StartCoroutine</c>, so a yielded <see cref="WaitForEndOfFrame"/> reaches Unity's scheduler.
-/// </summary>
+// Capture after WaitForEndOfFrame because the back buffer may still be drawing before then.
 internal static class AndroidScreenCapture
 {
     public readonly record struct Frame(byte[] Rgba, int Width, int Height);
@@ -36,9 +31,8 @@ internal static class AndroidScreenCapture
                     $"Texture data holds {raw?.Length ?? 0} bytes, expected {length}."
                 );
             var pixels = new byte[length];
-            // One copy out of IL2CPP memory; the interop indexer would cost a call per byte. The
-            // elements follow the array header (object header, bounds, length): four pointers,
-            // which is what the interop's own non-public ArrayStartPointer adds.
+            // The IL2CPP array data starts four pointer widths past its base. Copy it at once to
+            // avoid an interop call per byte.
             Marshal.Copy(IntPtr.Add(raw.Pointer, 4 * IntPtr.Size), pixels, 0, length);
             return new Frame(pixels, width, height);
         }

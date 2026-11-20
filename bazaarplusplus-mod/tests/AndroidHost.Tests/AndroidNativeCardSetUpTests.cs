@@ -4,12 +4,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// Saved Card Values as <see cref="AndroidNativeCardSetUp.Values"/> parses them over the interop
-/// attribute enum. The IL2CPP writes that follow (the instance, the client card after the set-up,
-/// the text card) build <c>Il2CppSystem</c> dictionaries, which ADR-0016 keeps out of this suite,
-/// so a device checks those.
-/// </summary>
+// Leave writes to device checks because they construct IL2CPP dictionaries.
 public sealed class AndroidNativeCardSetUpTests
 {
     [Fact]

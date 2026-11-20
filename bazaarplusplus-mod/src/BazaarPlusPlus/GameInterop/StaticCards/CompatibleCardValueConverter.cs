@@ -22,15 +22,10 @@ internal sealed class CompatibleCardValueConverter : JsonConverter
 
     internal CompatibleCardValueConverter(JsonConverter native) => _native = native;
 
-    /// <summary>
-    /// Inserts the adapter ahead of the native converter only when the client lacks
-    /// <see cref="UniqueCardCountType"/>: native <c>ReadJson</c> resolves a discriminator solely
-    /// through its private <c>TypeMapping</c>, so a client that maps it never reaches the
-    /// fallback, and the adapter would only buffer every value into a <c>JObject</c>.
-    /// </summary>
+    // Install only when the native TypeMapping lacks this discriminator. Otherwise the adapter
+    // would buffer every value into a JObject before native code handled it.
     internal static void Install(JsonSerializer serializer)
     {
-        // Once read, a client that maps the discriminator skips the per-row converter scans.
         if (NativeKnowsUniqueCardCount.IsValueCreated && NativeKnowsUniqueCardCount.Value)
             return;
         if (serializer.Converters.Any(converter => converter is CompatibleCardValueConverter))
@@ -77,7 +72,6 @@ internal sealed class CompatibleCardValueConverter : JsonConverter
         var data = JObject.Load(reader);
         try
         {
-            // Prefer the native implementation when the installed client knows this type.
             using var nativeReader = data.CreateReader();
             return _native.ReadJson(nativeReader, objectType, existingValue, serializer);
         }

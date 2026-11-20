@@ -3,13 +3,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>
-/// A card's dealt reward read off its JSON, as static data stores it: the first
-/// <c>TActionGameDealCards</c> whose spawn context constrains its reward. A context of groups
-/// takes its constraints from those groups' filters and behaviors alone, so a list of fixed ids is
-/// no filter even when a prerequisite beside it names a tag, and the branches of a
-/// <c>ConstraintOr</c> constrain nothing.
-/// </summary>
+/// <summary>Fixed-ID groups and adjacent prerequisites do not constrain the dealt pool. ConstraintOr provides no guaranteed facet to display.</summary>
 public sealed class EncounterRewardFilterParser(Func<string, string?, string?> normalize)
 {
     public EncounterRewardFilter? TryParse(JToken? card)
@@ -34,10 +28,6 @@ public sealed class EncounterRewardFilterParser(Func<string, string?, string?> n
         return null;
     }
 
-    /// <summary>
-    /// A random outcome's dynamic pool: the context's and group's behaviors with the filter's
-    /// constraints.
-    /// </summary>
     public EncounterRewardFilter? ParsePool(
         JToken context,
         JToken group,

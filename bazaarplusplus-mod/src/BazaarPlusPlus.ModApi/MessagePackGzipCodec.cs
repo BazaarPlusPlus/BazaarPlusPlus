@@ -4,11 +4,7 @@ using MessagePack.Resolvers;
 
 namespace BazaarPlusPlus.ModApi;
 
-/// <summary>
-/// Compatibility wrapper for local BPP payloads that use contractless MessagePack inside gzip.
-/// V6 Run payloads keep their untrusted-data options, size cap, version gate, and closed error codes
-/// in <c>RunPayloadV6Codec</c>; only the framing loop is shared internally.
-/// </summary>
+/// <summary>Local payloads use contractless MessagePack inside gzip.</summary>
 public static class MessagePackGzipCodec
 {
     private static readonly MessagePackSerializerOptions Options =
@@ -16,9 +12,8 @@ public static class MessagePackGzipCodec
             ContractlessStandardResolverAllowPrivate.Instance
         );
 
-    // Every enum, nullable ones included, as its member name: a payload whose enums are BPP card
-    // facets must not persist their integers (mod ADR-0015). A file written with integers does
-    // not decode with these options.
+    // Persist BPP card facets by member name (ADR-0015), including nullable enums.
+    // Payloads that encode those enums as integers are incompatible with these options.
     private static readonly MessagePackSerializerOptions EnumNameOptions =
         MessagePackSerializerOptions.Standard.WithResolver(
             CompositeResolver.Create(

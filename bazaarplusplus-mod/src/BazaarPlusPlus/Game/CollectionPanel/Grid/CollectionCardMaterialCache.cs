@@ -8,17 +8,7 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// L3 of the design's four-layer cache stack (§7). CardPreviewItem.UpdateCardImageMaterial
-// allocates a new Material per Item card; for 40+ Items visible at once that means as many
-// distinct Materials and no uGUI dynamic batching. With this cache the same artKey hands out
-// one shared Material instance across all Item cards, so all cells with the same art and visual
-// mode share a draw call.
-//
-// Lifecycle: shared Materials are owned by the cache. The collection panel's per-card
-// OnDestroy Harmony prefix nulls the card's _cardMaterial field before the original
-// OnDestroy fires, so the game's defensive `if (_cardMaterial) Destroy(_cardMaterial)` is a
-// no-op for our tracked cards. DisposeAll() actually destroys the Materials when the panel
-// itself is torn down (scene change, the closed panel's idle release, or panel mount unmounts).
+// uGUI batches by material instance. The Harmony destruction prefix clears cached materials before the game's OnDestroy can destroy them.
 internal sealed class CollectionCardMaterialCache
 {
     private const int DefaultCapacity = 256;
@@ -41,7 +31,6 @@ internal sealed class CollectionCardMaterialCache
         _lru.Release(artKey);
     }
 
-    // CardAssetDataSO loads its Material through an Addressables reference; a cached copy needs no load.
     public async Task<Material?> LoadSource(string artKey, CardAssetDataSO assetData)
     {
         if (_materials.TryGetValue(artKey, out var cached) && cached != null)

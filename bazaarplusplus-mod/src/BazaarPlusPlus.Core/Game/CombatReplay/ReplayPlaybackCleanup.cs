@@ -11,10 +11,7 @@ public readonly record struct ReplayPlaybackPublishOutcome(bool Succeeded, Excep
         new(false, exception ?? throw new ArgumentNullException(nameof(exception)));
 }
 
-/// <summary>
-/// Runtime-private cleanup runner. Each exit path keeps its own cleanup order (ADR-0003);
-/// this helper only isolates per-step failure observation so one bad cleanup cannot abort the rest.
-/// </summary>
+/// <summary>Each exit path keeps its own cleanup order (ADR-0003).</summary>
 public static class ReplayPlaybackCleanup
 {
     public static ReplayPlaybackPublishOutcome PublishThenCleanup(
@@ -60,10 +57,7 @@ public static class ReplayPlaybackCleanup
                 {
                     observeCleanupFailure?.Invoke(cleanupStep.Stage, ex);
                 }
-                catch
-                {
-                    // Cleanup observers are diagnostic only and cannot interrupt lifecycle state.
-                }
+                catch { }
             }
         }
     }

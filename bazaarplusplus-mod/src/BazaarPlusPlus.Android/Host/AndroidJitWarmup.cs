@@ -20,25 +20,12 @@ using Il2CppBazaarGameShared.Infra.Messages.GameSimEvents;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// Compiles the Mod's code on the paths that otherwise run for the first time in one frame, a
-/// little each frame, before they are needed. The host runs on a JIT: the first PvP battle a
-/// process captures paid about 20 ms of compilation inside the net-message hook, on top of the
-/// reads, and the combat clock's first build about 12 ms. Each <see cref="Tick"/> prepares methods
-/// from <see cref="Paths"/>, nested types included, until <see cref="FrameBudget"/> is spent.
-/// The game's message types among them are interop wrappers: their static constructors, which
-/// look up the IL2CPP class and its fields, are run here too. Main thread only: compiling can run
-/// a type's static constructor, and these call into IL2CPP. Generic instantiations, such as the
-/// collections over the game's enums, are not prepared; they still compile on first use.
-/// </summary>
+// First-use JIT stalls the PvP capture frame. Game wrapper initializers call IL2CPP, so warm them
+// on the main thread. Generic instantiations still JIT on first use.
 internal sealed class AndroidJitWarmup
 {
     public static readonly TimeSpan FrameBudget = TimeSpan.FromMilliseconds(1);
 
-    /// <summary>
-    /// The types whose first use measured as the largest single frames: the PvP Battle Capture
-    /// Window with the host's reads and persistence, and the combat clock's build and layout.
-    /// </summary>
     public static IReadOnlyList<Type> Paths { get; } =
     [
         typeof(NetMessageReceivePatch),
@@ -125,7 +112,6 @@ internal sealed class AndroidJitWarmup
 
     public int Failed { get; private set; }
 
-    /// <summary>Every frame on the main thread; a no-op once every method is prepared.</summary>
     public void Tick()
     {
         if (IsDone)
@@ -166,7 +152,6 @@ internal sealed class AndroidJitWarmup
         }
         catch (Exception)
         {
-            // A method the runtime will not compile ahead is compiled on first use, as before.
             Failed++;
         }
     }
@@ -210,7 +195,6 @@ internal sealed class AndroidJitWarmup
         }
         catch (Exception)
         {
-            // The wrapper initializes on first use instead, as before.
             Failed++;
         }
     }

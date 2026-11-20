@@ -1,8 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// Raw spawn-group data for a random-outcome event (outer SelectionMethod=Random,
-// Limit=1): the event rolls one group by weight instead of presenting choices.
 public sealed class EncounterOutcomeGroupData
 {
     public EncounterOutcomeGroupData(
@@ -24,19 +22,14 @@ public sealed class EncounterOutcomeGroupData
 
     public IReadOnlyList<Guid> Ids { get; }
 
-    // Dynamic pools (TSpawnFilterQuery) spawned alongside/instead of fixed ids;
-    // kept even when the constraints don't parse so the weight stays in the roll.
+    // Keep a dynamic pool's weight in the roll even when its constraints cannot be parsed.
     public IReadOnlyList<EncounterOutcomeQueryPool> QueryPools { get; }
 
-    // Card-count ownership prerequisites; all must be satisfied for the group to
-    // participate in the roll.
     public IReadOnlyList<EncounterCardRequirement> Requirements { get; }
 
     public EncounterDayCondition? DayCondition { get; }
 }
 
-// A TSpawnFilterQuery pool inside an outcome group: the constraints summarized as a
-// reward filter (null when unparseable) plus the group's spawn quantity.
 public sealed class EncounterOutcomeQueryPool
 {
     public EncounterOutcomeQueryPool(EncounterRewardFilter? filter, int? quantity)
@@ -50,8 +43,6 @@ public sealed class EncounterOutcomeQueryPool
     public int? Quantity { get; }
 }
 
-// Resolved outcome entry for display: one rolled alternative with its normalized
-// percentage (null for prerequisite-unmet groups, which are outside the roll).
 public sealed class EncounterOutcomeView
 {
     public EncounterOutcomeView(

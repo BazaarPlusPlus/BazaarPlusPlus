@@ -6,10 +6,6 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-/// <summary>
-/// The desktop's game-typed reads for the Bundle composer: card enum values from the game's
-/// assemblies, and Replay Payload verification through <see cref="CombatReplayLoader"/>.
-/// </summary>
 internal sealed class DesktopPvpBattleEvidence : IPvpBattleEvidenceBinding
 {
     public static DesktopPvpBattleEvidence Instance { get; } = new();

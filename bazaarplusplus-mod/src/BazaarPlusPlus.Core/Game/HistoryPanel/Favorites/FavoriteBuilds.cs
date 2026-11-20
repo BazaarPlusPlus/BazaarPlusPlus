@@ -3,16 +3,10 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Favorites;
 
-/// <summary>
-/// The player's favorited builds, read to mark the Ghost Battles that fought one of them. Neither
-/// the game nor a Bundle names the Run an opponent snapshot came from, so a Ghost matches a
-/// favorite of the player's own battle when both sides of the comparison agree on the player's
-/// hero, day, level, prestige and victories, and the Ghost was recorded after the favorite.
-/// </summary>
+/// <summary>The game and Bundle omit the opponent snapshot's Run ID, so matching a favorite uses a build fingerprint.</summary>
 public sealed class FavoriteBuilds
 {
-    // Days 1-4 builds look alike: in a 2026-11-14 production sample only 1 of 20 early-day Ghosts
-    // left a single candidate Run, against 34 of 43 from day 5 on.
+    // In a 2026-11-14 sample, only 1 of 20 Ghost Battles before day 5 uniquely matched a Run, compared with 34 of 43 from day 5 on.
     internal const int MinimumDay = 5;
 
     // The challenger's clock recorded the Ghost and this machine's clock the favorite.
@@ -26,7 +20,6 @@ public sealed class FavoriteBuilds
 
     public int Count => _builds.Count;
 
-    /// <summary>The builds of favorites of the player's own battles; others are skipped.</summary>
     public static FavoriteBuilds From(IEnumerable<HistoryBattleRecord> favorites)
     {
         var builds = new List<Build>();
@@ -36,7 +29,6 @@ public sealed class FavoriteBuilds
         return builds.Count == 0 ? None : new FavoriteBuilds(builds);
     }
 
-    /// <summary>Whether a Ghost Battle, read in the local perspective, fought a favorite build.</summary>
     public bool Matches(HistoryBattleRecord ghost)
     {
         if (_builds.Count == 0 || Build.Of(ghost, HistoryBattleSource.Ghost) is not { } fought)
@@ -47,7 +39,6 @@ public sealed class FavoriteBuilds
         return false;
     }
 
-    // The local player's side of a battle; a Ghost record is already projected to it.
     private sealed record Build(
         string Hero,
         int Day,

@@ -1,5 +1,3 @@
-"""Shared encodings and atomic writes for durable local state."""
-
 import json
 import os
 import tempfile
@@ -28,7 +26,7 @@ def atomic_replace(
     *,
     ownership_check: Callable[[], None] | None = None,
 ) -> None:
-    """Durably replace ``path``, checking ownership before writing and before promotion."""
+    """Check ownership again before promotion because it can change during the write."""
     check = ownership_check or (lambda: None)
     check()
     path.parent.mkdir(parents=True, exist_ok=True)

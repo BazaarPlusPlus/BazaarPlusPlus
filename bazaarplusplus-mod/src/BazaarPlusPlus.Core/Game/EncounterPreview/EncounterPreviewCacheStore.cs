@@ -201,10 +201,7 @@ public sealed class EncounterPreviewCacheStore
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-        {
-            // Best effort for the same reason as the individual delete above.
-        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { }
     }
 
     private static CacheDocumentWire ToWire(

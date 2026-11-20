@@ -4,16 +4,12 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-// A test project runs only when a registry names it: one of the two solutions, or
-// BppScenarioRunnerProjects (Directory.Build.props), which ScenarioRunner.Tests runs. The
-// Managed-free lane, `just mod::test-core`, runs BazaarPlusPlus.CoreTests.slnx and the capsules
-// BppTestCoreProjects names. A project outside them builds nowhere and runs nowhere, silently.
+// Test discovery is opt-in. A project absent from the solutions and runner registries is silently skipped.
 public sealed class TestProjectRegistryTests
 {
     private const string DesktopSolution = "tests/BazaarPlusPlus.Tests.slnx";
     private const string CoreSolution = "tests/BazaarPlusPlus.CoreTests.slnx";
 
-    // Projects that no registry runs, each with its reason. Keep this list short.
     private static readonly Dictionary<string, string> Unregistered = new(StringComparer.Ordinal)
     {
         ["CombatImpact.CorpusExport"] =
@@ -21,7 +17,6 @@ public sealed class TestProjectRegistryTests
             + "and ScenarioRunner.Tests builds it for its corpus export test.",
     };
 
-    // Core-solution projects that `just mod::test` does not run, each with its reason.
     private static readonly Dictionary<string, string> CoreLaneOnly = new(StringComparer.Ordinal)
     {
         ["AndroidHost.Tests"] =
@@ -179,8 +174,6 @@ public sealed class TestProjectRegistryTests
 
     private static IReadOnlyList<string> TestCoreProjects() => PropertyList("BppTestCoreProjects");
 
-    // A solution entry is tests/<Name>/<Name>.csproj; the project name is the file name, so an
-    // entry whose directory and file disagree surfaces as a missing project.
     private static IReadOnlyList<string> SolutionProjects(string solution) =>
         TestInputs
             .MsBuild(solution)
@@ -190,7 +183,6 @@ public sealed class TestProjectRegistryTests
             .Select(path => Path.GetFileNameWithoutExtension(path!.Replace('\\', '/')))
             .ToArray();
 
-    // One unconditional definition, the way ScenarioRunner.Tests and scripts/test.sh read it.
     private static IReadOnlyList<string> PropertyList(string property) =>
         TestInputs
             .MsBuild("Directory.Build.props")

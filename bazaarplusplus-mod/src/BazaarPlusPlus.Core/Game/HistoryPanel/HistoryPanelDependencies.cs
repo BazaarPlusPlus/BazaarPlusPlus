@@ -7,12 +7,6 @@ using BazaarPlusPlus.ModApi.Clients;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>
-/// What a host hands History's coordinator. The two delegates are the host's ports:
-/// <see cref="UnscaledTime"/> is its frame clock in seconds (Unity's <c>Time.unscaledTime</c>),
-/// and <see cref="ProfileAccountId"/> reads the signed-in game profile's account, on the UI
-/// thread.
-/// </summary>
 public sealed class HistoryPanelDependencies
 {
     public HistoryPanelDependencies(
@@ -58,6 +52,5 @@ public sealed class HistoryPanelDependencies
 
     public Func<string?> ProfileAccountId { get; }
 
-    // Null without a history database: the Favorites tab and the favorite action stay hidden.
     public HistoryFavoriteService? Favorites { get; init; }
 }

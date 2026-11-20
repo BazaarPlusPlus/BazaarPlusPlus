@@ -1,5 +1,3 @@
-//! Process entry for developer commands; never initializes a Tauri application.
-
 use anyhow::{anyhow, bail, Context as _};
 use std::ffi::OsString;
 use std::io::Write;
@@ -31,7 +29,6 @@ pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     })
 }
 
-/// Reads `--name value` pairs; each name may appear once.
 fn options<const N: usize>(
     command: &str,
     names: [&str; N],
@@ -59,9 +56,7 @@ fn canonical_game(game: Option<OsString>, command: &str) -> anyhow::Result<PathB
         .context("Cannot open game directory")
 }
 
-/// A temporary file beside the manifest destination, published over it once
-/// written. The destination must lie outside the game directory and must not
-/// be a symbolic link or anything else but a regular file.
+/// Stage next to the destination so publishing can use an atomic rename.
 fn stage_manifest(
     path: PathBuf,
     game: &Path,

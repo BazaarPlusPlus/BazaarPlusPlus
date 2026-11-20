@@ -1,15 +1,3 @@
-// Isolated on purpose: the Stream page's rendered states (idle, running,
-// runtime error) are anchored by src/shell.snapshot.test.tsx. These cases cover
-// polling and settle order a static snapshot cannot observe.
-// - An older poll overwrites a newer status, a slow poll overwrites a completed
-//   restart, or an older failed poll marks a newer status stale.
-// - A poll that only changes the reported error is not published.
-// - A runtime error is reported as polling staleness, or the reverse.
-// - A semantic notice persists, or a one-off failure leaks to other targets.
-// - Responses or timers fire after dispose, or a dispose-start replay accepts
-//   the old initialization.
-// - Polling keeps running while the window is hidden, or a resume waits a
-//   full interval before the first fresh status.
 import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   defaultCropSettings,
@@ -283,7 +271,6 @@ describe('stream workflow lifecycle and effects', () => {
 
     workflow.pause();
     expect(scheduler.intervals.size).toBe(0);
-    // A second resume signal, such as focus after visibility, polls once.
     workflow.resume();
     workflow.resume();
     expect(getStreamStatus).toHaveBeenCalledOnce();

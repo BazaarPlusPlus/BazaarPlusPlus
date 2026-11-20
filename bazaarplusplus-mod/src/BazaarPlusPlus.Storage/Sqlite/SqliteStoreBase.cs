@@ -35,18 +35,14 @@ public abstract class SqliteStoreBase
 
     protected SqliteConnection OpenConnection() => OpenConnection(DefaultBusyTimeoutMilliseconds);
 
-    // A shorter busy_timeout bounds only the native wait; Microsoft.Data.Sqlite still retries
-    // SQLITE_BUSY until SqliteCommand.CommandTimeout (whole seconds, 0 waits forever), so a
-    // caller that must give up sooner lowers its command's CommandTimeout as well.
+    // busy_timeout bounds SQLite's native wait. Microsoft.Data.Sqlite can still retry SQLITE_BUSY
+    // until SqliteCommand.CommandTimeout expires (whole seconds, 0 waits forever).
     protected SqliteConnection OpenConnection(int busyTimeoutMilliseconds)
     {
         if (busyTimeoutMilliseconds < 0)
             throw new ArgumentOutOfRangeException(nameof(busyTimeoutMilliseconds));
 
-        // Foreign-key enforcement rides the connection string so it costs no extra round trip.
-        // busy_timeout stays a pragma: Microsoft.Data.Sqlite 8.0's "Default Timeout" only seeds
-        // SqliteCommand.CommandTimeout (a managed SQLITE_BUSY retry loop, and CreateCommand
-        // already sets it), never sqlite3_busy_timeout's native blocking wait.
+        // Microsoft.Data.Sqlite's Default Timeout seeds CommandTimeout without setting sqlite3_busy_timeout.
         var connection = new SqliteConnection(_connectionString);
         try
         {

@@ -16,14 +16,8 @@ using Il2CppTheBazaar.AppFramework;
 
 namespace BazaarPlusPlus.Android.CombatReplay.PlaybackUi;
 
-/// <summary>
-/// The two players a saved replay presents, the Android form of the desktop's
-/// <c>OpponentPortraitController</c>: the opponent's identity from the manifest when the spawn
-/// carries none, a temporary opponent portrait loaded through the game's
-/// <c>BoardBuilder.LoadHeroPortraitAsync</c>, and the selected hero switched to the recorder's
-/// for the replay and restored after. In a Ghost payload the recorder is the challenger, on the
-/// Player side (ADR-0002). Main thread only.
-/// </summary>
+// Ghost payloads use the challenger's perspective, so the recorder is on the Player side
+// (ADR-0002).
 internal sealed class AndroidReplayOpponent
 {
     private EncounterController? _portrait;
@@ -188,7 +182,6 @@ internal sealed class AndroidReplayOpponent
         );
     }
 
-    // A stored hero id (BPP's canonical form, The Dragons included) back to the game's hero.
     private static bool TryParseHero(string? heroId, out EHero hero)
     {
         hero = default;

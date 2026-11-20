@@ -17,11 +17,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Collection;
 
-/// <summary>
-/// The selected card and its tier comparison in the shared touch inspection frame.
-/// A toggle expands all available enchantment effects using the in-game preview renderer.
-/// The base card, cooldown and ammo remain above the list.
-/// </summary>
 internal sealed class TouchCollectionInspection
 {
     public const string RentalOwner = "collection.inspection";
@@ -95,7 +90,6 @@ internal sealed class TouchCollectionInspection
         _cardOpacity = _slot.gameObject.AddComponent<CanvasGroup>();
         var info = TouchScreen.Child("Info", root, inspect.Info);
         _infoOpacity = info.gameObject.AddComponent<CanvasGroup>();
-        // Opaque, so the grid under it does not show through.
         _skin.Frame(info);
         // Swallows taps on the column, which would otherwise reach the dismiss button behind it.
         var swallow = info.gameObject.AddComponent<Button>();
@@ -132,10 +126,8 @@ internal sealed class TouchCollectionInspection
 
     public bool IsOpen => _root.activeSelf;
 
-    /// <summary>The inspected card is still setting up: a relayout waits for it.</summary>
     public bool SettingUp => _lease is { State: CardRentalLeaseState.Pending };
 
-    /// <summary>The detail column's scroll view, for the panel's drag-scroll log.</summary>
     public ScrollRect DetailScroll => _detailScroll;
 
     public void Open(CollectionCardVm card, RectTransform? source)
@@ -189,7 +181,6 @@ internal sealed class TouchCollectionInspection
         );
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (!IsOpen)
@@ -331,7 +322,6 @@ internal sealed class TouchCollectionInspection
         var ammunition = new List<CollectionTierTooltipText>();
         foreach (var tier in ReachableTiers(card.StartingTier))
         {
-            // One template and one tooltip per tier for the text and its values.
             var (text, cooldown, ammo) = MobilePlatform.Port.CardPreview(
                 new CardRentalSubject(card.Id, tier)
             );
@@ -360,7 +350,6 @@ internal sealed class TouchCollectionInspection
         _ammo = CollectionTierTooltipTextMerger.Merge(ammunition);
     }
 
-    // Base values stay visible while the optional list expands beneath them.
     private void RenderDetail()
     {
         for (var index = _detail.childCount - 1; index >= 0; index--)
@@ -420,7 +409,6 @@ internal sealed class TouchCollectionInspection
         _detail.sizeDelta = new Vector2(0f, flow.Height + chrome.Gap);
     }
 
-    // A card upgrades from its starting tier to Diamond; a Legendary card stays Legendary.
     private static IEnumerable<CardTier> ReachableTiers(CardTier starting)
     {
         if (starting == CardTier.Legendary)
@@ -432,7 +420,6 @@ internal sealed class TouchCollectionInspection
             yield return tier;
     }
 
-    // A sheet rect as its parent's local rect, inset horizontally for text.
     private static TouchRect Local(TouchRect rect, TouchRect origin, float inset) =>
         new(
             rect.Left - origin.Left + inset,

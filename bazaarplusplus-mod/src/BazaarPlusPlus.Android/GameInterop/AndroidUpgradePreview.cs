@@ -6,13 +6,6 @@ using Il2CppTheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The touch upgrade preview. The game already renders an item tooltip's next-tier values
-/// ("current » next") when the item's <c>CardController</c> is in upgrade preview, as an
-/// upgrade pedestal shows it; with the switch on, opening an upgradable item's tooltip enters
-/// that state and closing the tooltip leaves it. At most one controller is held at a time, so
-/// opening another card, closing the tooltip, or leaving the scene always releases the last one.
-/// </summary>
 internal static class AndroidUpgradePreview
 {
     private const long LoggedTransitions = 20;
@@ -22,14 +15,12 @@ internal static class AndroidUpgradePreview
     private static long _entered;
     private static long _exited;
 
-    /// <summary>The switch, read on every tooltip; null before the host binds it.</summary>
     public static Func<bool>? IsEnabled { get; set; }
 
     public static long Entered => Interlocked.Read(ref _entered);
 
     public static long Exited => Interlocked.Read(ref _exited);
 
-    /// <summary>Whether <paramref name="card"/>'s controller is the one held in preview.</summary>
     public static bool Holds(Card? card) =>
         card != null
         && _held != null
@@ -64,7 +55,6 @@ internal static class AndroidUpgradePreview
         }
     }
 
-    /// <summary>An admitted primary tooltip is rendering: bind its live card and apply the preference.</summary>
     public static void OnShowTooltips(Il2Cpp.CardController? controller)
     {
         if (_held != null && (controller == null || _held.Pointer != controller.Pointer))
@@ -91,11 +81,7 @@ internal static class AndroidUpgradePreview
             );
     }
 
-    /// <summary>
-    /// The game asked its card tooltip to hide. The request returns early while a card-to-card
-    /// transition runs or the tooltip is locked, and then the held card's tooltip is still up;
-    /// only a hide that cleared the tooltip's card releases the preview.
-    /// </summary>
+    // Native hide can return early during a card transition or when the tooltip is locked.
     public static void OnTooltipHidden(TooltipParentComponent? parent)
     {
         var held = _held;
@@ -108,7 +94,6 @@ internal static class AndroidUpgradePreview
         Release("tooltip_hidden");
     }
 
-    /// <summary>The card tooltip closed, the switch turned off, or the scene changed.</summary>
     public static void Release(string reason)
     {
         var held = _held;

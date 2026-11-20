@@ -44,8 +44,6 @@ class BusyHourSource:
 
 
 class DistinctCardHourSource(BusyHourSource):
-    """A busy hour whose Bundles each carry their own card identities."""
-
     def stream(self, index: RawHourIndex):
         for ref in index.items:
             hand = [

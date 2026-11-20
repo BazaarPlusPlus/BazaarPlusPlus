@@ -1,7 +1,3 @@
-// Checks that a component draws only with classes design/components/bundle.css
-// defines. Each product's tests run it over design/ui and over its own sources,
-// so a misspelt or deleted class fails the product that uses it
-// (docs/adr/0018-one-web-component-library.md).
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
@@ -14,7 +10,6 @@ export interface UndefinedClass {
   className: string;
 }
 
-/** Every class name a selector in `css` mentions. */
 export function definedClasses(css: string): Set<string> {
   const withoutComments = css.replaceAll(/\/\*[\s\S]*?\*\//g, '');
   const names = new Set<string>();
@@ -25,7 +20,6 @@ export function definedClasses(css: string): Set<string> {
   return names;
 }
 
-/** The `.tsx` files under `root`, recursively. */
 export function tsxFiles(root: string): string[] {
   return readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.tsx'))
@@ -45,9 +39,7 @@ function stringLiterals(source: string): string[] {
   return literals;
 }
 
-/** The class tokens a library component names: the static words in its
- *  `className` attributes and in `cx(…)` calls. A token built from a template
- *  (`bpp-btn-${variant}`) is dynamic and skipped. */
+/** Dynamic template tokens such as bpp-btn-${variant} are skipped. */
 export function libraryClassTokens(source: string): string[] {
   const tokens: string[] = [];
   const sites = [
@@ -63,7 +55,6 @@ export function libraryClassTokens(source: string): string[] {
   return tokens;
 }
 
-/** The text after each `start` match up to its balanced closing bracket. */
 function balancedAfter(
   source: string,
   start: RegExp,
@@ -85,16 +76,13 @@ function balancedAfter(
   return bodies;
 }
 
-/** The `bpp-*` class tokens anywhere in a product's string literals. Products
- *  also use Tailwind utilities, which bundle.css does not own. */
+/** Only bpp-* tokens belong to the shared stylesheet. Products also use Tailwind utilities. */
 export function productBppTokens(source: string): string[] {
   return stringLiterals(source).flatMap((literal) =>
     literal.split(/\s+/).filter((token) => /^bpp-[\w-]*\w$/.test(token))
   );
 }
 
-/** The classes in `files` that neither bundle.css nor one of the product's own
- *  `stylesheets` defines. */
 export function undefinedClasses(
   files: readonly string[],
   tokensOf: (source: string) => string[],

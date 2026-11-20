@@ -3,11 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Pure function: (catalog + filter state) -> ordered visible list.
-//
-// Ordering is deliberately explicit: selected priority first, then the other card facet, then
-// display name.
-// The rank helpers keep visible ordering independent from raw enum integer values.
+// Keep visible ordering independent of Card Facet integer values.
 public static class CollectionFilterEngine
 {
     public static List<CollectionCardVm> Apply(
@@ -31,8 +27,6 @@ public static class CollectionFilterEngine
         var mechanicFilterCount = profile.ShowKeywordFilter ? filter.Mechanics.Count : 0;
         var sizeFilterCount = profile.ShowSizeFilter ? filter.Sizes.Count : 0;
         var searchTerms = CollectionSearchTerms.From(filter.SearchQuery);
-        // In-run only; null disables. Independent of the manual Tier row — both narrow by tier.
-        // Fixed-tier sources are exempt: their pool ignores the day's tier ceiling.
         var dayMaximumTier =
             filter.UseRunDayFilter && !context.SuppressDayGate ? context.DayMaximumTier : null;
 
@@ -72,7 +66,6 @@ public static class CollectionFilterEngine
             result.Add(card);
         }
 
-        // An accepted catalog carries its culture's name ranks; any other list compares names.
         var rankedNames = CollectionCardNameOrder.Covers(result);
         result.Sort(
             (a, b) =>

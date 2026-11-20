@@ -14,11 +14,6 @@ using BazaarPlusPlus.Mobile.Previews;
 
 namespace BazaarPlusPlus.Android.Settings;
 
-/// <summary>
-/// What a settings row does beyond writing its setting: release the upgrade preview a switch
-/// turned off, open History or the new Android App's download. The host supplies these;
-/// <see cref="AndroidSettingsDock"/> stays free of Unity, so a test registers the rows.
-/// </summary>
 internal sealed record AndroidSettingsDockHooks(
     Action<string> ReleaseUpgradePreview,
     Func<bool> HistoryAvailable,
@@ -29,29 +24,12 @@ internal sealed record AndroidSettingsDockHooks(
     Action? ChineseLocaleModeChanged = null
 );
 
-/// <summary>
-/// The settings behind the Android host's own rows: the Mobile UI's <c>[Touch]</c> upgrade switch
-/// and preview text size, and the host's <c>[Graphics] FrameRatePriority</c>.
-/// </summary>
 internal sealed record AndroidSettingsDockSettings(
     ISetting<bool> UpgradePreview,
     ISetting<int> PreviewTextSize,
     ISetting<bool> FrameRatePriority
 );
 
-/// <summary>
-/// The Android host's rows of the BazaarPlusPlus settings section, registered the desktop's way
-/// (Core's <see cref="SettingsDockEntryRegistry"/> and <see cref="BppSettingsDockCatalog"/>) and
-/// drawn by <see cref="AndroidNativeSettingsSection"/> in the game's own settings dialog. The
-/// shared rows are Core's: BazaarDB upload (<c>[BazaarDB] UploadScreenshots</c>, which on Android
-/// gates the end-of-run screenshot and the account link), Combat Status,
-/// Enchant preview, with every mode the desktop offers, Chinese Locale, and Game History, which
-/// here has no hotkey. The Mobile UI's Upgrade preview switch stands in for the desktop's hotkey,
-/// and its Preview text size sets the Detailed Preview's size inside the native tooltip. The
-/// host's own are the game-update row, which offers the new Android App's download when the
-/// release needs it and otherwise says, dimmed, where the game stands, and Frame rate priority
-/// (<see cref="Game.AndroidFrameRatePriority"/>).
-/// </summary>
 internal static class AndroidSettingsDock
 {
     public static readonly LocalizedTextSet AppUpdated = new(
@@ -86,7 +64,6 @@ internal static class AndroidSettingsDock
         "幀率優先"
     );
 
-    /// <summary>Registers every row and installs them as the catalog's definitions.</summary>
     public static void Install(
         BppSettings shared,
         AndroidSettingsDockSettings settings,
@@ -140,7 +117,6 @@ internal static class AndroidSettingsDock
                 enabled => LogChanged("BazaarDB", "UploadScreenshots", enabled)
             )
         );
-        // The Mobile UI's combat clock resumes a paused fight itself once its setting is off.
         registry.Register(
             CombatStatusBarSettingsDockEntry.Create(enabled =>
                 LogChanged("CombatStatusBar", "Enabled", enabled)
@@ -180,7 +156,6 @@ internal static class AndroidSettingsDock
         );
         registry.Register(ChineseTranslationSettingsDockEntry.Create());
         registry.Register(new GameUpdateEntry(hooks));
-        // Read once a second by Game.AndroidFrameRatePriority, which applies a change itself.
         registry.Register(
             CyclingSettingsDockEntry<bool>.Toggle(
                 BppSettingsDockOrder.FrameRatePriority,
@@ -201,10 +176,6 @@ internal static class AndroidSettingsDock
             ("value", value)
         );
 
-    // Offered only while the release needs a new Android App, which the row downloads; otherwise
-    // it says where the game stands, dimmed: a newer game to update from its store (nothing for
-    // BPP to download), current, current but not adapted, the check has not answered yet, or it
-    // failed. A failed check never reads as current.
     private sealed class GameUpdateEntry(AndroidSettingsDockHooks hooks) : ISettingsDockEntry
     {
         public int Order => BppSettingsDockOrder.GameUpdate;

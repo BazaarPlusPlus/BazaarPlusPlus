@@ -10,8 +10,7 @@ public sealed class EndOfRunArtifactPersistence : IEndOfRunArtifactPersistence
 {
     private readonly RunScreenshotSqliteStore? _store;
 
-    // Required, as for every Core store user: the Android host must pass its DELETE mode, and
-    // null keeps the store's default (the desktop's WAL).
+    // Pass the host's journal options because the default WAL mode would override Android's DELETE mode.
     public EndOfRunArtifactPersistence(IBppServices services, SqliteOpenOptions? databaseOptions)
     {
         if (services == null)

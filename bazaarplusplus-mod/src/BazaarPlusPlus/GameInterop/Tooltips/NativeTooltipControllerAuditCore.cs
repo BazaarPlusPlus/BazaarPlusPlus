@@ -15,7 +15,6 @@ internal readonly record struct NativeTooltipControllerAuditCandidate(
     bool HasRequiredSurface
 );
 
-/// <summary>Pure authority/liveness policy for native tooltip clean-frame audits.</summary>
 internal static class NativeTooltipControllerAuditCore
 {
     internal static bool ShouldSkipInactiveNonAuthoritative(

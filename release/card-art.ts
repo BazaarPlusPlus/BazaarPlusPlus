@@ -16,25 +16,19 @@ import {
 import type { ObjectStore } from './r2-store.ts';
 import { STEAM_BRANCHES } from './snapshot-lock.ts';
 
-// Card Art (root ADR 0020): the game's item and skill art, extracted by
-// bazaarplusplus-bot/tools/card-art/extract.py and served at
-// https://cdn.bazaarplusplus.com/card-art/. .github/workflows/card-art.yml runs
-// stale, download, the extractor and publish in that order.
 export const CARD_ART_PREFIX = 'card-art';
 export const CARD_ART_INDEX = 'index.json';
 // The GameData the game itself downloads; the copy in the depot is months older.
 export const GAME_DATA_URL =
   'https://data.playthebazaar.com/static/GameData.db.zip';
-// Every desktop depot ships the same art; Windows is the one most players run.
+// Every desktop depot ships the same art.
 const CARD_ART_DEPOT = STEAM_DEPOTS.windows;
 
-/** The two inputs a Card Art set is built from. */
 export interface CardArtSource {
   buildid: string;
   gameData: string;
 }
 
-/** The part of a published index.json this module reads. */
 interface CardArtIndex {
   game?: Partial<CardArtSource>;
 }
@@ -50,10 +44,6 @@ async function gameDataEtag(): Promise<string> {
   return etag.replaceAll('"', '');
 }
 
-/**
- * Whether the online branch or GameData has moved past the published index.
- * A missing previous index is stale.
- */
 export async function cardArtStale(
   previousIndex: string,
   runTool: SteamToolRunner = defaultRunner(),
@@ -81,10 +71,6 @@ export async function cardArtStale(
   };
 }
 
-/**
- * Downloads what the extractor reads: the Steam files into <out>/Data and the
- * live GameData to <out>/GameData.db.zip.
- */
 export async function downloadCardArt(
   out: string,
   runTool: SteamToolRunner = defaultRunner()
@@ -111,12 +97,7 @@ export async function downloadCardArt(
   return { buildid: String(buildid), gameData: etag };
 }
 
-/**
- * Uploads every art file in the directory, then index.json, so a reader never
- * sees an index that points at a missing file. File names are content digests,
- * so unchanged art is a no-op and nothing is ever deleted; entries the
- * extractor kept from the previous index point at files already uploaded.
- */
+/** Publish the index last so readers can resolve every referenced image. */
 export async function publishCardArt(
   directory: string,
   store: Pick<ObjectStore, 'get' | 'put'> = r2StoreFromEnvironment(

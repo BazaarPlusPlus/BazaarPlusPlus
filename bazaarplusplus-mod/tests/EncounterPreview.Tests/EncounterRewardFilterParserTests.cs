@@ -5,10 +5,6 @@ using Xunit;
 
 namespace EncounterPreview.Tests;
 
-/// <summary>
-/// A dealt reward read off a card's static-data JSON, the shapes GameData stores: what makes a
-/// filter, and the day-table rules the quality odds follow.
-/// </summary>
 public sealed class EncounterRewardFilterParserTests
 {
     private const string ToolItemFilter = """
@@ -24,7 +20,6 @@ public sealed class EncounterRewardFilterParserTests
         }
         """;
 
-    // Raw JSON carries enum names, so the host's normalization has nothing to add.
     private static readonly EncounterRewardFilterParser Parser = new((_, _) => null);
 
     private static JObject Card(string groups, string behaviors = "null") =>
@@ -73,8 +68,6 @@ public sealed class EncounterRewardFilterParserTests
         Assert.True(reward.UsesDayTierDistribution);
     }
 
-    // "Work as Maintenance": a down-shifted reward starts from the day's table, and a disabled
-    // inherit-tier behavior changes nothing.
     [Fact]
     public void A_down_shift_keeps_the_source_distribution()
     {
@@ -108,8 +101,6 @@ public sealed class EncounterRewardFilterParserTests
         Assert.False(reward.UsesDayTierDistribution);
     }
 
-    // A list of fixed ids is no filter, however its group is gated: the desktop reads no filter
-    // from it, and a prerequisite's tag must not read as the reward's.
     [Fact]
     public void A_fixed_id_list_is_no_filter_even_beside_a_tagged_prerequisite()
     {
@@ -134,8 +125,6 @@ public sealed class EncounterRewardFilterParserTests
         Assert.Null(reward);
     }
 
-    // The desktop's typed route skips a ConstraintOr; its branches are alternatives, not a
-    // conjunction of constraints.
     [Fact]
     public void The_branches_of_an_or_constrain_nothing()
     {
@@ -168,8 +157,7 @@ public sealed class EncounterRewardFilterParserTests
         Assert.Empty(reward.Tags);
     }
 
-    // A runtime object serializes enums as the game's integers. BPP's facet integers mean
-    // nothing (ADR-0015), so an integer reads only through the host's names.
+    // Game enum integers must resolve through host names because BPP facet numbering is independent.
     [Fact]
     public void An_integer_reads_through_the_hosts_names_and_never_as_a_facet()
     {

@@ -1,9 +1,3 @@
-"""Bundles, a Bundle Server stand-in, and golden files for end-to-end pipeline tests.
-
-Every Bundle here reaches the analyzer the way production Bundles do: listed by
-``GET /bundles``, downloaded, admitted, projected, committed, and sealed.
-"""
-
 import base64
 import difflib
 import hashlib
@@ -37,11 +31,8 @@ SYNC_TOKEN = "test-token"
 
 MOD_BUNDLE_ID = "01J00000000000000000000902"
 
-# The single Source Day of the golden pipeline run.
 GOLDEN_DAY = date(2026, 8, 10)
 
-# Real boards hold small (1), medium (2), and large (3) cards; the mod rejects
-# any other size.
 DOOLEY_CARDS = (
     "11111111-1111-4111-8111-111111111111",
     "22222222-2222-4222-8222-222222222222",
@@ -76,15 +67,13 @@ def read_base64(path: Path) -> bytes:
 
 @dataclass(frozen=True, slots=True)
 class ServedBundle:
-    """One Bundle as the Bundle Server lists and serves it."""
-
     bundle_id: str
     available_at_ms: int
     content: bytes
 
 
 def server_run_only_bundle(available_at_ms: int) -> ServedBundle:
-    """The server's run-only golden; its Run segment never decodes."""
+    """The server golden contains a Run segment that is intentionally undecodable."""
     fixtures = SERVER_FIXTURES
     manifest = json.loads((fixtures / "run-only.manifest.json").read_text())
     content = read_base64(fixtures / "run-only.bundle.b64")
@@ -92,7 +81,6 @@ def server_run_only_bundle(available_at_ms: int) -> ServedBundle:
 
 
 def mod_run_payload_bundle(available_at_ms: int, *, created_at_ms: int) -> ServedBundle:
-    """Envelope the mod-encoded Run golden; the C# writer owns the Run bytes."""
     run_content = read_base64(MOD_RUN_FIXTURE)
     manifest: dict[str, object] = {
         "bundle_id": MOD_BUNDLE_ID,
@@ -135,8 +123,6 @@ def _synthetic(
     return ServedBundle(bundle_id, available_at_ms, content)
 
 
-# One Bundle per projection rule. Each is projected alone by
-# test_bundle_goldens and also served inside the golden pipeline day.
 _PROJECTION_HOUR = _hour(GOLDEN_DAY, 13)
 _PROJECTION_RUNS: dict[str, dict[str, object]] = {
     "side-name-player-wins": {
@@ -237,10 +223,6 @@ def _layout(
 
 _DOOLEY_ENCHANTMENTS = (None, "Burning", None, None)
 
-# Build eligibility boundaries. Numbering follows the retired row-level
-# policy fixture; number 2 (a final_battle_id that disagrees with the final
-# Battle) cannot be expressed as a Bundle because projection derives
-# final_battle_id from the one Battle flagged final.
 LAYOUT_CASES: dict[str, ServedBundle] = {
     "valid": _layout(0, "Dooley", DOOLEY_CARDS, FULL_BOARD, enchantments=_DOOLEY_ENCHANTMENTS),
     "two-final-battles": _layout(1, "Dooley", DOOLEY_CARDS, FULL_BOARD, final_battles=2),
@@ -284,7 +266,6 @@ LAYOUT_CASES: dict[str, ServedBundle] = {
 
 
 def golden_day_bundles() -> tuple[ServedBundle, ...]:
-    """Every Bundle of the golden Source Day; all other hours list no Bundles."""
     return (
         server_run_only_bundle(_ms(_hour(GOLDEN_DAY, 1))),
         mod_run_payload_bundle(_ms(_hour(GOLDEN_DAY, 2)), created_at_ms=_ms(_hour(GOLDEN_DAY, 2))),
@@ -294,7 +275,6 @@ def golden_day_bundles() -> tuple[ServedBundle, ...]:
 
 
 def daily_bundles(start: date, days: int) -> tuple[ServedBundle, ...]:
-    """One accepted Dooley Run at 00:30 on each Source Day."""
     bundles = []
     for offset in range(days):
         day = start + timedelta(days=offset)
@@ -318,14 +298,6 @@ def daily_bundles(start: date, days: int) -> tuple[ServedBundle, ...]:
 
 
 class BundleServer:
-    """``httpx.MockTransport`` handler for the Bundle Server collection contract.
-
-    ``GET /bundles`` returns the four-field items of
-    ``bazaarplusplus-server/src/modules/bundle-collection.ts::BundleCollectionItem``
-    in keyset order on a single page. An hour without Bundles returns ``200`` with
-    no items. ``GET <download_url>`` returns the Bundle bytes.
-    """
-
     def __init__(self, bundles: Iterable[ServedBundle], *, now: datetime) -> None:
         self.bundles = tuple(
             sorted(bundles, key=lambda item: (item.available_at_ms, item.bundle_id))
@@ -365,13 +337,7 @@ class BundleServer:
 
 
 def heal_from_bundles(root: Path, days: int, *, start: date = date(2026, 8, 7)) -> FactStore:
-    """Seal ``days`` consecutive Source Days from :func:`daily_bundles`, one day per run.
-
-    Each day is healed by its own ``PipelineDriver`` run at 00:01 the next day,
-    so every listing stays inside the Bundle Source's eight-day retention. Only
-    ``facts/`` is kept, so callers start from sealed facts without the healing
-    runs' status, logs, or local snapshots.
-    """
+    """Heal one day per run to stay inside the Bundle Source retention window."""
     bundles = daily_bundles(start, days)
     for offset in range(days):
         source_day = start + timedelta(days=offset)
@@ -403,10 +369,6 @@ def heal_from_bundles(root: Path, days: int, *, start: date = date(2026, 8, 7)) 
 
 
 def assert_golden(path: Path, content: bytes) -> None:
-    """Compare ``content`` with a committed JSON golden, or rewrite it on request.
-
-    ``BPP_UPDATE_GOLDENS=1`` (``just analyzer::golden``) writes the file instead.
-    """
     if os.environ.get("BPP_UPDATE_GOLDENS") == "1":
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)

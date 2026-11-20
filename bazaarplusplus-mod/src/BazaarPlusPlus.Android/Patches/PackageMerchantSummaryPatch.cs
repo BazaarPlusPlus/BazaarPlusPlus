@@ -3,10 +3,6 @@ using Il2CppTheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Names the merchant that accepts a package below its passive text, as the desktop's
-/// <c>PackageMerchantSummaryTooltipPatch</c> does. A package with no passive text gets no summary.
-/// </summary>
 [HarmonyPatch(
     typeof(CardTooltipController),
     nameof(CardTooltipController.RenderPassiveEffectTextBlock)

@@ -1,5 +1,3 @@
-"""Atomic, immutable storage for hourly Parquet facts and Source Day seals."""
-
 import hashlib
 import json
 import os
@@ -106,8 +104,6 @@ class FactPruneReport:
 
 
 class FactStore:
-    """The only owner of paths beneath ``facts/``."""
-
     def __init__(
         self,
         root: str | Path,
@@ -399,7 +395,6 @@ class FactStore:
         return tuple(result)
 
     def prune(self, *, retain_days: int) -> FactPruneReport:
-        """Remove facts older than the latest retained Complete Source Days."""
         if not isinstance(retain_days, int) or isinstance(retain_days, bool) or retain_days < 1:
             raise ValueError("retain_days must be a positive integer")
         seals = self.seals()

@@ -12,7 +12,6 @@ public static class CollectionSourceOfferPoolCacheKey
             source.SourceKey,
             BuildTemplateIdsFingerprint(source.SourceTemplateIds),
             source.OfferRuleFingerprint,
-            // A hero facet's name is its canonical id (ADR-0015).
             effectiveHero.ToString()
         );
 

@@ -6,14 +6,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android adapter of the Overlay Panel Host, run with fake panels: a scene load closes what
-/// the scene policies close, tells every panel and releases the rented cards once; the back key
-/// closes the open panel's modal, then the panel, and one press seen twice
-/// in a frame closes one surface; a switch-off closes the panel and releases its cards, a close
-/// the panel asks for does not. The adapter runs no IL2CPP code: combat, the frame count and the
-/// release are the host's delegates (ADR-0016 §3).
-/// </summary>
 public sealed class AndroidOverlayPanelsTests
 {
     [Fact]
@@ -70,8 +62,6 @@ public sealed class AndroidOverlayPanelsTests
         Assert.Equal(2, rig.Events.Count(entry => entry == "release:scene_changed"));
     }
 
-    // History's policy, the desktop's: it stays open across a scene change and closes only into
-    // a combat.
     [Fact]
     public void An_only_when_in_combat_panel_survives_a_scene_load_outside_combat()
     {
@@ -96,9 +86,7 @@ public sealed class AndroidOverlayPanelsTests
         );
     }
 
-    // A combat on Android loads no scene, so the frame's combat rule closes the open panel,
-    // History (which survives a plain scene load) as well as Collection, with no release: the
-    // panel returns its own cards on the close.
+    // Entering combat on Android does not load a scene, so the frame tick has to close the panel.
     [Theory]
     [InlineData("collection", SceneChangeClosePolicy.Always)]
     [InlineData("history", SceneChangeClosePolicy.OnlyWhenInCombat)]
@@ -162,8 +150,6 @@ public sealed class AndroidOverlayPanelsTests
         Assert.Equal(2, rig.Events.Count);
     }
 
-    // Collection's back steps: an inspection that animates closed stays modal until it is gone,
-    // then an expanded rail picker collapses, and only then does the panel close.
     [Fact]
     public void The_back_key_answers_every_modal_step_before_it_closes_the_panel()
     {
@@ -326,7 +312,6 @@ public sealed class AndroidOverlayPanelsTests
                 () => InCombat,
                 reason => Events.Add($"release:{reason}"),
                 () => Frame,
-                // A Data Root with no command file: the control never toggles.
                 new WalkthroughControl(
                     Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
                 )
@@ -335,7 +320,6 @@ public sealed class AndroidOverlayPanelsTests
 
         public AndroidOverlayPanels Panels { get; }
 
-        // As the Mobile Platform Port registers a panel: through the adapter, in the pump's scope.
         public MobilePanelHandle Register(
             Func<MobilePanelHandle, OverlayPanelRegistration> build
         ) =>
@@ -351,7 +335,6 @@ public sealed class AndroidOverlayPanelsTests
 
         public int Frame { get; set; }
 
-        // A press on a frame of its own.
         public bool Back(string source)
         {
             Frame++;

@@ -10,18 +10,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.CombatReplay.Bootstrap;
 
-/// <summary>
-/// A saved replay's start, the Android form of the desktop's <c>ReplayBootstrap</c>: from the
-/// lobby it loads the game scene and the gameplay loading scene and builds the board and game
-/// services the replay needs; then it injects the saved battle (the spawn message straight into
-/// the processor, the captured boards onto the card models, the opening events), pushes
-/// <c>ReplayState</c>, waits for the board to settle, repairs the playback presentation, and plays
-/// the recorded combat with <c>ReplayState.Replay()</c>. A failed lobby bootstrap rolls back to the
-/// lobby. Every game task goes through <see cref="Il2CppTasks"/> and every wait polls the main
-/// thread, so the whole start runs on the main thread. Each step logs its stage
-/// (<c>android.replay.bootstrap_stage</c>), the probe that tells a device run where a start stopped.
-/// The desktop's presentation, audio, VFX and soundtrack warmers are not ported yet.
-/// </summary>
 internal static class AndroidReplayBootstrap
 {
     private static readonly TimeSpan SceneTimeout = TimeSpan.FromSeconds(60);
@@ -39,7 +27,6 @@ internal static class AndroidReplayBootstrap
             && AppState._gameSimHandler != null;
     }
 
-    /// <summary>True when the start bootstrapped from the lobby and must return to it after.</summary>
     public static async Task<bool> EnsureBootstrapReadyAsync(string battleId)
     {
         if (IsBootstrapReady())
@@ -103,9 +90,8 @@ internal static class AndroidReplayBootstrap
                 "SceneLoader.UnloadScene(GameplayLoading)",
                 SceneTimeout
             );
-        // GameScene becoming active starts the game's loading-screen snapshot, which holds the
-        // SFX bus at zero until the loading screen fades out. This bootstrap shows no loading
-        // screen, so it raises that fade-out itself; the game's sound listener is its only one.
+        // Entering GameScene mutes sound effects until the loading-screen fade-out. Bootstrap skips
+        // the screen, so signal the fade-out directly.
         Events.LoadingScreenFadeOut.Trigger();
         Stage(battleId, "lobby_bootstrap_ready");
         return true;
@@ -258,7 +244,7 @@ internal static class AndroidReplayBootstrap
         try
         {
             // Native listeners must release run audio and effects before scene destruction
-            // unregisters them. A dispatch failure must not prevent the remaining rollback.
+            // unregisters them.
             Events.RunInterrupted.Trigger();
         }
         catch (Exception exception)

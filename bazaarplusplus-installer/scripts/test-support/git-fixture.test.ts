@@ -6,8 +6,6 @@ import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { gitEnvironment } from '../../../scripts/git-command.ts';
 import { runFixtureGit } from '../../../scripts/test-support/git-fixture.ts';
 
-// Every file under `directory`, as sorted `relative path:size` lines. Enough to
-// notice a new ref, a rewritten HEAD, a config append, or a fresh object.
 function directorySnapshot(directory: string): string {
   return fs
     .readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -34,8 +32,7 @@ test('fixture git ignores an inherited repository location', () => {
     runFixtureGit(['init', '--bare', '-q'], { cwd: decoyRepository });
     const decoyBefore = directorySnapshot(decoyRepository);
 
-    // Exactly the incident: a parent process exported GIT_DIR (plus a work
-    // tree) before the test suite ran.
+    // Set inherited `GIT_DIR` to exercise Git's repository override.
     const workTree = path.join(temporaryRoot, 'decoy-worktree');
     fs.mkdirSync(workTree);
     vi.stubEnv('GIT_DIR', decoyRepository);
@@ -58,7 +55,6 @@ test('fixture git ignores an inherited repository location', () => {
       cwd: fixtureRepository
     });
 
-    // The fixture repository is where it was asked to be, and holds the commit.
     expect(fs.existsSync(path.join(fixtureRepository, '.git', 'HEAD'))).toBe(
       true
     );
@@ -71,7 +67,6 @@ test('fixture git ignores an inherited repository location', () => {
       runFixtureGit(['config', 'user.name'], { cwd: fixtureRepository }).trim()
     ).toBe('Fixture Test');
 
-    // The repository named by GIT_DIR never saw any of it.
     expect(directorySnapshot(decoyRepository)).toBe(decoyBefore);
     expect(
       fs.readFileSync(path.join(decoyRepository, 'config'), 'utf8')

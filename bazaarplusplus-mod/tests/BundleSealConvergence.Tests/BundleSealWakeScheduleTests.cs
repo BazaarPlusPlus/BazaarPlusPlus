@@ -4,9 +4,6 @@ using Xunit;
 // Not BundleSealConvergence.Tests: that namespace would hide the Core type of the same name.
 namespace BundleSeal.Tests;
 
-// The seal worker wakes only for a job that needs a pass; with nothing waiting it does not scan
-// until the idle cap after its last job discovery. Each test keeps the call of the capsule check
-// it replaces.
 public sealed class BundleSealWakeScheduleTests
 {
     private const float Cap = 300f;
@@ -112,14 +109,11 @@ public sealed class BundleSealWakeScheduleTests
             )
         );
 
-    // Advance relative time through a pass: the backoff expires while a different Run seals.
-    // The three checks are one sequence; the last one reads the second one's result.
     [Theory]
     [InlineData(60f)]
     [InlineData(-10f)]
     public void A_skipped_job_keeps_its_backoff_and_requests_the_next_pass_once_due(float deadline)
     {
-        // A skipped job keeps its remaining backoff.
         Near(
             1f,
             BundleSealWakeSchedule.SecondsUntilAttempt(
@@ -139,7 +133,6 @@ public sealed class BundleSealWakeScheduleTests
             deadline - 2f,
             attemptedInPass: false
         );
-        // A skipped job that becomes due requests the next pass immediately.
         Near(0f, due);
         // The worker still applies its minimum wait to avoid a busy loop.
         Near(1f, BundleSealWakeSchedule.WaitSeconds(due, 2f, maintenanceFailed: false));

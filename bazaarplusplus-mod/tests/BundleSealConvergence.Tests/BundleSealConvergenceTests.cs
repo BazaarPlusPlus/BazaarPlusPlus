@@ -4,7 +4,6 @@ using Xunit;
 // Not BundleSealConvergence.Tests: that namespace would hide the Core type of the same name.
 namespace BundleSeal.Tests;
 
-// Each test keeps the call of the capsule check it replaces.
 public sealed class BundleSealConvergenceTests
 {
     private static readonly BundleSealJobFacts NoScreenshot = new(false, false);
@@ -89,8 +88,6 @@ public sealed class BundleSealConvergenceTests
             )
         );
 
-    // A Run that waited on omitted replays is not composed again, its screenshot not encoded,
-    // until replay persistence completes or its deadline arrives.
     [Fact]
     public void Remembered_replay_omission_without_persistence_skips_the_attempt() =>
         Assert.Equal(

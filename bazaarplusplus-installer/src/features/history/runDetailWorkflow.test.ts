@@ -1,16 +1,3 @@
-// Isolated on purpose: these are the Run Detail failure modes that a DOM
-// snapshot cannot observe, because each depends on the order in which
-// overlapping requests settle. Rendered states are anchored by
-// src/shell.snapshot.test.tsx and pages/RunDetail.test.tsx.
-// - A blocking load failure cannot be recovered by refresh.
-// - A refresh failure drops data that is still valid, or actions run against
-//   detail that a refresh is about to replace.
-// - An older load overwrites a newer result, or releases the latest load's
-//   busy state when it settles.
-// - Two actions run at once, or an action loses its target while it runs.
-// - A retried action clears the failures of other targets.
-// - A load or deletion that settles after dispose updates the page, or blocks
-//   the next lifecycle.
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { HistoryRunDetail } from '../../types/backend';
 import {

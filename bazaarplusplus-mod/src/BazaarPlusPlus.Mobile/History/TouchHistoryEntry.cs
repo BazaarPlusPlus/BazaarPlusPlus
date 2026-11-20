@@ -5,24 +5,15 @@ using BazaarPlusPlus.Mobile.Ui;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// History as a Main Overlay Panel on a mobile platform: it builds <see cref="TouchHistoryPanel"/>
-/// for the host's lifetime, since the panel's coordinator returns from a replay while the panel
-/// is closed, and registers it with the host's Overlay Panel Host under <see cref="PanelId"/>
-/// through the Mobile Platform Port, with no toggle hotkey. The Overlay Panel Host ticks it every
-/// frame and closes it. The host opens it from its own entries (the lobby's MENU grid, the in-run
-/// menu and the settings row) with <see cref="Open"/>.
-/// </summary>
+// Keep the panel alive while closed so its coordinator can reopen it after a replay.
 internal sealed class TouchHistoryEntry : IDisposable
 {
-    /// <summary>The panel's id on the Overlay Panel Host.</summary>
     public const string PanelId = "history";
 
     private readonly TouchHistoryPanel _panel;
     private readonly MobilePanelHandle _handle;
     private bool _disposed;
 
-    /// <param name="data">The host services the panel reads.</param>
     public TouchHistoryEntry(TouchHistoryData data)
     {
         _panel = new TouchHistoryPanel(
@@ -39,7 +30,6 @@ internal sealed class TouchHistoryEntry : IDisposable
                 tick: _panel.Tick
             )
             {
-                // The panel stays open across scenes, except into a combat, as on the desktop.
                 SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
                 IsModalInputActive = () => _panel.HasModalBackStep,
                 DismissModal = _panel.DismissModalBackStep,
@@ -55,10 +45,8 @@ internal sealed class TouchHistoryEntry : IDisposable
 
     public bool IsVisible => _handle.IsVisible;
 
-    /// <summary>The panel's counts for the host's periodic hooks summary.</summary>
     public BppLogField[] Summary() => _panel.Summary();
 
-    /// <summary>Main thread: opens the panel unless a combat is running or no font is ready.</summary>
     public void Open(string source) =>
         UiActions.Run(
             "history_open",
@@ -72,13 +60,8 @@ internal sealed class TouchHistoryEntry : IDisposable
             }
         );
 
-    /// <summary>Main thread, after a locale change: an open panel renders its text again.</summary>
     public void RefreshLocalization() => _panel.RefreshLocalization();
 
-    /// <summary>
-    /// The host stops: the panel leaves the Overlay Panel Host, then gives its cards back and its
-    /// coordinator ends.
-    /// </summary>
     public void Dispose()
     {
         if (_disposed)

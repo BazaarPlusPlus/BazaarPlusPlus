@@ -34,7 +34,6 @@ export function parseCommand(content: string, names: Names): Command {
     .replace(/^\s*<@!?[^>]+>\s*/, '')
     .trim()
     .replace(/^\//, '');
-  // A bare @ is the most common ask: the sender's own stats.
   if (!text) return { kind: '战绩' };
   const firstSpace = text.search(/\s/);
   const verb = firstSpace < 0 ? text : text.slice(0, firstSpace);
@@ -59,7 +58,6 @@ export function parseCommand(content: string, names: Names): Command {
   return { kind };
 }
 export const DAY = 86_400_000;
-/** Beijing today and the two days before it, up to now. */
 export function queryWindow(now: number) {
   const today = Math.floor((now + DAY / 3) / DAY) * DAY - DAY / 3;
   return { from: today - 2 * DAY, before: now };

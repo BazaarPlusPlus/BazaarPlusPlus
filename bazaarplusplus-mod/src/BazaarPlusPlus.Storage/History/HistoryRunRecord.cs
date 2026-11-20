@@ -72,13 +72,11 @@ public sealed class HistoryRunRecord
 
     public int? Gold { get; }
 
-    // The rank and rating the Run ended on, or the ones it started on while it has no final
-    // values (an active or abandoned Run).
+    // Active or abandoned Runs without final rank or rating use their starting values.
     public string? PlayerRank { get; }
 
     public int? PlayerRating { get; }
 
-    // The Run's rating change; null when either end of it is unknown.
     public int? PlayerRatingDelta { get; }
 
     public int? Victories { get; }
@@ -87,7 +85,5 @@ public sealed class HistoryRunRecord
 
     public string RawStatus { get; }
 
-    // The Run's Bundle is still owed (BundleQueueStore.ProtectedRunCondition): History does not
-    // delete it.
     public bool IsSealProtected { get; init; }
 }

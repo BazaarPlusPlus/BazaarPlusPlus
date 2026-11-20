@@ -3,7 +3,6 @@ using System.Text;
 
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>A minisign Ed25519 public key: its 8-byte key id and 32-byte key.</summary>
 internal sealed class MinisignPublicKey
 {
     private MinisignPublicKey(byte[] keyId, byte[] key)
@@ -15,9 +14,6 @@ internal sealed class MinisignPublicKey
     public byte[] KeyId { get; }
     public byte[] Key { get; }
 
-    /// <summary>
-    /// Reads the key line of a minisign public key: "Ed", the key id, and the key, base64 encoded.
-    /// </summary>
     public static MinisignPublicKey Parse(string keyLine)
     {
         var bytes = Convert.FromBase64String((keyLine ?? string.Empty).Trim());
@@ -31,13 +27,8 @@ internal sealed class MinisignPublicKey
     }
 }
 
-/// <summary>
-/// Verifies minisign signatures as the Tauri updater signer writes them: the signature box
-/// itself or, as Tauri stores it, the box base64 encoded once more. Only the prehashed "ED"
-/// algorithm the Tauri signer writes is accepted: the signature over the data's BLAKE2b-512
-/// digest and the global signature over the trusted comment must both verify under the expected
-/// key id.
-/// </summary>
+// Tauri can wrap the minisign box in a second layer of base64. Accept only ED mode and
+// authenticate both the BLAKE2b-512 digest and the trusted comment under the expected key ID.
 internal static class Minisign
 {
     private const string UntrustedPrefix = "untrusted comment:";
@@ -55,9 +46,6 @@ internal static class Minisign
         return VerifyPrehashed(publicKey, Blake2b.Hash512(data), signature, out failure);
     }
 
-    /// <summary>
-    /// Verifies an "ED" signature given the BLAKE2b-512 digest of the data instead of the data.
-    /// </summary>
     public static bool VerifyPrehashed(
         MinisignPublicKey publicKey,
         byte[] blake2b512,

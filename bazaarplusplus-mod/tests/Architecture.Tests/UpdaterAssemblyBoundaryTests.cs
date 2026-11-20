@@ -5,11 +5,7 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// The Updater swaps BPP's files before any of them load, so it may bind only its loader and the
-/// BCL (ADR-0014). A BPP or NuGet reference would load a file it is about to replace, or change
-/// the Updater with every release and force every user through the installer.
-/// </summary>
+// The Updater runs before swapping BPP files. A BPP dependency would load a file it needs to replace.
 public sealed class UpdaterAssemblyBoundaryTests
 {
     private static readonly string[] Loader = { "BepInEx", "Mono.Cecil" };
@@ -39,8 +35,6 @@ public sealed class UpdaterAssemblyBoundaryTests
         );
     }
 
-    // UpdaterRun.Version names the Updater to the loader and in its log; the csproj <Version>
-    // stamps the assembly. The built file must carry one value.
     [Fact]
     public void Desktop_updater_assembly_version_is_the_version_it_reports()
     {

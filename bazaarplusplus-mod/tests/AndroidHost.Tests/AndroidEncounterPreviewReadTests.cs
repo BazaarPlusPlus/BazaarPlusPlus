@@ -6,10 +6,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The background read of the game's static-data SQLite file: the level-up plans it keeps beside
-/// the encounter plans, keyed by level, with native hero names mapped to their facets.
-/// </summary>
 public sealed class AndroidEncounterPreviewReadTests : IDisposable
 {
     private const string Reward = "1453be13-1d81-45ea-82a5-7d1ef35ec78b";
@@ -25,8 +21,6 @@ public sealed class AndroidEncounterPreviewReadTests : IDisposable
         File.Delete(_path);
     }
 
-    // A step's dealt reward, a merchant's quality and a package's merchant are read as the desktop
-    // reads them, so the tooltip can show the day's odds, the merchant's tier and name the merchant.
     [Fact]
     public void Reads_each_steps_reward_each_merchants_quality_and_each_packages_merchant()
     {

@@ -6,8 +6,6 @@ export const GITHUB_STAR_OFFERED_KEY = 'github-star-offered';
 
 type OfferStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
-/** Decides once per computer whether a finished install offers the GitHub
- *  star. The offer is spent when it is shown, whatever the player does next. */
 export async function takeGithubStarOffer({
   storage,
   countRuns
@@ -21,7 +19,6 @@ export async function takeGithubStarOffer({
     storage.setItem(GITHUB_STAR_OFFERED_KEY, '1');
     return true;
   } catch {
-    // An unreadable History or storage only means no offer.
     return false;
   }
 }

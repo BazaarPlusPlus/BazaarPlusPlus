@@ -13,8 +13,6 @@ import { assertWorkspaceHistoryDatabaseCompatibility } from './history-database.
 import { lockWarnings, readGameLibsLock } from './snapshot-lock.ts';
 import type { ProductVersion } from './product.ts';
 
-// One README's product version badge: the file as read, the version it
-// names and the file with the badge projected to VERSION.
 interface VersionBadge {
   name: string;
   file: string;
@@ -23,13 +21,11 @@ interface VersionBadge {
   after: string;
 }
 
-/** The options of checkProductProjections. */
 export interface CheckProductProjectionsOptions {
   warn?: (message: string) => void;
   now?: Date;
 }
 
-// The part of tauri.conf.json the updater endpoint check reads.
 interface TauriUpdaterConfig {
   plugins?: { updater?: { endpoints?: unknown } };
 }
@@ -68,8 +64,6 @@ export function synchronizeProductProjections(
   return version;
 }
 
-// `warn` receives the Snapshot Lock's empty and stale entries: they are work
-// not yet done, never a failure; a malformed lock throws like any other drift.
 export function checkProductProjections(
   workspaceRoot: string = WORKSPACE_ROOT,
   { warn = () => {}, now = new Date() }: CheckProductProjectionsOptions = {}

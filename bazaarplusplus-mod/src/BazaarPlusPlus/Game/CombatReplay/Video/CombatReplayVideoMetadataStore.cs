@@ -19,12 +19,7 @@ internal sealed class CombatReplayVideoMetadataStore : SqliteStoreBase, IReplayV
     public CombatReplayVideoMetadataStore(string databasePath)
         : base(databasePath) { }
 
-    // The current-replay arm reserves its row on the Unity main thread, so a locked database
-    // stalls the click for about one second instead of the default two; past it the insert
-    // throws SQLITE_BUSY and the arm reports the reservation failure. The native busy_timeout
-    // is off because SQLite counts it in requested sleeps, not wall-clock time, and on a busy
-    // or virtualized machine each sleep overruns: a one-second native wait took up to 2.9 s on
-    // a hosted macOS runner. The managed retry loop's CommandTimeout runs on a stopwatch.
+    // SQLite's busy_timeout counts requested sleeps, which can overrun on busy hosts. The main-thread reservation uses a stopwatch-bounded retry.
     private const int MainThreadLockWaitSeconds = 1;
 
     public void SaveStart(VideoRecordingStarted record) => SaveStart(record, lockWaitSeconds: null);

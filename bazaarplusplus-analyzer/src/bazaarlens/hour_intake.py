@@ -1,5 +1,3 @@
-"""Commit one complete Source Hour behind one transaction interface."""
-
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import asdict, dataclass, field, replace
@@ -22,11 +20,7 @@ class Source(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class HourIntakeProgress:
-    """Cumulative facts for one attempt; commit or error marks its terminal observation.
-
-    Unknown index size is None, distinct from an empty hour. Admitted Bundles
-    passed source admission, not necessarily projection or durable commit.
-    """
+    """An unknown index size is None. Admission can precede a projection or commit failure."""
 
     source_hour: str
     step: Literal["index", "ingest", "complete"] = "index"
@@ -46,8 +40,6 @@ BUNDLE_PROGRESS_EVERY = 250
 
 
 class SourceHourIntake:
-    """Own enumeration, admission, bounded projection, and immutable fact commit."""
-
     def __init__(
         self,
         source: Source,
@@ -65,16 +57,7 @@ class SourceHourIntake:
         *,
         on_progress: Callable[[HourIntakeProgress], None] = lambda _progress: None,
     ) -> HourIntakeProgress:
-        """Return a committed or recoverable source result, with live observations.
-
-        Fatal errors propagate unchanged. Only source expiry and retryable source
-        errors return a failed result; the caller owns retry and abandonment.
-
-        Observers run synchronously before the next Bundle is projected. An
-        observer failure aborts the attempt, but is not a download failure.
-        Failure observation must not mask the original error. Success is already
-        durable when observed, so its observer cannot turn it into intake failure.
-        """
+        """An observer cannot mask an intake failure or undo a successful durable commit."""
         started = self._monotonic()
         index_started = started
         ingest_started: float | None = None
@@ -198,7 +181,6 @@ class SourceHourIntake:
 def healing_days(
     now: datetime, count: int, *, source_epoch: date | str | None = None
 ) -> tuple[date, ...]:
-    """Return the oldest-first UTC Source Days considered by an invocation."""
     current = aware_utc(now).date()
     first = current - timedelta(days=count - 1)
     epoch = parse_source_day(source_epoch) if source_epoch is not None else None

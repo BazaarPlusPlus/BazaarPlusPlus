@@ -241,8 +241,6 @@ internal sealed class CollectionInspectionModule
                 null
             );
         }
-        // A still layout skips the whole pass: measuring and positioning the description are
-        // one reset-and-move pair, and the card is already at its final placement.
         var frame = Time.frameCount;
         if (!_layout.ShouldMeasure(frame))
             return;

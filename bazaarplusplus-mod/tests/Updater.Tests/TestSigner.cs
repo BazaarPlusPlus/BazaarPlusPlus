@@ -6,11 +6,7 @@ using BazaarPlusPlus.ManagedPayload;
 
 namespace Updater.Tests;
 
-/// <summary>
-/// RFC 8032 Ed25519 signing and the minisign box the Tauri signer writes, for test keys only.
-/// Independent of the product's verifier, and checked against the RFC vectors, so the two
-/// cross-check each other.
-/// </summary>
+// The test signer is independent of the Updater's verifier and checked against RFC 8032 vectors.
 internal sealed class TestSigner
 {
     private static readonly BigInteger P = BigInteger.Pow(2, 255) - 19;
@@ -74,7 +70,6 @@ internal sealed class TestSigner
         return encodedR.Concat(ToLittleEndian(s, 32)).ToArray();
     }
 
-    /// <summary>A minisign signature over <paramref name="data"/>, base64 encoded as Tauri stores it.</summary>
     public string SignMinisign(byte[] data, string trustedComment = "timestamp:0\tfile:test")
     {
         var signature = Sign(Blake2b.Hash512(data));

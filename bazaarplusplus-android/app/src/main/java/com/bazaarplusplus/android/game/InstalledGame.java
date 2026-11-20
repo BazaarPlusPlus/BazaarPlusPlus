@@ -16,27 +16,16 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipFile;
 
-/**
- * The official game as PackageManager reports it: identity, signing certificates and every APK it
- * is installed from.
- */
 public final class InstalledGame {
     public static final String PACKAGE = "com.tempogames.thebazaar";
-    /** The Google Play Store, which installs and updates the official game where it exists. */
     public static final String PLAY_STORE = "com.android.vending";
-    /** Where an Android Release APK carries its loader and seed Mods; the official game has no such entry. */
     static final String INJECTED_LOADER_PREFIX = "assets/LemonLoader/";
 
     public final String versionName;
     public final long versionCode;
     public final long lastUpdateTime;
     public final ApplicationInfo info;
-    /** base.apk first, then every split, in PackageManager's order. */
     public final List<String> apks;
-    /**
-     * The sha256 of each certificate that signs the game's APKs: the Android source's signer
-     * (ADR 0019). Empty when PackageManager reports none.
-     */
     public final Set<String> signers;
 
     InstalledGame(String versionName, long versionCode, long lastUpdateTime, ApplicationInfo info, List<String> apks,
@@ -49,12 +38,10 @@ public final class InstalledGame {
         this.signers = Collections.unmodifiableSet(signers);
     }
 
-    /** The installed game, or null when it is not installed. */
     public static InstalledGame find(PackageManager pm) {
         return find(pm, PACKAGE);
     }
 
-    /** The package installed as {@code packageName}; a debug build may name another one (DevOverrides). */
     public static InstalledGame find(PackageManager pm, String packageName) {
         PackageInfo game;
         try {
@@ -71,7 +58,6 @@ public final class InstalledGame {
                 signerDigests(certificates));
     }
 
-    /** The sha256 of each DER-encoded certificate, as a manifest's {@code signerSha256} names one. */
     static Set<String> signerDigests(List<byte[]> certificates) {
         Set<String> digests = new TreeSet<>();
         for (byte[] certificate : certificates) {
@@ -82,7 +68,6 @@ public final class InstalledGame {
         return digests;
     }
 
-    /** Whether the Google Play Store is on this device. */
     public static boolean playStoreInstalled(PackageManager pm) {
         try {
             pm.getPackageInfo(PLAY_STORE, 0);
@@ -92,7 +77,6 @@ public final class InstalledGame {
         }
     }
 
-    /** Whether this is a retired Android Release APK rather than the official game. */
     public boolean carriesInjectedLoader() throws IOException {
         return carriesInjectedLoader(apks);
     }

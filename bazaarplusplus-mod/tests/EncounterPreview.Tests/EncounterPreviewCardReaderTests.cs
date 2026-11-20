@@ -5,13 +5,8 @@ using Xunit;
 
 namespace EncounterPreview.Tests;
 
-/// <summary>
-/// Core's card reader over static data's JSON as the Android host reads it, held to the shared
-/// card table the desktop's game-serialized templates are held to as well.
-/// </summary>
 public sealed class EncounterPreviewCardReaderTests
 {
-    // Static data already names its enum values.
     private static readonly EncounterPreviewCardReader Reader = new(
         (_, raw) => raw,
         name => Enum.TryParse<CardHero>(name, out var hero) ? hero : null

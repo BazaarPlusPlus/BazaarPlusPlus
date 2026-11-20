@@ -1,6 +1,4 @@
-// Selective streaming reader for the Run V6 MessagePack graph. Replay bytes,
-// event JSON and the Run Message Stream are consumed without retaining them in
-// the 128 MiB isolate.
+// Discard replay bytes, event JSON and the Run Message Stream to fit the 128 MiB isolate.
 const MAX_BYTES = 64 * 1024 * 1024;
 export class MessagePack {
   private chunk: Uint8Array = new Uint8Array(0);

@@ -11,11 +11,7 @@ import {
   type UpdaterProblem
 } from './updaterProblems';
 
-/**
- * Structural slice of the plugin-updater `Update` resource the machine needs.
- * `downloadAndInstall` must run on the same handle `check()` returned, so the
- * machine keeps the handle alive across user interactions.
- */
+/** The native updater requires the same handle returned by `check()`. */
 export type UpdateHandle = Pick<
   Update,
   'version' | 'body' | 'rawJson' | 'downloadAndInstall' | 'close'
@@ -33,7 +29,6 @@ export type UpdateCheckResult =
       update: UpdateHandle;
     };
 
-/** Tauri-facing effects and the clock, injectable for tests. */
 export type UpdaterImpl = {
   check: () => Promise<UpdateHandle | null>;
   relaunch: () => Promise<void>;
@@ -51,11 +46,7 @@ export const tauriUpdaterImpl: UpdaterImpl = {
   now: () => performance.now()
 };
 
-/**
- * The plugin reports every downloaded chunk, thousands per update, and each
- * publish re-renders the Shell. Progress publishes at most this often; a
- * slower stream still publishes every chunk.
- */
+/** Chunk events number in the thousands, so throttle them to avoid re-rendering the Shell. */
 export const PROGRESS_PUBLISH_INTERVAL_MS = 100;
 
 export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
@@ -65,9 +56,6 @@ export async function runCheck(impl: UpdaterImpl): Promise<UpdateCheckResult> {
 
   const update = await impl.check();
   if (!update) return { status: 'current' };
-  // The updater already fetched this platform's Release Manifest (or the
-  // lockstep latest.json fallback); the mirror address for this host is read
-  // from that same document rather than derived.
   const platformKey =
     DOWNLOAD_PLATFORM_KEYS[impl.isWindows() ? 'windows' : 'mac'];
   return {
@@ -363,8 +351,7 @@ export function createUpdaterMachine(
   };
 }
 
-// The startup check must run once per app launch even though React StrictMode
-// double-mounts the provider, mirroring the previous module-level singleton.
+// React StrictMode double-mounts the provider, but startup should check only once per launch.
 let startupCheckClaimed = false;
 
 export function claimStartupCheck(): boolean {

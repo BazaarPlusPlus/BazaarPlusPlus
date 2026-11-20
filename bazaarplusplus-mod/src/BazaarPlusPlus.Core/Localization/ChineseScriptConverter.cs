@@ -3,10 +3,8 @@ namespace BazaarPlusPlus.Localization;
 
 public static class ChineseScriptConverter
 {
-    // Words whose one-to-many characters the character table would convert wrongly, matched
-    // longest first before falling back to single characters: the OpenCC STPhrases entries that
-    // mod text and the voice-line catalog use, minus those wrong for that text (海里 where 里
-    // means "inside", 上游 in 街上游荡), plus transliterated names that keep 里.
+    // OpenCC phrases disambiguate characters whose direct conversion can be wrong in context.
+    // The mod's phrase list excludes misleading matches and preserves transliterated names.
     private static readonly Dictionary<string, string> TraditionalPhraseMap = new(
         StringComparer.Ordinal
     )
@@ -244,8 +242,7 @@ public static class ChineseScriptConverter
         return false;
     }
 
-    // Shared Traditional Chinese fallback terms for the single TW mode: Taiwan vocabulary, not
-    // script conversion, so they match the already converted text.
+    // Apply Taiwan vocabulary after converting the script because the replacements match Traditional Chinese.
     private static string ApplyTraditionalChineseTerms(string text)
     {
         return text.Replace("數據庫", "資料庫", StringComparison.Ordinal)

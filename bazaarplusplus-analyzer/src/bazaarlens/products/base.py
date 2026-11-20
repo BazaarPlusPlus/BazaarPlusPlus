@@ -1,5 +1,3 @@
-"""Explicit consumer product definitions and their execution results."""
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime

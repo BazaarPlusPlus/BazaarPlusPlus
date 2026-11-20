@@ -31,9 +31,8 @@ internal static class NativePreviewPresentationTransaction
             }
         }
 
-        // CardPreviewBase.Show controls only the art and frame. Keep native supplemental
-        // visuals concealed until that native operation has succeeded so setup/cancellation
-        // cannot expose a half-created preview.
+        // CardPreviewBase.Show only handles art and frame, so reveal supplemental visuals after
+        // it succeeds to avoid exposing a half-created preview.
         concealSupplementalVisuals();
         var result = applyNative();
         // CardPreviewItem.Show reactivates its gem group. Artwork-only item previews

@@ -36,19 +36,9 @@ import type {
   SnapshotPlatform
 } from './snapshot-lock.ts';
 
-// Game Assembly Snapshots (root GLOSSARY.md, ADR 0004 and ADR 0015): capture
-// from a mounted install or a Steam depot, publish and fetch, the Managed
-// directory digest that the lock, the snapshot manifest and the sealed build
-// record share, the lock entry a build used, and the private store that
-// interop-snapshot.ts shares. snapshot-lock.ts owns the Snapshot Lock schema
-// and snapshot-files.ts the shared file helpers; the CLI in game-libs.ts drives
-// this module.
-
 export const GAME_LIBS_BUCKET = 'bazaarplusplus-game-libs';
 export const SNAPSHOT_MANIFEST_SCHEMA_VERSION = 1;
 
-// Where a Steam capture reads each desktop platform (root ADR 0015). macOS is
-// the arm64 depot that lock entries already use.
 export const STEAM_APP_ID = 1617400;
 export const STEAM_DEPOTS: Readonly<Partial<Record<SnapshotPlatform, number>>> =
   Object.freeze({
@@ -56,14 +46,12 @@ export const STEAM_DEPOTS: Readonly<Partial<Record<SnapshotPlatform, number>>> =
     windows: 1617402
   });
 
-/** A desktop snapshot's manifest.json: its lock entry plus its identity. */
 export interface ManagedSnapshotManifest extends ManagedLockEntry {
   schemaVersion: typeof SNAPSHOT_MANIFEST_SCHEMA_VERSION;
   platform: SnapshotPlatform;
   channel: SnapshotChannel;
 }
 
-/** One file of a Managed or interop directory digest. */
 export interface DirectoryRecord {
   path: string;
   sha256: string;
@@ -73,7 +61,6 @@ export function gameVersionFile(managedPath: string): string {
   return path.join(path.dirname(managedPath), 'globalgamemanagers');
 }
 
-// Reads the game version from the Data directory above a Managed directory.
 export function readGameVersion(managedPath: string): string {
   const file = gameVersionFile(managedPath);
   if (!fs.existsSync(file))
@@ -93,10 +80,7 @@ export function readGameVersion(managedPath: string): string {
   return versions[0];
 }
 
-// The per-file records of a Managed directory: every top-level DLL, keyed as
-// managed/<name>. payload.ts folds these into the sealed build record; the
-// lock entry and the snapshot manifest hash them alone. The order is ordinal so
-// the digest is identical on every machine and locale.
+// Ordinal file order makes the digest independent of locale.
 export function managedDirectoryRecords(
   managedPath: string
 ): DirectoryRecord[] {
@@ -118,9 +102,7 @@ export function managedDirectoryDigest(managedPath: string): string {
   return hash(JSON.stringify(managedDirectoryRecords(managedPath)));
 }
 
-// Steam build ids only grow, so a preview channel below online carries no game
-// change online lacks; the CompatCheck matrix skips it. Returns the online entry
-// it is behind, or null.
+// Steam build IDs increase. An older preview has no code change for the CompatCheck matrix to cover.
 export function previewBehindOnline(
   lock: GameLibsLock,
   platform: ManagedPlatform,
@@ -137,8 +119,6 @@ export function previewBehindOnline(
   return Number(preview.buildid) < Number(online.buildid) ? online : null;
 }
 
-// The private store through CLOUDFLARE_API_TOKEN, which reads and writes the
-// bucket.
 export function gameLibsStoreFromEnvironment(
   env: NodeJS.ProcessEnv = process.env
 ): ObjectStore {
@@ -148,15 +128,11 @@ export function gameLibsStoreFromEnvironment(
 function entryFromManifest(
   manifest: ManagedSnapshotManifest
 ): ManagedLockEntry {
-  // ENTRY_FIELDS names every ManagedLockEntry field.
   return Object.fromEntries(
     ENTRY_FIELDS.map((field) => [field, manifest[field]])
   ) as ManagedLockEntry;
 }
 
-// Archives the Managed directory of a mounted game install under game-libs/
-// and records it in the lock. The capture's identity is the game version read
-// beside Managed; the Steam facts are its source record.
 export interface CaptureSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -166,7 +142,6 @@ export interface CaptureSnapshotOptions {
   now?: Date;
 }
 
-/** What a Managed capture wrote. */
 export interface CapturedSnapshot {
   key: string;
   directory: string;
@@ -220,7 +195,6 @@ export function captureSnapshot({
   return { key, directory, manifest };
 }
 
-/** Packs a snapshot directory's Managed/ into gzipped tar bytes. */
 export type SnapshotTar = (directory: string) => Buffer;
 
 function tarballOf(directory: string): Buffer {
@@ -270,7 +244,6 @@ function extractTarball(bytes: Buffer, into: string): void {
   }
 }
 
-// Verifies a local snapshot against its lock entry before it is used or sent.
 function verifiedSnapshot(
   modRoot: string,
   platform: string,
@@ -293,10 +266,7 @@ function verifiedSnapshot(
   return { directory, managed };
 }
 
-// Uploads a captured snapshot to the private store: the tarball under its
-// content address, the manifest under the entry identity. Either write is
-// skipped when the object is already there; a tarball is not byte-stable
-// across tar implementations, so its presence is the only check.
+// Tar implementations can produce different bytes for the same snapshot directory.
 export interface PublishSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -307,7 +277,6 @@ export interface PublishSnapshotOptions {
   log?: (message: string) => void;
 }
 
-/** Where a publish stored a snapshot. */
 export interface PublishedSnapshot {
   blobKey: string;
   manifestKey: string;
@@ -360,11 +329,7 @@ export async function publishSnapshot({
   return { blobKey, manifestKey };
 }
 
-// Resolves the Managed directory that satisfies one lock entry, in the order
-// ADR 0004 fixes: a verified snapshot under game-libs/, the local Steam install
-// when its game version and sha256 match, then the private store. With
-// allowUnlocked, an empty entry accepts a local install of the right channel
-// (decompile reads whatever is mounted; nothing it produces is a build input).
+// Decompile can use an unlocked local install because its output never feeds a build.
 export interface FetchSnapshotOptions {
   workspaceRoot?: string;
   modRoot?: string;
@@ -376,10 +341,8 @@ export interface FetchSnapshotOptions {
   log?: (message: string) => void;
 }
 
-/** Where a resolved Managed directory came from. */
 export type ManagedSource = 'steam-unlocked' | 'snapshot' | 'steam' | 'store';
 
-/** The Managed directory that satisfies a lock entry. */
 export interface FetchedSnapshot {
   managedPath: string;
   source: ManagedSource;
@@ -498,29 +461,21 @@ export async function fetchSnapshot({
   };
 }
 
-// ---------------------------------------------------------------------------
-// Steam captures (ADR 0015). bazaarplusplus-mod/tools/SteamSnapshot reads the
-// branch and downloads a depot's snapshot files; captureSnapshot then treats
-// them as it treats a mounted install.
-
-/** The last line tools/SteamSnapshot prints; `state` adds updatedAt. */
+/** tools/SteamSnapshot writes this as its final stdout line. */
 export interface SteamToolOutput {
   buildid: string;
   /** When the branch last changed, in Unix seconds. */
   updatedAt?: number;
 }
 
-/** Runs tools/SteamSnapshot with `args` and parses its result line. */
 export type SteamToolRunner = (args: string[]) => SteamToolOutput;
 
-/** What steam-stale prints: the desktop entries behind the branch. */
 export interface SteamStaleResult {
   buildid: string;
   updatedAt: number | undefined;
   platforms: ManagedPlatform[];
 }
 
-/** What a Steam capture changed against the lock before it. */
 export type SteamChangeKind = 'code' | 'content' | 'none';
 
 export function steamToolRunner(modRoot: string): SteamToolRunner {
@@ -542,14 +497,12 @@ export function steamToolRunner(modRoot: string): SteamToolRunner {
       { cwd: modRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }
     );
     const line = output.trim().split(/\r?\n/).at(-1);
-    // split always returns at least one line.
     if (line === undefined) throw new Error('SteamSnapshot printed nothing');
     return JSON.parse(line) as SteamToolOutput;
   };
 }
 
-// Steam moves the buildid for any change to the branch, so it says when to look
-// and steamChangeKind says what the look found.
+// Steam advances the build ID for content-only changes too.
 export function staleSteamPlatforms(
   lock: GameLibsLock,
   channel: SnapshotChannel,
@@ -561,9 +514,6 @@ export function staleSteamPlatforms(
   );
 }
 
-// What a capture changed against the lock before it: code when any Managed
-// directory differs, content when only a game version does, none when the build
-// changed neither, which the lock has no reason to record.
 export function steamChangeKind(
   previous: GameLibsLock,
   current: GameLibsLock,
@@ -670,8 +620,6 @@ export function steamCapture({
   }
 }
 
-// The game version a Managed directory carries: its snapshot manifest, else the
-// globalgamemanagers beside it, else null (a bare copied directory).
 export function managedGameVersion(managedPath: string): string | null {
   const manifest = readSnapshotManifest<ManagedSnapshotManifest>(
     path.dirname(managedPath)
@@ -682,20 +630,14 @@ export function managedGameVersion(managedPath: string): string | null {
     : null;
 }
 
-// The lock entry a build used, for the sealed build record: the entry whose
-// sha256 is the digest of the Managed directory the build compiled against.
-// The same bytes may satisfy several entries (two platforms' Managed can be
-// identical); the build platform's entry wins, then online, staging, ptr. A
-// Managed directory no entry records is not a release input (ADR 0004).
+// Identical Managed directories can satisfy several lock entries, including across platforms.
 export interface LockEntryForManagedOptions {
   workspaceRoot?: string;
   lock?: GameLibsLock;
-  /** The build platform, whose entry wins a tie. */
   platform: string;
   managedPath: string;
 }
 
-/** The lock entry a build compiled against, as the sealed build record keeps it. */
 export interface ManagedLockProvenance {
   key: string;
   platform: ManagedPlatform;

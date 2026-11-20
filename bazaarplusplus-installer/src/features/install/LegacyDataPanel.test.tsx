@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 
-// The panel as the Install page shows it: each listed root with its delete
-// action.
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {

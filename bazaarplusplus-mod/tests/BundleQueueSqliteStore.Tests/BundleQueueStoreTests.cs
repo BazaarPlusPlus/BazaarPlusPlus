@@ -5,7 +5,6 @@ using Xunit;
 
 namespace BundleQueueSqliteStore.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class BundleQueueStoreTests
 {
     [Fact]
@@ -403,7 +402,6 @@ public sealed class BundleQueueStoreTests
             {
                 foreach (var eligibilityCase in cases)
                     eligibilityCase.Seed(connection);
-                // History's delete refusal reads the same column (BundleQueueStore.ProtectedRunCondition).
                 foreach (var eligibilityCase in cases)
                 {
                     using var command = connection.CreateCommand();
@@ -437,9 +435,6 @@ public sealed class BundleQueueStoreTests
         );
     }
 
-    // The Run Message Stream (ADR-0028) stays while its Run can still upload it: in progress, its
-    // Bundle owed, or a pending Bundle a reseal would rebuild. Every other Run loses its stream
-    // rows, never its other events.
     [Fact]
     public void TestSpentMessageStreamsAreDeleted()
     {
@@ -495,8 +490,6 @@ public sealed class BundleQueueStoreTests
         return Convert.ToInt64(command.ExecuteScalar());
     }
 
-    // bundle_seal_jobs.input_deadline_at_ms is an instant in Unix milliseconds, so ListWaitingJobs
-    // and idx_bundle_seal_jobs_state order deadlines by instant whatever offset `now` carried.
     [Fact]
     public void TestSealJobDeadlinesAreInstants()
     {

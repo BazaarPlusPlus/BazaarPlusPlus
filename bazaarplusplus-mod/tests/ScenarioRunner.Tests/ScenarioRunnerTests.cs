@@ -4,11 +4,7 @@ using Xunit;
 
 namespace ScenarioRunner.Tests;
 
-/// <summary>
-/// Executes source-shadow scenario capsules out of process. The process boundary is part of the
-/// contract: runners may install AssemblyResolve handlers, define incompatible runtime shims, or
-/// mutate other process-global state.
-/// </summary>
+// Capsules run in separate processes because they can install incompatible assembly resolvers or mutate global state.
 public sealed partial class ScenarioRunnerTests
 {
     public static IEnumerable<object[]> DefaultRunners() =>
@@ -29,9 +25,8 @@ public sealed partial class ScenarioRunnerTests
     )
     {
         var root = RepoRoot();
-        // Capsules share the host's output layout, including the platform segment
-        // supplied by release preparation. A fixed bin/<configuration> path can
-        // accidentally execute a stale capsule or fail on a clean runner.
+        // Use the host's output layout because release preparation adds a platform segment.
+        // A fixed bin/<configuration> path can pick up a stale capsule.
         var outputDirectory = Path.GetRelativePath(
             Path.Combine(root, "tests", "ScenarioRunner.Tests"),
             AppContext.BaseDirectory

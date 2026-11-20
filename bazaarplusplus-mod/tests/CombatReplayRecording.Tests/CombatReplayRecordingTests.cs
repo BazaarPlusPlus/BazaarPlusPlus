@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Game.CombatReplay;
 using Xunit;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class CombatReplayRecordingTests
 {
     [Fact]
@@ -204,9 +203,6 @@ public sealed class CombatReplayRecordingTests
         );
     }
 
-    // The phases a slow recording is diagnosed by: the video timeline starts at the first frame, so
-    // a session that never captured one reports no capture span instead of a zero or a session-long
-    // one, and each span runs between its own two phase boundaries.
     [Fact]
     public void SessionTimelineSplitsDiagnosticPhases()
     {

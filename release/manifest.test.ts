@@ -3,9 +3,7 @@ import { expect, test } from 'vite-plus/test';
 
 import { ANDROID_RELEASE_SIGNER_SHA256 } from './manifest.ts';
 
-// The Android App's SharedReleaseFixturesTest reads this declaration from the
-// source text with the same pattern, so a type annotation or a quote change
-// here breaks that consumer.
+// Android SharedReleaseFixturesTest reads this declaration as text. Types and quote changes can break its pattern.
 test('the Android release signer stays readable from the source text', () => {
   const source = fs.readFileSync(
     new URL('./manifest.ts', import.meta.url),

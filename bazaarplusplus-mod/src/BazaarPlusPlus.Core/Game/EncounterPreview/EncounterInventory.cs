@@ -3,8 +3,6 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// One owned card in the inventory snapshot: template id plus the names of its tags
-// (ECardTag + EHiddenTag, compared by name).
 public sealed class EncounterInventoryCard
 {
     public EncounterInventoryCard(Guid templateId, EffectiveCardTags tags)
@@ -21,10 +19,7 @@ public sealed class EncounterInventoryCard
     public IReadOnlyCollection<string> TagNames { get; }
 }
 
-// Snapshot of the player's current cards (hand + stash items and skills) used to
-// evaluate encounter ownership prerequisites. Kept per-card so count comparisons
-// ("Equal 0", "GreaterThanOrEqual 12") and per-card tag operators (Any/All/None)
-// evaluate exactly rather than over a deduplicated union.
+// Keep one entry per owned card so duplicate copies and per-card tag conditions count correctly.
 public sealed class EncounterInventory
 {
     private readonly IReadOnlyList<EncounterInventoryCard> _cards;
@@ -47,9 +42,6 @@ public sealed class EncounterInventory
         return count;
     }
 
-    // Number of owned cards matching the tag conditional: each candidate group
-    // stands for one tag token (any candidate name counts as that tag being
-    // present); the operator combines the tokens per card.
     public int CountMatchingTags(
         IReadOnlyList<IReadOnlyList<string>> tagCandidateGroups,
         string tagOperator

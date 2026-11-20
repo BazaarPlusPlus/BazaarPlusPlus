@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Infrastructure.DesktopKit;
 
-/// <summary>A text level of the kit: size and colour only, since the game's font has one weight.</summary>
+// The game's font has one weight, so text roles vary by size and colour.
 internal enum KitTextRole
 {
     Title,
@@ -34,10 +34,8 @@ internal enum KitIcon
     Heart,
 }
 
-/// <summary>A painted state mark of the kit, drawn where a trophy would be.</summary>
 internal enum KitMark
 {
-    /// <summary>A finished run below the first trophy.</summary>
     Completed,
     Abandoned,
     Active,
@@ -45,11 +43,6 @@ internal enum KitMark
     Lost,
 }
 
-/// <summary>
-/// The parts of a run row a consumer fills after <see cref="DesktopKit.RunRow"/>, and fills
-/// again when it reuses the row for another run: the texts, the hero's portrait, the rank
-/// badge and the mark.
-/// </summary>
 internal sealed class KitRunRow
 {
     internal KitRunRow(
@@ -73,20 +66,15 @@ internal sealed class KitRunRow
 
     internal TextMeshProUGUI Title { get; }
 
-    /// <summary>The meta line; it takes rich text.</summary>
     internal TextMeshProUGUI Meta { get; }
 
-    /// <summary>The hero portrait inside the row's well, for <see cref="DesktopKit.ShowPortrait"/>.</summary>
     internal Image Portrait { get; }
 
-    /// <summary>The rank badge; clear until <see cref="DesktopKit.Show"/> gives it a sprite.</summary>
     internal Image Rank { get; }
 
-    /// <summary>The trophy or state mark.</summary>
     internal Image Mark { get; }
 }
 
-/// <summary>The parts of a day cell a consumer fills and refills (<see cref="DesktopKit.Day"/>).</summary>
 internal sealed class KitDay
 {
     internal KitDay(KitButton button, TextMeshProUGUI caption, Image portrait, Image mark)
@@ -101,17 +89,11 @@ internal sealed class KitDay
 
     internal TextMeshProUGUI Caption { get; }
 
-    /// <summary>The opponent's portrait, for <see cref="DesktopKit.ShowPortrait"/>.</summary>
     internal Image Portrait { get; }
 
-    /// <summary>The outcome mark, for <see cref="DesktopKit.Show"/> with <see cref="DesktopKit.Mark"/>.</summary>
     internal Image Mark { get; }
 }
 
-/// <summary>
-/// The day strip (<see cref="DesktopKit.DayStrip"/>): days go in <see cref="Days"/>; the strip
-/// scrolls sideways when they do not fit.
-/// </summary>
 internal sealed class KitDayStrip
 {
     internal KitDayStrip(RectTransform track, RectTransform days, ScrollRect scroll)
@@ -121,15 +103,12 @@ internal sealed class KitDayStrip
         Scroll = scroll;
     }
 
-    /// <summary>The strip itself, for the consumer's layout.</summary>
     internal RectTransform Track { get; }
 
-    /// <summary>The parent of the day cells.</summary>
     internal RectTransform Days { get; }
 
     internal ScrollRect Scroll { get; }
 
-    /// <summary>Scrolls so that <paramref name="day"/> is inside the strip.</summary>
     internal void Reveal(RectTransform day)
     {
         if (day == null || Scroll.viewport == null)
@@ -149,7 +128,6 @@ internal sealed class KitDayStrip
     }
 }
 
-/// <summary>A modal layer of the kit (<see cref="DesktopKit.Modal"/>).</summary>
 internal sealed class KitModal
 {
     internal KitModal(GameObject root, RectTransform card)
@@ -158,16 +136,13 @@ internal sealed class KitModal
         Card = card;
     }
 
-    /// <summary>The scrim and everything on it; active while the modal shows.</summary>
     internal GameObject Root { get; }
 
-    /// <summary>The card: its children go top to bottom.</summary>
     internal RectTransform Card { get; }
 
     internal bool Open => Root != null && Root.activeSelf;
 }
 
-/// <summary>Keeps a strip's content at least as wide as its viewport, and as wide as its days.</summary>
 internal sealed class KitStripWidth : MonoBehaviour
 {
     private void LateUpdate()
@@ -181,63 +156,40 @@ internal sealed class KitStripWidth : MonoBehaviour
     }
 }
 
-/// <summary>A surface of the kit that is not a control.</summary>
 internal enum KitSurface
 {
-    /// <summary>A rail or a well: the kit's ground.</summary>
     Ground,
 
-    /// <summary>The track of a segmented control or the day strip: the brown centre, darkened.</summary>
     Track,
 
-    /// <summary>A sunk field: the brown centre darkened, in a dimmed frame so it reads on a ground.</summary>
     Field,
 
-    /// <summary>A tooltip or a dialog card: the ground inside the soft gold line.</summary>
     Floating,
 }
 
-/// <summary>
-/// The Desktop UI kit (ADR-0027, design/components/InGameKit/README.md): one instance per view
-/// builds its controls from the kit's art slots (BPP's plates, the game's rule and glyphs), and
-/// repaints them when a sprite arrives. Controls size themselves through uGUI layout (a
-/// <see cref="LayoutElement"/> and, for labelled controls, a layout group); a consumer places
-/// them in its own rects or layout groups. Call <see cref="Tick"/> every frame the view shows.
-/// </summary>
 internal sealed class DesktopKit
 {
-    // Label side padding of md and sm buttons, the stroke of the kit's drawn icons, and the
-    // drawn height of the game's divider rule.
     private const float PaddingMd = 18f;
     private const float PaddingSm = 13f;
     private const float IconStroke = 2f;
     private const float RuleHeight = 2f;
 
-    // A run row: its portrait well, its rank and mark slots (one size, so the two sit side by
-    // side on one line) and the fixed width of its result text, which keeps every row's marks on
-    // one axis and every result on one right edge.
+    // Fixed rank, mark and result slots align their right edges across run rows.
     internal const float RowPortrait = 44f;
     internal const float RowArt = 30f;
 
-    // A day of the day strip: its portrait well and its outcome mark.
     private const float DayPortrait = 36f;
     private const float DayMark = 24f;
 
-    // The strip's height: a day's caption, portrait and mark with the gaps and edges around them.
     private const float DayStripHeight = 100f;
 
-    // Every day cell is this wide; a strip with more days than fit scrolls.
     private const float DayWidth = 76f;
 
-    // How far one wheel step moves a kit list or strip.
     private const float ScrollSensitivity = 45f;
 
-    // How far a list row's plate bleeds out of the row on each side. A row has no plate at
-    // rest, so its content, not the hidden plate, sits on the column's edges: the portrait
-    // under the section header, the result under the header's caption.
+    // The plate bleeds so the portrait and result can align with the section header's column edges.
     private const float RowBleed = InGameSizes.Space12;
 
-    // A paging arrow that is a panel's main control stands this high.
     private const float WideArrowHeight = 48f;
 
     // The source sprite each art image wants: a small copy arrives later and must not land
@@ -247,7 +199,6 @@ internal sealed class DesktopKit
         System.Runtime.CompilerServices.StrongBox<Sprite?>
     > Wanted = new();
 
-    // The portrait images whose medallion rises above its well.
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
         Image,
         object
@@ -261,7 +212,6 @@ internal sealed class DesktopKit
 
     internal DesktopKit(NativeGameTypography.OwnedTextPreparation font) => _font = font;
 
-    /// <summary>Asks for the kit's art and repaints what it drew when a sprite changes.</summary>
     internal void Tick()
     {
         DesktopNativeSkin.RequestKitArt();
@@ -279,10 +229,7 @@ internal sealed class DesktopKit
             ShowRule(line, alpha);
     }
 
-    /// <summary>
-    /// A button's label side padding. A quiet button has no plate at rest, so a row that ends
-    /// in one pulls it out by this much: its label, not its hidden plate, sits on the row's edge.
-    /// </summary>
+    // Pull a trailing quiet button out by this inset to align its label with the row's edge.
     internal static float LabelInset(KitSize size) => size == KitSize.Md ? PaddingMd : PaddingSm;
 
     internal static float Height(KitSize size) =>
@@ -301,8 +248,6 @@ internal sealed class DesktopKit
     internal static Color Ink(KitTextRole role) =>
         role is KitTextRole.Meta or KitTextRole.Caption ? InGameTheme.InkMuted : InGameTheme.Ink;
 
-    // ---- primitives ----
-
     internal static RectTransform Rect(Transform parent, string name)
     {
         var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
@@ -310,7 +255,6 @@ internal sealed class DesktopKit
         return rect;
     }
 
-    /// <summary>Stretches <paramref name="rect"/> over its parent, inset on every side.</summary>
     internal static RectTransform Fill(RectTransform rect, float inset = 0f)
     {
         rect.anchorMin = Vector2.zero;
@@ -320,16 +264,12 @@ internal sealed class DesktopKit
         return rect;
     }
 
-    /// <summary>
-    /// Gives a rect fixed layout sizes; a negative value leaves that axis free. Set a flexible
-    /// size after this call, not before.
-    /// </summary>
+    // Set flexible sizes afterward because Size fixes layout on any nonnegative axis.
     internal static LayoutElement Size(Component target, float width, float height)
     {
         var element = target.GetComponent<LayoutElement>();
         if (element == null)
             element = target.gameObject.AddComponent<LayoutElement>();
-        // A fixed axis takes no spare room, whatever the rect's own layout group could use.
         if (width >= 0)
         {
             element.minWidth = element.preferredWidth = width;
@@ -343,7 +283,6 @@ internal sealed class DesktopKit
         return element;
     }
 
-    /// <summary>A plate over its parent, outside layout, showing one look.</summary>
     internal KitPlate Plate(Transform parent, KitLook look, string name = "Plate")
     {
         var image = Fill(Rect(parent, name)).gameObject.AddComponent<Image>();
@@ -355,7 +294,6 @@ internal sealed class DesktopKit
         return plate;
     }
 
-    /// <summary>A surface behind other content: a rail, a well, a track, a field or a card.</summary>
     internal KitPlate Surface(Transform parent, KitSurface surface) =>
         Plate(
             parent,
@@ -403,10 +341,6 @@ internal sealed class DesktopKit
         return label;
     }
 
-    /// <summary>
-    /// A rule as wide as its parent's layout gives it: the game's fading match-history divider,
-    /// or a 1px <c>ingame-rule</c> line while that sprite is missing.
-    /// </summary>
     internal Image Hairline(Transform parent, float alpha)
     {
         var line = Rect(parent, "Hairline").gameObject.AddComponent<Image>();
@@ -427,12 +361,6 @@ internal sealed class DesktopKit
             line.rectTransform.sizeDelta = new Vector2(line.rectTransform.sizeDelta.x, height);
     }
 
-    /// <summary>
-    /// An icon in <paramref name="color"/>: the game's own glyph where it has one (close, search,
-    /// the dropdown arrow) or BPP has one (the supporter heart), drawn from strokes otherwise and
-    /// while the glyph is missing. Search and the heart have no strokes: without the glyph
-    /// nothing shows.
-    /// </summary>
     internal RectTransform Icon(Transform parent, KitIcon icon, float size, Color color)
     {
         var box = Rect(parent, $"Icon{icon}");
@@ -481,7 +409,7 @@ internal sealed class DesktopKit
                 );
                 break;
             default:
-                // The game's arrow points down; the strokes draw a chevron pointing right.
+                // The game's arrow points down, while the fallback strokes point right.
                 art = DesktopKitArt.IconArrow;
                 turn = icon switch
                 {
@@ -508,7 +436,6 @@ internal sealed class DesktopKit
         return box;
     }
 
-    // The glyph replaces its strokes once the game's sprite is in.
     private static void ShowGlyph(Image glyph, DesktopKitArt art)
     {
         var sprite = DesktopNativeSkin.KitArt(art);
@@ -516,8 +443,6 @@ internal sealed class DesktopKit
         glyph.enabled = sprite != null;
         glyph.transform.parent.Find("Strokes")?.gameObject.SetActive(sprite == null);
     }
-
-    // ---- buttons ----
 
     internal KitButton Button(
         Transform parent,
@@ -538,7 +463,6 @@ internal sealed class DesktopKit
         return button;
     }
 
-    /// <summary>A square button with a drawn icon, such as a panel's close.</summary>
     internal KitButton IconButton(
         Transform parent,
         KitIcon icon,
@@ -556,7 +480,6 @@ internal sealed class DesktopKit
         return button;
     }
 
-    /// <summary>A button holding a label and icons side by side, such as a pager arrow.</summary>
     internal KitButton IconLabelButton(
         Transform parent,
         string label,
@@ -599,11 +522,6 @@ internal sealed class DesktopKit
         : size == KitSize.Md ? 16
         : 14;
 
-    /// <summary>
-    /// A paging arrow: a plated md square with a large arrow, for a list's pager or a strip's
-    /// ends. With <paramref name="wide"/> it shares its row's width and stands higher, for a
-    /// panel whose main action is paging.
-    /// </summary>
     internal KitButton PageArrow(Transform parent, bool forward, Action onClick, bool wide = false)
     {
         var button = IconButton(
@@ -645,11 +563,6 @@ internal sealed class DesktopKit
         return (button, rect, plate);
     }
 
-    // ---- selection controls ----
-
-    /// <summary>
-    /// A segmented control: one darkened track, and only the selected option gets a plate. The track is a control height and its options sit inside it.
-    /// </summary>
     internal (RectTransform Track, KitButton[] Options) Segmented(
         Transform parent,
         IReadOnlyList<string> labels,
@@ -696,7 +609,6 @@ internal sealed class DesktopKit
         return button;
     }
 
-    /// <summary>A checkbox and its label; the label keeps <c>ingame-ink</c>.</summary>
     internal KitButton Checkbox(Transform parent, string label, Action onClick)
     {
         var rect = Rect(parent, "Checkbox");
@@ -727,9 +639,6 @@ internal sealed class DesktopKit
         return button;
     }
 
-    // ---- fields ----
-
-    /// <summary>A select: a sunk field showing the value, with a down chevron; pressing opens the consumer's menu.</summary>
     internal KitButton Select(Transform parent, string value, Action onClick)
     {
         var (button, row, plate) = ButtonShell(parent, KitSize.Md, onClick, "Select");
@@ -739,20 +648,14 @@ internal sealed class DesktopKit
         var text = Text(row, value, KitTextRole.Body);
         text.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         Icon(row, KitIcon.ChevronDown, 16, InGameTheme.InkMuted);
-        // A field is sunk: the darkened centre at rest, the row hover wash on top of it.
         Surface(button.transform, KitSurface.Field);
         button.Bind(KitButtonKind.Row, plate, Array.Empty<Graphic>());
         return button;
     }
 
-    /// <summary>A sunk single-line text field with the search glass and a placeholder.</summary>
     internal TMP_InputField Search(Transform parent, string placeholder) =>
         Field(parent, placeholder, KitIcon.Search);
 
-    /// <summary>
-    /// A sunk text field with a placeholder. With more than one line in
-    /// <paramref name="lines"/> it is that many lines high and takes line breaks.
-    /// </summary>
     internal TMP_InputField Field(
         Transform parent,
         string placeholder,
@@ -810,9 +713,6 @@ internal sealed class DesktopKit
         return input;
     }
 
-    // ---- content ----
-
-    /// <summary>A section heading with an optional caption at its right, over a hairline.</summary>
     internal RectTransform SectionHeader(Transform parent, string title, string caption)
     {
         var block = Rect(parent, "SectionHeader");
@@ -835,11 +735,6 @@ internal sealed class DesktopKit
         return block;
     }
 
-    /// <summary>
-    /// A selectable list row with no plate at rest; the consumer fills <paramref name="content"/>,
-    /// a left-to-right row as wide as the column. The plate bleeds out of the row on each side,
-    /// so the column needs that much room around it. <see cref="Dividers"/> draws the hairlines.
-    /// </summary>
     internal KitButton ListRow(
         Transform parent,
         float height,
@@ -875,9 +770,6 @@ internal sealed class DesktopKit
         return button;
     }
 
-    /// <summary>
-    /// Hairlines between rows: none above the first row, and none touching a selected row's plate.
-    /// </summary>
     internal static void Dividers(IReadOnlyList<KitButton> rows)
     {
         for (var index = 0; index < rows.Count; index++)
@@ -887,8 +779,6 @@ internal sealed class DesktopKit
         }
     }
 
-    /// <summary>A two-line text column: a Body title over a Meta line, which may hold rich text.</summary>
-    /// <summary>The same, giving the two texts to a consumer that changes them later.</summary>
     internal RectTransform TitleAndMeta(
         Transform parent,
         string title,
@@ -911,7 +801,6 @@ internal sealed class DesktopKit
         return column;
     }
 
-    /// <summary>An image of native art, such as a trophy or a badge, at a fixed size.</summary>
     internal static Image Art(Transform parent, Sprite? sprite, float width, float height)
     {
         var image = Rect(parent, "Art").gameObject.AddComponent<Image>();
@@ -922,11 +811,8 @@ internal sealed class DesktopKit
         return image;
     }
 
-    /// <summary>
-    /// Puts a sprite on an art image; without one the image is clear. The image shows the
-    /// sprite at once and changes to its small copy (<see cref="KitSmallArt"/>) when that is
-    /// ready: the game's trophies and badges have no mipmaps and shimmer at this size.
-    /// </summary>
+    // The game's trophies and badges have no mipmaps and shimmer at this size.
+    // Replace them with a reduced copy when it arrives.
     internal static void Show(Image image, Sprite? sprite)
     {
         if (image == null)
@@ -954,7 +840,6 @@ internal sealed class DesktopKit
         image.color = Color.white;
     }
 
-    /// <summary>The sprite of a state mark, or null if its art cannot be decoded.</summary>
     internal static Sprite? Mark(KitMark mark) =>
         DesktopNativeSkin.KitArt(
             mark switch
@@ -967,19 +852,12 @@ internal sealed class DesktopKit
             }
         );
 
-    /// <summary>
-    /// A hero portrait in a square well: a sunk field that a hero's medallion covers. With
-    /// <paramref name="rise"/> the head stands above the well's top edge, so the well needs
-    /// that room above it (a run row has it; a day cell under its caption has not).
-    /// Returns the portrait image, for <see cref="ShowPortrait"/>.
-    /// </summary>
+    // Reserve room above the well when rise is enabled, since the medallion extends past it.
     internal Image Portrait(Transform parent, Sprite? sprite, float size, bool rise = false)
     {
         var well = Rect(parent, "Portrait");
         Size(well, size, size);
         Surface(well, KitSurface.Field);
-        // The medallion stands on the well's bottom edge; one that rises is larger than the
-        // well by the rise, and its head stands above the well's top edge.
         var art = Rect(well, "Art");
         art.anchorMin = art.anchorMax = art.pivot = new Vector2(.5f, 0f);
         var side = size * (1f + (rise ? KitArtReduction.MedallionRise : 0f));
@@ -993,13 +871,6 @@ internal sealed class DesktopKit
         return image;
     }
 
-    /// <summary>
-    /// Puts a hero in a portrait well as a medallion (<c>KitArtReduction.Medallion</c>): the
-    /// hero's colour <paramref name="glow"/> behind the head and shoulders, inside a thin rim.
-    /// <paramref name="focus"/> names the face square (<c>HeroPortraitFocus</c> has one per
-    /// hero); without it the kit finds the head. The well stays a sunk field without a sprite
-    /// and while the medallion is drawn, and shows the whole portrait if it cannot be drawn.
-    /// </summary>
     internal static void ShowPortrait(
         Image portrait,
         Sprite? sprite,
@@ -1031,13 +902,6 @@ internal sealed class DesktopKit
 
     private static KitRgb Rgb(Color32 color) => new(color.r, color.g, color.b);
 
-    /// <summary>
-    /// A run in a list: the hero's portrait well, a title over a meta line (which may hold rich
-    /// text), then two fixed slots at the right: the rank badge and the mark (a trophy or a
-    /// state mark), one size, side by side. So in every row the marks are on one axis at the
-    /// row's right edge, whether or not the row has a rank; an unranked row keeps the empty
-    /// rank slot. The row says how the run ended with the mark alone, not with a text.
-    /// </summary>
     internal KitRunRow RunRow(
         Transform parent,
         float height,
@@ -1054,11 +918,7 @@ internal sealed class DesktopKit
         return new KitRunRow(button, titleText, metaText, portrait, rank, mark);
     }
 
-    /// <summary>
-    /// A scrolling list for rows: its mask is wider than the list by the row plate's bleed, so
-    /// a hover or selected plate keeps its round corners. Rows go in
-    /// <paramref name="content"/>, top to bottom.
-    /// </summary>
+    // The mask includes the plate bleed so rounded hover and selected corners remain visible.
     internal ScrollRect ScrollList(Transform parent, out RectTransform content)
     {
         var rect = Rect(parent, "List");
@@ -1091,13 +951,6 @@ internal sealed class DesktopKit
         return scroll;
     }
 
-    /// <summary>
-    /// The day strip: one darkened track holding a run's battles from the left, each one
-    /// width; when they do not fit, the strip scrolls sideways. Add days to
-    /// <see cref="KitDayStrip.Days"/> with <see cref="Day"/>. With
-    /// <paramref name="newestFirst"/> the consumer adds the newest day first and the strip
-    /// still shows the oldest at the left.
-    /// </summary>
     internal KitDayStrip DayStrip(Transform parent, bool newestFirst = false)
     {
         var track = Rect(parent, "DayStrip");
@@ -1107,8 +960,7 @@ internal sealed class DesktopKit
         scroll.vertical = false;
         scroll.movementType = ScrollRect.MovementType.Clamped;
         scroll.scrollSensitivity = ScrollSensitivity;
-        // The track is the strip's surface, so the mask is inside it: a day at either end keeps
-        // its plate's corners.
+        // Inset the mask to preserve the plate corners at either end of the strip.
         var viewport = Fill(Rect(track, "Viewport"), InGameSizes.Space4);
         viewport.gameObject.AddComponent<RectMask2D>();
         var catcher = viewport.gameObject.AddComponent<Image>();
@@ -1131,9 +983,6 @@ internal sealed class DesktopKit
         return new KitDayStrip(track, days, scroll);
     }
 
-    /// <summary>
-    /// One battle in the day strip: the day, the opponent's portrait well and the outcome mark.
-    /// </summary>
     internal KitDay Day(Transform days, string day, KitMark outcome, Action onClick)
     {
         var rect = Rect(days, "Day");
@@ -1158,12 +1007,6 @@ internal sealed class DesktopKit
         return new KitDay(button, dayText, portrait, mark);
     }
 
-    /// <summary>
-    /// A floating surface (a tooltip or a dialog card): the ground inside the soft gold
-    /// line, so it keeps an edge over the scrim; without the ground sprite, a plain rectangle
-    /// in <c>ingame-dialog</c>. Its children go in the
-    /// returned rect, laid out top to bottom with <paramref name="padding"/>.
-    /// </summary>
     internal RectTransform Floating(Transform parent, string name, float padding)
     {
         var rect = Rect(parent, name);
@@ -1178,13 +1021,6 @@ internal sealed class DesktopKit
         return rect;
     }
 
-    /// <summary>
-    /// A modal layer over the whole panel: a scrim that takes every press under it, and a
-    /// floating card in front of it. The layer has its own canvas in front of the panel's
-    /// boards (<see cref="BppOverlaySorting.PanelForeground"/>) and starts hidden; the consumer
-    /// shows <see cref="KitModal.Root"/>. The card is <paramref name="width"/> wide and as high
-    /// as its children; a press on the scrim calls <paramref name="onScrim"/>.
-    /// </summary>
     internal KitModal Modal(
         Transform parent,
         string name,
@@ -1215,7 +1051,6 @@ internal sealed class DesktopKit
         card.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter
             .FitMode
             .PreferredSize;
-        // The card takes the presses on it, so they do not reach the scrim.
         card.GetChild(0).GetComponent<Image>().raycastTarget = true;
         root.gameObject.SetActive(false);
         return new KitModal(root.gameObject, card);

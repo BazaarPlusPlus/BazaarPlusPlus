@@ -17,12 +17,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// History as <see cref="AndroidComposition"/> composes it, over a temporary history database in
-/// the host's DELETE journal mode: Ghost sync over a Mod API session served by a stub handler
-/// with the server's own Ghost summary contract, and the replay service over a stand-in runtime
-/// with the host's no-recording port.
-/// </summary>
 public sealed class AndroidHistoryCompositionTests : IDisposable
 {
     private const string LocalAccount = "account-local";
@@ -92,7 +86,6 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.True(synced.Succeeded, synced.StatusMessage);
         Assert.Equal(1, synced.ImportedCount);
         Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM battles WHERE source = 'GHOST';"));
-        // A Ghost row is no local battle: the saved-replay probe does not see it.
         var ghostBattleId = (string)
             Scalar("SELECT battle_id FROM battles WHERE source = 'GHOST';")!;
         Assert.False(
@@ -140,9 +133,6 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         Assert.NotEmpty(result.StatusMessage);
     }
 
-    // Core's view model hides Record on a host whose recording port records no video at all, and
-    // shows it on one that does (the desktop's). A build asks the runtime once whether the
-    // selected saved battle can replay, and Record reuses that answer.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -385,7 +375,6 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         ) => Task.FromResult(respond(request));
     }
 
-    // A host that records video, as the desktop's port does.
     private sealed class RecordingPort : IReplayRecordingAvailability
     {
         public bool Supported => true;
@@ -395,7 +384,6 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
         public bool CanRecord() => true;
     }
 
-    // The replay runtime History drives, without the game.
     private sealed class StandInRuntime : ISavedReplayRuntime
     {
         public const string BusyReason = "A saved replay is already starting.";
@@ -420,7 +408,6 @@ public sealed class AndroidHistoryCompositionTests : IDisposable
             return !Busy;
         }
 
-        // Each call is one saved-replay catalog probe on a real host.
         public List<string> SavedBattleProbes { get; } = new();
 
         public bool CanReplaySavedBattle(string battleId, out string reason)

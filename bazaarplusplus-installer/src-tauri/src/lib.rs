@@ -15,10 +15,7 @@ mod stream;
 mod test_support;
 mod tray;
 
-// The unit-test harness links the same Tauri dialog code as the application,
-// but tauri-build only attaches its Common Controls v6 resource to binaries.
-// Without this test-only link, Windows fails before running any test because
-// comctl32!TaskDialogIndirect is unavailable from the legacy activation context.
+// Tauri links the Common Controls v6 resource only into binaries. Windows tests need it to resolve `TaskDialogIndirect`.
 #[cfg(all(test, target_os = "windows"))]
 #[link(name = "resource", kind = "static")]
 unsafe extern "C" {}
@@ -48,7 +45,6 @@ pub fn run() {
                 .build(),
         );
 
-    // Cleanup plans watch the same lock Reset holds.
     let maintenance = crate::services::data_maintenance::DataMaintenanceLock::default();
     let app = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -75,10 +71,7 @@ pub fn run() {
                 window.set_decorations(false)?;
                 crate::main_window::enforce_minimum_size(&window)?;
 
-                // Programmatic window-state restoration and undecorated native
-                // resizing can bypass the configured logical minimum on Windows.
-                // Correct those native resize events before the WebView can be
-                // left with an unusably small layout.
+                // Native Windows resize and restore events can bypass the WebView's configured minimum.
                 let size_window = window.clone();
                 window.on_window_event(move |event| {
                     if matches!(event, WindowEvent::Resized(_)) {
@@ -105,9 +98,7 @@ pub fn run() {
             });
             Ok(())
         })
-        // While the stream service is running, hide the main window to the tray
-        // on close instead of quitting, so the local overlay HTTP server keeps
-        // serving OBS. The tray menu's quit action is the real exit path.
+        // Keep the process alive on window close while OBS still needs the overlay HTTP server.
         .on_window_event(|window, event| {
             if window.label() != "main" {
                 return;

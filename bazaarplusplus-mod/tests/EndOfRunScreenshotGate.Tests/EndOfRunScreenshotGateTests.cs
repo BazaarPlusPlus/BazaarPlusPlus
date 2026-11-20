@@ -3,7 +3,6 @@ using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Game.Screenshots;
 using Xunit;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class EndOfRunScreenshotGateTests
 {
     [Fact]
@@ -186,7 +185,6 @@ public sealed class EndOfRunScreenshotGateTests
             CapturedAtLocal = capturedAtLocal,
             CapturedAtUtc = capturedAtLocal.ToUniversalTime(),
         };
-        // Simulate live DTO mutation and then run teardown during background PNG encoding.
         probe.Basics.Victories = 0;
         probe.Basics.Day = 1;
         probe.Basics.Hero = "Pygmalien";
@@ -287,7 +285,6 @@ public sealed class EndOfRunScreenshotGateTests
         try
         {
             var path = Path.Combine(directory, "shot.png");
-            // A card pixel the framebuffer left translucent, and one it left fully transparent.
             ScreenshotPngWriter.WriteOpaquePngAtomically(
                 path,
                 [200, 100, 50, 64, 10, 20, 30, 0],

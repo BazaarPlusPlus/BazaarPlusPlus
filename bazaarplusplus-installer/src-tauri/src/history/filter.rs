@@ -1,6 +1,3 @@
-//! The History List filter: what the frontend selects, and the query it
-//! resolves to at one local instant.
-
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, Duration, TimeZone};
@@ -9,7 +6,6 @@ use rusqlite::types::Value;
 use crate::history::hero::canonical_hero_id;
 use crate::history::instant::local_day_start;
 
-/// The instant the History List orders and filters Runs by: the Run's last activity.
 pub(crate) const RUN_LIST_TIME: &str = "coalesce(ended_at_ms, last_seen_at_ms, started_at_ms)";
 
 /// Wire strings are a stable contract with the frontend filter bar.
@@ -63,7 +59,6 @@ pub struct HistoryRunFilter {
 }
 
 impl HistoryRunFilter {
-    /// Resolves the period against `now`, the user's local time.
     pub(crate) fn query_at<Tz: TimeZone>(&self, now: DateTime<Tz>) -> RunQuery {
         let since = match self.period {
             HistoryPeriod::All => None,
@@ -82,8 +77,6 @@ impl HistoryRunFilter {
     }
 }
 
-/// A History List filter with its period resolved to an instant. The default
-/// selects every Run.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct RunQuery {
     pub(crate) hero: Option<String>,
@@ -100,8 +93,7 @@ impl RunQuery {
             && self.key_card.is_none()
     }
 
-    /// The same query with every key card: the Runs whose Final Boards the
-    /// key card options come from.
+    /// Key Card options deliberately ignore the selected card so the user can switch directly to another.
     pub(crate) fn any_key_card(&self) -> RunQuery {
         RunQuery {
             key_card: None,
@@ -109,9 +101,6 @@ impl RunQuery {
         }
     }
 
-    /// The `where` condition on `runs`. `spellings` maps each canonical hero
-    /// id to the stored spellings it covers; `boards` names the Runs a key card
-    /// selects.
     pub(crate) fn condition(
         &self,
         spellings: &HeroSpellings,
@@ -158,22 +147,18 @@ impl RunQuery {
     }
 }
 
-/// A `where` condition on `runs` with its parameters, in order.
 pub(crate) struct RunCondition {
     pub(crate) sql: String,
     pub(crate) params: Vec<Value>,
-    /// Selects every Run.
     pub(crate) unfiltered: bool,
 }
 
-/// One item on a Final Board.
 #[derive(Clone, Debug)]
 pub(crate) struct BoardItem {
     pub(crate) template_id: String,
     pub(crate) name: Option<String>,
 }
 
-/// Every Run's Final Board, read once per History List read.
 #[derive(Debug, Default)]
 pub(crate) struct FinalBoards(HashMap<String, Vec<BoardItem>>);
 
@@ -197,9 +182,6 @@ impl FinalBoards {
         runs
     }
 
-    /// The items on the Final Boards of `runs`, held by the most of them first,
-    /// then by name. `selected`, when none of them holds it, follows last with
-    /// the name any Final Board gives it.
     pub(crate) fn key_card_options(
         &self,
         runs: &HashSet<String>,
@@ -247,7 +229,6 @@ impl FinalBoards {
     }
 }
 
-/// The stored hero spellings of every Run, grouped by canonical hero id.
 #[derive(Debug, Default)]
 pub(crate) struct HeroSpellings(BTreeMap<String, Vec<String>>);
 
@@ -263,7 +244,6 @@ impl HeroSpellings {
         Self(spellings)
     }
 
-    /// Canonical hero ids, sorted.
     pub(crate) fn heroes(&self) -> Vec<String> {
         self.0.keys().cloned().collect()
     }

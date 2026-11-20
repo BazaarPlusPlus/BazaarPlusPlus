@@ -1,8 +1,3 @@
-// The QQ official Bot client that the qq-announce skill and the hero daily
-// report share: credentials, access token, group messages and group uploads.
-// Credentials come from QQ_BOT_APP_ID and QQ_BOT_APP_SECRET in the
-// environment: config.toml [qqbot] through `bun scripts/workspace.ts run qqbot --`
-// locally, the `qqbot` GitHub Environment in workflows.
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
@@ -11,13 +6,11 @@ const MD5_10M_BYTES = 10002432;
 // Binary (file_data) uploads are limited to 5 MB; larger files use chunks.
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-/** One QQ group the bot posts to. */
 export interface Group {
   name: string;
   openid: string;
 }
 
-/** groups.json: the openid of every group, and the names each sender uses. */
 export interface GroupsConfig {
   test: Group;
   release: Group[];
@@ -30,7 +23,6 @@ export function loadGroups(): GroupsConfig {
   ) as GroupsConfig;
 }
 
-/** Resolves group names against every group groups.json knows. */
 export function groupsNamed(config: GroupsConfig, names: string[]): Group[] {
   const known = [config.test, ...config.release];
   return names.map((name) => {
@@ -54,13 +46,11 @@ export class QQError extends Error {
   }
 }
 
-// The getAppAccessToken response.
 interface AccessTokenResponse {
   access_token?: string;
   expires_in?: number | string;
 }
 
-// The upload_prepare response.
 interface UploadPrepareResponse {
   block_size: number | string;
   upload_id: string;
@@ -85,7 +75,7 @@ export function createClient(env: NodeJS.ProcessEnv = process.env) {
       'QQ_BOT_APP_ID and QQ_BOT_APP_SECRET are not set; run through `bun scripts/workspace.ts run qqbot --` (config.toml [qqbot])'
     );
 
-  // Tokens last 7200 s; a long multi-group send refreshes it.
+  // Refresh the two-hour token during long sends.
   let token = { value: '', expires: 0 };
   async function authHeaders() {
     if (Date.now() > token.expires) {
@@ -190,7 +180,6 @@ export function createClient(env: NodeJS.ProcessEnv = process.env) {
     });
   }
 
-  // A png or jpg up to MAX_IMAGE_BYTES, sent as base64 binary data.
   async function uploadImage(
     group: string,
     buf: Buffer,
@@ -222,7 +211,6 @@ export function createClient(env: NodeJS.ProcessEnv = process.env) {
   };
 }
 
-/** The operator's next step for a QQ error code, when one is known. */
 export function remedy(
   code: number | undefined,
   group?: string

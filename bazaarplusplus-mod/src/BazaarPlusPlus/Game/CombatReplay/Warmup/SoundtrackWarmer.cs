@@ -9,13 +9,7 @@ namespace BazaarPlusPlus.Game.CombatReplay.Warmup;
 
 internal static class SoundtrackWarmer
 {
-    /// <summary>
-    /// Warms only the soundtrack the game plays, so its banks stay on the one path the game
-    /// unloads: <c>SoundManager.UnloadSoundTrack</c> on <c>RunInterrupted</c> releases
-    /// <c>PlayingSoundTrackSO</c> and nothing else. The bootstrap's own
-    /// <c>BoardBuilder.LoadBoardAudio</c> normally set it already; otherwise the warmup picks it by
-    /// the same rule (equipped soundtrack, else the player board's) and sets it.
-    /// </summary>
+    // RunInterrupted unloads only PlayingSoundTrackSO, so warm the soundtrack the game will use.
     internal static async Task WarmPlayingSoundtrackAsync(
         SoundManager soundManager,
         CollectionManager? collectionManager,
@@ -175,8 +169,6 @@ internal static class SoundtrackWarmer
             return false;
         }
 
-        // An empty soundtrack is never handed to the game, which nulls one itself; the caller
-        // counts and reports it once.
         if (!HasTracks(loadedSoundtrack))
             return false;
 

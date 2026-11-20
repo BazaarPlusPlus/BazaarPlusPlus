@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Updater.Tests;
 
-/// <summary>
-/// The Launch Record reader over the Android App's golden (root AGENTS.md, Contracts) and its
-/// mutations: what the mod and the Updater make of a record (root ADR 0012, "启动记录").
-/// </summary>
 public sealed class LaunchRecordTests : IDisposable
 {
     private const int GoldenProcessId = 12345;
@@ -154,7 +150,6 @@ public sealed class LaunchRecordTests : IDisposable
         {
             { "schema_unknown", Mutated(record => record["schemaVersion"] = 2) },
             { "invalid", Mutated(record => record.Remove("schemaVersion")) },
-            // mode was removed from v1 before the App's first release (root ADR 0013).
             { "invalid", Mutated(record => record["mode"] = "normal") },
             { "invalid", Mutated(record => record["processId"] = "12345") },
             { "invalid", Mutated(record => record["release"] = "6.1") },
@@ -201,7 +196,6 @@ public sealed class LaunchRecordTests : IDisposable
                 )
         );
         Assert.Null(UpdaterRun.RuntimeDigest(path, Environment.ProcessId + 1, Log()));
-        // The record names the release this launch may swap in, so a stale one is not checked.
         File.WriteAllText(
             path,
             Mutated(record =>

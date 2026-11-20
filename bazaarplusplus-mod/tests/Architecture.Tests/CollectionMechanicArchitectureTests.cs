@@ -35,8 +35,6 @@ public sealed class CollectionMechanicArchitectureTests
         );
     }
 
-    // The filter engine lives in Core, which references no game assembly at all
-    // (CoreAssemblyBoundaryTests); the host refresh path is checked here.
     [Fact]
     public void Collection_refresh_path_does_not_walk_game_effect_graphs()
     {

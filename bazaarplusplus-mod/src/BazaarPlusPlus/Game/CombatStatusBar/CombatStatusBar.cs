@@ -7,7 +7,6 @@ namespace BazaarPlusPlus.Game.CombatStatusBar;
 
 internal sealed partial class CombatStatusBar : MonoBehaviour
 {
-    /// <summary>The playback state the bar, the speed patch, and the frame module share.</summary>
     internal static CombatStatusBarState State { get; } = new(new GameServiceManagerPauseControl());
 
     private static CombatStatusBar? _current;

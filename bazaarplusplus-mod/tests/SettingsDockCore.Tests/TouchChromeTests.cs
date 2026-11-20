@@ -9,12 +9,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The frame every Android touch surface shares (<see cref="TouchChrome"/>) and the Collection
-/// panel's touch layout on it, on the screens the host must fit: every close button is the same
-/// size in the top-right corner of what it closes, every text is at least 12sp, every target at
-/// least 48dp, and nothing leaves the safe area or overlaps.
-/// </summary>
 public sealed class TouchChromeTests
 {
     public static TheoryData<string> Screens => TouchHudLayoutTests.Screens;
@@ -48,11 +42,9 @@ public sealed class TouchChromeTests
             Assert.True(close.Height >= metrics.MinTarget - 0.01f, $"{name}: {surface} is 48dp");
             Assert.True(metrics.SafeArea.Contains(close), $"{name}: {surface} in the safe area");
         }
-        // The full-screen panels share one close position.
         Assert.Equal(chrome.Close, history.Close);
         Assert.Equal(chrome.Close, liveBuild.Close);
         Assert.Equal(chrome.Close, collection.Close);
-        // So do their inspections.
         Assert.Equal(chrome.Inspect().Close, history.InspectClose);
         Assert.Equal(chrome.Inspect().Close, liveBuild.InspectClose);
         Assert.Equal(chrome.Inspect().Close, collection.Inspect.Close);
@@ -86,7 +78,6 @@ public sealed class TouchChromeTests
         Assert.Equal(safe.Right, inset.SafeArea.Right, 2);
         Assert.Equal(safe.Bottom, inset.SafeArea.Bottom, 2);
 
-        // The sheet is the safe area less the margin, and each part keeps to its own corner.
         var sheet = safe.Inset(chrome.Margin);
         var history = HistoryTouchLayout.For(inset);
         var liveBuild = LiveBuildTouchLayout.For(inset);
@@ -118,7 +109,6 @@ public sealed class TouchChromeTests
             Assert.Equal(fullClose.Top + top, close.Top, 2);
             Assert.Equal(fullClose.Right - right, close.Right, 2);
         }
-        // Where the full screen puts its close, the inset would cover it.
         Assert.False(inset.SafeArea.Contains(fullChrome.Close), $"{insetName}: inset is real");
 
         var titles = new (string Surface, TouchRect Title, TouchRect Full)[]
@@ -165,7 +155,6 @@ public sealed class TouchChromeTests
         Assert.Equal(metrics.Dp(TouchChrome.LabelInsetDp), chrome.LabelInset, 3);
         Assert.Equal(chrome.LabelInset, LiveBuildTouchLayout.For(metrics).LabelInset);
         Assert.Equal(chrome.LabelInset, CollectionTouchLayout.For(metrics).Chrome.LabelInset);
-        // The padding leaves the narrowest button, a close button, most of its width for a label.
         Assert.True(2f * chrome.LabelInset <= chrome.CloseWidth / 4f, $"{name}: padding");
     }
 
@@ -198,7 +187,6 @@ public sealed class TouchChromeTests
         };
         foreach (var (text, size) in fonts)
             Assert.True(size >= metrics.BodyText - 0.01f, $"{name}: {text} is at least 12sp");
-        // Titles stand out from buttons, and buttons from body text.
         Assert.True(chrome.TitleFont > chrome.ButtonFont, name);
         Assert.True(chrome.ButtonFont > chrome.BodyFont, name);
         Assert.Equal(chrome.TitleFont, history.TitleFont, 2);
@@ -241,9 +229,7 @@ public sealed class TouchChromeTests
         foreach (var target in new[] { layout.ItemsTab, layout.SkillsTab, layout.Search })
             Assert.True(target.Height >= minimum && target.Width >= minimum, name);
         Assert.True(layout.ChipHeight >= minimum, $"{name}: a chip is 48dp");
-        // The search keeps room for a query on every screen.
         Assert.True(layout.Search.Width >= metrics.Dp(120f), $"{name}: search is 120dp or wider");
-        // The rail holds two-column chips at least 48dp wide.
         var chip = (layout.Rail.Width - layout.Gap * 2f) / 3f;
         Assert.True(chip >= minimum, $"{name}: a rail chip is 48dp wide");
 
@@ -320,18 +306,13 @@ public sealed class TouchChromeTests
     }
 
     [Theory]
-    // A rail of 600 units in six columns with a 20 unit gap: a two-column chip is 180 wide.
     [InlineData(600f, 6, 2, 150f, 2)]
     [InlineData(600f, 6, 2, 180f, 2)]
-    // "The Dragon" at body size: three columns (280) hold it.
     [InlineData(600f, 6, 2, 200f, 3)]
     [InlineData(600f, 6, 2, 500f, 6)]
-    // Wider than the row: the full row, and it shrinks then ellipsizes.
     [InlineData(600f, 6, 3, 900f, 6)]
-    // Unmeasured: the request.
     [InlineData(0f, 6, 2, 900f, 2)]
     [InlineData(600f, 6, 2, float.NaN, 2)]
-    // Out-of-range requests clamp.
     [InlineData(600f, 6, 0, 10f, 1)]
     [InlineData(600f, 6, 9, 10f, 6)]
     public void A_chip_widens_until_its_label_fits(
@@ -358,19 +339,13 @@ public sealed class TouchChromeTests
     }
 
     [Theory]
-    // The desktop's 46% of a 30px label is 13.8px; 12sp at 420dpi is 31.5px, so the label would
-    // need 105%: text inside the game's tooltip never outgrows the tooltip's own, so 100%.
+    // At 420 dpi, the 12sp floor is 31.5 px. The game tooltip caps a 30 px label at 100%.
     [InlineData(46, 30f, 420f, 100)]
-    // A 63px label at 420dpi: 12sp is 50% of it.
     [InlineData(46, 63f, 420f, 50)]
-    // A large label already reads at the desktop's size.
     [InlineData(46, 200f, 420f, 46)]
-    // Unknown font size: the desktop's size.
     [InlineData(46, 0f, 420f, 46)]
     [InlineData(46, float.NaN, 420f, 46)]
-    // Unknown density: the fallback's 30px floor; 30/60 is 50%.
     [InlineData(46, 60f, 0f, 50)]
-    // Out-of-range percents clamp.
     [InlineData(0, 0f, 420f, 1)]
     [InlineData(150, 0f, 420f, 100)]
     public void Preview_text_is_raised_to_12sp_up_to_the_tooltip_text(

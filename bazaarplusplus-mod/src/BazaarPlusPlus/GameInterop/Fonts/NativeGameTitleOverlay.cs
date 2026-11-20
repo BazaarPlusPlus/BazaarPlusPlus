@@ -5,11 +5,7 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.GameInterop.Fonts;
 
-/// <summary>
-/// Renders a UI Toolkit panel title through a selected native TMP primary while the transparent
-/// UI Toolkit label remains the layout anchor. UI Toolkit cannot consume the packaged static TMP
-/// assets directly because they have no source <see cref="Font"/>.
-/// </summary>
+// UI Toolkit cannot consume the packaged static TMP assets because they have no source Font.
 internal sealed class NativeGameTitleOverlay : IDisposable
 {
     private const int OverlayLayer = 30;
@@ -86,9 +82,8 @@ internal sealed class NativeGameTitleOverlay : IDisposable
         _title.fontStyle = FontStyles.Normal;
         _title.alignment = TextAlignmentOptions.MidlineLeft;
         _title.textWrappingMode = TextWrappingModes.NoWrap;
-        // TMP's Ellipsis mode can cache an empty mesh when this inactive overlay still has its
-        // default 200x50 rect. Masking keeps the title bounded without persisting that first-frame
-        // truncation after the real UI Toolkit geometry arrives.
+        // Ellipsis can cache an empty mesh on the inactive overlay's default rect. Masking
+        // keeps it bounded until the real UI Toolkit geometry arrives.
         _title.overflowMode = TextOverflowModes.Masking;
         _title.richText = false;
         _title.raycastTarget = false;
@@ -157,9 +152,8 @@ internal sealed class NativeGameTitleOverlay : IDisposable
         _title.text = text ?? string.Empty;
         if (!string.IsNullOrEmpty(_title.text))
         {
-            // The native locale fallbacks populate glyphs lazily. Resolve coverage and preferred
-            // values before the forced rebuild so an all-CJK title cannot produce a zero-vertex
-            // mesh on the first clean game launch.
+            // Resolve glyph coverage before rebuilding because native fallbacks load lazily and can
+            // otherwise produce a zero-vertex CJK title on first launch.
             _title.font?.HasCharacters(
                 _title.text,
                 out _,
@@ -178,10 +172,8 @@ internal sealed class NativeGameTitleOverlay : IDisposable
         _root.SetActive(visible);
         if (visible)
         {
-            // The layout anchor normally starts under a display:none panel. Its first Attach-time
-            // SyncBounds therefore has no usable geometry, and ancestor display changes do not
-            // reliably emit a GeometryChangedEvent for the transparent child. Retry after the
-            // next UI Toolkit layout pass so the native title cannot remain permanently hidden.
+            // The first sync can run under display:none, and showing an ancestor may never send the
+            // child a geometry event. Retry after UI Toolkit layout.
             SyncBounds();
             _layoutAnchor?.schedule.Execute(SyncBounds);
         }

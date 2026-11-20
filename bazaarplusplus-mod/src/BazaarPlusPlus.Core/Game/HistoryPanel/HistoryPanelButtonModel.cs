@@ -60,8 +60,7 @@ public readonly struct HistoryPanelButtonModel
         );
     }
 
-    // The label always names the action. An unavailable action reads as dimmed, and pressing it
-    // puts the reason on the status line (HistoryPanelCoordinator.TryReplaySelectedBattleAsync).
+    // Keep an unavailable replay action pressable so the status line can explain why.
     private static string ResolveReplayButtonText(
         bool replayActionInProgress,
         bool canReplaySelectedBattle,

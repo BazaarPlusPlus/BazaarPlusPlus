@@ -135,7 +135,6 @@ static OpenedRunBundleV6? OpenBundle(byte[] bytes, string label)
     return null;
 }
 
-// A run worth looking at in History shows at least one battle with both boards.
 static bool HasBoards(OpenedRunBundleV6 bundle) =>
     bundle.Payload.Battles?.Any(battle =>
         battle?.Snapshots?.CardSets is { Count: 4 } sets

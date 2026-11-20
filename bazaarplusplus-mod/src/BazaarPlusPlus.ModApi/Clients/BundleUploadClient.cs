@@ -150,13 +150,10 @@ public enum BundleUploadDisposition
     Equivalent,
     Permanent,
 
-    /// <summary>Retry this Bundle later; the failure is about this Bundle or this response.</summary>
+    /// <summary>Retry this Bundle independently of the rest of the queue.</summary>
     Transient,
 
-    /// <summary>
-    /// The endpoint could not take any Bundle now: request timeout, transport error, HTTP 408, 429
-    /// or 5xx. Retry the whole queue later, not just this Bundle.
-    /// </summary>
+    /// <summary>Retry the entire queue after this endpoint-wide failure.</summary>
     EndpointUnavailable,
 }
 

@@ -7,8 +7,7 @@ import pytest
 from bazaarlens.facts.store import FactStore
 from tests.pipeline_fixtures import heal_from_bundles
 
-# Healing runs the production driver once per Source Day, so each sealed
-# store is healed once per session and copied into the tests that use it.
+# Heal each store once per session because the production driver runs once per Source Day.
 
 
 @pytest.fixture(scope="session")
@@ -30,7 +29,6 @@ def _nine_sealed_days(tmp_path_factory: pytest.TempPathFactory, _seven_sealed_da
 def canonical_fact_store(
     tmp_path_factory: pytest.TempPathFactory, _seven_sealed_days: Path
 ) -> tuple[Path, FactStore]:
-    """Source Days 2026-08-07..13, shared by every test in the session."""
     root = tmp_path_factory.mktemp("canonical-facts") / "root"
     shutil.copytree(_seven_sealed_days, root)
     return root, FactStore(root)
@@ -38,7 +36,6 @@ def canonical_fact_store(
 
 @pytest.fixture
 def nine_sealed_days(tmp_path: Path, _nine_sealed_days: Path) -> Path:
-    """A private copy of Source Days 2026-08-07..15."""
     root = tmp_path / "facts"
     shutil.copytree(_nine_sealed_days, root)
     return root

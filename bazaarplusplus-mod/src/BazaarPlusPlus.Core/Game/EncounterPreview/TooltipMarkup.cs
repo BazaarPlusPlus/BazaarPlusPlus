@@ -3,8 +3,7 @@ using System.Text;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// TMP has no CSS box model, so model prose semantics first and translate them here.
-// Callers describe paragraphs and lists; only this renderer owns vertical rhythm.
+// TMP has no CSS box model, so this renderer supplies spacing for paragraphs and lists.
 public static class TooltipMarkup
 {
     private const string ProseLine = "<line-height=1.4em>";

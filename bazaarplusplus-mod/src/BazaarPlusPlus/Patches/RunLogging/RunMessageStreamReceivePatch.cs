@@ -8,7 +8,6 @@ using HarmonyLib;
 
 namespace BazaarPlusPlus.Patches.RunLogging;
 
-/// <summary>Records each received message of the Run Message Stream (ADR-0028).</summary>
 [HarmonyPatch]
 internal static class RunMessageStreamReceivePatch
 {

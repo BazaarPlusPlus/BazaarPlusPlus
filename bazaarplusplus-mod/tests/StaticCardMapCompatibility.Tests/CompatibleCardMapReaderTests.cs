@@ -8,8 +8,6 @@ using Xunit;
 
 namespace StaticCardMapCompatibility.Tests;
 
-// The capsule's checks, with the same calls and messages: supported cards survive unsupported
-// nested types; the native serializer and the source database stay intact.
 public sealed class CompatibleCardMapReaderTests
 {
     private const string Supported = """
@@ -21,8 +19,6 @@ public sealed class CompatibleCardMapReaderTests
         {"$type":"TCardItem","Id":"c8abacb3-3d98-4266-9842-775a5683ac8c","Auras":{"2":{"Action":{"$type":"TAuraActionCardModifyAttribute","Value":{"$type":"BppTestUnsupportedReferenceValue"}}}}}
         """;
 
-    // One sequence: the native failure, the rows that survive it, the native serializer
-    // afterwards, and the bulk failures built from that native error.
     [Fact]
     public void Unsupported_nested_types_discard_only_their_rows()
     {

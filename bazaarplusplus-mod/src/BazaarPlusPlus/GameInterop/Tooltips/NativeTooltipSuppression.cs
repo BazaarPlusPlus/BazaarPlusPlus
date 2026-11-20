@@ -54,7 +54,6 @@ internal interface INativeTooltipSuppressionLease : IDisposable
     NativeTooltipCleanFrameAudit AuditCleanFrame();
 }
 
-/// <summary>Pure owner/refcount algebra behind the native suppression adapter.</summary>
 internal sealed class NativeTooltipSuppressionOwnershipCore
 {
     private readonly int[] _leaseCounts = new int[3];
@@ -84,9 +83,6 @@ internal sealed class NativeTooltipSuppressionOwnershipCore
         };
 }
 
-/// <summary>
-/// Shared owner-scoped gate for every native tooltip surface used by recording and screenshots.
-/// </summary>
 internal static class NativeTooltipSuppression
 {
     private static readonly object Gate = new();
@@ -94,8 +90,8 @@ internal static class NativeTooltipSuppression
     private static readonly NativeTooltipControllerTopologyGeneration ControllerTopology = new();
     private static readonly List<AuxiliaryCanvasGate> AuxiliaryGates = new();
 
-    // One snapshot outlives every lease: controller Awake/OnDestroy patches and the tooltip
-    // parent's identity and child count invalidate it, so Begin rescans only after a change.
+    // Cache controllers across leases. Native Awake and OnDestroy and changes to the tooltip
+    // parent invalidate the snapshot.
     private static readonly NativeTooltipControllerSnapshot Controllers = new();
     private static bool? _requiredShowGatesInstalled;
     private static bool _suppressionActive;

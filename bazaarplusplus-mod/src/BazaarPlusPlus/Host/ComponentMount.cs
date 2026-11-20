@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Host;
 
-/// <summary>
-/// Generic <see cref="IBppMountable"/> for the common case: add one component to the host at
-/// mount, run an optional initializer, and DestroyImmediate it on unmount. Replaces the
-/// per-feature mount classes that differed only by component type and initializer call.
-/// </summary>
 internal sealed class ComponentMount<T> : IBppMountable
     where T : Component
 {

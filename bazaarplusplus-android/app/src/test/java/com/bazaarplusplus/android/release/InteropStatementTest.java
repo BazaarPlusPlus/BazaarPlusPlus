@@ -30,7 +30,6 @@ public class InteropStatementTest {
 
     static final GameCodeHash GAME = new GameCodeHash("a".repeat(64), "b".repeat(64));
     static final String ZIP = "c".repeat(64);
-    /** The release certificate's SHA-256 (ADR 0009, 2026-11-01 key). */
     static final String RELEASE_CERT_SHA256 = "0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9";
 
     static final KeyPair KEY = generate();
@@ -80,7 +79,7 @@ public class InteropStatementTest {
 
     @Test
     public void theEmbeddedReleaseCertificateIsPinned() throws Exception {
-        // Unit tests run in app/; res/raw is not on the test classpath.
+        // res/raw is outside the JVM test classpath.
         File der = new File("src/main/res/raw/bpp_release_cert.der");
         byte[] bytes = Files.readAllBytes(der.toPath());
         StringBuilder hex = new StringBuilder();

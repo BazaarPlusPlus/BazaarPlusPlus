@@ -8,17 +8,14 @@ import { profiles as androidProfiles, onlyDevice } from './setup-device.ts';
 import type { ScreenReport } from './android-screen.ts';
 import { androidSdkPaths } from './android-sdk.ts';
 
-/** A walkthrough device: an Android AVD of the matrix, or the desktop game. */
 export type Device =
   | { name: string; kind: 'android' }
   | { name: string; kind: 'desktop' };
 
-// A device a command reached: an Android one carries the running serial.
 type ReachedDevice =
   | { name: string; kind: 'android'; serial: string }
   | { name: string; kind: 'desktop' };
 
-// A recorded screenshot cell, as capture records it.
 interface CaptureCell {
   device: string;
   scenario: string;
@@ -28,17 +25,14 @@ interface CaptureCell {
   skipped?: undefined;
 }
 
-// A cell skip records, with the reason the screen was not reached.
 interface SkipCell {
   device: string;
   scenario: string;
   skipped: string;
 }
 
-/** One walkthrough.json cell: a screenshot or a skip, with when it was recorded. */
 export type WalkthroughCell = (CaptureCell | SkipCell) & { recordedAt: string };
 
-/** walkthrough.json: the run, the checkout it ran from and its cells. */
 export interface WalkthroughManifest {
   run: string;
   sha: string;
@@ -51,7 +45,6 @@ const root = path.resolve(import.meta.dirname, '../..');
 const runs = path.join(root, 'artifacts/walkthrough');
 const commandFile = 'walkthrough-command.txt';
 const dataRootName = 'BazaarPlusPlusV6';
-// The debug Android App's game files, relative to run-as (android.sh owns the layout).
 const androidApp = 'com.bazaarplusplus.android.dev';
 const androidCommand = `no_backup/game-external/${dataRootName}/${commandFile}`;
 const androidScript = path.join(root, 'bazaarplusplus-mod/scripts/android.sh');
@@ -59,7 +52,6 @@ const defaultGameRoot = path.join(
   os.homedir(),
   'Library/Application Support/Steam/steamapps/common/The Bazaar'
 );
-// The registered Overlay Panel Host ids: the Mobile UI's on Android, the desktop panels' own.
 const panels: Record<'mobile' | 'desktop', Record<string, string>> = {
   mobile: {
     collection: 'collection',
@@ -119,7 +111,6 @@ function device(name: string): Device {
   return found;
 }
 
-// The running device, checked to be the AVD asked for, so no capture is filed under another one.
 function online(d: Device & { kind: 'android' }): ReachedDevice {
   const serial = onlyDevice(
     run([adbPath(), 'devices']),
@@ -273,8 +264,7 @@ function checkIds(...values: string[]): void {
       );
 }
 
-// The desktop grid is compared at one aspect ratio. Window bounds include a windowed game's
-// title bar and a full-screen game has none, so either reading may be the 16:9 picture.
+// Windowed bounds include the title bar, so check the aspect ratio with and without it.
 const desktopTitleBar = 28;
 export function desktopAspectProblem(
   width: number,
@@ -286,8 +276,7 @@ export function desktopAspectProblem(
   return `The game window is ${width}x${height} points, not 16:9. Quit the game, set its resolution as the walkthrough skill says, and launch it again.`;
 }
 
-// The game window's CGWindowID, for screencapture -l: the largest window the game owns, since
-// it also owns thin menu-bar strips, and a full-screen game sits in its own Space, off screen.
+// Select the largest owned window because the game also owns thin menu-bar strips.
 function desktopWindow(): string {
   const script = `import CoreGraphics
 let windows = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
@@ -393,7 +382,6 @@ export function renderReport(manifest: WalkthroughManifest): string {
     );
     if (!c) return '<td class="missing">未记录</td>';
     if (c.skipped) return `<td class="skipped">跳过：${escape(c.skipped)}</td>`;
-    // skip refuses an empty reason, so every other cell is a capture.
     if (!('problems' in c))
       throw new Error(`${name}/${scenario} is neither captured nor skipped.`);
     const notes = [

@@ -6,17 +6,8 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// Core's rules for the BazaarPlusPlus section of the game's settings dialog, which both hosts
-/// call: the row order, each row's state, change detection, the dropdown index and the action
-/// tap. Each group pins what the two hosts decided for themselves before the rules moved here
-/// (the Desktop Host's <c>BppNativeSettingsSectionController</c> and the Android Host's
-/// <c>AndroidNativeSettingsSection</c>).
-/// </summary>
 public sealed class SettingsSectionRulesTests
 {
-    // BuildSection in both hosts: one pass per control kind (toggle, choice, action), each in
-    // catalog order.
     [Fact]
     public void Rows_are_ordered_by_control_kind_and_keep_catalog_order_inside_a_kind()
     {
@@ -41,7 +32,6 @@ public sealed class SettingsSectionRulesTests
     public void An_empty_catalog_orders_no_rows() =>
         Assert.Empty(BppSettingsSectionRules.BuildOrder(Array.Empty<BppSettingsDockDefinition>()));
 
-    // The dropdown listener: desktop ConfigureRow (Choice case), Android SelectChoice.
     [Theory]
     [InlineData(1, 0)]
     [InlineData(2, 1)]
@@ -69,8 +59,6 @@ public sealed class SettingsSectionRulesTests
     public void A_pick_on_an_unresolved_choice_is_ignored() =>
         Assert.Null(BppSettingsSectionRules.StandardIndex(null, 1));
 
-    // Neither host checks the range: an index past the options reaches the row, and the row's
-    // own SelectStandardChoice ignores it (CyclingSettingsDockEntry).
     [Fact]
     public void An_out_of_range_shown_index_reaches_the_row_which_ignores_it()
     {
@@ -94,8 +82,6 @@ public sealed class SettingsSectionRulesTests
         Assert.Equal(2, value);
     }
 
-    // ApplyRow, Toggle case, in both hosts: on when the read says true, interactable unless the
-    // row says false.
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -110,7 +96,6 @@ public sealed class SettingsSectionRulesTests
         Assert.Empty(state.Options);
     }
 
-    // The end-of-run screenshot toggle is forced on while another setting needs it.
     [Fact]
     public void A_forced_on_toggle_is_on_and_not_interactable()
     {
@@ -123,8 +108,6 @@ public sealed class SettingsSectionRulesTests
         Assert.False(state.Interactable);
     }
 
-    // ApplyRow, Choice case, in both hosts: the dropdown is always interactable, whatever the
-    // row's highlight says.
     [Fact]
     public void A_choice_is_interactable_even_when_its_row_is_not_active()
     {
@@ -145,8 +128,6 @@ public sealed class SettingsSectionRulesTests
         Assert.False(state.ToggleOn);
     }
 
-    // ApplyRow, Choice case: a null choice state leaves the dropdown as it was; the label is
-    // written before the switch, so it still resolves.
     [Fact]
     public void An_unresolved_choice_leaves_its_control_alone_but_keeps_its_label()
     {
@@ -173,9 +154,6 @@ public sealed class SettingsSectionRulesTests
         Assert.Equal(shown, state.SelectedIndex);
     }
 
-    // ApplyRow, Action case: the button is interactable while the row is active. ActivateAction
-    // (desktop) and Activate (Android): an inactive row ignores the tap; an active one closes the
-    // dialog first when the row asks for it, then runs.
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -202,8 +180,6 @@ public sealed class SettingsSectionRulesTests
             )
         );
 
-    // RefreshView (desktop) and Refresh (Android): the presentation hash covered every row, the
-    // invisible ones too, and only a visible row was then written.
     [Fact]
     public void An_invisible_row_still_takes_part_in_change_detection()
     {
@@ -278,8 +254,6 @@ public sealed class SettingsSectionRulesTests
     public void A_different_row_count_is_a_change() =>
         Assert.False(BppSettingsSectionRules.SameState(new[] { Base() }, new[] { Base(), Base() }));
 
-    // The hash re-read the option text on every refresh, so a definition that changes one shared
-    // list in place still counts as a change.
     [Fact]
     public void Options_changed_in_place_by_the_definition_are_a_change()
     {
@@ -292,8 +266,6 @@ public sealed class SettingsSectionRulesTests
         Assert.False(BppSettingsSectionRules.SameState(before, after));
     }
 
-    // Each host keeps its own failure handling: Android drops the section in Tick, the desktop
-    // does not catch. Core passes the exception on.
     [Fact]
     public void A_throwing_delegate_propagates()
     {
@@ -308,8 +280,6 @@ public sealed class SettingsSectionRulesTests
         );
     }
 
-    // The hash and then ApplyRow each called a row's delegates, so every refresh called them
-    // twice; a toggle's IsActive is its ReadToggle. One resolve calls each once.
     [Fact]
     public void One_resolve_calls_each_delegate_of_a_row_once()
     {
@@ -363,7 +333,6 @@ public sealed class SettingsSectionRulesTests
         );
     }
 
-    // ChineseTranslationOverrides.AppliesTo: the game's own zh-CN, not BPP's Chinese mode.
     [Theory]
     [InlineData("zh-CN", true)]
     [InlineData("zh-cn", true)]

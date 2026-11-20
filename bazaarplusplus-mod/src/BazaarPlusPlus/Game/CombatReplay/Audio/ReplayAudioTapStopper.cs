@@ -4,7 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
-/// <summary>What stopping a recording's taps left: each tap's result, and the WAVs worth muxing.</summary>
 internal sealed class ReplayAudioStopOutcome
 {
     internal static readonly ReplayAudioStopOutcome Empty = new(
@@ -25,16 +24,10 @@ internal sealed class ReplayAudioStopOutcome
 
     internal IReadOnlyList<ReplayAudioCaptureResult> Results { get; }
 
-    /// <summary>Closed WAVs whose tap pushed PCM; header-only WAVs are already deleted.</summary>
     internal IReadOnlyList<string> UsableWavPaths { get; }
 }
 
-/// <summary>
-/// Stops a recording's taps in two steps: <see cref="Detach"/> on the main thread hands the taps
-/// over, and <see cref="Stop"/> runs off it, because a tap's stop joins its capture thread and
-/// then releases the backend (WASAPI COM objects, or the CoreAudio IOProc, aggregate device and
-/// process tap), closes the WAV and checks the file.
-/// </summary>
+// Stop joins the capture thread and releases the native backend, so do it off the Unity main thread after detaching.
 internal static class ReplayAudioTapStopper
 {
     public static IReadOnlyList<IReplayAudioCaptureTap> Detach(List<IReplayAudioCaptureTap> taps)
@@ -132,10 +125,7 @@ internal static class ReplayAudioTapStopper
             if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
                 return new FileInfo(path).Length;
         }
-        catch
-        {
-            // best-effort diagnostic only
-        }
+        catch { }
 
         return 0;
     }
@@ -158,9 +148,6 @@ internal static class ReplayAudioTapStopper
             if (File.Exists(wavPath))
                 File.Delete(wavPath);
         }
-        catch
-        {
-            // best-effort
-        }
+        catch { }
     }
 }

@@ -71,9 +71,6 @@ internal readonly record struct EndOfRunCleanFrameDecision(
     ) => new(EndOfRunCleanFrameDecisionKind.Capture, reasonCode);
 }
 
-/// <summary>
-/// Pure timing owner for the render-frame barrier between native tooltip cleanup and capture.
-/// </summary>
 internal sealed class EndOfRunCleanFramePreparationCore
 {
     internal const float RequiredStableSeconds = 0.5f;

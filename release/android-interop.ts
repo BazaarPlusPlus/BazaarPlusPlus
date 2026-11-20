@@ -6,17 +6,11 @@ import { execFileSync } from 'node:child_process';
 import { assertProductVersion } from './product.ts';
 import type { ProductVersion } from './product.ts';
 
-// The interop statement and its signature (docs/adr/0012-android-app.md
-// "发布产物"). The Android App loads an Interop Package only when the Android
-// release key signed a statement binding the zip to the installed game's code
-// and to the purpose `release <product version>`. Shared fixtures:
-// release/fixtures/android-interop/.
+// The Android App verifies that the signed statement binds the package to its game code and purpose (ADR 0012).
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const STATEMENT_HEADER = 'bpp-interop-v1';
 
-// What an interop statement binds: the Interop Package zip, the game code it
-// is adapted to, and its purpose.
 export interface InteropStatementInputs {
   zipSha256: string;
   il2cppSha256: string;
@@ -29,7 +23,6 @@ export interface SignInteropStatementOptions {
   keyFile: string;
 }
 
-// A certificate as PEM or DER bytes, or an X509Certificate.
 export type CertificateInput = crypto.X509Certificate | crypto.BinaryLike;
 
 export interface VerifyInteropStatementOptions {
@@ -38,14 +31,11 @@ export interface VerifyInteropStatementOptions {
   certificate: CertificateInput;
 }
 
-// The staged PKCS12 keystore and its password file (androidSigningKey in
-// release/android-release.ts stages them).
 export interface ReleaseKeystore {
   keystore: string;
   passwordFile: string;
 }
 
-// The PEM files exportReleaseKey writes.
 export interface ReleaseKeyFiles {
   keyFile: string;
   certificateFile: string;
@@ -57,7 +47,6 @@ export interface ExportReleaseKeyOptions {
   openssl?: string;
 }
 
-// exportReleaseKey, or a test stand-in for it.
 export type ReleaseKeyExporter = (options: {
   signing: ReleaseKeystore;
   into: string;
@@ -70,7 +59,6 @@ export interface SignWithReleaseKeyOptions {
   releaseKey?: ReleaseKeyExporter;
 }
 
-// execFileSync fails with the child's stderr attached.
 type OpensslError = Error & { stderr?: Buffer };
 
 export const releasePurpose = (version: ProductVersion): string =>
@@ -112,8 +100,7 @@ function rsaKey(key: crypto.KeyObject, description: string): crypto.KeyObject {
   return key;
 }
 
-// SHA256withRSA (RSASSA-PKCS1-v1_5) over the statement, base64. The key is a
-// PEM file, never key material on a command line or in a log.
+// Pass a file path so key material stays out of arguments and logs.
 export function signInteropStatement({
   statement,
   keyFile
@@ -130,8 +117,7 @@ const x509 = (certificate: CertificateInput): crypto.X509Certificate =>
     ? certificate
     : new crypto.X509Certificate(certificate);
 
-// The SHA-256 of a certificate's DER bytes: what `apksigner verify
-// --print-certs` reports and ANDROID_RELEASE_SIGNER_SHA256 pins.
+// Hash the DER bytes to match the digest reported by apksigner and pinned by ANDROID_RELEASE_SIGNER_SHA256.
 export function certificateSha256(certificate: CertificateInput): string {
   return crypto
     .createHash('sha256')
@@ -139,8 +125,6 @@ export function certificateSha256(certificate: CertificateInput): string {
     .digest('hex');
 }
 
-// True when `signature` (base64) is the certificate's key's signature of the
-// statement. `certificate` is PEM or DER bytes, or an X509Certificate.
 export function verifyInteropStatement({
   statement,
   signature,
@@ -156,10 +140,7 @@ export function verifyInteropStatement({
   );
 }
 
-// The Android release key's private key and certificate as PEM files in
-// `into`, read from the PKCS12 keystore androidSigningKey stages
-// (release/android-release.ts). The keystore password reaches openssl only
-// through its file. The caller deletes `into` when done.
+// Pass the keystore password by file so it stays out of the command line.
 export function exportReleaseKey({
   signing,
   into,
@@ -199,10 +180,7 @@ export function exportReleaseKey({
   return { keyFile, certificateFile };
 }
 
-// Signs `statement` with the Android release key and returns the base64
-// signature. The key is exported into a fresh temporary directory, which is
-// deleted before this returns; the keystore's certificate must be the pinned
-// `signerSha256`, and the signature must verify under it.
+// Export the key into a fresh temporary directory and remove it before returning.
 export function signWithReleaseKey({
   statement,
   signing,

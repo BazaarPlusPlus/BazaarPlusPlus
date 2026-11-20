@@ -3,9 +3,6 @@ using BazaarPlusPlus.GameInterop.Tooltips;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-/// <summary>
-/// Owns the independent native-tooltip and BPP-chrome suppression lifetimes for one capture.
-/// </summary>
 internal sealed class EndOfRunCaptureSuppressionLifecycle
 {
     private readonly object _gate = new();

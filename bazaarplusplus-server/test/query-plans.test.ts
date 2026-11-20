@@ -81,7 +81,6 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
   expect(collection.results).toHaveLength(51);
   expect(collection.meta.rows_read).toBeLessThan(100);
 
-  // Odd-numbered Bundles have no Screenshot; the partial index never visits them.
   const feedResponse = await worker.fetch(
     collectionRequest(
       `01J9${String(1798).padStart(22, '0')}`,
@@ -106,8 +105,6 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
   expect(feed.results).toHaveLength(51);
   expect(feed.meta.rows_read).toBeLessThan(150);
 
-  // One opponent owns 20 of 2,000 Ghost rows; its page reads only those rows,
-  // and their stored object keys spare it a lookup into bundles per row.
   await env.DB.prepare(`
     INSERT INTO ghost_battle_summaries (
       uploader_account_id, battle_id, bundle_id, opponent_account_id,

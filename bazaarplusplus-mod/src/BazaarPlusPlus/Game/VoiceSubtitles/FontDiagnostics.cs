@@ -18,9 +18,7 @@ internal static class FontDiagnostics
         return HasFullChineseCoverage(font);
     }
 
-    // Whether the font, including its fallback chain, can render a character. Dynamic atlases add
-    // glyphs on demand when text renders, so the probe may add one too; a Simplified-only probe
-    // with tryAddCharacter off would report such glyphs as missing.
+    // TMP dynamic atlases add glyphs on demand. A probe with tryAddCharacter off can falsely report them missing.
     public static Func<char, bool> GlyphProbe(TMP_FontAsset? font) =>
         character =>
             font == null

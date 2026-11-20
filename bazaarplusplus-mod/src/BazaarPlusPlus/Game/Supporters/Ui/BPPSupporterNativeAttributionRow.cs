@@ -6,12 +6,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.Supporters.Ui;
 
-/// <summary>
-/// The supporter strip of every Desktop panel, drawn with the panel's kit: one sunk strip
-/// under the panel's title holding "Thanks", up to four names in their tier colours, and the
-/// sponsor button with its heart at the strip's right end. Names give way first when the
-/// strip is narrow.
-/// </summary>
 internal sealed class BPPSupporterNativeAttributionRow
 {
     private const int Names = 4;
@@ -30,13 +24,11 @@ internal sealed class BPPSupporterNativeAttributionRow
         kit.Surface(row, KitSurface.Track);
         DesktopKit.Size(row, -1, InGameSizes.ControlMd);
         var group = Line(row, InGameSizes.Space8);
-        // The button sits inside the strip, the same distance from its top, bottom and end.
         var inset = (int)((InGameSizes.ControlMd - InGameSizes.ControlSm) / 2);
         group.padding = new RectOffset((int)InGameSizes.Space12, inset, 0, 0);
         _prefix = kit.Text(row, string.Empty, KitTextRole.Caption);
         _names = DesktopKit.Rect(row, "Names");
         Line(_names, InGameSizes.Space8);
-        // The names take what the word and the button leave, and show only the names that fit.
         var room = _names.gameObject.AddComponent<LayoutElement>();
         room.minWidth = room.preferredWidth = 0;
         room.flexibleWidth = 1;
@@ -85,8 +77,6 @@ internal sealed class BPPSupporterNativeAttributionRow
         text.richText = false;
     }
 
-    // Shows the names that fit whole, from the first: a row of cut names reads as noise. The
-    // first name always shows, with an ellipsis if it alone is too long.
     private sealed class WholeNames : MonoBehaviour
     {
         private readonly Dictionary<Transform, float> _widths = new();

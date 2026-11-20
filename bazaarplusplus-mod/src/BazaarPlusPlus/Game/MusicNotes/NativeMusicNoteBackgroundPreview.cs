@@ -4,8 +4,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.MusicNotes;
 
-// Native placed notes already own a foreground and background. Raise only their hint
-// background, using the native entry point; no cloned note and no presenter pulse.
 internal sealed class NativeMusicNoteBackgroundPreview
 {
     private static readonly System.Reflection.FieldInfo? VfxField = AccessTools.Field(

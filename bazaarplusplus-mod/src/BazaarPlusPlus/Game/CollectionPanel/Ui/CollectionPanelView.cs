@@ -15,10 +15,6 @@ namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
 internal sealed partial class CollectionPanelView : IDisposable
 {
-    // The panel's colours (ADR-0026, amended 2026-11-12): the calm ingame-neutral-* grounds,
-    // chips and ink, with a cool ingame-select fill for a selected control. Hover lifts a fill a
-    // little toward the ink, and a press sinks it toward the ground. Filter cards are framed by a
-    // neutral hairline whose strength sets their place in the rail.
     private static readonly Color ChipBorder = InGameTheme.NeutralRule;
     private static readonly Color ChipHoverBorder = Color.Lerp(
         InGameTheme.NeutralRule,
@@ -152,7 +148,6 @@ internal sealed partial class CollectionPanelView : IDisposable
     );
     private readonly List<CollectionSourceGroup> _sourceGroups = new();
 
-    // Each cell's face: the source key whose portrait it shows, by the group's first member.
     private readonly Dictionary<string, string> _sourceFaces = new(StringComparer.Ordinal);
     private readonly CollectionSourceFoldExpansion _foldExpansion = new();
     private VisualElement? _foldStrip;
@@ -160,7 +155,6 @@ internal sealed partial class CollectionPanelView : IDisposable
         StringComparer.Ordinal
     );
 
-    // What the last Refresh drew, for a cell or fold redrawn between refreshes.
     private string? _selectedSourceKey;
     private IReadOnlyCollection<string> _encounteredSourceKeys = Array.Empty<string>();
     private bool _sourceSelectorEnabled = true;
@@ -168,9 +162,6 @@ internal sealed partial class CollectionPanelView : IDisposable
     private float _appliedHeroChipBox = -1f;
     private float _appliedSourceChipBox = -1f;
 
-    // Panel-open/-close fade state. _opacity is the displayed alpha, _targetOpacity is what
-    // SetVisible asked for; TickOpacity ramps the first toward the second with an
-    // exponential lerp whose time constant is direction-dependent (in vs. out).
     private float _opacity;
     private float _targetOpacity;
 
@@ -234,7 +225,6 @@ internal sealed partial class CollectionPanelView : IDisposable
                 BppOverlaySorting.NativeCardPreview,
                 Sizes.FontTitle,
                 InGameTheme.NeutralInk,
-                // The same face as every Desktop panel's title (the kit's Title level).
                 NativeGameTypography.OwnedTextRole.Body,
                 out _titleOverlay
             )
@@ -279,9 +269,6 @@ internal sealed partial class CollectionPanelView : IDisposable
             return;
         if (visible)
         {
-            // Show the element synchronously so the first ramp frame paints; opacity starts
-            // wherever the previous tick left it (0 on first open, mid-fade if Close was
-            // pressed during an in-flight open animation).
             _root.style.display = DisplayStyle.Flex;
             _root.style.opacity = _opacity;
             _titleOverlay?.SetVisible(true);
@@ -306,9 +293,6 @@ internal sealed partial class CollectionPanelView : IDisposable
 
     public float CurrentOpacity => _opacity;
 
-    // True until the fade animation has settled and the root has finished hiding (if the
-    // target was 0). CollectionPanel uses this to defer overlay deactivation + virtualizer
-    // disposal until the visual fade-out is complete.
     public bool IsFadingOrVisible => _targetOpacity > 0f || _opacity > 0.005f;
 
     public void TickOpacity(float deltaSeconds)
@@ -325,8 +309,6 @@ internal sealed partial class CollectionPanelView : IDisposable
             }
             return;
         }
-        // Asymmetric tau: open is a presentation (slower, more deliberate); close is a
-        // dismissal (snappier, the user just wants the panel gone).
         var tau =
             _targetOpacity > _opacity
                 ? CollectionGridConstants.PanelFadeInSeconds
@@ -371,9 +353,7 @@ internal sealed partial class CollectionPanelView : IDisposable
         _loadingLabel.tooltip = message;
     }
 
-    // Snap the ScrollView to the top. Called on filter / tab changes so the user is not
-    // stranded at the bottom of a tiny new visible set — the previous scrollOffset would
-    // otherwise clamp to the new (smaller) max instead of returning to top.
+    // A filter or tab change would otherwise clamp the old offset to the bottom of the new result set.
     public void ResetScroll()
     {
         if (_gridScrollView != null)
@@ -434,9 +414,7 @@ internal sealed partial class CollectionPanelView : IDisposable
         EnsureSourceChips(model.SourceGroups);
         RefreshTextMatchModeControl(_keywordMatchModeButton, model.KeywordMatchMode);
         RefreshTextMatchModeControl(_tagMatchModeButton, model.TagMatchMode);
-        // Chip text is reset unconditionally on every Refresh: the Ensure*Chips early-exit
-        // compares only keys, so a locale change while the chips survive would otherwise leave
-        // their labels in the previous language (same P4 mechanism as RefreshChromeTexts).
+        // Ensure*Chips compares keys only, so a locale change leaves existing chip labels stale until refreshed.
         foreach (var pair in _heroChips)
         {
             pair.Value.tooltip = CollectionPanelText.Hero(
@@ -498,8 +476,6 @@ internal sealed partial class CollectionPanelView : IDisposable
             RefreshSortChip(_sortSizeButton, model.SortPriority == CollectionSortPriority.Size);
         ApplySortGroupLayout(model.SortPriority);
 
-        // Size/tags only narrow Items. On Skills, let Quality fill the row and let source filters
-        // move up naturally instead of reserving dead space.
         var showTierChips = model.TabProfile.ShowTierFilter;
         if (_tierFilterSection != null)
             _tierFilterSection.style.display = showTierChips
@@ -593,10 +569,7 @@ internal sealed partial class CollectionPanelView : IDisposable
         divider.style.left = itemsWidth;
     }
 
-    // P4 fix: these chrome strings used to be set only at construction, so a locale change
-    // while the view was alive (BPP Chinese script mode, or a non-restart game-language switch)
-    // left them in the previous language. Re-resolving on every Refresh matches the existing
-    // Title/Subtitle/Count per-refresh pattern.
+    // The panel survives locale changes, so its chrome labels must resolve again on refresh.
     private void RefreshSearchMode(CollectionPanelViewModel _)
     {
         if (_standardOperationControls != null)
@@ -662,12 +635,7 @@ internal sealed partial class CollectionPanelView : IDisposable
     {
         if (_gridContentSpacer == null || _gridViewport == null)
             return;
-        // ContentHeight is in overlay physical pixels, but the spacer height is UITK points and
-        // ReadScrollYPixels multiplies scrollOffset (points) by scaledPixelsPerPoint to recover
-        // the pixel offset the virtualizer consumes. So the spacer must be points = px / ppp, or
-        // the scroll range and the card content diverge on any non-1.0 UI scale (1440p/4K), which
-        // both strands the bottom rows and lets the view over-scroll into empty space. At ppp = 1
-        // (1080p with the 1080 reference) this is a no-op.
+        // The native overlay measures in physical pixels and the UITK spacer uses points. Without conversion, the scroll range drifts with UI scale.
         var ppp = _gridViewport.scaledPixelsPerPoint;
         if (ppp <= 0f)
             ppp = 1f;

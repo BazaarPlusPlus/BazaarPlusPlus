@@ -5,12 +5,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// Core's <c>EncounterPreviewModule</c> returns no preview in combat, so the event and hero-level
-/// tooltips show only native content in a fight. Android's reads answer its combat question with
-/// the game's own flag. <c>Data.IsInCombat</c> needs the IL2CPP runtime, so the compiled read is
-/// held here (ADR-0009: compiled artifacts, never source text).
-/// </summary>
+// Data.IsInCombat requires IL2CPP, so inspect the compiled read here.
 public sealed class AndroidEncounterPreviewCombatGateTests
 {
     private const string Reads = "BazaarPlusPlus.Android.Game.AndroidEncounterPreviewReads";

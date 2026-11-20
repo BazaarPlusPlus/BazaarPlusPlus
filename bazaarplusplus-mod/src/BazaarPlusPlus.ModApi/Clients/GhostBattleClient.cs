@@ -176,8 +176,6 @@ internal sealed class GhostBattleClient
         if (string.IsNullOrEmpty(uploaderAccountId) || string.IsNullOrEmpty(opponentAccountId))
             return false;
 
-        // The summary sends only the fields read here, so the record's other fields stay null;
-        // OpponentName and CombatKind keep the values discovery has always stored.
         record = new GhostBattleImportRecord
         {
             BattleId = battleId,
@@ -195,8 +193,8 @@ internal sealed class GhostBattleClient
             OpponentName = string.Empty,
             OpponentAccountId = opponentAccountId,
             OpponentHero = ReadString(opponent, "hero_name"),
-            // The local player's progress as the challenger fought it; a server row stored
-            // before these fields existed sends null.
+            // The opponent fields describe the local player from the challenger's perspective.
+            // Older server rows may omit them.
             OpponentLevel = ReadNonNegativeInt(opponent, "level"),
             OpponentPrestige = ReadNonNegativeInt(opponent, "prestige"),
             OpponentVictories = ReadNonNegativeInt(opponent, "victories"),

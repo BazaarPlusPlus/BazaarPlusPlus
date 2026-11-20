@@ -9,7 +9,6 @@ using UnityEngine.EventSystems;
 
 namespace BazaarPlusPlus.Patches.Input;
 
-// Enable the native overlay without changing the platform seen by the rest of the game.
 [HarmonyPatch]
 internal static class DesktopSkillOverlayPlatformPatch
 {
@@ -52,7 +51,6 @@ internal static class DesktopSkillOverlayPlatformPatch
         if (guards.Length != 1)
             throw new InvalidOperationException("Native skill overlay platform guard changed.");
 
-        // Keep labels and exception blocks, and retain every native interaction/lifecycle gate.
         guards[0].opcode = OpCodes.Ldc_I4_1;
         guards[0].operand = null;
         return codes;
@@ -82,9 +80,8 @@ internal static class DesktopSkillBoardTooltipPatch
         if (guards.Length != 1)
             throw new InvalidOperationException("Native skill overlay tooltip guard changed.");
 
-        // Hide starts a fade; HasShown stays true until OnFadeOutComplete. This entry
-        // dismisses the tooltip below, so its pending fade must not consume the click.
-        // Consume the getter's receiver and return false only at this native call site.
+        // HasShown stays true until fade-out completes. Bypass this guard at the native entry
+        // so a pending fade cannot consume the same click that dismissed the tooltip.
         guards[0].code.opcode = OpCodes.Pop;
         guards[0].code.operand = null;
         codes.Insert(guards[0].index + 1, new CodeInstruction(OpCodes.Ldc_I4_0));
@@ -94,9 +91,8 @@ internal static class DesktopSkillBoardTooltipPatch
     [HarmonyPrefix]
     private static void Prefix()
     {
-        // Desktop hover opens a tooltip before the click. The native mobile entry refuses
-        // visible tooltips, so dismiss it first, including a tooltip pinned by right-click.
-        // The transpiler lets the same click proceed while its fade is still pending.
+        // Desktop hover can open a tooltip before the click, while the native mobile entry
+        // rejects visible tooltips. Dismiss the current tooltip before entering.
         if (Data.TooltipParentComponent != null)
         {
             Data.TooltipParentComponent.UnlockAllLockedTooltipControllers();

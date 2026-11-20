@@ -6,9 +6,7 @@ using Xunit;
 
 public sealed class RunLogHistoryOnlyResumeTests
 {
-    // A normal store never writes history_only, and the V5 import closes unfinished Runs. If an
-    // imported Run is still active anyway, resume skips it and a game Run with the same id
-    // gets a collision id instead of writing into the imported row.
+    // Force an active History-Only Run because the V5 import normally closes unfinished runs.
     [Fact]
     public void ResumeAndCreateSkipHistoryOnlyRuns()
     {

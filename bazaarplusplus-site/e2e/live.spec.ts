@@ -7,7 +7,6 @@ import { expect, test, type Page } from '@playwright/test';
 import { loadHeroMetricsDataset } from '../src/features/heroes/hero-metrics-dataset';
 import { METRICS_URL, heroSchemaErrors } from './golden';
 
-/** The card's version, or null while it is unavailable. */
 async function cardVersion(page: Page, title: string): Promise<string | null> {
   const version = page
     .locator('article')
@@ -21,8 +20,7 @@ async function cardVersion(page: Page, title: string): Promise<string | null> {
   return text.startsWith('v') ? text : null;
 }
 
-// Live mode reads the production sources and only reports; it is never a golden and never runs
-// in CI. It fails only when the snapshot breaks the schema, /heroes errors, or no card loads.
+// Live mode probes production outside CI.
 test('live report against the production sources', async ({
   page,
   request

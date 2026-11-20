@@ -1,10 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// Folds the merchants with one catalog fold value (collection-sources.json "fold", by what the
-// merchant filters on: all items, tier, size or hero) into one cell. A source without a fold value
-// stays alone. Groups take the roster position of their first member, and members keep roster
-// order.
 public static class CollectionSourceFold
 {
     public static IReadOnlyList<CollectionSourceGroup> Group(

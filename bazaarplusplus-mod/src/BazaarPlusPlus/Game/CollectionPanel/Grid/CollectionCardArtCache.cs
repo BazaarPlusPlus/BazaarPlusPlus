@@ -7,17 +7,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// L2 of the design's four-layer cache stack (§7). Item art (CardAssetDataSO) is loaded by
-// CardPreviewItem.LoadArt directly through Addressables.LoadAssetAsync<>, bypassing the
-// game's shared AssetLoader cache; each call increments the Addressables ref count and the
-// game never releases. Without L2, scrolling through 1146 Items would leak 1146 ref counts.
-//
-// We hold the AsyncOperationHandle ourselves so we can call Addressables.Release exactly
-// once per artKey when CollectionPanel tears its Unity runtime down: on a scene change, or once
-// the closed panel has idled past its release delay. A close alone keeps the handles, so a
-// quick reopen stays warm. An LRU bound caps resident SOs at a fixed number
-// regardless of catalog size; the LRU only evicts entries with refcount 0 so handles still
-// in use by active or pooled cards stay resident.
+// Native CardPreviewItem.LoadArt bypasses AssetLoader and never releases the Addressables references.
 internal sealed class CollectionCardArtCache
 {
     private const int DefaultCapacity = 256;
@@ -47,8 +37,6 @@ internal sealed class CollectionCardArtCache
         Exception exception
     ) => ReportArtDegraded(reasonCode, artKey, exception);
 
-    // The storm key is the reason code, so a scroll through many broken art keys writes one line
-    // per reason per storm window plus a suppressed count.
     private static void ReportArtDegraded(
         CollectionPanelLogReasonCode reasonCode,
         string? artKey,
@@ -108,10 +96,7 @@ internal sealed class CollectionCardArtCache
             {
                 Addressables.Release(handle);
             }
-            catch
-            {
-                // best-effort
-            }
+            catch { }
             _failedKeys.Add(artKey);
             return null;
         }
@@ -123,10 +108,7 @@ internal sealed class CollectionCardArtCache
             {
                 Addressables.Release(handle);
             }
-            catch
-            {
-                // best-effort
-            }
+            catch { }
             Touch(artKey);
             if (acquireRef)
                 raced.RefCount++;
@@ -183,9 +165,7 @@ internal sealed class CollectionCardArtCache
     {
         while (_lru.Count > _capacity)
         {
-            // Walk from tail to head looking for an entry with refcount 0. If every entry is
-            // still in use we stop and let the cache temporarily exceed _capacity rather than
-            // pull the rug from under a live card.
+            // The cache may exceed capacity while every handle is retained by active or pooled cards.
             var node = _lru.Last;
             string? evictKey = null;
             while (node != null)

@@ -413,7 +413,6 @@ def test_hour_index_exhausts_keyset_pages_and_returns_ordered_deduplicated_index
     assert len(requests) == 2
     assert requests[1].url.params["after_available_at_ms"] == str(int(HOUR.timestamp() * 1_000) + 1)
     assert requests[1].url.params["after_bundle_id"] == "bundle-a"
-    # Every committed _commit.json recorded this digest; a change re-heals into FactConflict.
     assert (
         index.raw_commit_sha256
         == "8f3360d1d6bd164764b23cf3992b9099956f258d2c32e511186ed3a1539f9558"

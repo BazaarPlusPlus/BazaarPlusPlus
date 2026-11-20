@@ -6,28 +6,15 @@ use tokio::sync::Mutex as AsyncMutex;
 
 use crate::stream::runtime::StreamRuntime;
 
-/// The installer's process-wide data maintenance lock. Every operation that
-/// deletes or rewrites user data under a game directory (History cleanup,
-/// Reset, BepInEx reset, Legacy Root deletion) runs while holding it, so two of
-/// them never interleave.
-///
-/// Lock order: this lock first, then the stream lifecycle gate inside
-/// [`StreamRuntime::exclusive_maintenance`]. Nothing that holds the lifecycle
-/// gate waits for this lock, so a long cleanup never stalls overlay start and
-/// stop, and the two cannot deadlock.
+/// Acquire the data maintenance lock before `StreamRuntime::exclusive_maintenance` to avoid deadlock.
 #[derive(Clone, Default)]
 pub(crate) struct DataMaintenanceLock {
     gate: Arc<AsyncMutex<()>>,
-    /// Counts the operations that may delete or replace the current Data
-    /// Root's database (Reset), so state derived from it outside the lock, such as a cleanup preview's plan, can tell it is
-    /// stale.
     database_generation: Arc<AtomicU64>,
 }
 
 impl DataMaintenanceLock {
-    /// Runs `task` on the blocking pool while holding the lock. The guard moves
-    /// into the task, so the lock outlives a dropped caller until the
-    /// filesystem work actually finishes.
+    /// Move the guard into the blocking task so cancellation of the caller cannot release it early.
     pub(crate) async fn run_blocking<T, F>(&self, task: F) -> anyhow::Result<T>
     where
         T: Send + 'static,
@@ -37,11 +24,7 @@ impl DataMaintenanceLock {
         run_on_blocking_pool(guard, task).await
     }
 
-    /// Like [`Self::run_blocking`], and also stops the OBS overlay for the
-    /// duration, for work that deletes the database the overlay reads. It
-    /// advances [`Self::database_generation`] when it takes the lock and again
-    /// when the task ends, before releasing the lock: state derived while the
-    /// task ran is stale too.
+    /// Advance the generation on both edges so previews made during Reset also become stale.
     pub(crate) async fn run_blocking_with_overlay_stopped<T, F>(
         &self,
         stream_runtime: &StreamRuntime,
@@ -64,16 +47,12 @@ impl DataMaintenanceLock {
             .await
     }
 
-    /// Changes whenever an operation that may delete or replace the current
-    /// Data Root's database takes the lock, and again when it completes. Read
-    /// it before deriving state from the database, and compare it again while
-    /// holding the lock.
+    /// Read before deriving database state and compare again under the lock to detect a concurrent Reset.
     pub(crate) fn database_generation(&self) -> u64 {
         self.database_generation.load(Ordering::SeqCst)
     }
 }
 
-/// Advances a database generation when dropped.
 struct AdvanceOnDrop(Arc<AtomicU64>);
 
 impl Drop for AdvanceOnDrop {
@@ -130,8 +109,6 @@ mod tests {
         let game_path = game.path().to_path_buf();
         let data_dir = crate::services::paths::bpp_data_dir(&game_path);
 
-        // The reset's process probe parks inside the locked section until
-        // released, holding the reset mid-operation.
         let (probe_entered_tx, probe_entered) = mpsc::channel::<()>();
         let (release_probe, probe_release) = mpsc::channel::<()>();
         let probe_release = std::sync::Mutex::new(probe_release);
@@ -159,8 +136,6 @@ mod tests {
             .unwrap()
             .expect("reset reached its game check");
 
-        // Cleanup resolves its installation only once it holds the lock, so the
-        // data directory it observes tells whether the reset already finished.
         let (resolved_tx, resolved) = mpsc::channel::<bool>();
         let cleanup = tokio::spawn({
             let lock = lock.clone();
@@ -190,8 +165,6 @@ mod tests {
 
         release_probe.send(()).unwrap();
         assert_eq!(reset.await.unwrap(), Ok(true));
-        // The cleanup ran after the reset removed the data, so it finds no
-        // history; what matters is that it observed the finished reset.
         let _ = cleanup.await.unwrap();
         assert_eq!(resolved.try_recv(), Ok(false));
     }

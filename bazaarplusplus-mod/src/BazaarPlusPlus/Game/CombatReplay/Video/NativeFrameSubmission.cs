@@ -10,7 +10,6 @@ internal enum NativeFramePreparation
     Rejected,
 }
 
-/// <summary>One platform's render-thread submission effects, private to frame submission.</summary>
 internal interface INativeFrameTarget
 {
     void Clear();
@@ -21,10 +20,7 @@ internal interface INativeFrameTarget
     void Discard(IntPtr eventData);
 }
 
-/// <summary>
-/// Owns the per-tick submission protocol and its accounting. Pacer resync slots never extend
-/// the output timeline; a frame lost during native submission still advances it.
-/// </summary>
+// A failed native submission consumes a timeline slot. Slots skipped by pacer resync do not extend the video.
 internal sealed class NativeFrameSubmission(int fps)
 {
     private readonly WallClockCfrPacer _pacer = new(fps);

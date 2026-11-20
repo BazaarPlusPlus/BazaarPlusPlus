@@ -1,13 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Supporters;
 
-/// <summary>
-/// Where every host fetches and caches the supporter list. Each host's composition root supplies
-/// the transport and the data root, and embeds the one seed file
-/// (<c>src/BazaarPlusPlus/Game/Supporters/supporter-list.json</c>) under
-/// <see cref="EmbeddedResourceName"/>, which its MSBuild item restates and a compiled-artifact
-/// test pins.
-/// </summary>
+// Both hosts embed the same supporter-list seed. A compiled-artifact test pins its resource name.
 public static class SupporterCatalogSettings
 {
     public const string EmbeddedResourceName = "BazaarPlusPlus.Game.Supporters.supporter-list.json";

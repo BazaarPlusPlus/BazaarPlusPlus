@@ -12,10 +12,6 @@ using Xunit;
 
 namespace CombatImpactAdapter.Tests;
 
-/// <summary>
-/// The desktop host's Combat Impact adapter (ADR-0019): the game's combat simulation copied into
-/// Core's combat timeline, and the producer run on native replay frames through it.
-/// </summary>
 public sealed partial class CombatImpactAdapterTests
 {
     [Fact]

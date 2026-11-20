@@ -11,10 +11,7 @@ using Xunit;
 
 namespace CollectionViewStates.Tests;
 
-// The Collection view-state reducer, against Core alone. Each test is one block the console
-// capsule ran; every block reset the grid and preference fakes it shared, so each test gets
-// fresh fakes instead. L is process-global: the constructor installs it, as the capsule did after
-// its first block, and AssemblyInfo.cs runs the tests one at a time.
+// L is process-global. Each test installs it, and the assembly runs these tests serially.
 public sealed class CollectionViewStateTests
 {
     private readonly Guid vanessaTemplateId;
@@ -22,7 +19,6 @@ public sealed class CollectionViewStateTests
     private readonly CollectionSourceEntry commonSource;
     private readonly DictionarySourceCatalog catalog;
 
-    // The default merchant seen only by Vanessa, so an open without a hero keeps it until a prune.
     private readonly DictionarySourceCatalog vanessaOnlyDefaultMerchantCatalog;
     private readonly FakeGridPort grid;
     private readonly FakeDayTier dayTiers;
@@ -60,8 +56,6 @@ public sealed class CollectionViewStateTests
 
     private CollectionViewState CreateState() => new(grid, catalog, dayTiers, prefs);
 
-    // Ticket requirement: entry installs L before production text resolves. Uninstalled L throws
-    // InvalidOperationException — there is no English fallback at the Resolve path.
     [Fact]
     public void Text_resolve_throws_when_L_is_not_installed()
     {
@@ -78,7 +72,6 @@ public sealed class CollectionViewStateTests
         AssertTrue(threw, "L.Resolve must throw when L is not installed (no English fallback).");
     }
 
-    // --- ToggleHero full chain: prune before query, preference Save, control-bar scroll intent ---
     [Fact]
     public void Toggle_hero_prunes_before_query_saves_and_resets_scroll()
     {
@@ -91,8 +84,7 @@ public sealed class CollectionViewStateTests
             Card("Dooley Item", CardTier.Bronze, heroes: new[] { CardHero.Dooley }),
         };
         state.AcceptCatalog(cards);
-        // Select Vanessa first so the Vanessa-only source is visible, then pin that source.
-        // (Selecting the source under EffectiveHero=Common is cleared by query normalization.)
+        // Select Vanessa first because normalization clears the Vanessa-only source under Common.
         state.ToggleHero(CardHero.Vanessa);
         prefs.Reset();
         state.ToggleSource(vanessaSource.SourceKey);
@@ -117,14 +109,11 @@ public sealed class CollectionViewStateTests
             grid.PublishCount > publishesBefore,
             "ToggleHero must run the query (Publish) after filter mutation."
         );
-        // Prune runs before query: Dooley cannot see Vanessa-only source, so selection clears
-        // and Publish receives the unscoped catalog (not the empty offer pool of a pruned source).
         AssertEqual(
             null,
             outcome.Model.SelectedSourceKey,
             "Prune must clear a source invisible for the new hero before the query runs."
         );
-        // With source pruned, the query uses hero=Dooley (not the Vanessa-only offer pool).
         AssertEqual(
             1,
             grid.LastPublishedCards.Count,
@@ -137,7 +126,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Normalization write-back ---
     [Fact]
     public void Normalization_write_back()
     {
@@ -157,7 +145,6 @@ public sealed class CollectionViewStateTests
         state.AcceptCatalog(cards);
         state.ToggleTag(CardTag.Weapon);
         state.ToggleTag(CardTag.Tool); // not present in catalog facets after acceptance
-        // Tool is not in facet availability → normalization should drop it on query.
         var outcome = state.ToggleTier(CardTier.Bronze);
         AssertTrue(outcome != null, "ToggleTier must render.");
         AssertTrue(
@@ -170,7 +157,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Available sources follow the effective hero ---
     [Fact]
     public void Available_sources_follow_the_effective_hero()
     {
@@ -197,7 +183,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Pending search cancelled by a confirmed state change ---
     [Fact]
     public void Pending_search_is_cancelled_by_a_confirmed_state_change()
     {
@@ -215,7 +200,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Same-value no-op keeps pending search and does not reset scroll ---
     [Fact]
     public void Same_value_no_op_keeps_pending_search_and_scroll()
     {
@@ -242,7 +226,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- AcceptCatalog triad after an open: no-Save normalize + prune + zero preference writes ---
     [Fact]
     public void Accept_catalog_after_an_open_normalizes_and_prunes_without_saving()
     {
@@ -251,8 +234,6 @@ public sealed class CollectionViewStateTests
             Card("Only Vanessa", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
         };
 
-        // In a run at the Vanessa-only merchant: the open stamps the run day and supporters, and
-        // the source stays selected through the accept's prune.
         grid.Reset();
         prefs.Reset();
         var state = CreateState();
@@ -302,8 +283,6 @@ public sealed class CollectionViewStateTests
             "Visible source must survive AcceptCatalog prune."
         );
 
-        // Out of a run with a remembered Common: no hero, the default merchant, which only Vanessa
-        // sees. Loading keeps it at open; the accept prunes it for the effective Common hero.
         grid.Reset();
         prefs.Reset();
         prefs.Stored = "Common";
@@ -330,7 +309,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Open out of a run: the remembered hero, loaded against the readiness Open just set ---
     [Fact]
     public void Open_out_of_a_run_loads_the_remembered_hero_against_its_readiness()
     {
@@ -357,8 +335,6 @@ public sealed class CollectionViewStateTests
         AssertTrue(opened.Render.ResetScroll, "Open must reset the list scroll.");
         AssertTrue(opened.Render.ResetControlsScroll, "Open must reset the controls scroll.");
 
-        // The host then accepts the same cached list: Open's catalog state stands, and the accept
-        // still runs the open's first query.
         var accepted = state.AcceptCatalog(cards);
         AssertEqual(publishesBefore + 1, grid.PublishCount, "The accept must run the first query.");
         AssertEqual(
@@ -378,7 +354,6 @@ public sealed class CollectionViewStateTests
         AssertEqual(0, prefs.SaveCount, "The accept of the cached list must not save.");
     }
 
-    // --- An accepted catalog sorts names within a facet in the culture's case-insensitive order ---
     [Fact]
     public void Accepted_catalog_sorts_names_in_the_culture_order()
     {
@@ -403,7 +378,6 @@ public sealed class CollectionViewStateTests
             grid.LastPublishedCards.Select(card => card.DisplayName).SequenceEqual(expected),
             "The accepted catalog's ranked name order must match the culture comparison."
         );
-        // The same names in a list no catalog ranked compare directly, in the same order.
         var unranked = CollectionFilterEngine.Apply(BuildCards(), new CollectionFilterState());
         AssertTrue(
             unranked.Select(card => card.DisplayName).SequenceEqual(expected),
@@ -411,7 +385,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Open from a cached list, then accept a different list: the accepted list's state wins ---
     [Fact]
     public void Accepted_list_state_wins_over_the_cached_open_list()
     {
@@ -471,8 +444,6 @@ public sealed class CollectionViewStateTests
     [Fact]
     public void Stored_the_dragons_is_known_but_unavailable_without_dragons_cards()
     {
-        // Readiness is set before the load: a cached catalog without Dragons cards makes a stored
-        // TheDragons known but unavailable.
         var noDragons = new[]
         {
             Card("Vanessa Item", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }),
@@ -499,8 +470,6 @@ public sealed class CollectionViewStateTests
             "A known-but-unavailable remembered hero opens with no hero."
         );
 
-        // Uncached: the load sees Loading, so TheDragons is kept until an accepted roster
-        // normalizes it, without a Save.
         grid.Reset();
         prefs.Reset();
         prefs.Stored = "TheDragons";
@@ -527,7 +496,6 @@ public sealed class CollectionViewStateTests
         AssertEqual(0, prefs.SaveCount, "Normalizing on accept must not save the preference.");
     }
 
-    // --- A throwing preference store: Open still opens, on the default hero ---
     [Fact]
     public void Throwing_preference_store_opens_on_the_default_hero()
     {
@@ -550,7 +518,6 @@ public sealed class CollectionViewStateTests
         AssertTrue(opened.Render.Model != null, "Open must still render after a failed load.");
     }
 
-    // --- Open in a run ---
     [Fact]
     public void Open_in_a_run()
     {
@@ -614,7 +581,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Open resets the search lifecycle ---
     [Fact]
     public void Open_resets_the_search_lifecycle()
     {
@@ -624,7 +590,6 @@ public sealed class CollectionViewStateTests
         state.AcceptCatalog(
             new[] { Card("Sword", CardTier.Bronze, heroes: new[] { CardHero.Vanessa }) }
         );
-        // The search starts expanded; collapse it so the reset is observable.
         AssertFalse(state.ToggleSearch().Model.SearchExpanded, "Precondition: search collapsed.");
         state.SetSearchQuery("sw");
         var opened = state.Open(
@@ -641,14 +606,11 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- A cached open prunes a source the resolved hero cannot see ---
     [Fact]
     public void Cached_open_prunes_a_source_the_resolved_hero_cannot_see()
     {
         grid.Reset();
         prefs.Reset();
-        // The shared catalog has no default merchant, so the default selection's source is
-        // invisible once the cached catalog is accepted.
         var opened = CreateState()
             .Open(
                 CollectionOpenFacts.OutOfRun(
@@ -668,7 +630,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Close ---
     [Fact]
     public void Close()
     {
@@ -715,7 +676,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- Open rejects null facts ---
     [Fact]
     public void Open_rejects_null_facts()
     {
@@ -738,7 +698,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // --- The open selection over a built source catalog ---
     [Fact]
     public void Open_selection_over_a_built_source_catalog()
     {
@@ -961,7 +920,6 @@ public sealed class CollectionViewStateTests
         );
     }
 
-    // TickSearch fires after debounce
     [Fact]
     public void Tick_search_fires_after_debounce()
     {
@@ -981,7 +939,6 @@ public sealed class CollectionViewStateTests
         AssertTrue(fired!.ResetScroll, "Search refresh must reset list scroll.");
     }
 
-    // --- Source fold: the merchants with one catalog fold value share one cell ---
     [Fact]
     public void Source_fold_shares_one_cell_per_fold_value()
     {
@@ -994,7 +951,6 @@ public sealed class CollectionViewStateTests
         var keys = new Dictionary<string, string>
         {
             [a.SourceKey] = "size",
-            // The same value two places further down the roster.
             [c.SourceKey] = "size",
             [d.SourceKey] = "tier",
             [f.SourceKey] = "tier",
@@ -1015,7 +971,6 @@ public sealed class CollectionViewStateTests
             "Only a group of two or more is folded."
         );
 
-        // Face and state: the selected member, else the first encountered member, else the first.
         var fold = new CollectionSourceGroup(new[] { a, b, c });
         var none = Array.Empty<string>();
         AssertEqual(
@@ -1041,7 +996,6 @@ public sealed class CollectionViewStateTests
         );
         AssertFalse(fold.IsSelected(null), "No selection selects no fold.");
 
-        // Expansion: a folded cell opens and closes its members; a member click names that member.
         var expansion = new CollectionSourceFoldExpansion();
         var single = new CollectionSourceGroup(new[] { e });
         AssertEqual<string?>(
@@ -1071,7 +1025,6 @@ public sealed class CollectionViewStateTests
         AssertFalse(expansion.Collapse(), "Collapse with nothing open reports nothing.");
     }
 
-    // --- Source fold in the view state ---
     [Fact]
     public void Source_fold_in_the_view_state()
     {
@@ -1118,7 +1071,6 @@ public sealed class CollectionViewStateTests
                 )
             );
 
-        // The fold reads the catalog fold value only, so it stands before the card catalog arrives.
         grid.Reset();
         prefs.Reset();
         var state = FoldState();
@@ -1136,7 +1088,6 @@ public sealed class CollectionViewStateTests
         );
         AssertEqual(3, accepted.AvailableSources.Count, "The flat source list keeps every source.");
 
-        // A member click on an open fold selects that exact member, and its cards still publish.
         var expansion = new CollectionSourceFoldExpansion();
         var fold = accepted.SourceGroups[0];
         AssertEqual<string?>(null, expansion.ClickCell(fold), "Opening the fold selects nothing.");
@@ -1171,7 +1122,6 @@ public sealed class CollectionViewStateTests
             "A single cell selects its source."
         );
 
-        // The touch panel does not fold.
         grid.Reset();
         var flat = FoldState(fold: false);
         flat.Open(CollectionOpenFacts.OutOfRun(cachedCatalog: null, supporters));
@@ -1181,7 +1131,6 @@ public sealed class CollectionViewStateTests
             "Without foldSources each source stays alone."
         );
 
-        // In a run at a folded member: the resolver's selection stands, and its fold shows it.
         grid.Reset();
         prefs.Reset();
         var atValpak = FoldState();
@@ -1211,7 +1160,6 @@ public sealed class CollectionViewStateTests
             "The preselected member's fold shows that member."
         );
 
-        // At another merchant with a folded member on offer: the fold glows with the met member.
         grid.Reset();
         prefs.Reset();
         var metValpak = FoldState();
@@ -1361,7 +1309,6 @@ internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
         StringComparer.Ordinal
     );
 
-    // Insertion order: the open selection takes the first matching entry.
     private readonly List<CollectionSourceEntry> _entries = new();
 
     public DictionarySourceCatalog(params CollectionSourceEntry[] entries)
@@ -1443,7 +1390,6 @@ internal sealed class RecordingHeroPreferenceStore : ICollectionPanelHeroPrefere
     public int SaveCount { get; private set; }
     public CardHero? LastSaved { get; private set; }
 
-    // Null means no stored value.
     public string? Stored { get; set; }
     public bool ThrowOnLoad { get; set; }
     public int LoadCount { get; private set; }

@@ -22,8 +22,8 @@ public sealed class ScreenshotCaptureResult
     public DateTimeOffset CapturedAtUtc { get; set; }
 }
 
-// Copy scalar values before frame acquisition releases Continue. Never retain the mutable
-// probe DTOs or re-read the live run while the image is being encoded and persisted.
+// Capture metadata before frame acquisition releases Continue. Encoding must not retain mutable
+// probes or re-read the run after play resumes.
 public readonly record struct ScreenshotCaptureMetadata(
     int? Day,
     int? Victories,

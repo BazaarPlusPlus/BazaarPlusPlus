@@ -5,26 +5,20 @@ using BazaarPlusPlus.ManagedPayload;
 
 namespace BazaarPlusPlus.Infrastructure.SelfUpdate;
 
-/// <summary>The mod loader a self-update targets; it fixes where the Managed Payload lives.</summary>
 public enum SelfUpdateHost
 {
-    /// <summary>BepInEx: <c>BepInEx/plugins/</c> under the game directory.</summary>
     Desktop,
 
-    /// <summary>LemonLoader: <c>MelonLoader/Mods/</c> and <c>UserLibs/</c> under <c>files/</c>.</summary>
     Android,
 }
 
-/// <summary>Where self-update reads and writes, relative to a host's roots.</summary>
 public static class SelfUpdatePaths
 {
-    /// <summary>The installed Managed Payload Manifest under the install root.</summary>
     public static string InstalledManifest(string installRoot, SelfUpdateHost host) =>
         Path.Combine(
             new[] { installRoot }.Concat(Host(host).InstalledManifestPath.Split('/')).ToArray()
         );
 
-    /// <summary>The Data Root's <c>Updates/</c>, where staged versions wait for the Updater.</summary>
     public static string Updates(string dataRoot) =>
         Path.Combine(dataRoot, StagedManagedPayload.UpdatesDirectoryName);
 
@@ -41,12 +35,7 @@ public readonly record struct ManagedPayloadStageResult(bool Succeeded, string R
     public static ManagedPayloadStageResult Failed(string reasonCode) => new(false, reasonCode);
 }
 
-/// <summary>
-/// Downloads a published Managed Payload zip, checks its size, SHA-256 and minisign signature,
-/// extracts exactly the files its signed manifest names, verifies them as the Updater will, and
-/// only then publishes the directory as <c>Updates/&lt;version&gt;/</c> with one rename. Nothing
-/// it does touches the running install; a failure leaves no staged version behind.
-/// </summary>
+// Publish by rename only after verification so the Updater can never observe a partial payload.
 public sealed class ManagedPayloadStager
 {
     private const string DownloadPrefix = ".download-";
@@ -74,15 +63,8 @@ public sealed class ManagedPayloadStager
         _publicKey = publicKey ?? throw new ArgumentNullException(nameof(publicKey));
     }
 
-    /// <summary>
-    /// Whether <paramref name="version"/> is staged complete and verified. A version this
-    /// instance verified or staged is not read again: only this process and the next start's
-    /// Updater write <c>Updates/</c>. The trade-off: if <c>Updates/&lt;version&gt;/</c> is deleted
-    /// or corrupted later in the session, this keeps answering true, so the decision stays
-    /// Staged, nothing stages it again this session, and the label keeps saying restart to
-    /// update. That restart's Updater verifies again, finds nothing valid to swap, and the next
-    /// session stages it, so the update lands one start later.
-    /// </summary>
+    // Only this process and the next startup's Updater write Updates, so verification is cached per session.
+    // If a staged copy is lost meanwhile, the Updater revalidates it and the next session can stage it again.
     public bool IsStaged(string version)
     {
         if (Volatile.Read(ref _verifiedVersion) == version)
@@ -214,8 +196,7 @@ public sealed class ManagedPayloadStager
             Path.Combine(directory, ManagedPayloadManifest.SignatureFileName),
             ReadEntry(signatureEntry)
         );
-        // Only the paths the manifest names, each one a host path it may write: no entry name
-        // in the archive ever becomes a path by itself.
+        // Only signed, host-validated manifest paths may become destination paths. ZIP entry names are untrusted.
         foreach (var file in manifest.Files)
         {
             if (!_host.MayWrite(file.Path))
@@ -243,8 +224,6 @@ public sealed class ManagedPayloadStager
         }
     }
 
-    // The body in game memory never exceeds the published size, whether or not the server sends
-    // a Content-Length; null when it would.
     private static async Task<byte[]?> ReadAtMostAsync(
         HttpContent content,
         long limit,

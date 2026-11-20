@@ -57,8 +57,7 @@ struct StreamRuntimeInner {
 }
 
 impl StreamRuntime {
-    /// Makes History Thumbnails servable: starts a stopped service for the
-    /// selected installation and leaves a running OBS session as it is.
+    /// A running OBS session retains its captured installation when History needs thumbnails.
     pub(crate) async fn prepare_history_thumbnails(
         &self,
         app: tauri::AppHandle,
@@ -224,7 +223,6 @@ impl StreamRuntime {
         Ok(self.set_idle())
     }
 
-    /// `apply` queries the record database, so it runs on the blocking pool.
     pub(super) async fn set_window_with<F>(&self, apply: F) -> anyhow::Result<StreamServiceStatus>
     where
         F: FnOnce(&StreamServiceStatus, Option<PathBuf>) -> anyhow::Result<(Option<String>, usize)>
@@ -320,9 +318,7 @@ fn production_server(app: &tauri::AppHandle) -> ProductionServer {
     }
 }
 
-/// Installation resolution probes the filesystem (and may run the first Steam
-/// detection) and window changes query SQLite, so neither runs on the async
-/// workers the overlay's HTTP handlers share.
+/// Keep filesystem probes and SQLite reads off the async workers serving overlay HTTP requests.
 async fn on_blocking_pool<T, F>(task: F) -> anyhow::Result<T>
 where
     T: Send + 'static,
@@ -382,8 +378,6 @@ fn stream_window_for_offset(
     Ok((Some(record.captured_at_utc), offset))
 }
 
-/// A lifecycle double shared by the runtime's tests and the History Thumbnail
-/// preparation tests.
 #[cfg(test)]
 pub(super) mod test_support {
     use super::{

@@ -11,13 +11,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * The Game Code Hash of the installed game, kept in the App's internal storage. Hashing
- * libil2cpp.so and global-metadata.dat reads hundreds of megabytes, so the result is reused
- * while the game's {@code lastUpdateTime} and APK paths stay the same (ADR 0012).
- */
+/** Cache the digest because hashing the installed game can read hundreds of megabytes. */
 public final class GameCodeHashCache {
-    /** Computes the hash when the cache cannot answer. */
     public interface Computer {
         GameCodeHash compute(List<String> apks) throws IOException;
     }

@@ -18,11 +18,6 @@ import {
 } from './snapshot-lock.ts';
 import type { GameLibsLock, GameLibsLockEntries } from './snapshot-lock.ts';
 
-// The Snapshot Lock (root GLOSSARY.md, ADR 0004 and ADR 0008): its keys, the
-// game version that names an entry, and validation of every entry shape.
-// Capture, publish and fetch are tested in game-libs.test.ts and
-// game-libs-interop.test.ts.
-
 const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0))
@@ -45,7 +40,6 @@ function emptyLock(): GameLibsLock {
   };
 }
 
-// A workspace that holds only an empty lock.
 function workspace() {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-lock-ws-'));
   roots.push(workspaceRoot);
@@ -147,7 +141,6 @@ test('an Android version names its source: the publisher form or a bare Play ver
   expect(() => parseGameVersion('1.0.12825-production-ios-d9601ded')).toThrow(
     /Application.version/
   );
-  // Desktop keeps exactly one architecture token; Android has none.
   expect(() => parseGameVersion('1.0.12651-prod-macos-d5cc730f')).toThrow(
     /Application.version/
   );

@@ -5,9 +5,7 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// A query normalised once for a whole filter pass. The engine calls the search predicate for every
-// card on the active tab, so normalising and splitting inside the predicate repeated the same
-// character sweep hundreds of times per filter click.
+// Normalize once per filter pass to avoid sweeping the query again for every card.
 public readonly struct CollectionSearchTerms
 {
     public static readonly CollectionSearchTerms Empty = new(
@@ -101,8 +99,6 @@ public static class CollectionCardSearch
         return false;
     }
 
-    // One key per phrase: the leading character of each word, defined only for phrases of two or
-    // more words. A query matches as an initialism exactly when it equals one of these keys.
     public static string[] BuildInitialismKeys(CollectionCardVm card)
     {
         var keys = new List<string>(3);

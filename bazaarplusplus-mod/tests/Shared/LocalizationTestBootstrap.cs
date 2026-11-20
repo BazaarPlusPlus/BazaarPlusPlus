@@ -4,9 +4,7 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Tests;
 
-// These exe-runners drive production code that reads the localization facade L, which throws
-// until installed. Install a neutral English/Mainland source before the entry point runs so
-// the code under test takes the same default path it did before the localization extraction.
+// Install a neutral source before the entry point because production localization calls throw until L is installed.
 internal static class LocalizationTestBootstrap
 {
     [ModuleInitializer]

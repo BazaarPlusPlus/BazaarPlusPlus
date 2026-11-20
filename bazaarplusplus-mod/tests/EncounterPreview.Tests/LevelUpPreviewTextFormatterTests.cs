@@ -4,8 +4,6 @@ using Xunit;
 
 namespace EncounterPreview.Tests;
 
-// Drives the formatter over compiled level-up plans; how the compiler builds those plans from
-// the game's TLevelUp rewards is CollectionEncounterTooltip.Tests' LevelUpPreviewCompilerTests.
 public sealed class LevelUpPreviewTextFormatterTests
 {
     public LevelUpPreviewTextFormatterTests()
@@ -20,25 +18,20 @@ public sealed class LevelUpPreviewTextFormatterTests
             .Range(0, 25)
             .Select(i => Guid.Parse($"20000000-0000-0000-0000-{i:d12}"))
             .ToList();
-        // The compiler drops a board-conditional bonus group (a card-count prerequisite), so
-        // the plan carries only the groups below.
         var plan = Plan(
             level: 2,
             healthIncrease: 150,
             isRandomSelection: false,
-            // Hero-excluded group (current hero Vanessa is not Dooley/Jules).
             Group(
                 new[] { Guid.Parse("30000000-0000-0000-0000-000000000001") },
                 limit: 1,
                 Heroes("None", CardHero.Dooley, CardHero.Jules)
             ),
-            // Hero-mismatched group (requires Dooley/Jules).
             Group(
                 new[] { Guid.Parse("30000000-0000-0000-0000-000000000002") },
                 limit: 1,
                 Heroes("Any", CardHero.Dooley, CardHero.Jules)
             ),
-            // Random pool.
             Group(poolIds, limit: 3)
         );
 
@@ -55,7 +48,6 @@ public sealed class LevelUpPreviewTextFormatterTests
         Assert.Contains("3× random reward (25 options)", text);
         Assert.Contains("<line-height=1.9em>\n<line-height=1.4em>", text);
         Assert.DoesNotContain("<line-height=1.6em>«", text);
-        // Single-id groups with unresolvable templates and filtered groups add nothing.
         Assert.DoesNotContain("30000000", text);
     }
 

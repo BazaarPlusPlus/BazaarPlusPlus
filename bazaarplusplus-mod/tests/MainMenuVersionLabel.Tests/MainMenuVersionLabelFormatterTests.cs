@@ -3,8 +3,6 @@ using Xunit;
 
 namespace MainMenuVersionLabel.Tests;
 
-// Each test keeps the call shape of the capsule check it replaces, so the defaults of
-// MainMenuVersionLabelFormatter.Build stay under test.
 public sealed class MainMenuVersionLabelFormatterTests
 {
     [Fact]

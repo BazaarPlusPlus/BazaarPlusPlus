@@ -7,8 +7,7 @@ internal static class ReplayVideoFrameRateResolver
 {
     internal static int Resolve()
     {
-        // The native desktop recorders have a fixed 60 fps output contract. The wall-clock pacer
-        // repeats the latest GPU surface when Unity does not render a distinct frame in time.
+        // Native desktop encoders require 60 fps even when Unity renders fewer distinct frames.
         if (ReplayVideoBackendPolicy.Current == ReplayVideoBackend.MacNative)
             return ReplayVideoCaptureDefaults.MacNativeFps;
         if (ReplayVideoBackendPolicy.Current == ReplayVideoBackend.WindowsNative)

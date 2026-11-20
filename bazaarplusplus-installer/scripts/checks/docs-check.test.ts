@@ -26,8 +26,6 @@ function createFixtureRoot() {
   return rootDir;
 }
 
-// ---------- what counts as a cited path ----------
-
 test('a symbol citation is not treated as a path', () => {
   const content =
     'The window config is `app.windows`, set via `DefaultStreamWorkflow.deriveSnapshot`.';
@@ -47,8 +45,6 @@ test('a root-relative source path is treated as a path', () => {
     { target: 'src/types/generated/commands.ts', line: 1 }
   ]);
 });
-
-// ---------- seam 1: cited paths exist ----------
 
 test('a cited path with no file behind it fails, reported at its line', () => {
   const rootDir = createFixtureRoot();
@@ -87,8 +83,6 @@ test('an ADR may name code that no longer exists', () => {
   expect(checkCitedPaths(rootDir).failures).toEqual([]);
 });
 
-// ---------- seam 2: relative markdown links resolve ----------
-
 test('absolute URLs and bare anchors are not link targets', () => {
   const content =
     '[site](https://example.com) and [here](#section) and [doc](other.md)';
@@ -126,8 +120,6 @@ test('a link is resolved against the linking file, not the repository root', () 
   expect(checkMarkdownLinks(rootDir).failures).toEqual([]);
 });
 
-// ---------- seam 3: GLOSSARY.md reaches every topic ----------
-
 test('a topic missing from the entry map fails', () => {
   const rootDir = createFixtureRoot();
   writeFile(rootDir, 'docs/architecture.md', '# Architecture\n');
@@ -152,8 +144,6 @@ test('a topic linked from the entry map passes, and ADRs need no entry', () => {
   expect(result.failures).toEqual([]);
   expect(result.checked).toBe(1);
 });
-
-// ---------- runner ----------
 
 test('runDocsCheck reports failure once any seam fails, and passes a clean tree', () => {
   const rootDir = createFixtureRoot();

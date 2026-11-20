@@ -31,9 +31,6 @@ internal sealed class CollectionPanel : MonoBehaviour
     private const float CatalogWarmupFrameBudgetMs = 1f;
     private const string OverlayPanelId = "CollectionPanel";
 
-    // How long a closed, fully faded panel keeps its Unity runtime (card art handles, shared
-    // materials, pooled native cards, overlay canvas, UITK document) before releasing it. A
-    // quick reopen stays warm; a later one rebuilds the view and reloads card art.
     private const float ClosedRuntimeReleaseDelaySeconds = 60f;
 
     private static CollectionPanel? _instance;
@@ -72,10 +69,6 @@ internal sealed class CollectionPanel : MonoBehaviour
     private int _loadGeneration;
     private float _closedIdleSeconds;
 
-    // True when the last render ran before the game's async tooltip typography registration
-    // completed: tag chips rendered degraded (string-table labels, no accent color) and nothing
-    // else would re-render them without user interaction. Update polls for the typography
-    // instance and re-renders once, so the startup window self-heals.
     private bool _viewMissedNativeTypography;
     private bool _sourceCatalogWarmed;
     private bool _stagingItemIdCopyEnabled;
@@ -140,8 +133,6 @@ internal sealed class CollectionPanel : MonoBehaviour
             )
             {
                 OnSceneChanged = DisposeUnityRuntime,
-                // An open source fold takes Escape like the inspection: the first Escape closes
-                // the fold, the next one the panel.
                 IsModalInputActive = () =>
                     _inspection.BlocksInput || _view?.IsSourceFoldOpen == true,
                 DismissModal = () =>
@@ -275,8 +266,6 @@ internal sealed class CollectionPanel : MonoBehaviour
         // After EnsureView: ApplyOutcome drops the render while the view does not exist.
         ApplyOutcome(opened.Render);
         _isVisible = true;
-        // SetVisible starts the fade-in ramp; overlay activates so its CanvasGroup starts
-        // mirroring the view's opacity (Update pushes the live value each frame).
         _view!.SetVisible(true);
         _overlay?.SetVisible(true);
         _overlay?.SetAlpha(_view!.CurrentOpacity);
@@ -368,10 +357,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (!_isVisible)
             return;
         _inspection.Close();
-        // Cancel a deferred focus requested by the expanded presentation before the fading view
-        // remains alive for another frame.
         ApplyOutcome(_viewState.Close());
-        // Hero clicks only stage the preference; the panel writes it to disk once per close.
         _heroPreferenceStore.Flush();
         // Drop composition state with the panel: a composition whose terminating Count==0
         // event never arrives would otherwise keep Advance() blocked after the next Open().
@@ -379,9 +365,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         CancelPanelLoad();
         _isVisible = false;
         HideNativeCardLayerImmediately();
-        // Let the UITK chrome fade out, but do not keep the native card overlay alive during
-        // that animation. CardPreviewBase instances live on a sibling ScreenSpaceOverlay canvas,
-        // so delaying its teardown leaves visible card art after the panel has been dismissed.
+        // Native cards live on a sibling canvas and would outlast the dismissal if hidden after the UITK fade.
         _view?.SetVisible(false);
     }
 
@@ -393,23 +377,16 @@ internal sealed class CollectionPanel : MonoBehaviour
             return;
         }
 
-        // The visible close button is a lifecycle request, not just a local hide. If this
-        // bypasses the host, the dock button's later RequestOpen() sees the panel as still open.
+        // Bypassing the host leaves the dock button's next RequestOpen() treating the panel as open.
         var outcome = _overlayHandle.RequestClose();
         if (outcome == OverlayRequestOutcome.AlreadyInState && _isVisible)
             Close();
     }
 
-    // Lifecycle (scene change, combat gate, hotkey, escape) is owned by the Overlay Panel Host;
-    // this tick carries the panel's own per-frame content work, including closed-state work
-    // (fade-out completion, catalog warmup, deferred native cleanup).
     private void Tick(float dt, bool isVisible)
     {
         _inspection.Tick(dt);
-        // Warm the shared card map and catalog while the panel is closed. Card-map acquisition
-        // runs on the provider's worker task; catalog projection stays on the main thread but is
-        // capped to a small closed-state budget. An open panel raises the budget and consumes the
-        // same build session, so the first click never starts a duplicate full-table walk.
+        // Closed-state warmup and the open panel share one build session to avoid a second full-table walk.
         _catalog.AdvanceBuild(
             isVisible ? CatalogBuildFrameBudgetMs : CatalogWarmupFrameBudgetMs,
             out _
@@ -420,8 +397,7 @@ internal sealed class CollectionPanel : MonoBehaviour
             _sourceCatalogWarmed = true;
         }
 
-        // Drive the panel fade every frame regardless of _isVisible so a Close mid-frame
-        // can finish its fade-out animation before we tear runtime down.
+        // A close still needs fade ticks to finish before runtime teardown.
         _view?.TickOpacity(dt);
         _view?.TickLoading(dt);
         _view?.TickControlsScrollShadow();
@@ -431,8 +407,6 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (!_isVisible)
         {
             _inspectionClick.Reset();
-            // Close() already hides the native card layer synchronously. Keep this as an
-            // idempotent cleanup fallback once the remaining UITK fade-out has settled.
             if (_view != null && !_view.IsFadingOrVisible)
             {
                 _overlay?.SetVisible(false);
@@ -452,10 +426,7 @@ internal sealed class CollectionPanel : MonoBehaviour
 
         ApplyOutcome(_viewState.TickSearch(dt, isComposing: IsImeCompositionActive()));
 
-        // Startup self-heal for tag typography: a refresh that ran inside the game's async
-        // typography registration window rendered degraded chips, and no further Refresh
-        // arrives without user interaction. Re-render once the instance appears (the check is
-        // a static null probe per frame; ApplyOutcome clears the flag).
+        // Game tooltip typography registers asynchronously, so degraded startup chips need a refresh when it appears.
         if (_viewMissedNativeTypography && NativeTagTypography.IsNativeTypographyAvailable)
             ApplyOutcome(_viewState.Rebuild());
 
@@ -465,16 +436,11 @@ internal sealed class CollectionPanel : MonoBehaviour
             _overlay.SetPosition(_viewportBoundsPx.position);
             _overlay.SetClipSize(_viewportBoundsPx.size);
             _virtualizer.SetViewport(_viewportBoundsPx.width, _viewportBoundsPx.height);
-            // The base unit (and therefore ContentHeight) is derived from the viewport width,
-            // so re-publish the scroll-spacer height once real bounds arrive — otherwise the
-            // first-open estimate computed at the placeholder width leaves the bottom rows
-            // unreachable. Viewport-driven projection drift stays panel-owned (grid port contract).
+            // The placeholder width can leave the bottom rows unreachable until the scroll spacer uses the measured viewport.
             _view?.UpdateContentSpacerHeight(_virtualizer.ContentHeight);
         }
 
-        // UITK's default wheel handler updates scrollOffset directly; we just read the
-        // resulting position each frame and feed it to the virtualizer. (An earlier smooth-
-        // wheel intercept lived here but killed wheel scrolling entirely — see §16.6.)
+        // UI Toolkit's default wheel handler writes scrollOffset directly.
         if (_view != null)
             _scrollY = _view.ReadScrollYPixels();
         _virtualizer?.SetScrollY(_scrollY);
@@ -541,8 +507,6 @@ internal sealed class CollectionPanel : MonoBehaviour
         _view?.ShowStagingTemplateIdCopied(card.DisplayName, templateId);
     }
 
-    // The scene-change teardown, run once the closed panel has idled: it keeps the catalog, and
-    // the next Open rebuilds the view through EnsureView.
     private void ReleaseClosedRuntime()
     {
         _closedIdleSeconds = 0f;
@@ -563,9 +527,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         _overlay?.SetVisible(false);
     }
 
-    // A hero choice staged by a panel that is still open reaches disk when the game loses focus
-    // (alt-tab, another window). Desktop Unity sends OnApplicationPause only with Run In
-    // Background off, which the game does not rely on, so focus is the message that fires.
+    // On desktop, Unity sends OnApplicationPause only with Run In Background off.
     private void OnApplicationFocus(bool focused)
     {
         if (!focused)
@@ -701,8 +663,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         CollectionCardMaterialCache? materialCache
     )
     {
-        // Scope disposal synchronously releases each card's feature-owned tooltip/art/material
-        // state before scheduling its GameObject destruction, so cache teardown is now safe.
+        // Scope disposal releases card references synchronously, before Unity destroys their GameObjects.
         overlay?.Dispose();
         CollectionCardCacheHost.Uninstall(cacheSession);
         materialCache?.DisposeAll();
@@ -803,12 +764,7 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (outcome.ResetControlsScroll)
             _view?.ResetControlsScroll();
 
-        // Record whether this render has native typography; while it does not, Update polls for
-        // the late async registration and re-renders so the degraded chips self-heal. Written
-        // BEFORE the render: typography registration is a main-thread continuation that cannot
-        // interleave with the synchronous Refresh below, so the value is identical either way,
-        // and writing first keeps a throwing Refresh from leaving the flag armed (which would
-        // turn a one-shot failure into a per-frame retry).
+        // Typography cannot register during this synchronous refresh. Set the flag first so a failed refresh cannot arm a per-frame retry.
         _viewMissedNativeTypography = !NativeTagTypography.IsNativeTypographyAvailable;
         _view?.Refresh(outcome.Model);
     }
@@ -878,8 +834,6 @@ internal sealed class CollectionPanel : MonoBehaviour
         if (!IsLoadGenerationCurrent(generation))
             yield break;
 
-        // AcceptCatalog/CatalogUnavailable fold the prior Filter + Refresh segments into one
-        // query-and-render (allowed measurement micro-shift; event schema unchanged).
         started = diagnostics.Now();
         ApplyOutcome(acceptOutcome);
         diagnostics.AddSegment(CollectionPanelLoadSegment.Filter, started);

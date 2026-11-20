@@ -15,7 +15,6 @@ import {
 } from '../fixtures/bundle';
 import { expectGolden } from '../fixtures/golden';
 
-// Every expectation comes from checksums.json; each listed vector is uploaded through the Worker.
 const vectors: Record<string, string> = {
   'corrupt-magic.bundle.b64': corruptMagicBase64,
   'run-only.bundle.b64': runOnlyBase64,

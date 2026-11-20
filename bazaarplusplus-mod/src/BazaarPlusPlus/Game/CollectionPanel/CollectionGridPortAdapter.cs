@@ -4,8 +4,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Production adapter over CollectionGridVirtualizer. Bind(null) or Dispose clears the window so
-// Current returns Empty rather than a stale ContentHeight with VisibleCount=0.
 internal sealed class CollectionGridPortAdapter : ICollectionGridPort
 {
     private CollectionGridVirtualizer? _virtualizer;

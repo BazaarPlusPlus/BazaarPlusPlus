@@ -4,12 +4,6 @@ using static Architecture.Tests.ArchitectureRules;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Keeps the shared native-tooltip adapters feature-neutral and their native ownership out of
-/// features. NativePairedTooltipHost.Tests covers only the host's pure parts: placement math, the
-/// auxiliary-tooltip anomaly rules and the wait budget. No test runs the gate, settle, retry or
-/// teardown.
-/// </summary>
 public sealed class NativePairedTooltipArchitectureTests
 {
     private const string TooltipParent = "TheBazaar.UI.Tooltips.TooltipParentComponent";

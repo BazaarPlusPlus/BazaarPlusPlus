@@ -13,9 +13,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 using MessagePack;
 using Xunit;
 
-// The desktop's PvP Battle Capture Window: Core's window over the real DesktopPvpBattleReads and
-// Mono net messages. The live player reads need the client's Data statics, which this lane does
-// not have; they must degrade field by field, and their values are left to an in-game run.
+// Live player reads need the client's Data statics, which this test lane cannot supply.
 public sealed class DesktopPvpBattleCaptureTests
 {
     [Fact]
@@ -176,7 +174,6 @@ public sealed class DesktopPvpBattleCaptureTests
             replay.CombatMessageBytes,
             MessagePackConfig.Options
         );
-        // CombatReplayLoader reads each part back as its concrete type, as here.
         Check.That(
             spawn.MessageId == "spawn" && decodedCombat.MessageId == "combat",
             "Each part decodes back as its concrete type."

@@ -1,5 +1,4 @@
 using Xunit;
 
-// Several test classes install process-global state (L.Install, EncounterPreviewLocalization's
-// TextLocalizer) with different values, so test classes must not run concurrently.
+// Tests change the process-wide L and EncounterPreviewLocalization.TextLocalizer settings.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

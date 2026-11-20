@@ -169,7 +169,6 @@ public static class BppItemBoardSlotPlanner
         return false;
     }
 
-    // A card of this span fits from this left-edge socket; the live read places by the same rule.
     internal static bool CanFit(int socket, int span) =>
         socket >= 0 && span > 0 && socket + span <= SocketCount && socket < SocketCount;
 

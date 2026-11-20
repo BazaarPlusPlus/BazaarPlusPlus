@@ -17,32 +17,23 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * Stages a Managed Payload zip for the Updater (ADR 0012, "下载与 Managed Payload 的安装"), in the
- * layout of Core's {@code ManagedPayloadStager}: {@code Updates/.download-<version>-<random>/}
- * first, then one rename to {@code Updates/<version>/}. The App checks only the zip's sha256 (the
- * download did) and its entry names; the Updater verifies the minisign signature and each file.
- */
+/** Android 11 lacks native Ed25519 support, so the Updater verifies the Managed Payload signature (ADR 0012). */
 public final class ManagedPayloadStaging {
     public static final String UPDATES = "Updates";
     public static final String MANIFEST = "manifest.txt";
     public static final String SIGNATURE = "manifest.txt.minisig";
-    /** The installed Managed Payload Manifest beside the mod, relative to the external files directory. */
     public static final String INSTALLED_MANIFEST = "MelonLoader/Mods/BazaarPlusPlus.managed-manifest.txt";
     static final String DOWNLOAD_PREFIX = ".download-";
-    /** Where the zip keeps the files, under their install paths. */
     static final String FILES = "files/";
     static final String[] INSTALL_DIRECTORIES = {"MelonLoader/Mods/", "MelonLoader/UserLibs/"};
 
     private ManagedPayloadStaging() {}
 
-    /** Whether the zip may hold {@code name}: the manifest, its signature, or one file in Mods/ or UserLibs/. */
     static boolean allowedEntry(String name) {
         if (name.equals(MANIFEST) || name.equals(SIGNATURE)) return true;
         return name.startsWith(FILES) && installPath(name.substring(FILES.length()));
     }
 
-    /** Whether {@code path}, relative to the external files directory, is one file in Mods/ or UserLibs/. */
     static boolean installPath(String path) {
         for (String directory : INSTALL_DIRECTORIES) {
             if (path.startsWith(directory)) return SafeNames.isFileName(path.substring(directory.length()));
@@ -50,12 +41,6 @@ public final class ManagedPayloadStaging {
         return false;
     }
 
-    /**
-     * Deletes every file the installed Managed Payload Manifest names, then the manifest, so the
-     * game runs no Mods built for another game. The Updater then sees no installed version and
-     * swaps in a staging of the same version. Any listed path outside Mods/ and UserLibs/ refuses
-     * the whole manifest before a file is deleted. Returns the paths named; none without a manifest.
-     */
     public static List<String> removeInstalled(File externalFiles) throws IOException {
         File manifest = new File(externalFiles, INSTALLED_MANIFEST);
         String text = AtomicFiles.readUtf8(manifest);
@@ -70,17 +55,11 @@ public final class ManagedPayloadStaging {
             paths.add(parts[3]);
         }
         for (String path : paths) Files.deleteIfExists(new File(externalFiles, path).toPath());
-        // The manifest goes last, so a stopped run leaves it to name the rest for the next launch.
-        // Without it, a version file left behind makes the Updater delete a same-version staging.
+        // Keep the manifest until every listed file is gone so an interrupted removal can resume.
         Files.deleteIfExists(manifest.toPath());
         return paths;
     }
 
-    /**
-     * Extracts {@code zip} into {@code updates/<version>/}, replacing an earlier staging of the same
-     * version. Any entry outside the allowed names, or a manifest of another version, rejects the
-     * whole zip and leaves nothing behind.
-     */
     public static File stage(File zip, File updates, String version) throws IOException {
         if (!SafeNames.isFileName(version) || version.startsWith(".")) throw new IOException("Bad version " + version);
         try (ZipFile file = new ZipFile(zip)) {
@@ -124,10 +103,7 @@ public final class ManagedPayloadStaging {
         }
     }
 
-    /**
-     * Deletes everything in {@code updates/} except {@code keep} (null keeps nothing), so the
-     * Updater swaps in only the Mods this launch staged. Returns the names deleted.
-     */
+    /** The Updater scans Updates/, so a stale staging could install Mods for the wrong interop. */
     public static List<String> prune(File updates, String keep) throws IOException {
         List<String> deleted = new ArrayList<>();
         File[] children = updates.listFiles();
@@ -141,7 +117,6 @@ public final class ManagedPayloadStaging {
         return deleted;
     }
 
-    /** The {@code version} line of a Managed Payload Manifest, or null. */
     public static String manifestVersion(String manifest) {
         if (manifest == null) return null;
         for (String line : manifest.split("\n")) {
@@ -150,12 +125,10 @@ public final class ManagedPayloadStaging {
         return null;
     }
 
-    /** The installed Managed Payload's version, or null when none is installed. */
     public static String installedVersion(File externalFiles) {
         return manifestVersion(AtomicFiles.readUtf8(new File(externalFiles, INSTALLED_MANIFEST)));
     }
 
-    /** Numeric x.y.z order; an unparsable or missing version sorts first. */
     public static int compareVersions(String a, String b) {
         long[] left = parse(a);
         long[] right = parse(b);
@@ -164,25 +137,16 @@ public final class ManagedPayloadStaging {
         return 0;
     }
 
-    /**
-     * ADR 0012: the Updater deletes a staging it rejects, and the game starts without new Mods.
-     * True when the App staged {@code staged} for an earlier launch, the installed Mods are still
-     * older, and the staging directory is gone.
-     */
+    /** The Updater deletes a rejected staging and lets the game start with its existing Mods. */
     public static boolean lastInstallFailed(String staged, String installed, File updates) {
         return staged != null && compareVersions(installed, staged) < 0 && !new File(updates, staged).isDirectory();
     }
 
-    /**
-     * A one-line state file in the App's internal storage: the version this App last staged, or the
-     * game it staged the installed Mods for. Null when there is none.
-     */
     public static String remembered(File state) {
         String text = AtomicFiles.readUtf8(state);
         return text == null || text.trim().isEmpty() ? null : text.trim();
     }
 
-    /** Writes {@code value} to the state file {@link #remembered} reads; null deletes it. */
     public static void remember(File state, String value) throws IOException {
         if (value == null) {
             Files.deleteIfExists(state.toPath());

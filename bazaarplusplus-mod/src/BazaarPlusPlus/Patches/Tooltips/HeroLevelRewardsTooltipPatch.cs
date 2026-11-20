@@ -11,10 +11,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 
-// Appends a readable reward breakdown below the native hero-level tooltip
-// ("NEXT LEVEL REWARDS" icon strip). HandleTooltip starts with ResetValues, which
-// routes through RenderPassiveEffectTextBlock(empty) and hides all BPP sections, so
-// showing the level section here needs no extra teardown elsewhere.
+// HandleTooltip clears BPP sections via ResetValues, so the level section needs no extra teardown.
 [HarmonyPatch(
     typeof(HeroLevelTooltipTypeHandler),
     nameof(HeroLevelTooltipTypeHandler.HandleTooltip)
@@ -55,10 +52,8 @@ internal static class HeroLevelRewardsTooltipPatch
                 return;
             }
 
-            // Native gap: HandleTooltip resets the view via ResetValues, which clears
-            // every section except the quest rows — a pooled controller that last
-            // showed a quest item (e.g. a shop basket) leaks its "Sell N Food" rows
-            // into the hero-level tooltip. Clear them the way the card path does.
+            // ResetValues leaves quest rows on pooled controllers. Clear them so the previous item
+            // cannot leak into a hero-level tooltip.
             controller._questDisplayService?.BuildDisplay(null, null);
 
             var currentLevel = heroLevelTooltipData.GetCurrentAndNextLevel().currentLevel;

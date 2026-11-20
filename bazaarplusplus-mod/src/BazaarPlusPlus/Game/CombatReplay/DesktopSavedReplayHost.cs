@@ -9,13 +9,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// The desktop's side of Saved Replay Playback (ADR-0020): the Mono loader, bootstrap and
-/// opponent portrait, the cleanup each exit path runs with the opening-state restore, History's
-/// row probe's short cache, the managed recording UI reset when an operation is accepted or
-/// completes, and the release of the board SFX banks only the audio warmup loaded once the
-/// operation has settled outside <c>ReplayState</c>.
-/// </summary>
 internal sealed class DesktopSavedReplayHost : ISavedReplayHost
 {
     private readonly SavedReplayOfferCache _offers;
@@ -60,10 +53,7 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        // Decoding the three MessagePack parts into game objects is the start's one heavy step, so
-        // it runs on a pool thread while the start resets the board and bootstraps; the seal
-        // worker already decodes replays off the main thread through the same loader
-        // (DesktopPvpBattleEvidence.VerifyReplay). The start awaits it before its first use.
+        // MessagePack decode is the heavy part of startup and can overlap Unity board bootstrap on a pool thread.
         var sequence = Task.Run(() => _loader.Load(payload));
         // A start that fails before BootstrapAsync never awaits the decode; observe its fault.
         _ = sequence.ContinueWith(
@@ -107,9 +97,7 @@ internal sealed class DesktopSavedReplayHost : ISavedReplayHost
     {
         if (notice.Kind is SavedReplayNoticeKind.Accepted or SavedReplayNoticeKind.Completed)
             _resetManagedRecordingUi();
-        // Not a cleanup step: on the Exit button the cleanup runs inside the ReplayState.Exit
-        // prefix, before the game leaves the state and fades its music. A settled menu return
-        // or a completed operation (a failed start included, after its rollback) comes after.
+        // The Exit prefix runs before the game leaves ReplayState and fades its music. Audio cleanup waits for the settled return.
         if (
             notice.Kind
                 is SavedReplayNoticeKind.MenuReturnSettled
@@ -154,8 +142,6 @@ internal sealed class DesktopSavedReplayStart(
     {
         var bootstrappedFromLobby = await ReplayBootstrap.EnsureBootstrapReadyAsync();
         _context = ReplayBootstrap.ResolveDependencies(outcome);
-        // Resumes on the Unity main thread. A payload that does not decode fails the start here,
-        // after the bootstrap, through the start-failed cleanup and its rollback.
         _sequence = await decode;
         return bootstrappedFromLobby;
     }

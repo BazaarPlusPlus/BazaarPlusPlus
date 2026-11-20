@@ -4,10 +4,6 @@ using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// The local Replay Payload files under the Data Root's combat replay directory, one gzip
-/// MessagePack file per battle. Every host writes them, and the Bundle composer reads them.
-/// </summary>
 public sealed class CombatReplayPayloadStore
 {
     private const string FileSuffix = ".payload.mpack.gz";

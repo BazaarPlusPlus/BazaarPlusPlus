@@ -3,19 +3,11 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// Content for the BPP section appended below the native "next level rewards" tooltip:
-// the max-health gain plus the rewards the player can actually receive, resolved from
-// the level-up spawn groups. Weighted single-reward groups are random alternatives, so
-// they collapse into one "One of: A / B" sentence instead of one line each; random
-// pools become a count summary. Board-conditional bonus groups (e.g. "Inspired by ..."
-// skills gated on specific board cards) are omitted.
 public static class LevelUpPreviewTextFormatter
 {
     private const string AccentColor = "#FFD37E";
 
-    // Board (carpet) slot unlocks are server-driven and not in TLevelUp; the native
-    // tooltip hardcodes the same facts (a static "2" on the carpet icon, grayed once
-    // the current level reaches 4), so mirror those constants here.
+    // The server owns board slot unlocks and TLevelUp omits them. Mirror the native carpet tooltip's two slots per level until level 4.
     private const int BoardSlotsPerLevel = 2;
     private const int LastBoardSlotLevel = 4;
 
@@ -48,18 +40,11 @@ public static class LevelUpPreviewTextFormatter
                 )
             );
 
-        // Level-up rewards are a selection screen (LevelUpState allows
-        // SelectItem/SelectSkill/SelectEncounter): every spawned group contributes
-        // candidates and the player picks one — the native pack icon's "1". Render all
-        // candidates as one "Choose one:" list; random pools contribute a count entry.
+        // LevelUpState offers candidates from every spawned group on one screen, and the player selects one.
         var candidates = new List<TooltipMarkup.ListItem>();
         if (levelUp.Groups.Count > 0)
         {
-            // Random selection (levels 9/18): groups whose weight equals their card
-            // count are uniform per-card rolls competing for one offered slot — the
-            // enchant reward is split across such groups only to encode card counts
-            // (w2×[Yetarian, Sanguine] + w1×[Arcane] = one random enchant of three).
-            // Merge them into a single pool candidate instead of listing each group.
+            // When each group weighs as much as its card count, every card competes for the same slot at equal odds.
             var uniformPool = new List<Guid>();
             foreach (var group in levelUp.Groups)
             {
@@ -93,9 +78,7 @@ public static class LevelUpPreviewTextFormatter
                 );
         }
 
-        // Sequential screens may roll several slots from the same pool (level 7
-        // offers two teacher slots over one 10-id pool, level 16 three); repeating
-        // the identical block adds nothing to "what can I get" — keep one.
+        // Sequential rewards can draw several slots from the same pool, so repeat draws share one candidate list.
         var seen = new HashSet<string>(StringComparer.Ordinal);
         candidates.RemoveAll(candidate =>
             !seen.Add(
@@ -125,8 +108,6 @@ public static class LevelUpPreviewTextFormatter
         return TooltipMarkup.Render(lines);
     }
 
-    // A weighted group whose weight equals its card count: every card is a uniform
-    // roll for the same offered slot, so such groups merge into one pool.
     private static List<Guid>? UniformPoolIds(LevelUpPreviewGroup group)
     {
         if (group.RandomWeight == 0)
@@ -174,10 +155,7 @@ public static class LevelUpPreviewTextFormatter
         LiveAbilityValueResolver? resolveLiveValue
     )
     {
-        // Spawn filtering also honours each reward card's own Heroes field (the group's
-        // run prerequisite alone is coarser: e.g. "Core Initialization" sits in a
-        // Dooley-or-Jules group but the card itself is Dooley-only). Unresolvable
-        // templates cannot be judged and stay counted.
+        // A reward card's Heroes can be narrower than its group's prerequisite. Unknown templates remain in the count.
         var eligible = new List<EncounterPreviewTemplatePlan>();
         var unresolved = 0;
         foreach (var id in ids)
@@ -189,8 +167,6 @@ public static class LevelUpPreviewTextFormatter
                 eligible.Add(template);
         }
 
-        // Pools that filter down to one concrete reward render as that reward, not
-        // as a "one of 1:" wrapper.
         if (ids.Count == 1 || (unresolved == 0 && eligible.Count == 1))
         {
             if (eligible.Count == 0)
@@ -231,11 +207,8 @@ public static class LevelUpPreviewTextFormatter
         if (optionCount == 0)
             return;
 
-        // Inside a choose-one list a single draw needs no "x1" marker.
         var draws = Math.Min(limit, optionCount);
 
-        // After hero filtering most pools shrink to a handful of concrete rewards;
-        // list those out instead of hiding them behind a count.
         if (unresolved == 0 && eligible.Count <= 8)
         {
             var header =
@@ -278,9 +251,6 @@ public static class LevelUpPreviewTextFormatter
         );
     }
 
-    // Only hero conditions are evaluated; groups gated on board state ("Inspired by"
-    // bonus skills) are omitted, and unknown run conditions — including an unknown
-    // current hero — keep the group visible rather than silently dropping rewards.
     private static bool PassesPrerequisites(LevelUpPreviewGroup group, CardHero? currentHero)
     {
         foreach (var condition in group.HeroConditions)
@@ -295,8 +265,7 @@ public static class LevelUpPreviewTextFormatter
         CardHero? currentHero
     )
     {
-        // Hero detection failed: keep hero-gated groups visible (consistent with
-        // EncounterHeroEligibility) instead of hiding them all.
+        // If hero detection fails, keep hero-gated rewards visible.
         if (currentHero == null)
             return true;
 

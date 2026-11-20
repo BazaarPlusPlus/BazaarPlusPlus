@@ -1,35 +1,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// The mod owns the local history database schema and the Data Root it lives
-// in; the installer declares which `user_version` shapes its History reads
-// understand and which Data Root directory it reads, resets, and cleans. Both
-// files change in the same pull request, and a data repair changes neither
-// (bazaarplusplus-mod/docs/adr/0011-schema-version-names-column-shape.md).
+// The two contract files change together. Data repair leaves both unchanged (mod ADR-0011).
 export const MOD_HISTORY_DATABASE_CONTRACT_PATH =
   'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json';
 export const INSTALLER_HISTORY_DATABASE_COMPATIBILITY_PATH =
   'src-tauri/history-database-compatibility.json';
 
-/** The installer's History database compatibility, as validated. */
 export interface HistoryDatabaseCompatibility {
   dataRootDirectoryName: string;
   supportedUserVersions: number[];
 }
 
-/** The mod's History database contract, as validated. */
 export interface HistoryDatabaseContract {
   dataRootDirectoryName: string;
   historyDatabaseUserVersion: number;
 }
 
-/** The two files assertHistoryDatabaseCompatibility compares. */
 export interface HistoryDatabaseContractPaths {
   contractPath: string;
   compatibilityPath: string;
 }
 
-// The JSON files as they claim to be; the readers check every field.
 interface HistoryDatabaseCompatibilityFile extends HistoryDatabaseCompatibility {
   formatVersion: number;
 }
@@ -115,10 +107,7 @@ export function readHistoryDatabaseContract(
   };
 }
 
-// The installer ships with the mod, so it must read the Data Root the mod
-// writes, and the mod's schema must be the newest one the installer reads:
-// older versions stay listed for databases not yet opened by the current mod,
-// and no listed version may be ahead of the mod.
+// Keep support for older databases that the current mod has yet to open.
 export function assertHistoryDatabaseCompatibility({
   contractPath,
   compatibilityPath

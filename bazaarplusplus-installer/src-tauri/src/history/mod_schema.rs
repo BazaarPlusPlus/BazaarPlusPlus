@@ -1,8 +1,4 @@
-//! The mod's local history database schema, from the mod's schema file. The mod
-//! owns the schema (`RunLogSchema`) and `RunLoggingPipeline.Tests` dumps it from a
-//! freshly initialized database, so a mod column change fails installer tests
-//! instead of passing against a hand-copied shape. Tests build their databases
-//! from it.
+//! Use the mod's schema so installer tests fail on incompatible changes to the writer's actual columns.
 
 use anyhow::{bail, Context as _};
 
@@ -10,9 +6,6 @@ const MOD_SCHEMA_SQL: &str = include_str!(
     "../../../../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/history-database-v6.schema.sql"
 );
 
-/// Creates every table, index, and trigger of the mod's current local history
-/// database on an empty connection and sets its `user_version`. Runs inside the
-/// caller's transaction when one is open.
 pub(crate) fn execute_mod_schema(conn: &rusqlite::Connection) -> anyhow::Result<()> {
     conn.execute_batch(MOD_SCHEMA_SQL)
         .context("Cannot create the history database schema")?;
@@ -26,20 +19,15 @@ pub(crate) fn execute_mod_schema(conn: &rusqlite::Connection) -> anyhow::Result<
     Ok(())
 }
 
-/// [`execute_mod_schema`] with foreign keys on, as the mod opens the database.
 pub(crate) fn create_mod_schema(conn: &rusqlite::Connection) {
     execute_mod_schema(conn).unwrap();
     conn.execute_batch("pragma foreign_keys = on;").unwrap();
 }
 
-/// The schema text as `sqlite_master` stores it, in the mod golden's dump format,
-/// so a database can be compared with the file byte for byte.
 pub(crate) fn mod_schema_sql() -> &'static str {
     MOD_SCHEMA_SQL
 }
 
-/// Dumps `conn`'s schema in the mod golden's format: `PRAGMA user_version=N;`, then
-/// every `sqlite_master` statement ordered by type (table, index, trigger) and name.
 pub(crate) fn dump_schema(conn: &rusqlite::Connection) -> String {
     let user_version: i64 = conn
         .query_row("pragma user_version", [], |row| row.get(0))

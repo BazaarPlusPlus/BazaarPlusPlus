@@ -4,10 +4,7 @@ using System.Text;
 
 namespace BazaarPlusPlus.Updater;
 
-/// <summary>
-/// The Updater's structured log lines, shaped like BppLog's (<c>[BPP][Updater] event=&lt;id&gt;
-/// field=value</c>) without referencing it: the host passes its own loader logger.
-/// </summary>
+// Keep the [BPP][Updater] log format compatible with BppLog without loading the mod.
 internal sealed class UpdaterLog
 {
     private readonly Action<string> _info;

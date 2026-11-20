@@ -4,14 +4,10 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests.SavedReplays;
 
-// The saved-replay protocol both hosts share (ADR-0020), driven through SavedReplayPlayback with
-// an in-memory host. A lease is free when the gate grants a fresh playback lease.
 public sealed class SavedReplayPlaybackTests
 {
     private const string BattleA = "battle-aaaaaaaa";
     private const string BattleB = "battle-bbbbbbbb";
-
-    // --- Admission ---
 
     [Fact]
     public void Each_rejection_rung_logs_its_reason_and_holds_no_lease()
@@ -198,8 +194,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.Null(h.Playback.AcquirePayloadMaintenance());
     }
 
-    // --- Happy path, notices and lease ---
-
     [Fact]
     public void A_saved_replay_plays_then_completes_on_state_exit()
     {
@@ -207,7 +201,6 @@ public sealed class SavedReplayPlaybackTests
         h.Save(BattleA);
 
         Assert.True(h.ReplaySaved(BattleA, recordVideo: true));
-        // The start reads the catalog once; the manifest load answers whether the battle is saved.
         Assert.Equal([$"load:{BattleA}"], h.CatalogReads);
         Assert.True(h.Playback.HoldsPayloadLease);
         Assert.False(h.LeaseIsFree());
@@ -339,8 +332,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.Contains($"starting:{BattleA}:record=False", h.Timeline);
     }
 
-    // --- Failure fold ---
-
     [Fact]
     public void A_failed_starting_publish_folds_to_its_reason_and_inner_exception()
     {
@@ -353,7 +344,6 @@ public sealed class SavedReplayPlaybackTests
         var terminal = h.SingleTerminal();
         Assert.Contains(" reason_code=starting_publish_failed", terminal);
         Assert.Contains("starting subscriber boom", terminal);
-        // The starting signal went out, so the failed start ends it.
         Assert.Contains($"ended:{BattleA}:start-failed:failed=True", h.Timeline);
         Assert.True(h.LeaseIsFree());
     }
@@ -568,8 +558,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.False(h.Playback.HasSavedReplaySession);
     }
 
-    // --- State exit, bootstrapped exit and menu return ---
-
     [Fact]
     public void A_state_exit_with_no_saved_replay_still_ends_another_session_and_cleans_up()
     {
@@ -734,7 +722,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.Contains(" end_reason_code=saved_replay_exit", terminal);
         Assert.True(h.LeaseIsFree());
 
-        // ReplayState is gone, so the latch is clear and nothing is left to exit.
         h.Host.InReplayState = true;
         Assert.False(h.Playback.TryExitBootstrapped());
     }
@@ -761,7 +748,7 @@ public sealed class SavedReplayPlaybackTests
         Assert.True(h.ReplaySaved(BattleA, recordVideo: false));
         h.Host.InReplayState = true;
         h.Host.MenuReturnFailure = new InvalidOperationException("menu return failed");
-        // The failed dispatch drops the pending menu return; only the exit latch is left.
+        // Fail dispatch to leave only the exit latch armed.
         Assert.True(h.Playback.TryExitBootstrapped());
         h.Host.Now = 2f;
         Assert.True(h.Playback.TryExitBootstrapped());
@@ -773,8 +760,7 @@ public sealed class SavedReplayPlaybackTests
             h.Host.Notices.Last(n => n.Kind == SavedReplayNoticeKind.ExitRequested).ExitOutcome
         );
 
-        // The tick that sees ReplayState gone clears the latch and reports it, once: the host's
-        // only sign of a bootstrapped exit that raised no state event.
+        // Polling is the host's only signal when a bootstrapped exit raises no state event.
         h.Host.InReplayState = false;
         Assert.True(h.Playback.Tick());
         h.Host.InReplayState = true;
@@ -784,8 +770,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.False(h.Playback.Tick());
         Assert.Equal(reads, h.Host.ReplayStateReads);
     }
-
-    // --- Displacement and teardown ---
 
     [Fact]
     public void A_loaded_battle_during_a_pending_menu_return_frees_the_displaced_lease()
@@ -810,7 +794,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.False(h.Playback.HoldsPayloadLease);
         Assert.Equal(BattleB, h.Playback.Active!.BattleId);
 
-        // The parked menu return still settles the displaced battle.
         h.Host.LobbyLoaded = true;
         h.Playback.Tick();
         Assert.Single(h.Terminals());
@@ -879,8 +862,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.False(h.Playback.HasSavedReplaySession);
     }
 
-    // --- Desktop managed recording restart ---
-
     [Fact]
     public void A_playing_replay_is_promoted_to_recording()
     {
@@ -922,7 +903,6 @@ public sealed class SavedReplayPlaybackTests
         Assert.True(h.LeaseIsFree());
         Assert.Null(h.Playback.Active);
 
-        // The parked operation names the next state exit's cleanup, which writes no second terminal.
         h.Playback.OnReplayStateExited();
         Assert.Contains($"cleanup:StateExit:first:{BattleA}", h.Timeline);
         Assert.Single(h.Terminals());

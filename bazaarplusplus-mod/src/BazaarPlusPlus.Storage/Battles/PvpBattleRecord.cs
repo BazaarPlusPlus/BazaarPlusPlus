@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
-/// <summary>
-/// One local PvP battle as the history database stores it: a <c>battles</c> row and, when the
-/// host captured boards, its <c>battle_snapshots</c> row. Storage keeps the four board captures
-/// as the JSON documents a host wrote; the host that reads game cards owns their shape.
-/// </summary>
+// Storage treats the board captures as opaque JSON. The capturing host owns their shape.
 public sealed class PvpBattleRecord
 {
     public string BattleId { get; set; } = string.Empty;
@@ -26,11 +22,9 @@ public sealed class PvpBattleRecord
 
     public PvpBattleOutcome Outcome { get; set; } = new();
 
-    /// <summary>The board captures; null when the host captured none, so no snapshot row exists.</summary>
     public PvpBattleSnapshotDocuments? Snapshots { get; set; }
 }
 
-/// <summary>The four board captures of a battle, each a JSON document the capturing host wrote.</summary>
 public sealed class PvpBattleSnapshotDocuments
 {
     public string PlayerHand { get; set; } = string.Empty;

@@ -3,12 +3,8 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The lobby, as the replay's menu return and History's reopen both read it: the game's
-/// <c>SceneID.HeroSelectScene</c>, which the desktop keys on too. The Unity scene that loads is
-/// named <c>MainMenuScene</c>, so comparing scene names would never match (panels.md Gotchas);
-/// both readers ask the game's <c>SceneLoader</c> instead. Main thread only.
-/// </summary>
+// The Unity scene is named MainMenuScene even though the game's SceneLoader calls it
+// HeroSelectScene.
 internal static class AndroidLobbyScene
 {
     public const SceneID Lobby = SceneID.HeroSelectScene;
@@ -25,7 +21,6 @@ internal static class AndroidLobbyScene
         }
     }
 
-    /// <summary>Loaded and the active scene: the replay has returned and the menu shows.</summary>
     public static bool IsActive()
     {
         try

@@ -57,8 +57,6 @@ public class BppMountableRegistryTests
         registry.Register(new RecordingMountable("first", calls, throwOnMount: true));
         registry.Register(new RecordingMountable("second", calls));
 
-        // Behavior pin, not an endorsement: unlike BppFeatureRegistry, mount failures are not
-        // isolated, so a throwing mountable currently prevents later mountables from running.
         Assert.Throws<InvalidOperationException>(() =>
             registry.MountAll(host: null!, services: null!)
         );

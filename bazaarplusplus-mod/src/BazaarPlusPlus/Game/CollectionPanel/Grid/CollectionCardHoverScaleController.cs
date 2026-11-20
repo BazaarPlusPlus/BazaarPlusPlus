@@ -5,9 +5,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Collection-only hover scale. The virtualizer drives this controller so pooled cards do not
-// each run their own Update loop. The base scale comes from NativeCardCellFitter and is preserved
-// while the hover multiplier animates around the centered card pivot.
+// Centralized ticks avoid a separate Unity Update loop for every pooled card.
 internal sealed class CollectionCardHoverScaleController : MonoBehaviour
 {
     private static Sprite? _shadowSprite;

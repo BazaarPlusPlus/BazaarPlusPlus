@@ -4,11 +4,6 @@ using BazaarPlusPlus.Game.PvpBattles.Persistence;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// The saved half of a replay both hosts' runtimes read: a battle's manifest from the catalog
-/// and its Replay Payload from the payload store. A battle is saved only when both exist. Turning
-/// the payload's message bytes into the game's messages is each host's loader.
-/// </summary>
 public sealed class SavedReplayCatalog
 {
     private readonly IPvpBattleCatalog _battleCatalog;
@@ -28,7 +23,6 @@ public sealed class SavedReplayCatalog
         if (string.IsNullOrWhiteSpace(battleId))
             return false;
 
-        // Existence only: History probes this on every view refresh, so no manifest is built.
         return _battleCatalog.Exists(battleId) && _payloadStore.Exists(battleId);
     }
 
@@ -49,10 +43,7 @@ public sealed class SavedReplayCatalog
         return _payloadStore.Load(manifest.BattleId);
     }
 
-    /// <summary>
-    /// Reads a saved battle's manifest and payload. The caller holds the playback payload lease,
-    /// so replay maintenance cannot evict the payload mid-read.
-    /// </summary>
+    /// <summary>The caller holds the playback lease so maintenance cannot evict the Replay Payload during the read.</summary>
     public SavedBattleLoadOutcome TryLoad(
         string battleId,
         out PvpBattleManifest? manifest,
@@ -63,7 +54,6 @@ public sealed class SavedReplayCatalog
         payload = null;
         if (string.IsNullOrWhiteSpace(battleId))
             return SavedBattleLoadOutcome.Missing;
-        // One catalog read: LoadBattle answers null for a missing row or payload file.
         manifest = LoadBattle(battleId);
         payload = manifest == null ? null : LoadPayload(manifest);
         return payload == null ? SavedBattleLoadOutcome.Missing : SavedBattleLoadOutcome.Loaded;

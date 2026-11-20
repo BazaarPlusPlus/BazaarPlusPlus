@@ -8,18 +8,9 @@ using Xunit;
 
 namespace EncounterTooltip.Tests;
 
-/// <summary>
-/// The desktop's route into Core's card reader: each static-data card of the shared table, read
-/// into its typed template as the game reads static data, then written back with the game's
-/// serializer, reads to the same plans as the card's own JSON does on Android.
-/// </summary>
 public sealed class EncounterPreviewCardRoundTripTests
 {
-    /// <summary>
-    /// The game's serializer scans the types of every assembly loaded when it is first used, and
-    /// xUnit picks the order of test classes. When a class that loads the game runtime runs first,
-    /// the scan reads this assembly's types, so they must always resolve.
-    /// </summary>
+    // The game's serializer scans loaded assemblies on first use. This test's types must resolve in any xUnit order.
     [Fact]
     public void The_game_runtime_types_resolve_for_the_serializer_scan()
     {

@@ -65,10 +65,8 @@ internal static class CardAbilityValueReader
         out CardAbilityValue result
     ) => TryEvaluate(template, AurasProperty, auraId, context, out result);
 
-    // Static card data cannot resolve values backed by the current run (player
-    // attributes, owned-card counts, aggregate card attributes). The native game
-    // evaluates those ITValue graphs against a ValueContext; use that same graph at
-    // presentation time instead of reimplementing each reference-value subtype.
+    // Resolve run-dependent values at presentation time because static card data lacks the
+    // native ValueContext for player and card attributes or counts.
     private static bool TryEvaluate(
         TCardBase template,
         string effectsProperty,
@@ -289,12 +287,8 @@ internal static class CardAbilityValueReader
         return key != null;
     }
 
-    // The game renders an effect's number in seconds when the attribute its tooltip styles the
-    // value as is a millisecond one (TooltipComponentExtensions.GetStyleAttribute, then
-    // TooltipExtensions.RequiresConversionToSeconds in CardTooltipData.RenderStylizedAttributeValue):
-    // the Charge, Freeze, Haste and Slow actions style as their *Amount attribute, a modify-attribute
-    // action as its own. The stored value stays in milliseconds, so a description token has to be
-    // converted here or "reduce its cooldown by {ability.1} second" reads 1000.
+    // Stored durations are milliseconds. Use the native tooltip's styled attribute rules so
+    // description tokens get the same seconds conversion.
     private static bool RendersInSeconds(object? action)
     {
         var attribute = action switch

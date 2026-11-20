@@ -9,12 +9,7 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Each shared assembly compiles twice from the same sources (ADR-0012, ADR-0013). The Mono
-/// target binds the game-supplied libraries in the game's Managed directory (ADR-0010); the
-/// net10.0 target binds NuGet packages pinned to the same versions. Both must name the game's
-/// version, or one host runs a serializer the other host and the Run segment goldens never saw.
-/// </summary>
+// Pin both targets' serializer bindings so neither host runs a version the Run segment goldens never exercised.
 public sealed class SharedLibraryBindingTests
 {
     public static TheoryData<string, string> Bindings =>
@@ -43,10 +38,7 @@ public sealed class SharedLibraryBindingTests
         }
     }
 
-    /// <summary>
-    /// Every Newtonsoft.Json 13.x carries assembly version 13.0.0.0, so the binding check above
-    /// cannot see net10.0 package drift; the restored package must match the game's file version.
-    /// </summary>
+    // Newtonsoft.Json 13.x shares one assembly version, so check the restored package against the game's file version.
     [Theory]
     [MemberData(nameof(Bindings))]
     public void Net10_restores_the_game_file_version(string assembly, string library)
@@ -72,7 +64,6 @@ public sealed class SharedLibraryBindingTests
         Path.Combine(CompiledArtifacts.Metadata("BppManagedPath"), library + ".dll");
 }
 
-/// <summary>Both compiled targets of the shared projects, read as metadata.</summary>
 internal static class SharedAssemblies
 {
     internal static readonly string[] TargetFrameworks = { "netstandard2.1", "net10.0" };

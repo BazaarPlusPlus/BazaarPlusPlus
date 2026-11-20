@@ -3,11 +3,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The main-thread pump History and the replay resume on: a continuation posted from a pool
-/// thread runs only when the pump ticks, on the pump's thread, and an await inside it comes back
-/// there too. Each test drives its own pump on a dedicated thread standing in for Unity's.
-/// </summary>
 public sealed class AndroidMainThreadTests
 {
     [Fact]
@@ -151,7 +146,6 @@ public sealed class AndroidMainThreadTests
         Assert.False(await Task.Run(() => pump.IsCurrentThread));
     }
 
-    // A dedicated thread that owns a pump, as Unity's main thread owns the host's.
     private sealed class PumpThread : IDisposable
     {
         private readonly BlockingQueue _work = new();

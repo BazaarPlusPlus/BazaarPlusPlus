@@ -12,7 +12,6 @@ using TheBazaar.UI.Tooltips;
 
 namespace BazaarPlusPlus.Patches.Tooltips;
 
-// Renders the enchant preview beneath the native passive-effect block.
 [HarmonyPatch(
     typeof(CardTooltipController),
     nameof(CardTooltipController.RenderPassiveEffectTextBlock)
@@ -238,8 +237,7 @@ internal static class BppTooltipSectionRenderPatch
 [HarmonyPatch(typeof(CardTooltipController), nameof(CardTooltipController.ResetValues))]
 internal static class BppTooltipSectionResetPatch
 {
-    // The finalizer covers both the normal and the throwing path, so a prefix doing the same
-    // Hide would only duplicate the work.
+    // A finalizer clears the custom section even if native ResetValues throws.
     [HarmonyFinalizer]
     private static void Finalizer(CardTooltipController __instance) =>
         ItemEnchantPreviewTooltipLifecycle.Hide(__instance);

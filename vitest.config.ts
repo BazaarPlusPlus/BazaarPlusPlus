@@ -1,7 +1,5 @@
 import { defineConfig } from 'vite-plus';
 
-// Every root-tooling test. `just release::test` runs the release project and
-// `just commands-check` the tooling project.
 export default defineConfig({
   test: {
     environment: 'node',

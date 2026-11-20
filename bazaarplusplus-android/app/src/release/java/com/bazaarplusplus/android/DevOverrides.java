@@ -7,7 +7,6 @@ import com.bazaarplusplus.android.release.ReleaseOrigin;
 import java.io.File;
 import java.util.List;
 
-/** A release build has no development hooks; the debug source set has the real ones. */
 public final class DevOverrides {
     private DevOverrides() {}
 

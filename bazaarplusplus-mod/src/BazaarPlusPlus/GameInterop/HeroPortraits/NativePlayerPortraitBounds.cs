@@ -32,8 +32,6 @@ internal sealed class NativePlayerPortraitBounds
         )
             return false;
 
-        // EncounterController places the background and tier-frame meshes under one parent.
-        // Read those meshes without including the skin sprite or its animated replacement.
         var frameRoot = portrait.backgroundRenderer.transform.parent;
         if (frameRoot == null || !frameRoot.gameObject.activeInHierarchy)
             return false;

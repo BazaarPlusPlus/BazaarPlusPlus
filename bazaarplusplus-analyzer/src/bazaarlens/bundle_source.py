@@ -1,5 +1,3 @@
-"""Bounded, in-memory access to immutable Bundle Server Source Hours."""
-
 import hashlib
 import json
 import math
@@ -18,7 +16,6 @@ import httpx
 
 from bazaarlens.durable import canonical_json
 
-# Production source and measured collection limits.
 API_BASE_URL = "https://mod-api-v6.bazaarplusplus.com"
 # The first complete Source Day after the V6 release.
 SOURCE_EPOCH = date(2026, 10, 30)
@@ -26,7 +23,6 @@ BUNDLE_RETENTION_DAYS = 8
 DOWNLOAD_CONCURRENCY = 64
 DOWNLOAD_LOOKAHEAD = 2 * DOWNLOAD_CONCURRENCY
 
-# The V6 Worker serves only Bundle V6.
 BUNDLE_MAGIC = b"BPPBNDL6"
 BUNDLE_VERSION = 6
 RUN_CONTENT_TYPE = "application/x-bpp-run-v6"
@@ -48,8 +44,6 @@ def _jittered_delay(delay: float) -> float:
 
 
 class BundleSourceError(RuntimeError):
-    """A safe, classified Bundle Server or Bundle contract failure."""
-
     def __init__(
         self,
         reason: str,
@@ -127,8 +121,6 @@ class RawHourIndex:
 
 @dataclass(frozen=True, slots=True)
 class Bundle:
-    """One admitted in-memory Bundle ready for projection."""
-
     ref: BundleRef
     sha256: str
     bytes: int
@@ -137,8 +129,6 @@ class Bundle:
 
 
 class BundleSource:
-    """Enumerate a complete hour, then stream verified downloads in index order."""
-
     def __init__(
         self,
         *,
@@ -197,7 +187,6 @@ class BundleSource:
         self.close()
 
     def performance_snapshot(self, *, reset: bool = False) -> SourcePerformance:
-        """Return low-cardinality collection measurements for one Run."""
         with self._performance_lock:
             latencies = tuple(self._download_latencies_ms)
             value = SourcePerformance(
@@ -345,7 +334,6 @@ class BundleSource:
         raise AssertionError("Retry loop must return or raise")
 
     def stream(self, index: RawHourIndex) -> Iterator[Bundle]:
-        """Yield at most ``lookahead`` retained downloads, in index order."""
         executor = ThreadPoolExecutor(max_workers=self._download_concurrency)
         try:
             pending: dict[int, Future[Bundle]] = {}
@@ -584,7 +572,6 @@ def raw_commit_sha256(items: tuple[BundleRef, ...]) -> str:
 
 
 def admit_bundle(ref: BundleRef, content: bytes) -> Bundle:
-    """Validate one complete Bundle once and return its admitted representation."""
     if not isinstance(content, bytes):
         raise TypeError("Bundle content must be bytes")
     digest = hashlib.sha256(content).hexdigest()
@@ -593,7 +580,6 @@ def admit_bundle(ref: BundleRef, content: bytes) -> Bundle:
 
 
 def validate_bundle(content: bytes, *, expected_bundle_id: str) -> Mapping[str, Any]:
-    """Validate a Bundle V6 envelope and every declared segment digest."""
     if len(content) > MAX_BUNDLE_BYTES:
         raise SourceContractError("bundle_too_large", "Bundle exceeds its byte limit")
     if len(content) < 16 or content[:8] != BUNDLE_MAGIC:

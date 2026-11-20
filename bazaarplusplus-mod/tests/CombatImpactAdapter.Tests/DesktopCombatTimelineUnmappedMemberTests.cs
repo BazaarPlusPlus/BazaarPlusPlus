@@ -11,12 +11,7 @@ namespace CombatImpactAdapter.Tests;
 [CollectionDefinition(nameof(BppLogCollection), DisableParallelization = true)]
 public sealed class BppLogCollection;
 
-/// <summary>
-/// The runtime half of the facet pin (ADR-0019): a game member Core has no facet for is dropped
-/// from the timeline, and the first miss of each game enum is logged once, naming the member.
-/// The pin test covers only the configured Managed snapshot; this log covers the game build the
-/// player runs.
-/// </summary>
+// The vocabulary pin covers the configured snapshot. This warning covers the game build the player actually runs.
 [Collection(nameof(BppLogCollection))]
 public sealed class DesktopCombatTimelineUnmappedMemberTests
 {

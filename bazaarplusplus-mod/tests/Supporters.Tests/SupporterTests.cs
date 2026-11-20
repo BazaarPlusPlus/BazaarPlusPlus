@@ -6,7 +6,6 @@ using Xunit;
 
 namespace Supporters.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class SupporterTests
 {
     [Fact]
@@ -293,7 +292,6 @@ public sealed class SupporterTests
     public static TheoryData<int> AttributionWindowStarts =>
         new(Enumerable.Range(0, LongNameWindowEntries().Length - AttributionRowSize + 1));
 
-    // The capsule walked every window start in a loop; each start is one row.
     [Theory]
     [MemberData(nameof(AttributionWindowStarts))]
     public void TestSampleManyDispersesLongNamesAcrossAttributionWindows(int startIndex)

@@ -146,10 +146,7 @@ fn malformed_vdf_is_unavailable() {
     );
 }
 
-/// Steam can write `localconfig.vdf` with CRLF line endings, and an account
-/// lists apps whose ids share a prefix with The Bazaar's. Cleanup removes only
-/// The Bazaar's direct `LaunchOptions`; the file it writes rejoins the lines
-/// with `\n` and drops the trailing newline.
+/// Steam writes CRLF files and app IDs can share a prefix.
 #[test]
 fn clear_rewrites_only_the_bazaar_and_pins_the_written_bytes() {
     let bazaar_launch_options = "\t\t\t\t\t\t\"LaunchOptions\"\t\t\"%command% -x\"";

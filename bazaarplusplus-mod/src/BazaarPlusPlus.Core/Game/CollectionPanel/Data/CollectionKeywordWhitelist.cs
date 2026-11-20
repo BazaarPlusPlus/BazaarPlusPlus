@@ -3,10 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Player-facing CardHiddenTag keyword options, ordered to mirror BazaarDB's Types & Tags
-// mechanism slice while excluding system-only hidden tags. Related keywords stay in this same
-// keyword facet because they are still card HiddenTags; the UI renders them as a later subsection.
-// Catalog availability then removes options that current game data does not actually use.
+// Mirror the player-facing order in BazaarDB's Types & Tags mechanism slice.
 public static class CollectionKeywordWhitelist
 {
     public static readonly IReadOnlyList<CardHiddenTag> Ordered = new[]

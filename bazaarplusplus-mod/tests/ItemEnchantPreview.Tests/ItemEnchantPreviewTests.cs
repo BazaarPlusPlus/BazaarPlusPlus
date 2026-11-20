@@ -19,10 +19,6 @@ using Xunit;
 
 namespace ItemEnchantPreview.Tests;
 
-// Each test is one block of checks the capsule ran, with the same calls and messages, grouped by
-// the function they call. The snapshot and the formatted segments that later blocks reused are
-// built again by the helpers at the bottom; the board set-up, which runs twice on one card, stays
-// one test.
 public sealed class ItemEnchantPreviewTests
 {
     [Fact]
@@ -428,9 +424,6 @@ public sealed class ItemEnchantPreviewTests
     public static TheoryData<string> PedestalEnchantmentNames =>
         new(BazaarPlusPlus.Core.GameState.PedestalEnchantCatalog.EnchantmentTypeNames);
 
-    // The pedestal catalog names enchantments by EEnchantmentType member name (ADR-0015); the
-    // desktop restricts its preview by those names, so each must still be a member of the game's
-    // enum.
     [Theory]
     [MemberData(nameof(PedestalEnchantmentNames))]
     public void Pedestal_catalog_enchantments_are_game_enum_members(string name) =>
@@ -499,9 +492,7 @@ public sealed class ItemEnchantPreviewTests
         var boardValues = boardInstance.Attributes!;
         var boardCard = new ItemCard { Template = savedTemplate, Type = ECardType.Item };
 
-        // The steps of CardPreviewBase.SetUp: the client card adopts the instance's dictionary,
-        // the starting tier writes into it, and the card then takes a new dictionary with the
-        // tier's and the enchantment's values on top.
+        // Model the native set-up mutating the instance dictionary before the card takes a new one.
         void BoardSetUp(Dictionary<ECardAttributeType, int> instanceValues)
         {
             boardCard.Attributes = instanceValues;
@@ -567,7 +558,6 @@ public sealed class ItemEnchantPreviewTests
         );
     }
 
-    // A Heavy item in hand, previewed as Icy.
     private static (ItemCard ItemCard, ItemEnchantPreviewSnapshot Snapshot) Snapshot()
     {
         var itemCard = new ItemCard

@@ -5,7 +5,6 @@ using BepInEx.Logging;
 
 namespace BazaarPlusPlus.Host;
 
-/// <summary>Desktop log exit: forwards finished <see cref="BppLog"/> lines to BepInEx.</summary>
 internal sealed class BepInExLogSink : IBppLogSink
 {
     private readonly ManualLogSource _source;

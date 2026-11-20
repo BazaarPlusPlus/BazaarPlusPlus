@@ -12,9 +12,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-// The desktop composition of History's Core coordinator: its ports are Unity's frame clock and
-// PlayerPrefs, the game's client-cache profile, the game-typed PvP evidence, and the game's
-// static card data.
 internal static class HistoryPanelFactory
 {
     public static HistoryPanelDependencies Create(
@@ -37,8 +34,6 @@ internal static class HistoryPanelFactory
         var replayDirectoryPath = combatReplayDirectoryPath ?? string.Empty;
         var videoDirectoryPath = combatReplayVideoDirectoryPath ?? string.Empty;
 
-        // Null-degrade chain: empty/missing db path → no repository → no ghost sync →
-        // data + replay services still construct, just without ghost capabilities.
         HistoryPanelRepository? repository = null;
         if (!string.IsNullOrWhiteSpace(databasePath))
             repository = new HistoryPanelRepository(databasePath);
@@ -57,8 +52,7 @@ internal static class HistoryPanelFactory
             BppClientCacheBridge.TryGetProfileAccountId,
             ghostSyncService
         );
-        // Lambdas, not method groups: Unity is resolved only when the clock or a hint is read,
-        // so a test without Unity can still compose the panel.
+        // Lambdas delay resolving Unity until a clock or hint read, so tests can compose the panel without Unity.
         return new HistoryPanelDependencies(
             runContext,
             dataService,

@@ -7,7 +7,6 @@ namespace LiveBuildPanel.Tests;
 
 public sealed class LiveBuildRefreshStateTests
 {
-    // The capsule installed English before these checks.
     public LiveBuildRefreshStateTests() =>
         L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 

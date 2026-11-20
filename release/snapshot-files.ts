@@ -3,22 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-// The file helpers that the Snapshot Lock, Game Assembly Snapshot and Interop
-// Snapshot code share (root GLOSSARY.md): sha256, the two-space JSON bytes
-// every snapshot file and the lock are written in, a snapshot directory's
-// manifest.json, and tar. It imports no other snapshot module.
-
 export const hash = (bytes: string | NodeJS.ArrayBufferView): string =>
   crypto.createHash('sha256').update(bytes).digest('hex');
 export const jsonBytes = (value: unknown): Buffer =>
   Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 
-// String() is the conversion RegExp.prototype.test applies to its argument.
 export const isSha256 = (value: unknown): boolean =>
   /^[0-9a-f]{64}$/.test(String(value ?? ''));
 
-// A snapshot directory's manifest.json, or null when it has none. The caller
-// names the manifest type: Managed or Interop.
 export function readSnapshotManifest<Manifest>(
   directory: string
 ): Manifest | null {
@@ -27,13 +19,9 @@ export function readSnapshotManifest<Manifest>(
   return JSON.parse(fs.readFileSync(file, 'utf8')) as Manifest;
 }
 
-// execFileSync fails with the child's stderr attached.
 export type ExecFileError = Error & { stderr?: Buffer | string };
 
-// macOS tar otherwise packs every extended attribute as an AppleDouble
-// `._<name>` member that GNU tar extracts as a real file, which changes the
-// directory digest on Linux. COPYFILE_DISABLE turns that off; GNU tar ignores
-// it.
+// COPYFILE_DISABLE keeps macOS tar from adding AppleDouble files that change the extracted digest on Linux.
 export function tar(args: readonly string[], cwd: string): void {
   try {
     execFileSync('tar', args, {

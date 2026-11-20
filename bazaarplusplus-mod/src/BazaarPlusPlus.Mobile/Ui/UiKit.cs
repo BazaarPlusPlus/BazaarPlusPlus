@@ -3,16 +3,10 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// uGUI building blocks for every touch surface. Geometry is in the canvas's reference units
-/// (<see cref="ReferenceResolution"/>, scaled by screen height); text uses the game's own font,
-/// borrowed from a live label, so BPP ships no font of its own.
-/// </summary>
 internal static class UiKit
 {
     public static readonly Vector2 ReferenceResolution = new(1920f, 1080f);
 
-    /// <summary>The touch root's canvas order, above the game's own canvases.</summary>
     public const int SortingOrder = 30000;
 
     public static readonly Color PanelColor = InGameTheme.Backdrop;
@@ -39,7 +33,6 @@ internal static class UiKit
         return root;
     }
 
-    /// <summary>A child rect anchored to a fraction of its parent, inset by pixel offsets.</summary>
     public static RectTransform Rect(
         string name,
         Transform parent,
@@ -59,7 +52,6 @@ internal static class UiKit
         return rect;
     }
 
-    /// <summary>A rect of fixed size whose pivot sits at <paramref name="anchor"/>.</summary>
     public static RectTransform Fixed(
         string name,
         Transform parent,
@@ -83,10 +75,7 @@ internal static class UiKit
         return image;
     }
 
-    /// <summary>
-    /// A transparent Image that still takes raycasts: the tap target of a control whose visible
-    /// parts sit elsewhere, or the surface a list scrolls from.
-    /// </summary>
+    // A transparent Graphic still receives raycasts, which standalone tap and drag targets need.
     public static Image HitArea(RectTransform rect) => Fill(rect, Invisible);
 
     public static TextMeshProUGUI Text(
@@ -110,11 +99,6 @@ internal static class UiKit
         return label;
     }
 
-    /// <summary>
-    /// A filled button with a centered label <paramref name="labelInset"/> in from either side
-    /// (<c>TouchChrome.LabelInset</c>, so the padding is the same dp on every screen);
-    /// <paramref name="onTap"/> runs on release.
-    /// </summary>
     public static (Button Button, Image Background, TextMeshProUGUI Label) Button(
         RectTransform rect,
         TMP_FontAsset font,
@@ -134,20 +118,14 @@ internal static class UiKit
         return (button, background, label);
     }
 
-    /// <summary>Pads a button's label rect <paramref name="inset"/> in from either side.</summary>
     public static void InsetLabel(RectTransform label, float inset)
     {
         label.offsetMin = new Vector2(inset, 0f);
         label.offsetMax = new Vector2(-inset, 0f);
     }
 
-    /// <summary>The close glyph every BPP sheet, dialog, and menu shows, History's included.</summary>
     public const string CloseGlyph = "X";
 
-    /// <summary>
-    /// A vertical drag-scrolled list filling <paramref name="area"/>, with inertia; its content
-    /// stretches across the viewport and hangs from its top, so rows are placed top-down.
-    /// </summary>
     public static (ScrollRect Scroll, RectTransform Content) VerticalScroll(RectTransform area)
     {
         var viewport = Rect(

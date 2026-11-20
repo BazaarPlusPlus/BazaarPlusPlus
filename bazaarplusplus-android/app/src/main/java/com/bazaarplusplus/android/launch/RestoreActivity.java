@@ -5,12 +5,8 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
-/**
- * Stands in for the game Activity when the system recreates it in a process that never prepared
- * the game (ADR 0012: after the process was killed). It is never declared: GameComponentFactory
- * instantiates it for the game Activity's component, and it hands over to the launcher at once,
- * so the gate runs again before the game starts.
- */
+// GameComponentFactory substitutes this Activity for a restored game Activity in an unprepared process.
+// The manifest declares the game component, so lint needs the Registered suppression here.
 @SuppressLint("Registered")
 public final class RestoreActivity extends Activity {
     @Override

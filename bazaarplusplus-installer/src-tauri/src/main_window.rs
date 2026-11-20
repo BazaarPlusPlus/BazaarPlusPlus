@@ -2,12 +2,9 @@ use tauri::{Emitter, Manager};
 #[cfg(target_os = "windows")]
 use tauri::{LogicalSize, PhysicalSize};
 
-/// Emitted after the main window hides to the tray. A WebView hidden this way
-/// need not report `visibilitychange`, so the frontend pauses its polling on
-/// this event (`MAIN_WINDOW_HIDDEN_EVENT` in `src/features/shared/windowActivity.ts`).
+/// A WebView hidden to the tray may not emit `visibilitychange`, so polling needs the native event.
 pub(crate) const HIDDEN_EVENT: &str = "main-window-hidden";
 
-/// Hides the main window to the tray and tells its page.
 pub(crate) fn hide_to_tray(window: &tauri::Window) {
     if let Err(error) = window.hide() {
         eprintln!("failed to hide the main window: {error}");

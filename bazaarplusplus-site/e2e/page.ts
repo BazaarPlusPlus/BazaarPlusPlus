@@ -6,7 +6,6 @@ declare global {
   }
 }
 
-/** Records every pushState/replaceState the page makes, before any page script runs. */
 export async function recordHistory(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const actions: Array<{ mode: 'push' | 'replace'; href: string }> = [];
@@ -28,7 +27,6 @@ export async function historyActions(page: Page) {
   return page.evaluate(() => window.bppHistoryActions ?? []);
 }
 
-/** Waits until the route has rendered its data: no busy page and no pending requests. */
 export async function settle(page: Page): Promise<void> {
   await page.waitForLoadState('networkidle');
   await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0);

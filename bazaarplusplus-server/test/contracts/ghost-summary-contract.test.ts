@@ -15,7 +15,6 @@ type Battle = Record<string, unknown> & {
   opponent: Record<string, unknown>;
 };
 
-// Uploads the fixture's default Battle after `edit`, then discovers it for `opponentAccountId`.
 async function uploadAndDiscover(
   options: BundleFixtureOptions,
   edit: (battle: Battle) => void,

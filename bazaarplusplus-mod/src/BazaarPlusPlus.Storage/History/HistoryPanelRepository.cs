@@ -13,8 +13,8 @@ public sealed partial class HistoryPanelRepository
 
     private readonly string _databasePath;
 
-    // Write paths may run on thread-pool continuations (ghost sync); the ensure
-    // work is idempotent, so a duplicate first-time run is harmless.
+    // Ghost sync writes from pool continuations, so two callers may initialize concurrently.
+    // The ensure work must remain idempotent.
     private volatile bool _schemaEnsured;
 
     public HistoryPanelRepository(string databasePath)
@@ -27,7 +27,6 @@ public sealed partial class HistoryPanelRepository
 
     public bool DatabaseExists => File.Exists(_databasePath);
 
-    // heroKey is the canonical, lower-case hero key (HistoryPageQuery.Runs); null lists every Run.
     public HistoryCountedPage<HistoryRunRecord> ListRuns(
         HistoryPageRequest request,
         string? heroKey = null
@@ -69,7 +68,6 @@ public sealed partial class HistoryPanelRepository
                 HistoryPanelRowMapper.ReadGhostBattle
             );
 
-    // The battle's four board-capture documents, or null when it has no snapshot row.
     public PvpBattleSnapshotDocuments? LoadSnapshots(string runId, string battleId)
     {
         if (!DatabaseExists)
@@ -341,7 +339,6 @@ public sealed partial class HistoryPanelRepository
         transaction.Commit();
     }
 
-    // Returns the rows this call hid; rows hidden earlier are not counted again.
     public int MarkOldUndownloadedGhostBattlesDeleted(DateTimeOffset nowUtc)
     {
         using var connection = OpenConnection(ensureSchema: true);
@@ -474,9 +471,8 @@ public sealed partial class HistoryPanelRepository
         command.ExecuteNonQuery();
     }
 
-    // A Run whose Bundle is still owed (BundleQueueStore.ProtectedRunCondition) is refused inside
-    // the delete's own write transaction, so a seal job created after the panel's check still
-    // protects it.
+    // Check BundleQueueStore.ProtectedRunCondition in this transaction so a seal job
+    // created after the panel's read still protects the Run.
     public HistoryRunDeleteResult DeleteRun(string runId)
     {
         if (!DatabaseExists || string.IsNullOrWhiteSpace(runId))
@@ -559,9 +555,8 @@ public sealed partial class HistoryPanelRepository
         var connection = new SqliteConnection($"Data Source={_databasePath}");
         connection.Open();
 
-        // busy_timeout waits natively for a writer's lock instead of failing at once: the
-        // Android database runs in DELETE mode, where a reader cannot overlap a write. No journal
-        // pragma: the repository leaves the host's journal mode as it found it.
+        // Android uses DELETE journaling, where a read can overlap a writer's lock attempt.
+        // busy_timeout lets the connection wait while preserving the host's journal mode.
         using var pragma = connection.CreateCommand();
         pragma.CommandText = "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 2000;";
         pragma.ExecuteNonQuery();
@@ -585,7 +580,6 @@ public sealed partial class HistoryPanelRepository
     }
 }
 
-// SealProtected: the Run's Bundle is still owed, so nothing was deleted.
 public readonly record struct HistoryRunDeleteResult(
     IReadOnlyList<string> BattleIds,
     int DetachedVideoCount,

@@ -22,12 +22,8 @@ pub struct GamePathResolution {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GamePathAcceptance {
-    /// Return the first detection pick without gating it or walking the
-    /// session/database fallback tail.
     DetectionPick,
-    /// Accept any picked directory and attach its database path iff present.
     Any,
-    /// Accept only a directory whose BazaarPlusPlus database exists.
     DatabaseExists,
 }
 
@@ -170,9 +166,7 @@ pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
     {
         use windows::Win32::Storage::FileSystem::GetLogicalDrives;
 
-        // Only probe drive letters that actually exist. The previous
-        // unconditional C..=Z scan issued ~48 `stat`s, and probing a
-        // disconnected/removable drive can stall for seconds on Windows.
+        // Probing a disconnected or removable drive can stall on Windows.
         // SAFETY: GetLogicalDrives takes no arguments and only returns a bitmask.
         let present = present_drive_letters(unsafe { GetLogicalDrives() });
         for drive in present.into_iter().filter(|letter| *letter >= 'C') {
@@ -199,9 +193,7 @@ fn push_unique(paths: &mut Vec<PathBuf>, path: PathBuf) {
     }
 }
 
-/// Parse the bitmask returned by `GetLogicalDrives` (bit 0 = `A:`, ...,
-/// bit 25 = `Z:`) into the drive letters that currently exist. Kept pure so
-/// the bit math is unit-testable without the Win32 call.
+/// `GetLogicalDrives` assigns bit 0 to `A:` and bit 25 to `Z:`.
 #[cfg_attr(
     not(any(target_os = "windows", test)),
     expect(dead_code, reason = "only Windows probes drive letters")
@@ -220,7 +212,6 @@ mod tests {
 
     #[test]
     fn present_drive_letters_parses_c_and_d() {
-        // bit2 (C:) + bit3 (D:)
         assert_eq!(present_drive_letters(0b1100), vec!['C', 'D']);
     }
 
@@ -231,7 +222,6 @@ mod tests {
 
     #[test]
     fn present_drive_letters_parses_a_and_z_extremes() {
-        // bit0 (A:) + bit25 (Z:) guards the enumerate/shift bounds.
         assert_eq!(present_drive_letters(0b1 | (1 << 25)), vec!['A', 'Z']);
     }
 }

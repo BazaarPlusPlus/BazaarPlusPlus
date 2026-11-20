@@ -11,19 +11,8 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The card template ids of the game's static data, frozen into a managed set so Ghost sync can
-/// ask whether a downloaded snapshot's template exists from the pool thread it runs on, where
-/// the static data manager must not be called. When History opens, <see cref="EnsureBuilt"/>
-/// reads the manager's game-data file path on the main thread and a pool thread reads the ids
-/// from that file's <c>cards</c> table (<see cref="ReadTemplateIds"/>); the set is rebuilt when
-/// the static data manager changes. The manager's own <c>GetCardMap</c> would deserialize every
-/// card on the main thread, which froze the game for 26 s on the emulator. Until the set exists
-/// <see cref="Contains"/> answers true: an unknown template is counted rather than dropped, and a
-/// lookup never builds the set. A socket effect's attribute
-/// (<see cref="SocketEffectAttribute"/>) is read from the static data manager itself, so only on
-/// the main thread, where History renders its boards.
-/// </summary>
+// Ghost sync runs on a pool thread and cannot query the IL2CPP data manager.
+// Read IDs from SQLite because GetCardMap deserializes every card on the Unity thread.
 internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
 {
     private FrozenSet<Guid>? _templates;
@@ -35,20 +24,15 @@ internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
 
     public int Count => Volatile.Read(ref _templates)?.Count ?? 0;
 
-    /// <summary>The running or last read, for tests and the device probe.</summary>
     internal Task? Load => Volatile.Read(ref _load);
 
-    /// <summary>Any thread: whether the template exists, or true before the set is built.</summary>
+    // Before the index is ready, include unknown IDs so Ghost sync does not drop valid templates.
     public bool Contains(Guid templateId)
     {
         var templates = Volatile.Read(ref _templates);
         return templates == null || templates.Contains(templateId);
     }
 
-    /// <summary>
-    /// Main thread: the attribute a socket-effect template sets at a tier, Heated or Chilled,
-    /// read from the template's auras in the game's static data; null for any other template.
-    /// </summary>
     public string? SocketEffectAttribute(Guid templateId, CardTier tier)
     {
         var effect = AndroidCardTemplateText.Template(templateId)?.TryCast<TCardSocketEffect>();
@@ -72,7 +56,6 @@ internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
         return null;
     }
 
-    /// <summary>Replaces the set; the managed half of <see cref="EnsureBuilt"/>.</summary>
     public void Freeze(IEnumerable<Guid> templateIds, IntPtr source)
     {
         ArgumentNullException.ThrowIfNull(templateIds);
@@ -80,11 +63,6 @@ internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
         _builtFrom = source;
     }
 
-    /// <summary>
-    /// Main thread: starts the read for the current static data manager, once per manager
-    /// instance. A manager that is not ready yet leaves the set unbuilt; a failure is logged and
-    /// degrades to counting every template.
-    /// </summary>
     public void EnsureBuilt()
     {
         try
@@ -112,7 +90,6 @@ internal sealed class AndroidCardTemplateIndex : IHistoryCardTemplates
         }
     }
 
-    /// <summary>Any thread: the ids of a game-data file's <c>cards</c> table.</summary>
     internal static List<Guid> ReadTemplateIds(string path)
     {
         var connectionString = new SqliteConnectionStringBuilder

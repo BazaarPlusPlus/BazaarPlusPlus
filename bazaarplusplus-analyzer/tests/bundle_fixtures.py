@@ -58,8 +58,6 @@ def _msgpack(value: object) -> bytes:
 
 @dataclass(frozen=True, slots=True)
 class Card:
-    """One player-hand card; slot doubles as the Bundle ``socket``."""
-
     template_id: str
     size: int
     slot: int
@@ -123,10 +121,6 @@ def payload(
     player_hand_status: str = "Complete",
     final_battles: int = 1,
 ) -> bytes:
-    """Encode one V6 Run payload; ``final_battles`` Battles are all flagged final.
-
-    The instants are given as UTC text and encoded as Unix milliseconds.
-    """
     started_at, battle_at, ended_at = (  # type: ignore[assignment]
         _unix_ms(value) for value in (started_at, battle_at, ended_at)
     )
@@ -207,11 +201,7 @@ def _unix_ms(value: str) -> int:
 
 
 def _stored_gzip(data: bytes) -> bytes:
-    """Gzip with uncompressed DEFLATE blocks.
-
-    Compressed output differs between zlib builds; stored blocks keep fixture
-    Bundles, and every golden that hashes them, byte-identical on every platform.
-    """
+    """Stored blocks keep Bundle goldens byte-identical across zlib builds."""
     blocks = []
     for start in range(0, len(data), 0xFFFF):
         chunk = data[start : start + 0xFFFF]
@@ -233,7 +223,6 @@ def bundle_bytes(
     run_id: str = "run-1",
     account_id: str = "account-1",
 ) -> bytes:
-    """Wrap a Run payload whose identities match ``run_id`` and ``account_id``."""
     content = run_payload or payload()
     manifest = {
         "bundle_version": 6,
@@ -256,7 +245,6 @@ def bundle_bytes(
 
 
 def envelope(manifest: dict[str, object], run_content: bytes, *, sort_keys: bool = False) -> bytes:
-    """Prefix ``manifest`` with the Bundle V6 magic and version."""
     encoded = json.dumps(manifest, sort_keys=sort_keys, separators=(",", ":")).encode()
     return b"".join(
         [

@@ -7,9 +7,6 @@ using UnityEngine.SceneManagement;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The desktop adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): it reads the
-// frame's scene, Escape, the toggle hotkeys and the Walkthrough Control, and feeds them to the
-// Core OverlayPanelHost, which owns the lifecycle of the three Main Overlay Panels.
 internal sealed class DesktopOverlayPanels : MonoBehaviour
 {
     private readonly OverlayPanelHost _host = new(static () => TheBazaar.Data.IsInCombat);
@@ -19,21 +16,16 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
     private bool _sceneTokenLoaded;
     private string _sceneToken = string.Empty;
 
-    // The open Main Overlay Panel's id, or null.
     public string? OpenPanelId => _host.OpenPanelId;
 
-    // Set by the mount when the host has a Data Root; null leaves only the hotkeys.
     public WalkthroughControl? Walkthrough { get; set; }
 
-    // Where a Walkthrough Control `shot` writes its capture; set with Walkthrough.
     public string? ShotDirectory { get; set; }
 
-    // A panel the Walkthrough Control alone opens, such as the Debug-build Kit Gallery.
     public IOverlayPanelHandle Register(OverlayPanelRegistration registration) =>
         _host.Register(registration);
 
-    // hotkeyGuard returning false swallows the whole toggle (open and close) for that frame,
-    // e.g. while a text input inside the panel has focus.
+    // The guard blocks both opening and closing, including while panel text input has focus.
     public IOverlayPanelHandle Register(
         OverlayPanelRegistration registration,
         BppHotkeyActionId toggleHotkey,
@@ -72,15 +64,13 @@ internal sealed class DesktopOverlayPanels : MonoBehaviour
             if (!BppHotkeyService.WasToggleHotkeyPressedThisFrame(hotkey, keyboard))
                 continue;
 
-            // A failing guard swallows the whole toggle (open and close) for this frame.
             return guard?.Invoke() == false ? null : panelId;
         }
 
         return null;
     }
 
-    // Compare Scene values, not Scene.handle: Unity 6 changed that getter's return type
-    // from int to SceneHandle. The equality operator's ABI is stable across both versions.
+    // Unity 6 changed Scene.handle from int to SceneHandle. Scene equality has a stable ABI across both versions.
     private string GetSceneToken(Scene scene)
     {
         if (

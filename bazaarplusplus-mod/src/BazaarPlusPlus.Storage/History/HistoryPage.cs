@@ -52,9 +52,8 @@ public class HistoryCursorPage<T>
     }
 }
 
-// A cursor page that also knows its one-based position and the filtered total. Neighbours follow
-// from those counts, so they cannot disagree with them. An empty page has position 0 and may
-// still carry a total: a cursor past either end finds no rows in a nonempty population.
+// Position is one-based. An empty page has position 0 and may still carry a total
+// when its cursor lies past either end of the filtered list.
 public sealed class HistoryCountedPage<T> : HistoryCursorPage<T>
 {
     private HistoryCountedPage(long totalCount)

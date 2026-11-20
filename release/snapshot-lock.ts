@@ -5,33 +5,19 @@ import type { AndroidSource } from './downloads.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import { isSha256, jsonBytes } from './snapshot-files.ts';
 
-// The Snapshot Lock (root GLOSSARY.md, ADR 0004 and ADR 0008):
-// bazaarplusplus-mod/build/game-libs.lock.json. This module owns the lock
-// schema, its platform-channel keys, the game version that names an entry,
-// reading, validating and writing the lock, and where a locked snapshot lives
-// under game-libs/ locally and in the private store.
-// game-assembly-snapshot.ts and interop-snapshot.ts capture, publish and fetch
-// the snapshots; build/ManagedPath.props and build/InteropPath.props read the
-// lock file directly.
+// build/ManagedPath.props and build/InteropPath.props read the lock file directly.
 
 export const GAME_LIBS_LOCK_PATH =
   'bazaarplusplus-mod/build/game-libs.lock.json';
 export const LOCK_SCHEMA_VERSION = 1;
-/** A platform the Snapshot Lock keys an entry by. */
 export type SnapshotPlatform = 'macos' | 'windows' | 'android';
-/** A channel the Snapshot Lock keys a desktop entry by. */
 export type SnapshotChannel = 'online' | 'staging' | 'ptr';
 export { ANDROID_SOURCES };
 export type { AndroidSource };
-/** The second half of a lock key: a desktop channel or an Android source. */
 export type LockChannel = SnapshotChannel | AndroidSource;
-/** A platform whose snapshot is a Managed directory captured from Steam. */
 export type ManagedPlatform = 'macos' | 'windows';
-/** The Steam branch a desktop channel is captured from. */
 export type SteamBranch = 'public' | 'staging' | 'public_test_realm';
-/** The lock key of a Managed entry: `<platform>-<channel>`. */
 export type ManagedLockKey = `${ManagedPlatform}-${SnapshotChannel}`;
-/** The lock key of an Interop Snapshot entry: `android-<source>`. */
 export type InteropLockKey = `android-${AndroidSource}`;
 
 export const SNAPSHOT_PLATFORMS: readonly SnapshotPlatform[] = Object.freeze([
@@ -44,10 +30,6 @@ export const SNAPSHOT_CHANNELS: readonly SnapshotChannel[] = Object.freeze([
   'staging',
   'ptr'
 ]);
-// Desktop platforms capture a Steam install's Managed directory on three
-// branches. Android keys one entry per source, each the newest production
-// build that source ships (ADR 0019); its snapshot is the Interop assemblies
-// generated from that build's APKs.
 export const PLATFORM_CHANNELS: Readonly<
   Record<SnapshotPlatform, readonly LockChannel[]>
 > = Object.freeze({
@@ -61,7 +43,6 @@ export const MANAGED_PLATFORMS: readonly ManagedPlatform[] = Object.freeze([
 ]);
 export const interopKey = (source: AndroidSource): InteropLockKey =>
   `android-${source}`;
-/** The entry the publisher's APK is captured into. */
 export const PUBLISHER_KEY = interopKey('publisher');
 // Steam branch names are the source record of a capture, never its identity.
 export const STEAM_BRANCHES: Readonly<Record<SnapshotChannel, SteamBranch>> =
@@ -71,8 +52,7 @@ export const STEAM_BRANCHES: Readonly<Record<SnapshotChannel, SteamBranch>> =
     ptr: 'public_test_realm'
   });
 
-/** A desktop lock entry: a Managed directory captured from a Steam branch. */
-// A type alias, not an interface: entryFromManifest casts a record to it.
+// Keep this a type alias so entryFromManifest can cast a record to it.
 export type ManagedLockEntry = {
   gameVersion: string;
   sha256: string;
@@ -81,27 +61,23 @@ export type ManagedLockEntry = {
   capturedAt: string;
 };
 
-/** The Loader Release an Interop Snapshot entry pins. */
 export interface LoaderPin {
   tag: string;
   sha256: string;
   managedRuntimeVersion: string;
 }
 
-/** The LemonLoader Patcher release an Interop Snapshot entry pins. */
 export interface PatcherPin {
   tag: string;
   sha256: string;
 }
 
-/** A native library a host ships beside the loader, pinned by NuGet package. */
 export interface NativeLibPin {
   package: string;
   version: string;
   sha256: string;
 }
 
-/** An Android lock entry: an Interop Snapshot and its toolchain. */
 export interface InteropLockEntry {
   gameVersion: string;
   versionCode: number;
@@ -123,7 +99,6 @@ export interface InteropLockEntry {
 
 export type LockEntry = ManagedLockEntry | InteropLockEntry;
 
-/** The lock's entries: every lock key, null until it is captured. */
 export interface GameLibsLockEntries {
   [key: string]: LockEntry | null;
   'macos-online': ManagedLockEntry | null;
@@ -136,21 +111,18 @@ export interface GameLibsLockEntries {
   'android-play': InteropLockEntry | null;
 }
 
-/** bazaarplusplus-mod/build/game-libs.lock.json after validation. */
-// A type alias, not an interface: validateGameLibsLock casts a record to it.
+// Keep this a type alias so validateGameLibsLock can cast a record to it.
 export type GameLibsLock = {
   schemaVersion: typeof LOCK_SCHEMA_VERSION;
   staleAfterDays: number;
   entries: GameLibsLockEntries;
 };
 
-/** The platform and channel a game version names. */
 export interface ParsedGameVersion {
   platform: SnapshotPlatform;
   channel: SnapshotChannel;
 }
 
-/** A captured lock entry with the platform and channel of its key. */
 export interface LockedEntry {
   key: string;
   platform: SnapshotPlatform;
@@ -158,7 +130,6 @@ export interface LockedEntry {
   entry: LockEntry;
 }
 
-/** A captured lock entry whose snapshot is a Managed directory. */
 export interface ManagedLockedEntry extends LockedEntry {
   platform: ManagedPlatform;
   channel: SnapshotChannel;
@@ -172,17 +143,8 @@ export const ENTRY_FIELDS: readonly (keyof ManagedLockEntry)[] = Object.freeze([
   'steamBranch',
   'capturedAt'
 ]);
-// An Interop Snapshot entry: the APK's identity, the Interop assemblies'
-// digest, and the pinned toolchain a Linux capture regenerates them with. An
-// entry captured with --interop records the digest of a directory generated
-// elsewhere (ADR 0008), so the toolchain pins are the regeneration inputs, not
-// proof of where interopSha256 came from. The official APK, the Loader
-// Release, the Patcher and the Cpp2IL Linux binary are stored by sha256 beside
-// the interop collection, so a capture can be regenerated from the lock alone.
-// apkEtag is the strong ETag the publisher served the APK with, or null for an
-// APK captured from a file of unknown origin; android-apk-watch.yml compares it.
-// apkSha256 is the base APK; splitApkSha256s are the split APKs a Google Play
-// install adds, sorted, and empty for the publisher's single APK.
+// With --interop, the toolchain pins describe regeneration inputs (ADR 0008).
+// android-apk-watch.yml compares the publisher's strong ETag when one was captured.
 const INTEROP_ENTRY_FIELDS: readonly (keyof InteropLockEntry)[] = Object.freeze(
   [
     'gameVersion',
@@ -203,12 +165,7 @@ const INTEROP_ENTRY_FIELDS: readonly (keyof InteropLockEntry)[] = Object.freeze(
     'capturedAt'
   ]
 );
-// Unity's Application.version as the game ships it: build number, optional
-// channel token, platform, then exactly one architecture token on desktop and
-// none on Android, then the game commit. Desktop reads it from
-// globalgamemanagers beside Managed; Android carries it as the APK
-// versionName. build/ManagedPath.props mirrors this pattern as
-// BppGameVersionPattern.
+// build/ManagedPath.props mirrors this as BppGameVersionPattern.
 export const GAME_VERSION_PATTERN =
   /\d+\.\d+\.\d+(?:-[a-z0-9]+)*-(?:(?:macos|windows)-[a-z0-9]+|android)-[0-9a-f]+/g;
 
@@ -216,7 +173,6 @@ export const GAME_VERSION_PATTERN =
 // (ADR 0019): no build number, channel or platform token.
 export const PLAY_GAME_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 
-// A desktop platform and a channel always make a Managed lock key.
 export function lockKey(
   platform: ManagedPlatform,
   channel: SnapshotChannel
@@ -253,12 +209,9 @@ export function parseGameVersion(gameVersion: unknown): ParsedGameVersion {
   const platform = SNAPSHOT_PLATFORMS.find((name) =>
     gameVersion.includes(`-${name}-`)
   );
-  // GAME_VERSION_PATTERN always carries a -<platform>- token.
   if (platform === undefined)
     throw new Error(`Game version ${gameVersion} names no snapshot platform`);
-  // Mirrors GameBuildInfoResolver: a "-staging" or "-ptr" token names the
-  // channel; the production build carries neither ("prod" on desktop,
-  // "production" on Android).
+  // Keep the channel interpretation in sync with GameBuildInfoResolver.
   const channel = gameVersion.includes('-staging-')
     ? 'staging'
     : gameVersion.includes('-ptr-')
@@ -267,9 +220,6 @@ export function parseGameVersion(gameVersion: unknown): ParsedGameVersion {
   return { platform, channel };
 }
 
-// The lock key a game version belongs to: a Play versionName names android-play;
-// any other names its platform and channel, and an Android production build is
-// the publisher's.
 export function gameVersionKey(gameVersion: unknown): string {
   if (
     typeof gameVersion === 'string' &&
@@ -401,8 +351,6 @@ function assertInteropEntry(key: string, entry: Record<string, unknown>): void {
 }
 
 export function assertLockEntry(key: string, entry: unknown): void {
-  // Every lock key is <platform>-<channel>, as lockKey builds it; an Interop
-  // entry's key never reaches the Steam branch check below.
   const [platform, channel] = key.split('-') as [
     SnapshotPlatform,
     SnapshotChannel
@@ -476,7 +424,6 @@ export function validateGameLibsLock(lock: unknown): GameLibsLock {
   )
     throw new Error('Snapshot lock has unknown top-level fields');
   for (const key of expected) assertLockEntry(key, entries[key]);
-  // Every field was checked above.
   return lock as GameLibsLock;
 }
 
@@ -521,8 +468,6 @@ export function writeGameLibsLockEntry(
   return validated;
 }
 
-// Warnings never fail a gate: an empty key is work not yet done, a stale key is
-// a reminder that the game moved on. A malformed lock fails in readGameLibsLock.
 export interface LockWarningsOptions {
   now?: Date;
 }
@@ -534,7 +479,6 @@ export function lockWarnings(
   const warnings: string[] = [];
   for (const key of lockKeys()) {
     const entry = lock.entries[key];
-    // Every lock key is <platform>-<channel>, as lockKey builds it.
     const [platform, channel] = key.split('-') as [
       SnapshotPlatform,
       SnapshotChannel
@@ -562,31 +506,24 @@ function lockedEntries(lock: GameLibsLock): LockedEntry[] {
   return lockKeys()
     .filter((key) => lock.entries[key] !== null)
     .map((key) => {
-      // Every lock key is <platform>-<channel>, as lockKey builds it.
       const [platform, channel] = key.split('-') as [
         SnapshotPlatform,
         LockChannel
       ];
       const entry = lock.entries[key];
-      // The filter above dropped the empty entries.
       if (entry === null) throw new Error(`Lock entry ${key} is empty`);
       return { key, platform, channel, entry };
     });
 }
 
-// The captured entries whose snapshot is a Managed directory: what desktop
-// builds, the sealed build record and the CompatCheck matrix compile against.
 export function managedEntries(lock: GameLibsLock): ManagedLockedEntry[] {
-  // A validated lock holds a Managed entry under every desktop key.
   return lockedEntries(lock).filter(
     (locked): locked is ManagedLockedEntry =>
       !isInteropPlatform(locked.platform)
   );
 }
 
-// A Managed snapshot is named by its game version. An Interop Snapshot is
-// named by its versionCode, because a Play versionName (1.0.6) may name more
-// than one build.
+// Interop Snapshot paths use versionCode because one Play versionName may name multiple builds.
 export function snapshotDirectory(
   modRoot: string,
   platform: string,

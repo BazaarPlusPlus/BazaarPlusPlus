@@ -177,11 +177,6 @@ public sealed record CombatImpactProjectionDiagnostic(
     string? TriggerSourceId = null
 );
 
-/// <summary>
-/// What the ledger knows about a source or target: identity, display name, kind, and board order.
-/// The producer derives a host record that also carries the game-typed facts that attribution and
-/// the native preview read; the ledger only passes the instance through.
-/// </summary>
 public record CombatImpactLedgerEntity(string Id, string Name, string TypeLabel, int Order);
 
 public sealed record CombatImpactEvent(
@@ -202,10 +197,7 @@ public sealed record CombatImpactEvent(
 
     public int CriticalCount { get; init; }
 
-    /// <summary>
-    /// Number of known critical/non-critical outcomes represented by this event. Exact aggregate
-    /// recovery may store several outcomes on one event when their individual identities are lost.
-    /// </summary>
+    // Exact recovery can attach several known outcomes to one event when individual identities are lost.
     public int CriticalOutcomeCount { get; init; }
 
     public int? CriticalValue { get; init; }
@@ -366,7 +358,6 @@ public sealed record CombatImpactGroup(
 
     public int CriticalCount { get; init; }
 
-    /// <summary>Number of applications whose critical/non-critical outcome is known.</summary>
     public int CriticalOutcomeCount { get; init; }
 
     public int? CriticalObservedValue { get; init; }
@@ -481,7 +472,6 @@ public sealed record CombatImpactIncomingGroup(
 
     public int CriticalCount { get; init; }
 
-    /// <summary>Number of applications whose critical/non-critical outcome is known.</summary>
     public int CriticalOutcomeCount { get; init; }
 
     public int? CriticalObservedValue { get; init; }

@@ -48,8 +48,7 @@ internal sealed partial class OwnedMonsterBoardPreview
         return bounds.width > 1 && bounds.height > 1;
     }
 
-    // The prefab retains native hover events. Polling only observes its geometry
-    // for selection and remembers which owner's tooltip must end on replacement.
+    // The native prefab owns hover events. Track the owner so its tooltip can end on replacement.
     internal Guid? TrackPointer(Vector2? point)
     {
         _pointerItem = null;
@@ -66,9 +65,7 @@ internal sealed partial class OwnedMonsterBoardPreview
         return null;
     }
 
-    // One native call per board, not one per card, while the pointer is elsewhere. The
-    // carpet is fitted to the region's edges, so outer frames may overhang it: pad the
-    // test so a click on those pixels still reaches the per-card bounds.
+    // Pad the fitted carpet bounds so overhanging card frames remain selectable.
     private bool RegionContains(Vector2 point)
     {
         _region.GetWorldCorners(_itemCorners);
@@ -82,7 +79,6 @@ internal sealed partial class OwnedMonsterBoardPreview
 
     private Rect ItemBounds(CardPreviewItem card)
     {
-        // Use the actual loaded tier frame, never recursive bounds that include gems.
         var frame =
             card._currentFrame != null ? card._currentFrame.transform as RectTransform : null;
         var rect = frame != null ? frame : card.ParentRect;

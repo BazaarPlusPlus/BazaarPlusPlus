@@ -50,10 +50,8 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         return _innerStore.CreateRun(request);
     }
 
-    // Queued like events, so an active Run's runs.player_account_id may lag this call. Its only
-    // reader is the seal, which takes completed Runs, and CompleteRun drains this queue before it
-    // writes that status. A Dispose drain timeout can drop the write, like a queued event; the
-    // next activation of the resumed Run enqueues it again.
+    // The active Run's account ID may lag the queue. CompleteRun drains it before publishing
+    // completion to the seal worker, and resuming a Run re-enqueues a write dropped at shutdown.
     public void SetPlayerAccountIdOnce(string runId, string? playerAccountId)
     {
         var accountId = RunLogStore.NormalizeAccountId(playerAccountId);
@@ -116,17 +114,14 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         }
         catch (AggregateException) when (_worker.IsCompleted)
         {
-            // ProcessLoopAsync already emitted the authoritative typed worker diagnostic. Dispose
-            // still owns the synchronization primitive and must finish cleanup without surfacing a
-            // second terminal failure to the feature teardown path.
+            // ProcessLoopAsync already reported the worker failure. Dispose still owns cleanup.
             workerCompleted = true;
         }
 
         if (!workerCompleted)
         {
-            // The timeout is the authoritative shutdown terminal. Any active write or worker
-            // exception that follows (Mono aborts background threads during process exit) is a
-            // consequence of this same episode and must not emit a second terminal record.
+            // A late worker error belongs to the same shutdown timeout, including Mono aborting
+            // background threads during exit. Suppress a duplicate terminal record.
             Volatile.Write(ref _shutdownDrainTimedOut, 1);
             _logger?.Emit(
                 RunLogStoreDiagnostic.ShutdownDrainTimedOut(

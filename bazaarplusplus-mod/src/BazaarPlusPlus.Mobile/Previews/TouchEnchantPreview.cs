@@ -10,26 +10,14 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Previews;
 
-/// <summary>
-/// Native enchantment effects in the game's item tooltip, a Native Adjustment. Under
-/// <c>[EnchantPreview] Mode</c> the live tooltip lists them in its main text, below the passive
-/// text, as the desktop does: <c>Always</c> on every eligible item, <c>AutoOnPedestalChoice</c>
-/// only while an enchant pedestal is offered and then only the enchantment(s) it applies,
-/// <c>Off</c> never (Core's <see cref="EnchantPreviewVisibility"/>). The section is built when the
-/// tooltip's contents render (<see cref="Prepare"/>) and consumed by the passive block of that
-/// same render (<see cref="TakePending"/>), so nothing carries over to the next card. A tooltip
-/// whose main text lists none keeps the collapsed Enchantments switch in the native description
-/// scroll (<see cref="TouchPreviewSwitches"/>), which lists each enchantment's effect from the
-/// item's tier up (<see cref="Build"/>). The Android host's tooltip patches drive it and read the
-/// game through <see cref="IEnchantPreviewHost{TTooltip}"/>. Main thread.
-/// </summary>
+// Prepare and TakePending share one tooltip render. Discard unconsumed text so it
+// cannot leak into the next card's passive block.
 internal sealed class TouchEnchantPreview<TTooltip>
     where TTooltip : class
 {
     private const int PrefixSizePercent = 50;
     private const int EffectSizePercent = 46;
 
-    // The line height over the text size, as the desktop's 60% line height over its 46% text.
     private const float LineHeightOverSize = 1.3f;
     private const long LoggedInline = 10;
     private const int LoggedFailures = 5;
@@ -43,15 +31,11 @@ internal sealed class TouchEnchantPreview<TTooltip>
     private readonly Func<PreviewVisibilityMode> _mode;
     private readonly Func<ChoicePedestalSnapshot?> _pedestal;
 
-    // The prefab's minimum height of each passive block that Fit raised, by instance id.
     private readonly Dictionary<int, float> _floors = new();
     private List<(string Name, string Label, string Effect)>? _pending;
     private long _inline;
     private int _failures;
 
-    /// <param name="host">The host's read of its tooltip.</param>
-    /// <param name="mode">The <c>[EnchantPreview] Mode</c> setting.</param>
-    /// <param name="pedestal">The offered choice pedestal, or null when none is offered or it cannot be read.</param>
     public TouchEnchantPreview(
         IEnchantPreviewHost<TTooltip> host,
         Func<PreviewVisibilityMode> mode,
@@ -63,17 +47,10 @@ internal sealed class TouchEnchantPreview<TTooltip>
         _pedestal = pedestal ?? throw new ArgumentNullException(nameof(pedestal));
     }
 
-    /// <summary>How many times the Enchantments switch built its effects.</summary>
     public long Rendered { get; private set; }
 
-    /// <summary>How many sections the main text listed.</summary>
     public long Inline => Interlocked.Read(ref _inline);
 
-    /// <summary>
-    /// The enchantments the tooltip's main text lists under <c>[EnchantPreview] Mode</c>, in
-    /// <see cref="Candidates"/> order, or none: the mode is off, no enchant pedestal is offered
-    /// under the automatic mode, or the item takes no other enchantment.
-    /// </summary>
     public IReadOnlyList<string> InlineCandidates(TTooltip tooltip)
     {
         if (!MobilePlatform.Port.PlayState().OffersEnchantments)
@@ -86,23 +63,12 @@ internal sealed class TouchEnchantPreview<TTooltip>
         return _host.Candidates(tooltip).Where(name => Allowed(name, restriction)).ToArray();
     }
 
-    /// <summary>
-    /// The enchantments the tooltip's item can take besides its own
-    /// (<see cref="IEnchantPreviewHost{TTooltip}.Candidates"/>), or none during a fight or a
-    /// replay (<see cref="TouchPlayState.OffersEnchantments"/>).
-    /// </summary>
     public IReadOnlyList<string> Candidates(TTooltip tooltip) =>
         MobilePlatform.Port.PlayState().OffersEnchantments ? _host.Candidates(tooltip) : [];
 
-    /// <summary>
-    /// The enchantments the tooltip offers behind the Enchantments switch: its
-    /// <see cref="Candidates"/> when the main text lists none
-    /// (<see cref="InlineCandidates"/>), or none when the main text lists them.
-    /// </summary>
     public IReadOnlyList<string> SwitchCandidates(TTooltip tooltip) =>
         InlineCandidates(tooltip).Count > 0 ? [] : Candidates(tooltip);
 
-    /// <summary>The contents of a card tooltip start to render: build its main-text section.</summary>
     public void Prepare(TTooltip? tooltip)
     {
         _pending = null;
@@ -140,12 +106,6 @@ internal sealed class TouchEnchantPreview<TTooltip>
         }
     }
 
-    /// <summary>
-    /// The passive block of the rendering tooltip, whose text is <paramref name="label"/>: the
-    /// section, consumed once, sized for the label's rendered font. The lines keep the desktop's
-    /// reduced size only while that still reads at <see cref="TouchMetrics.MinBodySp"/>
-    /// (<see cref="TouchMetrics.ReadablePercent"/>).
-    /// </summary>
     public string? TakePending(TMP_Text? label)
     {
         RestoreFloor(label);
@@ -178,14 +138,8 @@ internal sealed class TouchEnchantPreview<TTooltip>
         return section;
     }
 
-    /// <summary>
-    /// The passive block's <paramref name="label"/> now holds the section: its layout height
-    /// becomes at least the rendered text. The game sizes the block with <c>TMPTrueHeight</c>,
-    /// which adds up each line's glyph height and so leaves out the text's paragraph and line
-    /// spacing; every listed enchantment is a paragraph, so a long list renders taller than its
-    /// box, over the active effects above and under the keyword tip below. The next passive
-    /// render restores the floor (<see cref="TakePending"/>).
-    /// </summary>
+    // The game's TMPTrueHeight sums glyph heights and misses line and paragraph spacing.
+    // Raise the passive block's minimum height to prevent overlap with adjacent sections.
     public void Fit(TMP_Text? label)
     {
         if (!Il2CppUi.IsAlive(label))
@@ -200,7 +154,6 @@ internal sealed class TouchEnchantPreview<TTooltip>
         layout.minHeight = Math.Max(floor, label.renderedHeight);
     }
 
-    /// <summary>The render finished, whether or not the passive block consumed the section.</summary>
     public void Clear() => _pending = null;
 
     private void RestoreFloor(TMP_Text? label)
@@ -212,11 +165,6 @@ internal sealed class TouchEnchantPreview<TTooltip>
             layout.minHeight = floor;
     }
 
-    /// <summary>
-    /// Each of <paramref name="candidates"/> with its effect on the tooltip's item from its tier
-    /// up, the changing numbers merged (<see cref="CollectionTierTooltipTextMerger"/>) and the name
-    /// in the enchantment's colour; one the game renders at no tier is left out.
-    /// </summary>
     public IReadOnlyList<(string Label, string Text)> Build(
         TTooltip tooltip,
         IReadOnlyList<string> candidates
@@ -241,8 +189,6 @@ internal sealed class TouchEnchantPreview<TTooltip>
         return lines;
     }
 
-    // The desktop's ItemEnchantPreviewCandidateSelector: a pedestal that names its enchantment(s)
-    // keeps only those; an empty or absent restriction keeps every one.
     private static bool Allowed(string name, IReadOnlyList<string>? restriction)
     {
         if (restriction == null || restriction.Count == 0)
@@ -272,8 +218,6 @@ internal sealed class TouchEnchantPreview<TTooltip>
             + $"<size={effectPercent}%>{scaled}</size></line-height>";
     }
 
-    // The label's font size in screen pixels: its canvas units, scaled by its transform within
-    // the canvas and by the canvas's own scale factor. Zero when it cannot be read.
     private static float RenderedFontPixels(TMP_Text? label)
     {
         if (!Il2CppUi.IsAlive(label))

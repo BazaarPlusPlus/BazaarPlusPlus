@@ -130,8 +130,6 @@ test('the shared Android fixture is a Platform Release Manifest outside latest.j
   );
   const release = androidFixture.downloads[ANDROID];
   expect(new URL(release.mainlandUrl).protocol).toBe('https:');
-  // The App sits in its version's directory, the Interop Package at its
-  // content address, and the App is signed by the pinned release key.
   expect(release.app.url).toBe(
     `${RELEASE_BASE_URL}/${androidFixture.version}/${ANDROID}/app/BazaarPlusPlus_${androidFixture.version}_${ANDROID}.apk`
   );

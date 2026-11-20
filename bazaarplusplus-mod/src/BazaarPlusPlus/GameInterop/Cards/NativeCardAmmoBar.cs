@@ -13,32 +13,16 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.GameInterop.Cards;
 
-/// <summary>
-/// An item on a BPP item board shows its ammo as the game's board does. The game's card UI
-/// prefab (<see cref="CardPreviewItem"/>) has no ammo bar, so the bar comes from the combat recap
-/// card, the one item prefab with an <see cref="ItemAmmoController"/> that BPP can load by
-/// reference. One copy of that controller is kept hidden as a template. For each card, the
-/// template draws the card's tier and maximum ammo with the game's own
-/// <see cref="ItemAmmoController.ResetAmmoView"/>, and a copy of its bar goes on the card,
-/// placed by <see cref="AmmoBarPlacement"/>. The game's board shows maximum ammo outside combat;
-/// so does a board here. Main thread only.
-/// </summary>
+// CardPreviewItem has no ammo bar. Borrow the combat recap prefab's ItemAmmoController,
+// the only loadable one, to match the native board's out-of-combat display. Main thread only.
 internal static class NativeCardAmmoBar
 {
     private const string BarName = "BPP.AmmoBar";
 
     private static Task<ItemAmmoController?>? _template;
 
-    /// <summary>
-    /// The hidden template, loaded on the first call and kept for the session in the game's
-    /// Global asset scope. Null when the game cannot give it; the boards then show no bar.
-    /// </summary>
     public static Task<ItemAmmoController?> TemplateAsync() => _template ??= LoadTemplateAsync();
 
-    /// <summary>
-    /// After a successful set-up: the bar for the card's tier and maximum ammo, or no bar when
-    /// the card has no ammo or <paramref name="template"/> is null.
-    /// </summary>
     public static void Show(CardPreviewBase card, ItemAmmoController? template)
     {
         Remove(card);
@@ -62,7 +46,6 @@ internal static class NativeCardAmmoBar
             node.gameObject.layer = card.gameObject.layer;
     }
 
-    /// <summary>Takes the bar off the card, before the card goes back to a pool.</summary>
     public static void Remove(CardPreviewBase card)
     {
         if (card == null)

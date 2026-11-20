@@ -34,13 +34,10 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Action<BundleSealStage, string>? _faultProbe;
 
-    // Runs whose last attempt waited on omitted replays, stamped with the replay persistence
-    // generation it composed under; bounded by the waiting jobs, pruned after every pass.
     private readonly ConcurrentDictionary<string, ReplayWait> _replayWaits = new(
         StringComparer.Ordinal
     );
 
-    // Environment-blocked jobs become due once per launch (BundleSealFailurePolicy.IsDue).
     private readonly DateTimeOffset _launchedAtUtc;
     private IDisposable? _runInitialized;
     private IDisposable? _runLifecycle;
@@ -51,16 +48,13 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private Task? _worker;
     private int _wakePending;
 
-    // Job discovery (EnsureEligibleJobs) runs when a Run is written completed, at startup and
-    // resume, after upload validation recreates a job, and at the idle cap; other wakes skip it.
     private int _discoveryRequested = 1;
     private readonly Stopwatch _sinceDiscovery = new();
     private volatile bool _started;
     private bool _filesRecovered;
     private volatile bool _paused;
 
-    // Tests inject failures at named seal stages; production passes null. The database options
-    // are the host's, required so no store here can open the file in another journal mode.
+    // Use the Host's database options so every connection opens the database in the same journal mode.
     public BundleSealCoordinator(
         IBppServices services,
         RunPayloadComposer composer,
@@ -130,18 +124,12 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         {
             _worker?.Wait(TimeSpan.FromSeconds(3));
         }
-        catch
-        {
-            // Shutdown is best effort; jobs are durable and reconcile at next startup.
-        }
+        catch { }
         _shutdown.Dispose();
         _wake.Dispose();
     }
 
-    /// <summary>
-    /// Parks the worker while the host is in the background: a pass already running finishes,
-    /// then no scan runs until <see cref="Resume"/>. Jobs stay durable, so nothing is lost.
-    /// </summary>
+    /// <summary>An in-flight pass finishes when the Host goes into the background.</summary>
     public void Pause()
     {
         if (!_started || _paused)
@@ -180,17 +168,14 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         Signal();
     }
 
-    /// <summary>One full pass, job discovery included.</summary>
     public async Task ReconcileAsync(CancellationToken cancellationToken) =>
         await RunPassAsync(discover: true, cancellationToken).ConfigureAwait(false);
 
     private async Task<PassResult> RunPassAsync(bool discover, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // Maintenance failures are logged per step; they never keep waiting jobs from sealing.
         Maintain(BundleSealStage.ScreenshotTerminal, ApplyScreenshotTerminals);
-        // File recovery repairs what an earlier launch left behind, once per launch; a pending
-        // file that goes bad later fails the upload's own length and digest check instead.
+        // Later file corruption is handled by the upload's length and digest checks.
         if (!_filesRecovered)
             Maintain(BundleSealStage.FileRecovery, RecoverFiles);
         var discovered = !discover || Maintain(BundleSealStage.JobDiscovery, EnsureSealJobs);
@@ -208,12 +193,10 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             foreach (var job in waiting)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                // Only the worker writes a job's retry columns, so the listed row decides as a
-                // fresh read would; a job backing off or parked is not read again.
+                // Only this worker writes the retry columns, so the listed row is sufficient for the due check.
                 if (!IsDue(job, DateTimeOffset.UtcNow))
                     continue;
                 (attempted ??= new(StringComparer.Ordinal)).Add(job.RunId);
-                // One Run's failure is recorded against that Run; it cannot abort the pass.
                 try
                 {
                     published |= await TrySealAsync(job.RunId, cancellationToken)
@@ -232,7 +215,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
         finally
         {
-            // A recovered backlog arms one upload batch, not one immediate batch per run.
             if (published)
                 _services.EventBus.Publish(new UploadArmRequested());
         }
@@ -260,7 +242,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             (float)(now - _launchedAtUtc).TotalSeconds
         );
 
-    // The soonest any waiting job needs a pass, each row evaluated at one fresh instant.
     private float? SecondsUntilAttempt(
         IReadOnlyList<BundleSealJobRecord> jobs,
         HashSet<string>? attempted
@@ -289,7 +270,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private async Task WorkerAsync(CancellationToken cancellationToken)
     {
         var parked = false;
-        // Start() signals the first pass.
         var wait = Timeout.InfiniteTimeSpan;
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -314,7 +294,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                             )
                     );
                 }
-                // A discovery requested while parked stays requested until the next pass.
                 if (parked)
                     continue;
                 var discover = BundleSealWakeSchedule.DiscoveryDue(
@@ -349,8 +328,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                     "reconcile_exception",
                     ex
                 );
-                // The pass could not tell when a job is due; retry it whole, discovery included,
-                // at the input-wait cadence.
                 Interlocked.Exchange(ref _discoveryRequested, 1);
                 wait = TimeSpan.FromSeconds(BundleSealWakeSchedule.InputWaitPollSeconds);
             }
@@ -430,7 +407,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 return false;
             }
 
-            // Only availability here; the encode waits until every input has converged.
             stage = BundleSealStage.Screenshot;
             ScreenshotSource? source = null;
             if (job.ScreenshotRequested && job.ScreenshotState != BundleScreenshotState.Unavailable)
@@ -579,7 +555,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
             stage = BundleSealStage.Publish;
             Probe(stage, runId);
-            // Publication cannot depend on file recovery having run earlier in the pass.
             Directory.CreateDirectory(_outboxRoot);
             var fileName = allocation.BundleId + ".bundle";
             var finalPath = Path.Combine(_outboxRoot, fileName);
@@ -621,8 +596,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
     }
 
-    // Discovery also drops the Run Message Stream rows of Runs that can no longer upload them
-    // (ADR-0028), in the same database pass.
+    // Run Message Stream rows are only useful while the Run can still upload them (ADR-0028).
     private void EnsureSealJobs()
     {
         _queueStore.EnsureEligibleJobs(InputConvergenceWindow);
@@ -737,7 +711,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         {
             failure = ex;
         }
-        // A missing or mismatched file is an observed invalid artifact (no exception).
         var decision = BundleSealFailurePolicy.Decide(
             BundleSealStage.PendingValidation,
             failure,
@@ -827,7 +800,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         }
         catch (Exception readFailure)
         {
-            // Without retry facts the original failure is still classified and recorded below.
             BundlePipelineLog.Warn(
                 new BppLogEvent(
                     BppLogFeatureScope.BundlePipeline,
@@ -959,8 +931,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
 
     private sealed record ScreenshotSource(string AbsolutePath, long CapturedAtMs);
 
-    // Discovered: job discovery ran or was not asked for. MaintenanceFailed: discovery or file
-    // recovery is still owed.
+    // Discovered also covers passes where discovery was not requested.
     private readonly record struct PassResult(
         bool Discovered,
         bool MaintenanceFailed,

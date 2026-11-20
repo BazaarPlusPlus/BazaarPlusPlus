@@ -7,12 +7,6 @@ using BazaarPlusPlus.Core.Combat;
 using BazaarPlusPlus.GameInterop.Cards;
 using BazaarPlusPlus.GameInterop.CombatSimulation;
 
-/// <summary>
-/// Turns one game replay into a corpus battle: the combat through the desktop host's
-/// <see cref="DesktopCombatTimeline"/>, the entities through the catalog, and the spawn and
-/// transform facts the inventory reads through the same facet maps. A game member Core has no
-/// facet for is left out, as the producer leaves it out.
-/// </summary>
 internal static class CombatImpactCorpusExport
 {
     internal static CombatImpactCorpusBattle ToBattle(

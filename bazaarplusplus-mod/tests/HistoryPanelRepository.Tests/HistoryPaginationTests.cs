@@ -12,7 +12,6 @@ public sealed class HistoryPaginationTests : IDisposable
 
     public void Dispose() => TestRoot.Delete(root);
 
-    // The capsule's loop over run counts: one row per size.
     [Theory]
     [InlineData(1000)]
     [InlineData(10000)]
@@ -25,7 +24,6 @@ public sealed class HistoryPaginationTests : IDisposable
     public void RepairsADriftedGhostIndex() =>
         CheckDriftedGhostIndex(Path.Combine(root, "drifted-index.sqlite3"));
 
-    // A database from a release that shipped another definition under a hinted index's name.
     private static void CheckDriftedGhostIndex(string path)
     {
         using (var seed = new SqliteConnection($"Data Source={path}"))
@@ -429,7 +427,6 @@ public sealed class HistoryPaginationTests : IDisposable
         }
     }
 
-    // Plans come from the SQL the repository itself renders, bound as the repository binds it.
     private static void CheckRunCountPlans(SqliteConnection db)
     {
         HistoryCursor at = new(1767225601000, "r00004");
@@ -526,7 +523,6 @@ public sealed class HistoryPaginationTests : IDisposable
         foreach (var outcome in new[] { false, true })
         foreach (var day in new[] { false, true })
         {
-            // Index names are asserted literally: they are schema facts, not a copy of the query.
             var index =
                 "idx_battles_history_ghost" + (day ? "_day" : "") + (outcome ? "_outcome" : "");
             var query = HistoryPageQuery.Ghosts(

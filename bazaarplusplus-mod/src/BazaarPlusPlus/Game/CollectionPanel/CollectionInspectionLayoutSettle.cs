@@ -1,10 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Decides when a still inspection may skip re-measuring the native description. A change
-// marks the layout dirty; it settles once the motion is done and two frames measure the same
-// description bounds, already centred on the target. A settled layout is re-measured every
-// RecheckFrames as a backstop, so a change no dirty source reported stays stale at most that long.
+// Periodic remeasurement catches description changes that never mark the layout dirty.
 internal sealed class CollectionInspectionLayoutSettle
 {
     public const int RecheckFrames = 30;
@@ -17,7 +14,6 @@ internal sealed class CollectionInspectionLayoutSettle
     private int _measuredFrames;
     private (float X, float Y, float Width, float Height)? _last;
 
-    // Frames measured in the current or most recent dirty episode.
     public int MeasuredFrames => _measuredFrames;
 
     public void MarkDirty()
@@ -39,8 +35,6 @@ internal sealed class CollectionInspectionLayoutSettle
         return _dirty;
     }
 
-    // Returns true only when this frame settles a layout that changed since it last settled;
-    // a periodic recheck that finds nothing new settles silently.
     public bool Observe(
         int frame,
         float x,

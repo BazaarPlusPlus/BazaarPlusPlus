@@ -2,12 +2,7 @@ using BazaarPlusPlus.Game.OverlayPanels;
 
 namespace BazaarPlusPlus.Mobile;
 
-/// <summary>
-/// A Main Overlay Panel's handle on a mobile platform: Core's handle, plus the source of the last
-/// open request and the string reason of the last close request, which the panel's log lines
-/// carry. Each entry runs inside the host's main-thread scope
-/// (<see cref="IMobilePlatformPort.EnterMainThread"/>).
-/// </summary>
+// Run each panel entry inside the host's main-thread scope.
 internal sealed class MobilePanelHandle : IDisposable
 {
     private const string DefaultSource = "request";
@@ -19,10 +14,7 @@ internal sealed class MobilePanelHandle : IDisposable
     private MobilePanelHandle(Func<IDisposable> enterMainThread) =>
         _enterMainThread = enterMainThread;
 
-    /// <summary>
-    /// Registers a panel through the host's Overlay Panel Host. The registration is built against
-    /// its handle, so its callbacks can read the source of an open and the reason of a close.
-    /// </summary>
+    // Build the registration against its handle so callbacks can read open and close context.
     public static MobilePanelHandle Register(
         Func<MobilePanelHandle, OverlayPanelRegistration> build
     )
@@ -31,10 +23,6 @@ internal sealed class MobilePanelHandle : IDisposable
         return Register(build, platform.RegisterOverlayPanel, platform.EnterMainThread);
     }
 
-    /// <summary>
-    /// As <see cref="Register(Func{MobilePanelHandle, OverlayPanelRegistration})"/>, through the
-    /// host's own <paramref name="register"/> and main-thread scope.
-    /// </summary>
     public static MobilePanelHandle Register(
         Func<MobilePanelHandle, OverlayPanelRegistration> build,
         Func<OverlayPanelRegistration, IOverlayPanelHandle> register,
@@ -55,7 +43,6 @@ internal sealed class MobilePanelHandle : IDisposable
 
     public bool IsVisible => _inner?.IsVisible == true;
 
-    /// <summary>The source of the open being executed: what the last RequestOpen named.</summary>
     public string OpenSource { get; private set; } = DefaultSource;
 
     public OverlayRequestOutcome RequestOpen(string source)
@@ -76,7 +63,6 @@ internal sealed class MobilePanelHandle : IDisposable
         return _inner.RequestClose();
     }
 
-    /// <summary>The close reason as the panels' log lines name it.</summary>
     public string Describe(OverlayCloseReason reason) =>
         reason switch
         {

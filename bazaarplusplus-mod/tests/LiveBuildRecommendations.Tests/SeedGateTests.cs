@@ -5,11 +5,6 @@ using Xunit;
 
 namespace LiveBuildRecommendations.Tests;
 
-// The embedded-seed gate: the builds.json seed the desktop host bundles must parse with the
-// production corpus parser (`scripts/build.sh` runs this project with the EmbeddedSeed filter
-// before it promotes fetched data). Parser, recall, scoring, and board projection are tested
-// Core-only in LiveBuildRecommendationCore.Tests.
-
 public sealed class SeedGateTests
 {
     // The handler must be in place before the test body JITs a host type that names

@@ -55,7 +55,6 @@ public sealed class BundleSealJobRecord
     public string? BundleId { get; }
     public long? CreatedAtMs { get; }
 
-    // Consecutive failed seal attempts with LastErrorCode; the failure policy owns the count.
     public int Attempts { get; }
     public DateTimeOffset? LastAttemptAtUtc { get; }
     public string? LastErrorCode { get; }
@@ -144,8 +143,7 @@ public sealed class BundleOutboxRecord
     public string ContentDigest { get; }
     public long TotalBytes { get; }
 
-    // Every recorded upload attempt of any kind, network failures included; unlike
-    // BundleSealJobRecord.Attempts it is never reset and does not track one error code.
+    // Counts all recorded upload attempts, including network failures, and never resets.
     public int Attempts { get; }
 }
 

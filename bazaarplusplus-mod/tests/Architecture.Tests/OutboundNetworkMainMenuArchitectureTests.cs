@@ -4,7 +4,6 @@ using static Architecture.Tests.ArchitectureRules;
 
 namespace Architecture.Tests;
 
-/// <summary>Outbound network ownership for the main-menu release check (ADR-0006).</summary>
 public sealed class OutboundNetworkMainMenuArchitectureTests
 {
     [Fact]

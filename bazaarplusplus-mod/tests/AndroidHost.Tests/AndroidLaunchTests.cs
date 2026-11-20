@@ -13,12 +13,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// What the compiled host makes of the Android App's Launch Record (root ADR 0012 and 0013), over
-/// the App's golden: how it classifies the record, and which runtime self-update compares a
-/// release with. Whatever the record says, the host runs normally: the composition takes no
-/// launch, so uploads and Ghost sync stay on.
-/// </summary>
 public sealed class AndroidLaunchTests : IDisposable
 {
     internal const int GoldenProcessId = 12345;
@@ -92,7 +86,6 @@ public sealed class AndroidLaunchTests : IDisposable
                 GoldenRelease,
                 false
             },
-            // Another release's record is still this process's: the runtime stays known.
             { "release_mismatch", Golden(), "6.0.2", true },
             {
                 "schema_unknown",
@@ -135,9 +128,6 @@ public sealed class AndroidLaunchTests : IDisposable
         Assert.Null(launch.RuntimeDigest);
     }
 
-    // The Android App stages the Managed Payload (root ADR 0012): the host never downloads one,
-    // and compares a release with the runtime the App started, not with what the installed Mods
-    // were staged for.
     [Fact]
     public void Self_update_stages_nothing_and_compares_with_the_launch_record_runtime()
     {
@@ -158,7 +148,6 @@ public sealed class AndroidLaunchTests : IDisposable
         );
         Assert.False(Directory.Exists(SelfUpdatePaths.Updates(dataRoot)));
 
-        // Outside the App the installed manifest's runtime is the one compared.
         var outside = AndroidVersionCheck.CreateSelfUpdate(installRoot, dataRoot, null);
         var manual = outside.Evaluate("6.1.0", result);
         Assert.Equal(SelfUpdateDecision.ManualUpdate, manual.Decision);

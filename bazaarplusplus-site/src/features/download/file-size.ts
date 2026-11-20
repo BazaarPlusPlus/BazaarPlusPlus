@@ -9,7 +9,6 @@ const FILE_SIZE_UNITS = [
   'terabyte'
 ] as const;
 
-/** Decimal units, as download sizes are quoted: 2_834_000_000 → `2.8 GB`. */
 export function formatFileSize(bytes: number, locale: Locale): string {
   let value = bytes;
   let unit = 0;

@@ -1,8 +1,3 @@
-//! Legacy Roots: Data Roots an earlier major version wrote into the game
-//! directory. They are user-owned (ADR-0008): the installer measures them and
-//! deletes one only after the user confirms that root. Nothing here runs on its
-//! own, and Reset and uninstall never reach these directories.
-
 use anyhow::Context as _;
 use std::fs::Metadata;
 use std::io;
@@ -18,12 +13,9 @@ use crate::services::game_process::{
     ensure_game_stopped_with, GameProcessProbe, GameStoppedOperation, SystemGameProcessProbe,
 };
 
-/// Diagnostic prefix for a name that is not a Legacy Root this installer may
-/// delete.
 const LEGACY_ROOT_ERR_UNKNOWN: &str = "legacy_root_unknown";
 
-/// The mod's Payload file that names the Data Root it writes. Mods before 6.0
-/// ship it without `dataRootDirectoryName`.
+/// The installed contract can lack `dataRootDirectoryName`, which requires a reinstall.
 pub(crate) const INSTALLED_HISTORY_DATABASE_CONTRACT: &str =
     "BepInEx/plugins/BazaarPlusPlus.history-database.json";
 
@@ -136,8 +128,6 @@ impl LegacyDataPresence {
     }
 }
 
-/// Which Legacy Roots exist in `game_path`, without measuring them: a few
-/// metadata reads, whatever the roots hold.
 pub(crate) fn legacy_data_presence(game_path: &Path) -> LegacyDataPresence {
     LegacyDataPresence {
         game_path: Some(game_path.to_string_lossy().into_owned()),
@@ -160,8 +150,6 @@ pub(crate) fn legacy_data_state(game_path: &Path) -> LegacyDataState {
     }
 }
 
-/// The Legacy Roots that exist as real directories directly under `game_path`.
-/// A file or symbolic link with a Legacy Root's name is not one.
 fn present_legacy_roots(game_path: &Path) -> Vec<LegacyRoot> {
     LegacyRoot::ALL
         .into_iter()
@@ -193,8 +181,6 @@ fn measure_root(name: LegacyRoot, root: &Path) -> LegacyDataRoot {
                 continue;
             };
             let path = entry.path();
-            // `symlink_metadata` describes a link itself, so links are never
-            // followed out of the root.
             let Ok(metadata) = std::fs::symlink_metadata(&path) else {
                 usage.unreadable_entry_count += 1;
                 continue;
@@ -247,8 +233,6 @@ fn link_count(_path: &Path, _metadata: &Metadata) -> io::Result<u64> {
     Ok(1)
 }
 
-/// Which Data Root the installed mod writes. Any doubt reads as
-/// [`InstalledModDataRoot::ReinstallRequired`].
 pub(crate) fn installed_mod_data_root(game_path: &Path) -> InstalledModDataRoot {
     let named = std::fs::read(game_path.join(INSTALLED_HISTORY_DATABASE_CONTRACT))
         .ok()
@@ -266,8 +250,6 @@ pub(crate) fn installed_mod_data_root(game_path: &Path) -> InstalledModDataRoot 
     }
 }
 
-/// Deletes the confirmed Legacy Root `name` under the data maintenance lock,
-/// refusing while the game runs, and returns the remeasured state.
 pub(crate) async fn delete_legacy_root(
     maintenance: &DataMaintenanceLock,
     game_path: String,
@@ -293,7 +275,6 @@ pub(crate) fn delete_legacy_root_blocking_with(
     let path = root.path_in(game_path);
     let removed = is_real_directory(&path);
     if removed {
-        // The same removal Reset uses for the current Data Root.
         let report = remove_dir_with_retry(&path);
         if !report.is_empty() {
             return Err(ActionError::PartialFailure(report.failed));
@@ -330,7 +311,6 @@ mod tests {
         std::fs::write(path, bytes).unwrap();
     }
 
-    /// Three Legacy Roots of known size and the current Data Root.
     fn seed_legacy_roots(game: &Path) {
         write(&game.join("BazaarPlusPlus/bazaarplusplus.db"), &[0; 10]);
         write(&game.join("BazaarPlusPlusV4/a/b/c.png"), &[0; 7]);
@@ -381,7 +361,6 @@ mod tests {
             outside.path().join("linked.bin"),
         )
         .unwrap();
-        // A symlinked Legacy Root name is not a Legacy Root directory.
         std::os::unix::fs::symlink(outside.path(), game.path().join("BazaarPlusPlusV4")).unwrap();
 
         let state = legacy_data_state(game.path());
@@ -399,7 +378,6 @@ mod tests {
         let game = tempfile::tempdir().unwrap();
         let contract = game.path().join(INSTALLED_HISTORY_DATABASE_CONTRACT);
 
-        // No mod contract at all.
         assert_eq!(
             installed_mod_data_root(game.path()),
             InstalledModDataRoot::ReinstallRequired
@@ -415,7 +393,6 @@ mod tests {
             InstalledModDataRoot::ReinstallRequired
         );
 
-        // A contract naming another directory.
         write(
             &contract,
             br#"{ "formatVersion": 1, "dataRootDirectoryName": "BazaarPlusPlusV5" }"#,
@@ -425,14 +402,12 @@ mod tests {
             InstalledModDataRoot::ReinstallRequired
         );
 
-        // Corrupt JSON.
         write(&contract, br#"{ "dataRootDirectoryName": "#);
         assert_eq!(
             installed_mod_data_root(game.path()),
             InstalledModDataRoot::ReinstallRequired
         );
 
-        // The contract the current mod ships.
         let current = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json"),

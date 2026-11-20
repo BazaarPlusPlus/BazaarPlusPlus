@@ -16,19 +16,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Game.Screenshots;
 
-/// <summary>
-/// The Android End-of-Run Capture Workflow: Core's <see cref="EndOfRunCaptureWorkflowCore{TScreen}"/>
-/// over the game's end-of-run screen, the desktop's state machine with this host's surface. It
-/// captures only while BazaarDB upload is on, since the screenshot exists for the Bundle; the
-/// PNG lands under the Data Root's <c>Screenshots/</c> with its <c>run_screenshots</c> row, where
-/// Core's seal coordinator reads it. Readiness follows the desktop rule through typed interop
-/// reads: reveal started, no screen transition, skills settled, and the cards settled. The game's
-/// raw reveal never sets FaceUp here (the desktop's completion patch is not ported), so the cards
-/// settle by their animator subtrees' poses, as on the desktop, or by a pose that held from the
-/// first sample. When neither holds by the reveal deadline the capture still takes the frame,
-/// degraded. The two patches reach it through <c>AndroidPatchHost.Features</c>; the melon ticks
-/// it on the main thread.
-/// </summary>
 internal sealed class AndroidEndOfRunCapture
     : IEndOfRunCaptureSurface<EndOfRunScreenController>,
         IDisposable
@@ -38,11 +25,8 @@ internal sealed class AndroidEndOfRunCapture
     private static readonly int FaceUpHash = Animator.StringToHash(FaceUpParameter);
     private const ulong HashOffset = 14695981039346656037UL;
 
-    // A pose unchanged for this long since the first sample counts as settled, motion or not.
     private const float StillSeconds = 1.5f;
 
-    // The desktop waits up to 20 s for a reveal; here the deadline captures what is shown, so
-    // it waits less before holding Continue no longer.
     private static readonly EndOfRunCapturePolicy Policy = EndOfRunCapturePolicy.Default with
     {
         RevealDeadlineSeconds = 8f,
@@ -99,7 +83,6 @@ internal sealed class AndroidEndOfRunCapture
         RefreshRunId();
     }
 
-    /// <summary>Attempts started, frames read and PNGs written, for the hooks summary.</summary>
     public long Attempts { get; private set; }
 
     public long FramesRead { get; private set; }
@@ -108,7 +91,6 @@ internal sealed class AndroidEndOfRunCapture
 
     public bool IsAvailable => !_disposed;
 
-    /// <summary>Main thread, every frame.</summary>
     public void Tick()
     {
         if (_disposed)
@@ -123,7 +105,6 @@ internal sealed class AndroidEndOfRunCapture
         }
     }
 
-    /// <summary>The Continue patch: true holds the click while the capture is pending.</summary>
     public bool ShouldBlockContinue(EndOfRunScreenController screen)
     {
         if (_disposed || screen == null)
@@ -142,7 +123,6 @@ internal sealed class AndroidEndOfRunCapture
         }
     }
 
-    /// <summary>The summary's cards began to display: the reveal the capture waits on started.</summary>
     public void ObserveRevealStarted(EndOfRunSummaryController summary)
     {
         if (_disposed || summary == null)
@@ -216,7 +196,6 @@ internal sealed class AndroidEndOfRunCapture
         return new CaptureAttempt(this, request);
     }
 
-    // No touch blocker: the Continue patch is the only gate, so this only logs the edges.
     public void SetContinueBlocked(EndOfRunScreenController? screen, bool blocked)
     {
         if (blocked == _continueBlocked)
@@ -298,16 +277,11 @@ internal sealed class AndroidEndOfRunCapture
 
         if (count == 0 || allFaceUp || settled)
             return new(EndOfRunCaptureReadinessState.Ready, null, null);
-        // The cards cannot prove they settled (FaceUp stays unset here, see the class summary):
-        // the deadline then captures what the screen shows instead of nothing.
         return new(EndOfRunCaptureReadinessState.DetectionFailed, null, null);
     }
 
-    // The desktop's structural rule over each card's animator subtree (local poses, VFX and
-    // particle subtrees left out): a pose that moved and then held for 500 ms. The game's raw
-    // reveal never sets FaceUp, and the reveal can finish before the first sample, so a pose that
-    // held from the first sample for StillSeconds also counts. The node list is built once per
-    // summary; each sample, at the shared cadence, reads only the local poses through interop.
+    // The raw reveal never sets FaceUp on Android. It can also finish before the first sample, so a
+    // pose that stays still from the first sample counts as settled.
     private bool ObserveStability(
         EndOfRunSummaryController summary,
         Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<Il2Cpp.ItemController> cards
@@ -501,11 +475,7 @@ internal sealed class AndroidEndOfRunCapture
         public long Milliseconds => (long)Math.Round(Time.realtimeSinceStartup * 1000d);
     }
 
-    /// <summary>
-    /// One capture: a frame for the tooltip to close, two more for the screen to redraw without
-    /// it, then the end-of-frame read. Continue is released once the pixels are managed bytes;
-    /// the PNG is written on a pool thread.
-    /// </summary>
+    // Allow the screen to redraw after the tooltip closes so it stays out of the captured frame.
     private sealed class CaptureAttempt : IEndOfRunCaptureAttempt
     {
         private readonly object _gate = new();
@@ -562,7 +532,6 @@ internal sealed class AndroidEndOfRunCapture
                 return _canceled;
         }
 
-        // From here a cancel lets the attempt finish and report, as on the desktop.
         private bool TryStart()
         {
             lock (_gate)

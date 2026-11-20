@@ -1,14 +1,6 @@
-//! A Run's Final Board: the items on the board of its last local battle whose
-//! board the mod captured. The mod writes each battle's board to
-//! `battle_snapshots.player_hand_json` in the shape of the mod Core's
-//! `PvpBattleCardSetDocument`.
+//! The mod owns the board JSON shape in `PvpBattleCardSetDocument`.
 
-/// One row per item on a Final Board: `run_id`, `template_id`, `name` (the
-/// item's English internal name). A battle whose board read failed has status
-/// `Missing` and no items, so the board falls back to the battle before it.
-/// Malformed JSON reads as no board rather than failing the query. The last
-/// captured battle is looked up once per Run, newest first along
-/// `idx_battles_run_id_recorded`, so the cost grows with Runs, not battles.
+/// The per-Run index lookup bounds work when a Run has many battles. A `Missing` snapshot falls back to an earlier capture.
 pub(crate) const FINAL_BOARD_ITEMS: &str = "
     select
       final.run_id as run_id,
@@ -41,12 +33,7 @@ pub(crate) const FINAL_BOARD_ITEMS: &str = "
 
 #[cfg(test)]
 mod tests {
-    // Isolated on purpose: the snapshot JSON is a contract with the mod, and a
-    // rename there fails silently here. Failure modes:
-    // - The mod renames `items`, `template_id`, `type`, `name` or `status`, or the
-    //   values `Item` or `Captured`: every Final Board reads as empty.
-    // - A socket effect (`SocketEffect`) on the board counts as an item.
-    // The mod pins the shape in its own golden, read here as written.
+    // Use the mod's golden because a producer-side rename would silently make Final Boards read as empty.
     use super::FINAL_BOARD_ITEMS;
     use crate::history::mod_schema::create_mod_schema;
 

@@ -17,11 +17,7 @@ import { platformInventory } from './payload-inventory.ts';
 import { readZipEntries } from './payload-zip.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
-// The Managed Payload the release build writes for the mod's self-update
-// (mod ADR-0014). Failure modes: a manifest the mod's parser would read
-// differently (the shared golden), a non-managed digest that moves with a
-// managed file or misses a native one, a zip that carries a file its manifest
-// does not name, and a staged Payload changed after preparation.
+// The mod's parser reads the same manifest golden.
 
 const roots: string[] = [];
 afterEach(() => {
@@ -37,8 +33,6 @@ function write(file: string, bytes: string | Buffer) {
   fs.writeFileSync(file, bytes);
 }
 
-// A staged macOS Payload source: every required inventory path with
-// recognizable bytes, the history contract copied from the mod.
 function stagedSource() {
   const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-managed-'));
   roots.push(sourceDir);

@@ -5,8 +5,7 @@ using BazaarPlusPlus.Storage.RunLog;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-// A battle captured before its manifest carried income and gold replays them from its Run's
-// row; Storage's RunEconomyReader owns the SQL.
+// Older battle manifests omit income and gold, so replay gets them from the Run row.
 public static class ReplayRunEconomyFallback
 {
     public static void ApplyMissingRunEconomy(

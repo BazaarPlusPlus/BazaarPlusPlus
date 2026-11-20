@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 
-// Behaviour of the shared Web component library (design/ui), which the
-// installer and the site both render.
 import { act, StrictMode, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';

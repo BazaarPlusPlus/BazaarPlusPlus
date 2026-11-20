@@ -1118,8 +1118,6 @@ public static class CombatImpactProjector
         resolved = ResolvedImpactValue.Empty(kind, action);
 
         // Target frame deltas include fixed ticking and cannot reliably split concurrent actions.
-        // The source value is the nominal outgoing duration, before target-side mitigation,
-        // immunity, overlap, or truncation.
         if (
             cardAttributes.TryGetValue(sourceId, out var attributes)
             && attributes.TryGetValue(attribute, out var configuredAmount)
@@ -1387,10 +1385,8 @@ public static class CombatImpactProjector
         foreach (var index in listenerEventIndices)
         {
             var item = events[index];
-            // TTriggerOnCardCritted proves that the triggering activation critted. Its action is a
-            // consequence of that crit, not another critical outcome. Native adjustment matching
-            // can still inherit a same-frame crit flag, so clear both the result and the recovery
-            // candidate before ambiguous-damage recovery runs.
+            // TTriggerOnCardCritted reacts to a crit. Treating its action as another crit would double-count it,
+            // including when same-frame native adjustments pass on the crit flag.
             events[index] = item with
             {
                 IsCritical = false,
@@ -2292,10 +2288,7 @@ public static class CombatImpactProjector
                 );
                 var isReferenceValuedAura = IsReferenceValuedAuraEffect(aura, entities);
 
-                // Combat teardown removes every surviving aura in one cleanup frame. Those
-                // removals are lifecycle bookkeeping, not negative impact caused by the source.
-                // Count the grant event itself, regardless of whether the granted value is
-                // positive or negative, and ignore RemovedFrom entirely.
+                // Combat teardown removes surviving auras for cleanup. Those removals do not represent source impact.
                 foreach (var target in aura.AppliedTo)
                 {
                     if (target is CombatPlayerTarget playerTarget)
@@ -3789,8 +3782,7 @@ public static class CombatImpactProjector
             return false;
         }
 
-        // The fixed operand is the only reference modifier we can evaluate without live game
-        // context. Its rounding and divide-by-zero semantics are the game's own.
+        // Other operand types need live game context, which the projector cannot read.
         modifiedValue = modifier.GetModifiedValue(originalValue, operand.Value);
         return !float.IsNaN(modifiedValue) && !float.IsInfinity(modifiedValue);
     }
@@ -4234,7 +4226,6 @@ public static class CombatImpactProjector
 
         internal int CriticalCount { get; init; }
 
-        /// <summary>Number of critical/non-critical outcomes resolved for this execution.</summary>
         internal int CriticalOutcomeCount { get; init; }
 
         internal int? CriticalValue { get; init; }

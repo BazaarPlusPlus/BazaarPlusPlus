@@ -8,13 +8,11 @@ import SiteHeader from './SiteHeader';
 type PageLayoutProps = {
   location: ResolvedSpaLocation;
   width?: PageWidth;
-  /** Extra footer content shown opposite the credit, such as the last sync time. */
   footerMeta?: ReactNode;
   busy?: boolean;
   children: ReactNode;
 };
 
-/** Page chrome shared by every route: header, content column, and footer. */
 export default function PageLayout({
   location,
   width = 'info',
@@ -75,7 +73,6 @@ export function PageHeading({ title, intro, actions }: PageHeadingProps) {
   );
 }
 
-/** Section title (h2, the design system's `title`: 18/600) used below the page heading. */
 export function SectionHeading({
   id,
   children

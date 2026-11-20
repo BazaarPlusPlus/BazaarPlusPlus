@@ -17,8 +17,6 @@ use crate::history::queries::{
 };
 use crate::history::screenshots::{primary_screenshot, primary_screenshot_ids};
 
-/// A page of the Runs `query` selects, with totals over all of them.
-/// `thumbnail_url` names the History Thumbnail of a screenshot id.
 pub fn list_history_runs(
     database_path: &Path,
     query: &RunQuery,
@@ -67,7 +65,6 @@ pub fn list_history_runs(
         })
         .collect();
 
-    // The key card options come from the Runs the other filters select.
     let option_runs = load_run_ids(&conn, &query.any_key_card().condition(&spellings, &boards))?;
     let options = boards.key_card_options(&option_runs, query.key_card.as_deref());
     let ids = options

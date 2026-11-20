@@ -3,50 +3,38 @@ import fs from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-/** An object read whole, with the ETag a conditional replacement names. */
 export interface StoredObject {
   bytes: Buffer;
   etag: string;
 }
 
-/** What a HEAD of an object reports; R2 omits a header it does not hold. */
 export interface StoredObjectHead {
   size: number;
   sha256: string | null;
   etag: string | null;
 }
 
-/** The options of ObjectStore.get. */
 export interface GetOptions {
   /** The largest body the read accepts; 1 MiB by default. */
   maxBytes?: number;
 }
 
-/**
- * A conditional write: exactly one of `ifMatch` and `ifNoneMatch`. A null
- * `ifMatch`, as a HEAD without an ETag gives, names no ETag.
- */
+/** A missing ETag from HEAD cannot satisfy a conditional replacement. */
 export interface PutOptions {
   ifMatch?: string | null;
   ifNoneMatch?: boolean;
   contentType?: string;
 }
 
-/** A streamed conditional write of a file whose sha256 the caller holds. */
 export interface PutFileOptions extends PutOptions {
   sha256: string;
 }
 
-/** What ObjectStore.getFile wrote. */
 export interface GetFileResult {
   size: number;
 }
 
-/**
- * The release object store: R2 through createR2Store, and the in-memory
- * stand-in tests use. Every write is conditional; a lost precondition
- * returns false.
- */
+/** Writes return false when their R2 precondition fails. */
 export interface ObjectStore {
   get(key: string, options?: GetOptions): Promise<StoredObject | null>;
   head(key: string): Promise<StoredObjectHead | null>;
@@ -55,33 +43,27 @@ export interface ObjectStore {
   getFile(key: string, file: string): Promise<GetFileResult | null>;
 }
 
-/** The request the store sends; its headers are always a plain record. */
 export interface FetchInit extends RequestInit {
   headers: Record<string, string>;
 }
 
-/** The fetch the store calls: `fetch`, or a test double of it. */
 export type FetchImpl = (url: string, init: FetchInit) => Promise<Response>;
 
-/** An R2 S3 key pair. */
 export interface R2KeyPair {
   accessKeyId: string;
   secretAccessKey: string;
 }
 
-/** The S3 key pair credentialsFromApiToken derives, with its account. */
 export interface R2Credentials extends R2KeyPair {
   accountId: string;
 }
 
-/** The options of credentialsFromApiToken. */
 export interface CredentialsFromApiTokenOptions {
   token: string | undefined;
   accountId: string | undefined;
   fetchImpl?: FetchImpl;
 }
 
-/** The options of createR2Store: a fixed key pair or a resolver of one. */
 export interface CreateR2StoreOptions {
   accountId: string | undefined;
   accessKeyId?: string;
@@ -93,7 +75,6 @@ export interface CreateR2StoreOptions {
   now?: () => Date;
 }
 
-/** The options of r2StoreFromApiToken. */
 export interface R2StoreFromApiTokenOptions {
   token: string | undefined;
   accountId: string | undefined;
@@ -103,13 +84,11 @@ export interface R2StoreFromApiTokenOptions {
   now?: () => Date;
 }
 
-/** The options of r2StoreFromEnvironment; the credentials come from `env`. */
 export type R2StoreEnvironmentOptions = Omit<
   R2StoreFromApiTokenOptions,
   'token' | 'accountId'
 >;
 
-/** The options of putImmutableFile. */
 export interface PutImmutableFileOptions {
   sha256: string;
   size?: number;
@@ -118,7 +97,6 @@ export interface PutImmutableFileOptions {
   wait?: (ms: number) => Promise<void>;
 }
 
-/** How putImmutableFile settled: this upload, or an identical object. */
 export type PutImmutableFileOutcome = 'uploaded' | 'present';
 
 type R2Method = 'GET' | 'HEAD' | 'PUT';
@@ -128,15 +106,12 @@ interface RequestOptions {
   timeoutMs?: number;
 }
 
-// The Cloudflare tokens/verify response, as it claims to be.
 interface TokenVerification {
   success?: boolean;
   errors?: { code?: unknown }[];
   result?: { id?: string; status?: unknown };
 }
 
-// Content and signing digests; also the R2 Secret Access Key, which Cloudflare
-// defines as the SHA-256 of the API token value (not password storage).
 const digest = (bytes: string | NodeJS.ArrayBufferView): string =>
   crypto.createHash('sha256').update(bytes).digest('hex');
 const hmac = (key: crypto.BinaryLike, value: string): Buffer =>
@@ -150,16 +125,11 @@ const encode = (value: string): string =>
 export const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
 const ACCOUNT_ID = /^[a-f0-9]{32}$/i;
 const REQUEST_TIMEOUT_MS = 120000;
-// A file transfer streams its body; a 2.8 GB official APK needs far longer
-// than one buffered request.
+// Multi-gigabyte transfers need more time than buffered requests.
 const FILE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 const TOKEN_ID = /^[a-f0-9]{32}$/;
 
-// Node's fetch rejects with a bare "fetch failed" and keeps the reason (DNS,
-// reset, TLS, timeout) on err.cause, often nested and sometimes an
-// AggregateError. Flattens that chain into one line of messages and the
-// system-error fields. It never reads request options; callers redact the
-// token or account id that an error message itself may quote.
+// Node fetch puts transport diagnostics in nested causes. Callers redact any credentials in them.
 const TRANSPORT_FIELDS = [
   'code',
   'errno',
@@ -169,7 +139,6 @@ const TRANSPORT_FIELDS = [
   'port'
 ] as const;
 
-// An Error with the system-error fields, or an AggregateError's `errors`.
 type TransportError = Error &
   Partial<Record<(typeof TRANSPORT_FIELDS)[number], unknown>> & {
     errors?: unknown;
@@ -194,12 +163,7 @@ export function describeTransportError(error: unknown, depth = 0): string {
   return text;
 }
 
-// R2's S3 credentials are a view of a Cloudflare Account API Token: the Access
-// Key ID is the token's id, which GET /accounts/{account}/tokens/verify
-// reveals, and the Secret Access Key is the SHA-256 of the token value. Every
-// store derives the pair from CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
-// this way; nothing stores the pair. The verified id is cached per process
-// under the account and the token's digest.
+// Cloudflare's S3 Access Key ID comes from tokens/verify and its Secret Access Key is the token's SHA-256.
 const verifiedTokenIds = new Map<string, Promise<string>>();
 
 export function assertAccountId(accountId: string | undefined): string {
@@ -216,7 +180,6 @@ function assertToken(token: string | undefined): string {
   return token.trim();
 }
 
-// Only account-owned tokens are supported; a user token is rejected here.
 async function verifyToken(
   token: string,
   account: string,
@@ -280,9 +243,7 @@ export async function credentialsFromApiToken({
   return { accountId: account, accessKeyId: await pending, secretAccessKey };
 }
 
-// Release artifacts live under installer/ in the public bucket, served at
-// https://cdn.bazaarplusplus.com/installer (RELEASE_BASE_URL). Callers use keys
-// relative to the prefix; another bucket has no prefix unless one is given.
+// Public release keys are relative to installer/, matching the path in RELEASE_BASE_URL.
 export const RELEASE_BUCKET = 'bazaarplusplus-public';
 export const RELEASE_PREFIX = 'installer';
 
@@ -297,15 +258,12 @@ export function createR2Store({
   now = () => new Date()
 }: CreateR2StoreOptions): ObjectStore {
   const account = assertAccountId(accountId);
-  // A fixed pair (tests, callers that already hold one) or a resolver that
-  // derives it on first use, so construction never touches the network.
   if (typeof credentials !== 'function') {
     if (!accessKeyId || !secretAccessKey)
       throw new Error('R2 access requires an access key id and secret');
     const pair = { accessKeyId, secretAccessKey };
     credentials = async () => pair;
   }
-  // Narrowed here, so the request closure sees a resolver, never undefined.
   const resolveCredentials = credentials;
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(bucket))
     throw new Error('Invalid R2 bucket');
@@ -320,7 +278,6 @@ export function createR2Store({
     extraHeaders: Record<string, string> = {},
     { payloadHash, timeoutMs }: RequestOptions = {}
   ): Promise<Response> {
-    // A streamed body is never hashed here: its caller passes payloadHash.
     if (payloadHash === undefined) {
       if (body instanceof ReadableStream)
         throw new Error('A streamed R2 request needs its payload hash');
@@ -463,8 +420,6 @@ export function createR2Store({
         throw new Error(`R2 PUT ${key} failed with HTTP 404`);
       return true;
     },
-    // Streams a local file whose sha256 the caller already holds; R2 checks
-    // the body against it through the signed payload hash.
     async putFile(
       key,
       file,
@@ -500,7 +455,6 @@ export function createR2Store({
         throw new Error(`R2 PUT ${key} failed with HTTP 404`);
       return true;
     },
-    // Streams an object into a file; null when it does not exist.
     async getFile(key, file) {
       const response = await request(
         'GET',
@@ -526,7 +480,6 @@ export function createR2Store({
   };
 }
 
-// A store whose S3 pair is derived from an API token on its first request.
 export function r2StoreFromApiToken({
   token,
   accountId,
@@ -587,11 +540,7 @@ export async function putImmutable(
 // R2 accepts at most 5 GiB in one PUT; an official game APK is about 2.8 GB.
 export const R2_SINGLE_PUT_LIMIT = 5 * 1024 ** 3;
 
-// Streams a local file to an immutable key. A large transfer can fail or lose
-// its response after R2 stored the object, so every outcome is settled by a
-// HEAD of the key, never by reading the object back: an object of the same
-// size and sha256 is this upload, a different one fails, and no object means
-// the transfer is retried.
+// Read metadata with HEAD after a transfer to settle lost PUT responses without downloading large files.
 export async function putImmutableFile(
   store: Pick<ObjectStore, 'putFile' | 'head'>,
   key: string,
@@ -631,8 +580,6 @@ export async function putImmutableFile(
   throw failure;
 }
 
-// A replaceable object converges on `bytes` through ETag compare-and-swap:
-// mirror records before their platform is promoted, snapshot manifests.
 export async function putReplaceable(
   store: Pick<ObjectStore, 'get' | 'put'>,
   key: string,

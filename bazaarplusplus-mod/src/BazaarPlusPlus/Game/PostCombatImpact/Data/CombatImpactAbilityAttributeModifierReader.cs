@@ -7,8 +7,7 @@ using BazaarPlusPlus.GameInterop.CombatSimulation;
 
 namespace BazaarPlusPlus.Game.PostCombatImpact.Data;
 
-// An effect id whose direct modifiers differ is ambiguous and left out. The comparison runs on the
-// game's records, before the modifiers cross into Core's vocabulary.
+// Compare before projection into Core so a lossy mapping cannot hide conflicting native modifiers.
 internal static class CombatImpactAbilityAttributeModifierReader
 {
     internal static IReadOnlyDictionary<string, CombatAttributeModifier>? Read(

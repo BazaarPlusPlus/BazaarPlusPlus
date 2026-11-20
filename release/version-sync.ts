@@ -3,12 +3,10 @@ import path from 'node:path';
 import { readProductVersion } from './product.ts';
 import type { ProductVersion } from './product.ts';
 
-// The product version fields in package.json and tauri.conf.json.
 interface VersionedJson {
   version?: string;
 }
 
-/** Every version the installer's toolchain files state, beside VERSION. */
 export interface VersionSnapshot {
   productVersion: ProductVersion;
   packageVersion: string | undefined;

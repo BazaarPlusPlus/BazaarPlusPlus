@@ -5,9 +5,6 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Localized labels for the Collection panel UI and its settings-dock entry. Lookups follow
-// the HistoryPanelText pattern: store one LocalizedTextSet per concept, resolve through the
-// current PlayerPreferences language code, fall through to English when nothing else fits.
 public static class CollectionPanelText
 {
     private static readonly LocalizedTextSet TitleText = new("Card Collection", "图鉴", "圖鑑");
@@ -178,10 +175,8 @@ public static class CollectionPanelText
 
     public static bool IsChineseLanguage() => LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode);
 
-    // Tag labels intentionally have no entry here: chips resolve through the game's native
-    // typography (GameInterop.TagTypography.NativeTagTypography), never a mod-side dictionary.
+    // Tag chips get their labels from NativeTagTypography to follow the game's terminology.
 
-    // The Dragons' label is the game's own localized name, so the host supplies it.
     public static string Hero(CardHero hero, Func<string> theDragonsDisplayName)
     {
         if (hero == CardHero.TheDragons)

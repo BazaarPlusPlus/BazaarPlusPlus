@@ -12,7 +12,6 @@ internal sealed class HistoryPanelMenuEntry : IDisposable
     private readonly ConditionalWeakTable<PooledScrollRectBase, RowPitch> _pitches = new();
     private Sprite? _icon;
 
-    // The pooler's measured spacing and row pitch, before the History row changed them.
     private sealed class RowPitch
     {
         internal float Spacing { get; init; }
@@ -39,10 +38,7 @@ internal sealed class HistoryPanelMenuEntry : IDisposable
         );
     }
 
-    // The History row makes the menu one row longer, which puts its last row (Exit Game) over the
-    // MENU button that opens and closes it. This tightens the row pitch so the menu keeps the
-    // height it has without the History row. The pooler measures its pitch only on its first
-    // Initialize, so each pass starts again from the saved first measurement.
+    // The extra row would overlap the MENU button. The pooler measures pitch only on its first Initialize, so reuse that baseline.
     internal void FitRows(PooledScrollRectBase pooler)
     {
         if (

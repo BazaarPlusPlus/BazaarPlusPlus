@@ -9,10 +9,7 @@ use crate::history::final_board::FINAL_BOARD_ITEMS;
 use crate::history::instant::{optional_utc_column, utc_column};
 use crate::history::mapper::{map_battle_row, BattleFields, BattleVideoFields};
 
-/// Why a history database could not be read. An unsupported schema stays typed
-/// so the History page can name the found and supported versions; every other
-/// failure is a diagnostic. Callers that only report a diagnostic convert it
-/// to its `Display` text.
+/// Keep schema mismatches typed so History can display the found and supported versions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HistoryReadError {
     UnsupportedSchema { found: i64, supported: String },
@@ -70,26 +67,16 @@ pub struct VideoRef {
     pub relative_path: String,
 }
 
-/// Backoff before each retry of a transient open. The mod writes this database
-/// from the running game, so a read can land mid-checkpoint and fail once
-/// before succeeding.
+/// A running game's SQLite checkpoint can make a read open fail transiently.
 const OPEN_RETRY_BACKOFF: [Duration; 2] = [Duration::from_millis(50), Duration::from_millis(150)];
 
-/// Read connection for every history query.
-///
-/// Opened read-write on purpose. A read-only connection cannot create a missing
-/// `-shm` or recover a dirty WAL, and both are exactly what a game process that
-/// exited uncleanly leaves behind — so the read-only flag turns a recoverable
-/// database into an unreadable one. Write access is not a requirement of this
-/// path: when the file is write-protected SQLite opens it read-only by itself.
+/// A read-only open cannot recover a dirty WAL or create a missing `-shm` file after an unclean exit.
+/// SQLite still falls back to read-only when the database file is write-protected.
 pub fn open_connection(database_path: &Path) -> Result<Connection, HistoryReadError> {
     open_with_retry(database_path, Writability::Optional)
 }
 
-/// Write connection for delete and cleanup paths. Because SQLite silently
-/// downgrades a write-protected database to read-only, an unwritable file would
-/// otherwise open cleanly here and only fail partway through a cleanup
-/// transaction; the writability check moves that failure to the open.
+/// SQLite silently downgrades an unwritable database to read-only, so check writability before cleanup.
 pub fn open_write_connection(database_path: &Path) -> Result<Connection, HistoryReadError> {
     open_with_retry(database_path, Writability::Required)
 }
@@ -108,8 +95,6 @@ fn open_with_retry(
     loop {
         match open_probed(database_path, writability) {
             Ok((conn, user_version)) => {
-                // A schema mismatch is a stable fact about the file, so it leaves
-                // the retry loop immediately with its own diagnostic.
                 validate_supported_schema(user_version)?;
                 return Ok(conn);
             }
@@ -133,9 +118,7 @@ fn open_probed(
 ) -> Result<(Connection, i64), rusqlite::Error> {
     let conn = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     conn.busy_timeout(Duration::from_secs(2))?;
-    // Opening is lazy: the first statement is what actually touches the database
-    // file, the WAL and the shared-memory index, so this probe is what proves the
-    // connection can read. It doubles as the schema check's only query.
+    // SQLite opens lazily. The first query exercises the database, WAL, and shared-memory index.
     let user_version = conn.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?;
     if writability == Writability::Required && conn.is_readonly(rusqlite::MAIN_DB)? {
         return Err(rusqlite::Error::SqliteFailure(
@@ -159,9 +142,7 @@ fn is_transient_error(error: &rusqlite::Error) -> bool {
     )
 }
 
-/// Diagnostics carry the SQLite extended code: the bare message collapses a
-/// whole family of causes into "disk I/O error", which is not enough to tell a
-/// locked shared-memory index from a failed WAL recovery when triaging a report.
+/// The extended code distinguishes shared-memory lock and WAL recovery failures reported as disk I/O errors.
 fn describe_error(error: &rusqlite::Error) -> String {
     match error {
         rusqlite::Error::SqliteFailure(inner, _) => {
@@ -182,10 +163,7 @@ fn validate_supported_schema(found: i64) -> Result<(), HistoryReadError> {
     })
 }
 
-/// Write connection for cleanup operations. Unlike `open_write_connection`,
-/// this enables per-connection foreign-key enforcement so the mod schema's
-/// ON DELETE CASCADE chains (runs -> run_events/battles/bundle_seal_jobs,
-/// battles -> battle_snapshots) fire on our deletes.
+/// SQLite enforces cascades only when foreign keys are enabled on this connection.
 pub fn open_cleanup_connection(database_path: &Path) -> anyhow::Result<Connection> {
     let conn = open_write_connection(database_path)?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
@@ -198,7 +176,6 @@ pub fn sql_placeholders(count: usize) -> String {
         .join(", ")
 }
 
-/// The stored hero spelling of every Run, grouped by canonical hero id.
 pub fn load_hero_spellings(conn: &Connection) -> anyhow::Result<HeroSpellings> {
     let mut stmt = conn.prepare("select distinct hero from runs")?;
     let stored = stmt
@@ -207,7 +184,6 @@ pub fn load_hero_spellings(conn: &Connection) -> anyhow::Result<HeroSpellings> {
     Ok(HeroSpellings::from_stored(stored))
 }
 
-/// Every Run's Final Board.
 pub fn load_final_boards(conn: &Connection) -> anyhow::Result<FinalBoards> {
     let mut stmt = conn.prepare(&format!(
         "select run_id, template_id, name from ({FINAL_BOARD_ITEMS})"
@@ -226,7 +202,6 @@ pub fn load_final_boards(conn: &Connection) -> anyhow::Result<FinalBoards> {
     Ok(FinalBoards::from_items(items))
 }
 
-/// The ids of the Runs `condition` selects.
 pub fn load_run_ids(
     conn: &Connection,
     condition: &RunCondition,
@@ -238,9 +213,7 @@ pub fn load_run_ids(
     Ok(ids)
 }
 
-/// Totals over the Runs `condition` selects. Without a filter, `videos` counts
-/// every completed video in the database, Ghost Battle recordings included;
-/// with one, only the videos of the selected Runs' battles.
+/// Unfiltered totals include Ghost Battle recordings. Filtered totals count only videos attached to selected Runs.
 pub fn load_summary(conn: &Connection, condition: &RunCondition) -> anyhow::Result<HistorySummary> {
     let RunCondition {
         sql,
@@ -513,8 +486,6 @@ mod tests {
             .unwrap();
         write_protect(&database_path);
 
-        // SQLite downgrades the read-write open to read-only, which is what keeps
-        // history readable when the game lives in a directory we cannot write.
         assert!(open_connection(&database_path).is_ok());
     }
 

@@ -29,12 +29,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
-// The Bundle pipeline anchor: real SQLite run and battle stores -> replay payloads ->
-// BundleSealCoordinator -> BundleQueueStore outbox -> BundleUploadFeed.Session -> ModApiSession.
-// Every sealed Bundle lands in artifacts/bundle-pipeline/ and the normalized summary must match
-// fixtures/bundle-pipeline.golden.json (PipelineArtifacts owns the format and regeneration).
-// Each test writes under its own temporary directory; the capsule gave each step its own
-// subdirectory of one root.
 public sealed class BundlePipelineTests : IDisposable
 {
     private readonly string _root = Path.Combine(
@@ -50,8 +44,6 @@ public sealed class BundlePipelineTests : IDisposable
         Directory.Delete(_root, recursive: true);
     }
 
-    // The goldens hold the desktop binding: the netstandard2.1 outputs of Core, Storage and
-    // ModApi (ADR-0013).
     [Fact]
     public void The_shared_projects_load_their_desktop_output()
     {
@@ -63,7 +55,6 @@ public sealed class BundlePipelineTests : IDisposable
     public async Task The_pipeline_seals_and_uploads_every_run_as_its_golden_records()
     {
         var root = _root;
-        // Privacy anchor: the real log stack observes the whole seal -> outbox -> upload run.
         var logLines = new List<string>();
         var logSource = new ManualLogSource("bundle-pipeline-privacy");
         logSource.LogEvent += (_, args) => logLines.Add(args.Data?.ToString() ?? string.Empty);
@@ -80,7 +71,6 @@ public sealed class BundlePipelineTests : IDisposable
 
         RoutingKeepsPveOutOfPersistence(database);
 
-        // run-only: one replayable PvP battle, no screenshot requested.
         CreateRun(store, "run-seal-001", minute: 0, screenshotRequested: false);
         store.AppendEvent(
             "run-seal-001",
@@ -96,8 +86,6 @@ public sealed class BundlePipelineTests : IDisposable
                 GameDataEtag = "0123456789abcdef0123456789abcdef",
             }
         );
-        // The Run Message Stream as RunMessageStreamWriter stores it: a command, then the game's
-        // own bytes for the message that answered it.
         var streamMessage = MessagePackSerializer.Serialize<INetMessage>(
             // The game draws a random message id; the golden needs a fixed one.
             new NetMessageRunInitialized("run-seal-001", "server-build-13176", "prod", "Ranked")
@@ -191,7 +179,6 @@ public sealed class BundlePipelineTests : IDisposable
             "The outbox must not FK-block Run deletion."
         );
 
-        // screenshot: a requested end-of-run screenshot is present when the job seals.
         CreateRun(store, "run-screenshot", minute: 60, screenshotRequested: true);
         var capturedAtUtc = PipelineInputs.Base.AddMinutes(61).AddSeconds(50);
         var relativeImage = "2099-01-01/2099-01-01_01-01-50-000_final_run-run-screenshot.png";
@@ -240,7 +227,6 @@ public sealed class BundlePipelineTests : IDisposable
         artifacts.RecordScreenshots(database, "run-screenshot");
         artifacts.RecordQueue("screenshot", database, "run-screenshot");
 
-        // screenshot-deadline: a requested screenshot that never arrives waits, then seals Run-only.
         CreateRun(store, "run-waits-for-screenshot", minute: 120, screenshotRequested: true);
         CompleteRun(store, "run-waits-for-screenshot", minute: 120);
         await coordinator.ReconcileAsync(CancellationToken.None);
@@ -264,7 +250,6 @@ public sealed class BundlePipelineTests : IDisposable
         );
         artifacts.RecordQueue("screenshot-deadline:sealed", database, "run-waits-for-screenshot");
 
-        // replay-persistence: a Run whose replay writes are still in flight waits; others seal.
         CreateRun(store, "run-replay-held", minute: 180, screenshotRequested: false);
         CreateRun(store, "run-replay-free", minute: 181, screenshotRequested: false);
         ReplayPersistenceStateTracker.Enqueued("run-replay-held");
@@ -287,7 +272,6 @@ public sealed class BundlePipelineTests : IDisposable
         Sealed(artifacts, dataRoot, "replay-held", "run-replay-held");
         artifacts.RecordQueue("replay-persistence:drained", database, "run-replay-held");
 
-        // corrupt-replay: an undecodable replay waits for the deadline, then is omitted.
         CreateRun(store, "run-corrupt-replay", minute: 240, screenshotRequested: false);
         SaveBattle(database, "battle-corrupt", "run-corrupt-replay", minute: 240);
         SealInputs.SaveReplay(replays, "battle-corrupt");
@@ -332,8 +316,7 @@ public sealed class BundlePipelineTests : IDisposable
             ]
         );
 
-        // size-budget: Runs over BundleLimitsV6.MaxRunBytes trim in a fixed order. They seal after
-        // the upload stage so their Bundles stay out of its steps.
+        // Seal these runs after the upload stage to keep their oversized inputs out of its scenarios.
         await SealOverBudgetRuns(store, database, replays, coordinator, artifacts, dataRoot);
 
         BppLog.Flush();
@@ -417,11 +400,7 @@ public sealed class BundlePipelineTests : IDisposable
             }
         );
 
-    // Two Runs whose Run segment is over BundleLimitsV6.MaxRunBytes. The golden pins each trimmed
-    // payload byte for byte (its MessagePack sha256), so the trim order and count cannot change
-    // unnoticed. Replay and event bodies are seeded random base64, which gzip cannot shrink below
-    // their random bytes; every trim decision stays BudgetMargin from the limit on both sides, so the
-    // trim count does not depend on the platform's zlib.
+    // Seeded payloads preserve enough entropy after gzip to keep trim counts stable across zlib versions.
     private static async Task SealOverBudgetRuns(
         RunLogStore store,
         string database,
@@ -433,8 +412,6 @@ public sealed class BundlePipelineTests : IDisposable
     {
         const int BudgetMargin = 64 * 1024;
 
-        // Five projected replays and one replayable battle that is no projection (no opponent
-        // account): the latter is trimmed first, then the oldest projections until the segment fits.
         const int ReplayEntropy = 600_000;
         CreateRun(store, "run-budget-replays", minute: 600, screenshotRequested: false);
         SaveBattle(database, "budget-extra", "run-budget-replays", 600, opponentAccountId: null);
@@ -445,7 +422,6 @@ public sealed class BundlePipelineTests : IDisposable
             SaveBattle(database, battleId, "run-budget-replays", 600 + index);
             replays.Save(BudgetReplay(battleId, ReplayEntropy, seed: 5300 + index));
         }
-        // A Run Message Stream goes whole after the non-projection replay, before any projection.
         store.AppendEvent(
             "run-budget-replays",
             new RunLogEvent
@@ -483,7 +459,6 @@ public sealed class BundlePipelineTests : IDisposable
         );
         ExpectBudgetMargin(trimmedReplays, ReplayEntropy, BudgetMargin, "replay trim");
 
-        // Terminal events stay; the other events go oldest first until the segment fits.
         const int EventEntropy = 200_000;
         const int EventCount = 27;
         CreateRun(store, "run-budget-events", minute: 700, screenshotRequested: false);
@@ -628,10 +603,7 @@ public sealed class BundlePipelineTests : IDisposable
             );
             throw new InvalidOperationException("The PvP store accepted a PvE manifest.");
         }
-        catch (ArgumentException)
-        {
-            // A routing regression must fail instead of reporting false persistence success.
-        }
+        catch (ArgumentException) { }
     }
 
     private static SealedBundle Sealed(
@@ -722,9 +694,6 @@ public sealed class BundlePipelineTests : IDisposable
                 .ToList(),
         };
 
-    // The database stores Unix-millisecond instants and no seed; the composer copies those integers
-    // into the V6 Run segment unchanged, emits a null seed, and strips the envelope keys from
-    // payload_json. Participant card counts come from the captured sets.
     [Fact]
     public async Task VerifyRunSegmentProjectionAsync()
     {
@@ -762,7 +731,6 @@ public sealed class BundlePipelineTests : IDisposable
         );
         CompleteRun(store, "run-segment", minute: 0);
         var database = PathConstants.RunLogDatabase(root);
-        // The Missing set leaves the Battle unreplayable, which holds the Run until its deadline.
         await coordinator.ReconcileAsync(CancellationToken.None);
         SealInputs.ExpireDeadline(database, "run-segment");
         await coordinator.ReconcileAsync(CancellationToken.None);
@@ -1004,7 +972,6 @@ public sealed class BundlePipelineTests : IDisposable
                 RunPayload = payload,
             }
         );
-        // Each entry is an answer or a thrown exception, with the disposition and code it must map to.
         var matrix = new (object Answer, BundleUploadDisposition Disposition, string? Code)[]
         {
             (
@@ -1031,7 +998,6 @@ public sealed class BundlePipelineTests : IDisposable
                 BundleUploadDisposition.Permanent,
                 null
             ),
-            // An untrusted (legacy-shaped) 409 is about this Bundle, not the endpoint.
             (
                 Json(
                     HttpStatusCode.Conflict,
@@ -1066,7 +1032,6 @@ public sealed class BundlePipelineTests : IDisposable
                 BundleUploadDisposition.Transient,
                 "invalid_success_receipt"
             ),
-            // A server-marked retryable error on another status stays a per-Bundle retry.
             (
                 Json(
                     HttpStatusCode.Forbidden,
@@ -1140,10 +1105,6 @@ public sealed class BundlePipelineTests : IDisposable
     }
 }
 
-/// <summary>
-/// The account id the runs carry and the secrets the 5xx upload body carries; no log line from
-/// the pipeline run may contain any of them.
-/// </summary>
 internal static class LogPrivacy
 {
     internal const string AccountId = "account-001";
@@ -1168,7 +1129,6 @@ internal static class LogPrivacy
     }
 }
 
-/// <summary>Answers each request with the next queued response, or throws the next queued exception.</summary>
 internal sealed class CaptureHandler(Queue<object> answers) : HttpMessageHandler
 {
     internal List<byte[]> Bodies { get; } = new();
@@ -1219,12 +1179,7 @@ internal sealed class TestBuild : IGameBuildInfo
     public GameBuildChannel Channel => GameBuildChannel.Online;
 }
 
-/// <summary>
-/// Fixed pipeline inputs. Times sit in the future on purpose: EnsureEligibleJobs derives each
-/// seal job's input deadline from ended_at_ms + 2 minutes, so a past constant would expire every
-/// deadline at once and the screenshot, replay-persistence, and replay-payload waits could not be
-/// observed. A deadline expires only through the explicit ExpireDeadline step.
-/// </summary>
+// Discovery computes deadlines from the run end. Future fixture times keep inputs waiting until ExpireDeadline.
 internal static class PipelineInputs
 {
     internal static readonly DateTimeOffset Base = new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -1233,8 +1188,7 @@ internal static class PipelineInputs
         new((byte)(x * 2), (byte)(y * 3), (byte)((x + y) % 256), 255);
 }
 
-// The game's NetMessage constructors assign a random MessageId; fixing it keeps the replay
-// uncompressed replay bytes identical across runs.
+// The game's constructors pick random message IDs. Fix them to keep replay bytes deterministic.
 internal static class ReplayBytes
 {
     internal static readonly byte[] Spawn = MessagePackSerializer.Serialize(
@@ -1242,9 +1196,7 @@ internal static class ReplayBytes
         MessagePackConfig.Options
     );
 
-    // Frozen online CombatSim input: PTR appends IsDraw to the live serializer's array.
-    // The pipeline golden measures preserved replay bytes; CombatReplayLoader still
-    // decodes this input with the selected game's serializer, including PTR's default IsDraw.
+    // This live-serializer input omits IsDraw, which PTR appends and must default when decoding.
     internal static readonly byte[] Combat = Convert.FromBase64String(
         "kpiRlJDAwIAAAZCQgJCQpmNvbWJhdA=="
     );
@@ -1254,7 +1206,6 @@ internal static class ReplayBytes
     );
 }
 
-// Seal inputs shared by the anchor and BundleSealFailureTests.
 internal static class SealInputs
 {
     internal static void SaveReplay(CombatReplayPayloadStore replays, string battleId) =>
@@ -1304,7 +1255,7 @@ internal static class SealInputs
             VictoriesAtCapture = 10,
         };
 
-    // A fixed gradient; the artifact verifier allows only JPEG's small lossy pixel error.
+    // Use a deterministic gradient to check lossy JPEG output against known pixels.
     internal static void WritePng(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

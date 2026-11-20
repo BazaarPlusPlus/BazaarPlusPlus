@@ -4,8 +4,6 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
-// One History list's filter: its WHERE fragment, parameters and index hint, ordered by time then ID.
-// The page read, its counts and the query-plan tests all render their SQL from this value.
 public sealed class HistoryPageQuery
 {
     private readonly string _table;
@@ -33,7 +31,7 @@ public sealed class HistoryPageQuery
     public string Id { get; }
     public string Time { get; }
 
-    // heroKey is the canonical, lower-case hero key the caller filters on; null lists every Run.
+    // heroKey uses the canonical lower-case key from the shared hero-alias table.
     public static HistoryPageQuery Runs(string? heroKey) =>
         heroKey == null
             ? new("runs", "run_id", RunLogSchema.HistoryRunTime, "1=1", null)
@@ -56,8 +54,7 @@ public sealed class HistoryPageQuery
             ("$runId", runId)
         );
 
-    // recorderOutcome filters on RunLogSchema.HistoryRecorderOutcome, the recorder's result;
-    // null lists every outcome.
+    // Filter by the recorder's result, even when the local player was their opponent.
     public static HistoryPageQuery Ghosts(string account, int? recorderOutcome, bool dayMin10)
     {
         var where =
@@ -89,7 +86,7 @@ public sealed class HistoryPageQuery
             ("$account", account)
         );
 
-    // Favorites belong to this machine's History, not to the signed-in account: no account filter.
+    // Favorites are shared across accounts on this machine.
     public static HistoryPageQuery Favorites() =>
         new(RunLogSchema.FavoriteBattlesTableName, "battle_id", "favorited_at_ms", "1=1", null);
 

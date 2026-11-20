@@ -5,13 +5,6 @@ using Xunit;
 
 namespace CombatImpactAdapter.Tests;
 
-/// <summary>
-/// Arithmetic parity (ADR-0019): Core's <see cref="CombatValueModifier.GetModifiedValue"/> restates
-/// the game's <c>TValueModifier.GetModifiedValue</c> over a fixed operand, because Core cannot call
-/// the game. Every mode the Managed snapshot defines, with and without rounding, must give the same
-/// float bits as the game for every value pair here: fractions between zero and one, rounding
-/// midpoints on both signs, and a zero divisor.
-/// </summary>
 public sealed class CombatValueModifierParityTests
 {
     private static readonly float[] Originals =
@@ -84,8 +77,7 @@ public sealed class CombatValueModifierParityTests
         Assert.True(mismatches.Count == 0, string.Join("\n", mismatches));
     }
 
-    // The cases the grid must reach, with the game's answer written out so a change in the game's
-    // rounding shows up as a named case rather than only as a parity count.
+    // Pin named examples to catch changes in game rounding even when Core still matches it.
     [Theory]
     [InlineData(EValueModifierMode.Multiply, true, 1f, 0.5f, 1f)]
     [InlineData(EValueModifierMode.Multiply, false, 1f, 0.5f, 0.5f)]

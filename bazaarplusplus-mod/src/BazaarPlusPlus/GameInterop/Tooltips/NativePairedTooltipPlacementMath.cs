@@ -3,27 +3,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.Tooltips;
 
-/// <summary>
-/// The purely geometric decisions behind paired-tooltip placement.
-/// </summary>
-/// <remarks>
-/// Every method here is a pure function of the rects and scalars it is given — nothing reads a
-/// live <see cref="RectTransform"/>, <see cref="Canvas"/>, or any other Unity runtime state — so
-/// the placement rules are unit-testable without starting the game.
-/// <para>
-/// The formulas and the <see cref="NativePairedTooltipMetrics.Epsilon"/> tolerance are preserved
-/// verbatim from the pre-extraction implementation. This file intentionally keeps its
-/// <c>UnityEngine</c> dependency for <see cref="Rect"/>/<see cref="Vector2"/>/<see cref="Mathf"/>
-/// rather than restating the maths over bespoke primitives: rewriting the expressions would put
-/// the "behavior is unchanged" guarantee at risk for no test-harness benefit.
-/// </para>
-/// </remarks>
 internal static class NativePairedTooltipPlacementMath
 {
-    /// <summary>
-    /// Picks the side for the auxiliary panel: prefer the right when the preferred width fits,
-    /// then the left, otherwise whichever side has more room (ties keep the right).
-    /// </summary>
     internal static PairSide ChooseSide(
         float availableRight,
         float availableLeft,
@@ -37,17 +18,12 @@ internal static class NativePairedTooltipPlacementMath
         return availableRight >= availableLeft ? PairSide.Right : PairSide.Left;
     }
 
-    /// <summary>Horizontal room to the right of the primary tooltip, inside the canvas bounds.</summary>
     internal static float AvailableRight(Rect canvasBounds, Rect primaryBounds, float gap) =>
         Mathf.Max(0f, canvasBounds.xMax - (primaryBounds.xMax + gap));
 
-    /// <summary>Horizontal room to the left of the primary tooltip, inside the canvas bounds.</summary>
     internal static float AvailableLeft(Rect canvasBounds, Rect primaryBounds, float gap) =>
         Mathf.Max(0f, primaryBounds.xMin - gap - canvasBounds.xMin);
 
-    /// <summary>
-    /// Content width that fits on <paramref name="side"/>, in the panel's own local units.
-    /// </summary>
     internal static float ResolveContentWidth(
         PairSide side,
         float availableRight,
@@ -62,9 +38,6 @@ internal static class NativePairedTooltipPlacementMath
         return Mathf.Min(preferredContentWidth, Mathf.Max(1f, availableContentWidth));
     }
 
-    /// <summary>
-    /// Offset that moves the panel beside the primary tooltip and top-aligns the two.
-    /// </summary>
     internal static Vector2 ResolvePairOffset(
         PairSide side,
         Rect primaryBounds,
@@ -81,10 +54,6 @@ internal static class NativePairedTooltipPlacementMath
                 primaryBounds.yMax - panelBounds.yMax
             );
 
-    /// <summary>
-    /// Vertical correction that pulls <paramref name="rect"/> back inside <paramref name="bounds"/>.
-    /// A rect taller than the bounds is top-aligned rather than centered.
-    /// </summary>
     internal static float ResolveVerticalAdjustment(Rect rect, Rect bounds)
     {
         if (rect.height > bounds.height + NativePairedTooltipMetrics.Epsilon)
@@ -96,17 +65,11 @@ internal static class NativePairedTooltipPlacementMath
         return adjustment;
     }
 
-    /// <summary>
-    /// True when the panel has crept back into the primary tooltip's gap on the chosen side.
-    /// </summary>
     internal static bool Collides(PairSide side, Rect primaryBounds, Rect panelBounds, float gap) =>
         side == PairSide.Right
             ? panelBounds.xMin < primaryBounds.xMax + gap - NativePairedTooltipMetrics.Epsilon
             : panelBounds.xMax > primaryBounds.xMin - gap + NativePairedTooltipMetrics.Epsilon;
 
-    /// <summary>
-    /// True when the primary/panel pair does not fit the screen, or the two overlap.
-    /// </summary>
     internal static bool Overflows(
         PairSide side,
         Rect primaryBounds,
@@ -125,7 +88,6 @@ internal static class NativePairedTooltipPlacementMath
             || Collides(side, primaryBounds, panelBounds, gap);
     }
 
-    /// <summary>Smallest rect containing both inputs.</summary>
     internal static Rect Union(Rect first, Rect second) =>
         Rect.MinMaxRect(
             Mathf.Min(first.xMin, second.xMin),
@@ -134,7 +96,6 @@ internal static class NativePairedTooltipPlacementMath
             Mathf.Max(first.yMax, second.yMax)
         );
 
-    /// <summary>Shrinks a rect on all sides, never past its own center.</summary>
     internal static Rect Inset(Rect rect, float inset)
     {
         var horizontalInset = Mathf.Min(inset, rect.width * 0.5f);
@@ -147,10 +108,6 @@ internal static class NativePairedTooltipPlacementMath
         );
     }
 
-    /// <summary>
-    /// Whether reclaiming the optional bottom inset would materially help a panel near the canvas
-    /// height limit. All inputs use the same coordinate space.
-    /// </summary>
     internal static bool ShouldUseDenseBottomPadding(
         float panelHeight,
         float availableHeight,
@@ -164,12 +121,7 @@ internal static class NativePairedTooltipPlacementMath
                 > availableHeight - reclaimablePadding + NativePairedTooltipMetrics.Epsilon;
     }
 
-    /// <summary>
-    /// The tallest panel, in the content's local units, that fits the inset canvas height. This is
-    /// the limit the placement height budget trims to. A panel scaled up (more than one canvas
-    /// unit per local unit) is treated as unscaled, so the limit is never smaller than the canvas
-    /// gives an unscaled panel.
-    /// </summary>
+    // Cap the scale so enlarging a panel never lowers its trim budget below the unscaled case.
     internal static float ContentHeightLimit(
         float canvasHeight,
         float canvasMargin,
@@ -183,11 +135,6 @@ internal static class NativePairedTooltipPlacementMath
         return insetHeight / Mathf.Clamp(canvasUnitsPerLocalUnit, 0.0001f, 1f);
     }
 
-    /// <summary>
-    /// An upper bound on how many rows, each at least <paramref name="minimumRowHeight"/> tall,
-    /// fit within <paramref name="contentHeightLimit"/>. Any other content only lowers the true
-    /// number. A non-finite input (degenerate geometry) gives no bound.
-    /// </summary>
     internal static int MaximumVisibleRows(float contentHeightLimit, float minimumRowHeight)
     {
         if (

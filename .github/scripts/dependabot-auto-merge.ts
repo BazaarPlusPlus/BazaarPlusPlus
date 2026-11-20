@@ -1,4 +1,3 @@
-// The REST pull request fields this script reads.
 export interface PullRequest {
   number: number;
   node_id: string;
@@ -9,7 +8,6 @@ export interface PullRequest {
   head: { sha: string; repo: { full_name: string } | null };
 }
 
-// The GraphQL PullRequest fields this script queries.
 export interface PullRequestNode {
   state: string;
   headRefOid: string;
@@ -18,7 +16,6 @@ export interface PullRequestNode {
   autoMergeRequest: { enabledAt: string } | null;
 }
 
-// The actions/core job summary; addRaw returns the summary for chaining.
 export interface CoreSummary {
   addRaw(text: string): CoreSummary;
   write(): Promise<unknown>;
@@ -29,7 +26,6 @@ export interface RepositoryRef {
   repo: string;
 }
 
-// The parts of the actions/github-script globals this script uses.
 export interface GithubScriptArgs {
   github: {
     rest: {

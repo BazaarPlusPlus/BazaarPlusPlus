@@ -66,7 +66,6 @@ function makeSnapshot(
   };
 }
 
-/** Stubs global `fetch` to answer 200 with the handler's JSON payload. */
 function stubSnapshot(
   handler: (url: string, signal: AbortSignal) => Promise<unknown> = async () =>
     makeSnapshot()

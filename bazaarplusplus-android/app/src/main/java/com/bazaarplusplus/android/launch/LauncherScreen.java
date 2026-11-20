@@ -4,14 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * What the launcher shows, as plain data (design/components/Launcher): the status badge, the one
- * primary action, the source row, notes, the failure banner, the App update reminder, download
- * progress and the stats. {@link LauncherActivity} renders it into whichever layout the window width picks, so a
- * fold re-renders the same screen without running anything again.
- */
 final class LauncherScreen {
-    /** The badge word and its tone (design/components/Launcher, Status). */
     enum Status {
         CHECKING(Tone.BUSY), PREPARING(Tone.BUSY), DOWNLOADING(Tone.BUSY),
         READY(Tone.OK), WAITING(Tone.WARN), GAME_UPDATE(Tone.WARN),
@@ -28,13 +21,11 @@ final class LauncherScreen {
 
     enum Action { PLAY, INSTALL_FROM_PLAY, UPDATE_FROM_PLAY, DOWNLOAD_FROM_PUBLISHER, OPEN_OFFICIAL, RETRY }
 
-    /** {@link #GAME_NOT_ADAPTED} names the installed game, {@link #UPDATE_GAME} its source's adapted one. */
     enum Note {
         FROM_CACHE, LAST_INSTALL_FAILED, RUNTIME_MISSING, REPLACE_GAME, RELEASE_UNAVAILABLE, DEV_INTEROP,
         GAME_NOT_ADAPTED, UPDATE_GAME
     }
 
-    /** A failure that stopped the check or the launch; shown as an error banner over a Retry. */
     static final class Failure {
         final boolean launch;
         final String message;
@@ -45,10 +36,8 @@ final class LauncherScreen {
         }
     }
 
-    /** A newer App: a reminder banner that takes no action away. */
     static final class AppUpdate {
         final String version;
-        /** Null when the release names no download. */
         final String url;
 
         AppUpdate(String version, String url) {
@@ -57,7 +46,6 @@ final class LauncherScreen {
         }
     }
 
-    /** A running download with a known size. */
     static final class Progress {
         final boolean interop;
         final long received;
@@ -74,24 +62,15 @@ final class LauncherScreen {
         }
     }
 
-    /** The facts of one launch check that the screen depends on. */
     static final class Facts {
         final LaunchGate.Decision decision;
-        /** Installed game versionName, or null when not installed. */
         final String gameVersion;
-        /** The game version of the adaptation the gate selected, or null without one. */
         final String adaptedVersion;
         final boolean fromCache;
         final boolean lastInstallFailed;
         final boolean runtimeMissing;
-        /** Null unless the release names a newer App than this one. */
         final AppUpdate appUpdate;
-        /** Whether the Google Play Store is installed: without it, installs and updates come from the publisher. */
         final boolean playInstalled;
-        /**
-         * Whether the installed game is the Google Play source's, by its signer (ADR 0019); an update
-         * goes back to the same source.
-         */
         final boolean playSource;
 
         Facts(LaunchGate.Decision decision, String gameVersion, String adaptedVersion, boolean fromCache,
@@ -109,11 +88,8 @@ final class LauncherScreen {
         }
     }
 
-    /** Null while a check runs or after it failed. */
     final Status status;
-    /** Null when there is nothing to do next. */
     final Action primary;
-    /** The source row: the official game, or the publisher beside a Google Play primary; null for none. */
     final Action source;
     final List<Note> notes;
     final AppUpdate appUpdate;
@@ -121,7 +97,6 @@ final class LauncherScreen {
     final Progress progress;
     final String gameVersion;
     final String adaptedVersion;
-    /** No action runs while a check or a launch is in progress. */
     final boolean busy;
 
     private LauncherScreen(Status status, Action primary, Action source, List<Note> notes, AppUpdate appUpdate,
@@ -138,32 +113,27 @@ final class LauncherScreen {
         this.busy = busy;
     }
 
-    /** A check is running; the last known facts keep the source row and the stats in place. */
     static LauncherScreen checking(Facts last) {
         return new LauncherScreen(Status.CHECKING, null, last == null ? null : sourceRow(last), List.of(), last == null ? null : last.appUpdate, null,
                 null, last == null ? null : last.gameVersion, last == null ? null : last.adaptedVersion, true);
     }
 
-    /** The check itself failed: no status to show, only Retry and, when it is installed, the official game. */
     static LauncherScreen checkFailed(String message, boolean officialInstalled) {
         return new LauncherScreen(null, Action.RETRY, officialInstalled ? Action.OPEN_OFFICIAL : null,
                 List.of(), null, new Failure(false, message), null, null, null, false);
     }
 
-    /** A BPP launch is preparing the game; {@code progress} is null between downloads. */
     static LauncherScreen launching(Facts facts, Progress progress) {
         return new LauncherScreen(progress == null ? Status.PREPARING : Status.DOWNLOADING, null, sourceRow(facts), List.of(),
                 facts.appUpdate, null, progress, facts.gameVersion, facts.adaptedVersion, true);
     }
 
-    /** The BPP launch failed: the check's screen with an error banner and Retry. */
     static LauncherScreen launchFailed(Facts facts, String message) {
         LauncherScreen ready = ready(facts);
         return new LauncherScreen(ready.status, Action.RETRY, ready.source, ready.notes, ready.appUpdate,
                 new Failure(true, message), null, ready.gameVersion, ready.adaptedVersion, false);
     }
 
-    /** What the tier allows (ADR 0019, "启动门禁"); {@link LaunchGate.Decision#bppLaunch} decides Play. */
     static LauncherScreen ready(Facts facts) {
         LaunchGate.Decision decision = facts.decision;
         List<Note> notes = new ArrayList<>();
@@ -176,7 +146,6 @@ final class LauncherScreen {
             if (decision.developmentInterop) notes.add(Note.DEV_INTEROP);
             primary = play(facts, notes);
         } else {
-            // A refused Development interop is not in use, so the tier shows as it does without one.
             switch (decision.tier) {
                 case NOT_INSTALLED:
                     status = Status.NOT_INSTALLED;
@@ -212,31 +181,19 @@ final class LauncherScreen {
                 facts.adaptedVersion, false);
     }
 
-    /**
-     * The reminder for a newer App, or null (ADR 0019). A release build is reminded when the
-     * release's App has a higher versionCode and carries another runtime: its non-managed payload
-     * digest differs from this build's, which is when the Updater refuses the release's Mods. A
-     * release that only changes the launcher reminds no one. A development build (no runtime
-     * digest) is never reminded.
-     */
+    /** A different runtime digest matters because the Updater rejects Mods for another runtime (ADR 0019). */
     static AppUpdate appUpdate(String ownDigest, long ownVersionCode, String releaseDigest,
             long releaseVersionCode, String releaseVersion, String url) {
         if (ownDigest == null || releaseVersionCode <= ownVersionCode || ownDigest.equals(releaseDigest)) return null;
         return new AppUpdate(releaseVersion, url);
     }
 
-    /**
-     * The source row: the official game whenever it can open natively; otherwise, beside a Google
-     * Play install, the publisher's APK as the other source.
-     */
     static Action sourceRow(Facts facts) {
         if (facts.decision.nativeLaunch()) return Action.OPEN_OFFICIAL;
         return facts.playInstalled ? Action.DOWNLOAD_FROM_PUBLISHER : null;
     }
 
-    /** Play, or nothing when this build carries no runtime to play with. */
     private static Action play(Facts facts, List<Note> notes) {
-        // A Development interop stages nothing, so the staging note does not apply to it.
         if (facts.lastInstallFailed && !facts.decision.developmentInterop) notes.add(Note.LAST_INSTALL_FAILED);
         if (facts.runtimeMissing) {
             notes.add(Note.RUNTIME_MISSING);

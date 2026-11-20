@@ -8,12 +8,8 @@ using System.Reflection.PortableExecutable;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Metadata and IL index over the assemblies the same build produced (ADR-0009). The csproj
-/// builds <c>src/BazaarPlusPlus</c> in Debug and Release, so <c>#if DEBUG</c> and
-/// <c>#else</c> bodies are both scanned; every rule must hold in each configuration.
-/// Compiler-generated and nested types fold into their outermost declaring type.
-/// </summary>
+// Scan Debug and Release so both sides of conditional compilation are checked.
+// Nested and compiler-generated types fold into their outermost declaring type.
 internal static class CompiledArtifacts
 {
     internal const string MainAssembly = "BazaarPlusPlus";
@@ -32,10 +28,8 @@ internal static class CompiledArtifacts
     private static readonly Lazy<IReadOnlyList<CompiledBuild>> LazyBuilds = new(LoadBuilds);
     private static readonly Lazy<ReferenceUniverse> LazyUniverse = new(LoadUniverse);
 
-    /// <summary>One entry per configuration (Debug, Release).</summary>
     internal static IReadOnlyList<CompiledBuild> Builds => LazyBuilds.Value;
 
-    /// <summary>Type definitions every rule target must resolve against.</summary>
     internal static ReferenceUniverse Universe => LazyUniverse.Value;
 
     internal static string Metadata(string key)
@@ -94,14 +88,12 @@ internal sealed class CompiledBuild
 
     internal IEnumerable<CompiledType> Types => Assemblies.SelectMany(assembly => assembly.Types);
 
-    /// <summary>The named type; a rule whose scope does not resolve fails.</summary>
     internal CompiledType Type(string fullName) =>
         Types.SingleOrDefault(type => type.FullName == fullName)
         ?? throw new InvalidOperationException(
             $"{Configuration}: rule scope type '{fullName}' does not exist in the build."
         );
 
-    /// <summary>Types in <paramref name="ns"/> or a child namespace; empty scopes fail.</summary>
     internal IReadOnlyList<CompiledType> TypesIn(string ns)
     {
         var types = Types.Where(type => IsInNamespace(type.Namespace, ns)).ToArray();
@@ -116,16 +108,13 @@ internal sealed class CompiledBuild
         candidate == ns || candidate.StartsWith(ns + ".", StringComparison.Ordinal);
 }
 
-/// <summary>A referenced type: defining assembly name plus namespace-qualified name.</summary>
 internal readonly record struct TypeName(string Assembly, string Namespace, string Name)
 {
-    /// <summary>Namespace-qualified name; nested types use <c>+</c>.</summary>
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
 
     public override string ToString() => $"[{Assembly}]{FullName}";
 }
 
-/// <summary>One IL instruction with its resolved operand.</summary>
 internal sealed record IlInstruction(
     string OpCode,
     TypeName? TargetType,
@@ -160,15 +149,12 @@ internal sealed class CompiledMethod
         References = references;
     }
 
-    /// <summary>The outermost declaring type.</summary>
     internal CompiledType Owner { get; }
 
-    /// <summary>The (possibly nested or compiler-generated) metadata declaring type.</summary>
     internal string DeclaringType { get; }
     internal string Name { get; }
     internal IReadOnlyList<IlInstruction> Instructions { get; }
 
-    /// <summary>Types named by this method's signature, locals, and IL operands.</summary>
     internal IReadOnlyCollection<TypeName> References { get; }
 
     internal IEnumerable<string> Literals =>
@@ -196,14 +182,11 @@ internal sealed class CompiledType
     internal string Name { get; }
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
 
-    /// <summary>Every type named by a signature, base type, interface, local, or IL operand.</summary>
     internal IReadOnlyCollection<TypeName> References => _references;
     internal IReadOnlyList<CompiledMethod> Methods => _methods;
 
-    /// <summary>Fields of this type and its nested types, including closure captures.</summary>
     internal IReadOnlyList<(string DeclaringType, string Name, TypeName? Type)> Fields => _fields;
 
-    /// <summary>Public methods (by return type) and public fields declared on this type itself.</summary>
     internal IReadOnlyList<(string Member, TypeName? Type)> PublicSurface => _publicSurface;
 
     internal IEnumerable<IlInstruction> Instructions =>
@@ -211,10 +194,7 @@ internal sealed class CompiledType
 
     internal IEnumerable<string> Literals => _methods.SelectMany(method => method.Literals);
 
-    /// <summary>
-    /// The named method plus the compiler-generated bodies it owns (lambdas, local functions,
-    /// iterator and async state machines). Fails when no method has that name.
-    /// </summary>
+    // Follow generated bodies so rules also see calls hidden in lambdas and state machines.
     internal IReadOnlyList<CompiledMethod> MethodClosure(string name)
     {
         var generatedPrefix = "<" + name + ">";
@@ -554,7 +534,6 @@ internal sealed class CompiledAssembly
     }
 }
 
-/// <summary>Resolves definition and reference handles to assembly-qualified names.</summary>
 internal sealed class TypeNames
 {
     private readonly MetadataReader _reader;
@@ -600,7 +579,6 @@ internal sealed class TypeNames
     }
 }
 
-/// <summary>Collects every named type a signature or type handle mentions.</summary>
 internal sealed class SignatureCollector : ISignatureTypeProvider<TypeName?, object?>
 {
     private readonly MetadataReader _reader;
@@ -632,7 +610,6 @@ internal sealed class SignatureCollector : ISignatureTypeProvider<TypeName?, obj
             }
         });
 
-    /// <summary>The handle's own type; for a generic instance, its generic definition.</summary>
     internal TypeName? Primary(EntityHandle handle)
     {
         switch (handle.Kind)
@@ -763,10 +740,7 @@ internal sealed class SignatureCollector : ISignatureTypeProvider<TypeName?, obj
     ) => unmodifiedType;
 }
 
-/// <summary>
-/// Type and member definitions from the build output and the game's Managed directory, so a
-/// rule naming a forbidden game type or member fails when that name does not exist.
-/// </summary>
+// Resolve forbidden targets against real definitions so a stale target cannot make a rule pass.
 internal sealed class ReferenceUniverse
 {
     private readonly Dictionary<string, HashSet<string>> _members;
@@ -818,7 +792,6 @@ internal sealed class ReferenceUniverse
         return new ReferenceUniverse(members, namespaces);
     }
 
-    /// <summary>Fails unless <paramref name="fullName"/> names a defined type.</summary>
     internal string RequireType(string fullName)
     {
         if (!_members.ContainsKey(fullName))
@@ -826,7 +799,6 @@ internal sealed class ReferenceUniverse
         return fullName;
     }
 
-    /// <summary>Fails unless the type defines a method or field named <paramref name="member"/>.</summary>
     internal (string Type, string Member) RequireMember(string fullName, string member)
     {
         RequireType(fullName);
@@ -837,7 +809,6 @@ internal sealed class ReferenceUniverse
         return (fullName, member);
     }
 
-    /// <summary>Fails unless some defined type lives in <paramref name="ns"/> or below.</summary>
     internal string RequireNamespace(string ns)
     {
         if (!_namespaces.Any(candidate => CompiledBuild.IsInNamespace(candidate, ns)))

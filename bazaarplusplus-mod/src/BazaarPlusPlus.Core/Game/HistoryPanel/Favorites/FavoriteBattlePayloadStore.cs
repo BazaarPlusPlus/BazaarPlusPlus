@@ -12,8 +12,6 @@ public sealed class FavoriteBattlePayloadStore
     private readonly string _rootPath;
     private readonly FileBackedPayloadStore<FavoriteBattlePayload> _store;
 
-    // The combat replay directory is PathConstants.CombatReplays(dataRoot), so its parent is the
-    // Data Root that holds FavoriteBattles/ too.
     public static string ResolveDirectory(string replayDirectoryPath)
     {
         var dataRoot = Path.GetDirectoryName(replayDirectoryPath);

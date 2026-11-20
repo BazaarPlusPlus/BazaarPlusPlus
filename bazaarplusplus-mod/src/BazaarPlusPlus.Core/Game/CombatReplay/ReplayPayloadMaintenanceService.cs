@@ -5,12 +5,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// One sweep of a host's Replay Payload files against the history database: deletes files no battle
-/// owns, finishes pending deletions, marks ready battles whose file is gone as missing, and evicts
-/// what <see cref="ReplayPayloadRetentionPolicy"/> does not keep. It holds the maintenance lease of
-/// <see cref="ReplayPayloadOperationGate"/> throughout, so a battle being saved is never swept.
-/// </summary>
+/// <summary>The maintenance lease keeps the sweep from deleting a Replay Payload whose battle row is still being saved.</summary>
 public sealed class ReplayPayloadMaintenanceService
 {
     private const int MaximumConcurrentFileDeletes = 4;
@@ -44,11 +39,6 @@ public sealed class ReplayPayloadMaintenanceService
             protectedBattleIds ?? throw new ArgumentNullException(nameof(protectedBattleIds));
     }
 
-    /// <summary>
-    /// Runs one sweep and logs its terminal: <c>combat_replay.maintenance.completed</c>, or
-    /// <c>combat_replay.maintenance.degraded</c> when a delete or the scan failed. Never throws;
-    /// a cancellation requested through <paramref name="cancellationToken"/> ends it silently.
-    /// </summary>
     public void RunAndReport(DateTimeOffset now, CancellationToken cancellationToken)
     {
         try
@@ -175,9 +165,8 @@ public sealed class ReplayPayloadMaintenanceService
     {
         var ids = battleIds.ToArray();
         var succeeded = new bool[ids.Length];
-        // Parallel.For joins every started deletion before returning or throwing cancellation.
-        // Run therefore retains its maintenance lease until all file operations have stopped.
-        // Workers touch files and their own result slot only; catalog updates stay on the caller.
+        // Parallel.For joins every started deletion even on cancellation, so the maintenance lease covers them all.
+        // Catalog writes stay on the caller.
         Parallel.For(
             0,
             ids.Length,

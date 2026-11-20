@@ -20,9 +20,7 @@ public readonly struct HistoryPanelDatabaseChip
 
 public static class HistoryPanelDecisions
 {
-    // Ghost precedence: account → rows → read → running sync → filters → failed sync → empty. A
-    // failed sync sits after filters so a filter-emptied page still points at its filters. An
-    // empty message also stands on both boards.
+    // Show filter guidance before sync failure when filters emptied the Ghost page.
     public static HistoryArchiveStatus ArchiveStatus(HistoryArchiveFacts facts)
     {
         var list = EmptyMessage(facts);
@@ -61,8 +59,6 @@ public static class HistoryPanelDecisions
             : HistoryPanelText.NoSavedGhostBattles();
     }
 
-    // Runs are not account-scoped: rows → read → filters → empty. A run that recorded no battle
-    // has nothing for the boards either, once its page has loaded.
     private static string RunsEmptyMessage(HistoryArchiveFacts facts) =>
         facts.RowCount > 0
             ? facts.BattleCount == 0 && !facts.PageLoading
@@ -74,14 +70,12 @@ public static class HistoryPanelDecisions
                     ? HistoryPanelText.NoRunFilterMatches()
                     : HistoryPanelText.NoRuns();
 
-    // Favorites are not account-scoped, so no account precedence: rows → read → empty.
     private static string FavoritesEmptyMessage(HistoryArchiveFacts facts) =>
         facts.RowCount > 0 ? string.Empty
         : facts.PageLoading ? HistoryPanelText.LoadingPreview()
         : facts.PageLoadFailed ? HistoryPanelText.FavoritesReadFailed()
         : HistoryPanelText.NoFavorites();
 
-    // Null leaves each native board's own ready/empty/partial/failure message intact.
     private static string? PreviewOverride(HistoryArchiveFacts facts)
     {
         if (facts.Detail == HistoryDetailPhase.Loading)
@@ -190,7 +184,7 @@ public static class HistoryPanelDecisions
             return false;
         }
 
-        // The repository refuses it again inside the delete's transaction.
+        // The repository repeats the seal check inside the delete transaction.
         if (selectedRun.IsSealProtected)
         {
             reason = HistoryPanelText.SealProtectedRunDeleteUnavailable();
@@ -223,9 +217,7 @@ public static class HistoryPanelDecisions
             );
     }
 
-    // Linking requires uploads and a non-PTR build; PTR wins over disabled uploads, and the
-    // guidance card is always visible. Unknown is treated like Online by policy (see
-    // IGameBuildInfo) so a channel detection failure can never disable linking on production.
+    // Treat Unknown as Online so a failed channel probe cannot disable linking on a production client.
     public static AccountLinkGate ResolveAccountLinkGate(
         bool uploadsEnabled,
         GameBuildChannel channel
@@ -275,7 +267,6 @@ public static class HistoryPanelDecisions
     }
 }
 
-// Whether this client may link a BazaarDB account; resolved from settings and build channel.
 public enum AccountLinkGate
 {
     Available,

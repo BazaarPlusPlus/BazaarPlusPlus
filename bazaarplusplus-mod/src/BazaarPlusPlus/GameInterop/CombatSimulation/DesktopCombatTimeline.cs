@@ -16,14 +16,8 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.GameInterop.CombatSimulation;
 
-/// <summary>
-/// The desktop host's Combat Impact adapter (ADR-0019): copies a finished game simulation and
-/// the card templates' attribute modifiers into Core's combat model, in the game's iteration
-/// order. Every enum crosses through <see cref="DesktopCombatFacets"/>; a value Core has no member
-/// for is left out. The facet pin test (DesktopCombatFacetVocabularyTests) rules that out for the
-/// configured Managed snapshot only; a newer game build can still add a member Core lacks, so the
-/// first miss of each game enum logs <c>post_combat_impact.timeline.unmapped_member</c>.
-/// </summary>
+// The facet pin covers the configured Managed snapshot. Log misses so new game enum
+// members that Core omits are visible after a game update.
 internal static class DesktopCombatTimeline
 {
     private static readonly BppLogEvent UnmappedMemberEvent = new(
@@ -31,8 +25,6 @@ internal static class DesktopCombatTimeline
         "post_combat_impact.timeline.unmapped_member"
     );
 
-    // Game enums whose miss has been logged this process. The timeline is built off the main
-    // thread, so the set is concurrent.
     private static readonly ConcurrentDictionary<Type, byte> ReportedUnmappedEnums = new();
 
     public static CombatTimeline From(CombatSim simulation)
@@ -114,7 +106,6 @@ internal static class DesktopCombatTimeline
     {
         if (modifier == null)
             return null;
-        // A mode Core lacks makes the modifier one attribution cannot evaluate.
         var known = TryFacet(
             DesktopCombatFacets.ValueModifierMode,
             modifier.ModifyMode,
@@ -334,8 +325,6 @@ internal static class DesktopCombatTimeline
         return result;
     }
 
-    // A miss drops the value, as Core has no member for it; the first miss of each game enum is
-    // logged once, naming the member, so a game update that outgrows the facets shows in the log.
     private static bool TryFacet<TSource, TFacet>(
         CardFacetNameMap<TSource, TFacet> map,
         TSource source,

@@ -1,23 +1,14 @@
-//! Private install planner: turns gathered facts into ordered effects.
-//! macOS has one bootstrap only: trampoline plus empty Steam launch options.
-
 use crate::services::bepinex::installed_version_is_current;
 use crate::services::detect::InstallEnvironmentSnapshot;
 use crate::services::vdf::SteamLaunchOptionsState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum InstallEffect {
-    /// Refuse to modify an active game installation.
     EnsureGameStopped,
-    /// Quit Steam only when its launch options need changing.
     CloseSteam,
-    /// Extract the current BepInEx and BazaarPlusPlus payload.
     InstallBepInEx,
-    /// Install or refresh the bundled trampoline and verify the signed bundle.
     InstallTrampoline,
-    /// Remove every LaunchOptions entry for The Bazaar and verify the result.
     ClearLaunchOptions,
-    /// Delete installer-owned files that are not part of the canonical bootstrap.
     RemoveObsoleteMacosArtifacts,
 }
 

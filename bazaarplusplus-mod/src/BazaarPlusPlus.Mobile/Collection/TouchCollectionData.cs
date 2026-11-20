@@ -4,17 +4,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 
 namespace BazaarPlusPlus.Mobile.Collection;
 
-/// <summary>
-/// The host services the touch Collection reads, which the Android composition binds: Core ports,
-/// and the card catalog and run reads beside this record (ADR-0025 decision 4).
-/// </summary>
-/// <param name="Catalog">The card catalog, built from the host's game data.</param>
-/// <param name="Sources">The merchant and trainer offer pools.</param>
-/// <param name="DayTiers">The run day and, where the host reads it, the day's highest tier.</param>
-/// <param name="HeroPreference">The remembered out-of-run hero.</param>
-/// <param name="Run">The run, its day and its hero, when the panel opens.</param>
-/// <param name="Encounters">The encounter ids that pre-select a source.</param>
-/// <param name="Supporters">The supporter credit's rotation, or null where the host has none.</param>
 internal sealed record TouchCollectionData(
     ICollectionCardCatalog Catalog,
     ICollectionSourceCatalog Sources,

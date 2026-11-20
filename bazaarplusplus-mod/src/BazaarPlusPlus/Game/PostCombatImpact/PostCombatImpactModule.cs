@@ -22,9 +22,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
     private readonly CombatImpactReportRegistry _reports = new();
     private bool _started;
 
-    // The newest projection generation, written and read only on the game thread. A projection
-    // whose generation is no longer this one, or that resumes after Stop, skips its remaining
-    // game-thread work: TryPublish would discard its report anyway.
+    // The generation is game-thread-only. Skip native reads once the result can no longer publish.
     private long _gameThreadGeneration;
     private PostCombatImpactController? _runtime;
 
@@ -139,11 +137,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
         _runtime?.HideDetails();
     }
 
-    /// <summary>
-    /// Called by the combat-simulation patch on the game thread before the simulation plays. The
-    /// projection needs the whole simulation DTO, so this host feature takes it directly instead
-    /// of through the Core event bus, which carries only <c>CombatSimSnapshot</c>.
-    /// </summary>
+    // The Core event bus carries only CombatSimSnapshot. Projection needs the full simulation DTO before play.
     internal void ObserveCombatSimulation(CombatSim? simulation)
     {
         if (!_started)
@@ -170,9 +164,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
         CombatImpactRuntimeEntities runtimeEntities;
         try
         {
-            // The live cards and players are mutable runtime objects, so they are copied here,
-            // before the simulation plays. Every pass over the simulation's frames runs later,
-            // off the game thread.
+            // Copy live objects before simulation mutates them. Frame scans can run off the game thread.
             runtimeEntities = CombatImpactEntitySnapshotReader.ReadRuntime();
         }
         catch (Exception ex)
@@ -185,10 +177,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
         _ = ProjectInBackgroundAsync(simulation, runtimeEntities, cardMapLoad, generation);
     }
 
-    // Started on the game thread by the combat-simulation prefix. The first await deliberately
-    // keeps Unity's synchronization context, so transformed cards are rehydrated back on the game
-    // thread, as LiveBuildPanel.RefreshFinalBuildsAsync relies on
-    // (src/BazaarPlusPlus/Game/LiveBuildPanel/LiveBuildPanel.cs).
+    // Preserve Unity's synchronization context so transformed-card rehydration returns to the game thread.
     private async Task ProjectInBackgroundAsync(
         CombatSim simulation,
         CombatImpactRuntimeEntities runtimeEntities,
@@ -198,9 +187,7 @@ internal sealed class PostCombatImpactModule : IBppFeature
     {
         try
         {
-            // Both passes read only the immutable combat message. The producer reads Core's
-            // combat timeline (ADR-0019). The transformed-card scan finds the cards a transform
-            // created during combat, which Data.Entities does not hold.
+            // Data.Entities does not contain cards created by transforms during the simulation.
             var scan = await Task.Run(() =>
                 (
                     Timeline: DesktopCombatTimeline.From(simulation),
@@ -208,7 +195,6 @@ internal sealed class PostCombatImpactModule : IBppFeature
                 )
             );
 
-            // Back on the game thread, which CombatImpactEntitySnapshotReader.Complete requires.
             if (!_started || generation != _gameThreadGeneration)
                 return;
             var entities = CombatImpactEntitySnapshotReader.Complete(
@@ -258,8 +244,6 @@ internal sealed class PostCombatImpactModule : IBppFeature
             }
             catch
             {
-                // Static-data enrichment is optional. Keep the ordinary projection available
-                // if the shared card-map warmup failed for an unrelated feature.
                 cardMap = null;
             }
             if (cardMap != null)

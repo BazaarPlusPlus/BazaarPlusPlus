@@ -67,19 +67,11 @@ struct StoredCleanupPlan {
     data_root: PathBuf,
     scope: StorageCleanupScope,
     preset: StorageCleanupPreset,
-    /// `DataMaintenanceLock::database_generation` read before planning.
     database_generation: u64,
     plan: CleanupPlan,
 }
 
-/// The plan the latest cleanup preview computed, held natively so the
-/// frontend passes only its id. Confirming that preview executes this plan
-/// instead of scanning again. The plan stays a nomination: execution re-checks
-/// every candidate (`execute_*_cleanup_plan` in `history/cleanup.rs`), so a
-/// plan that aged while the user read the dialog only leaves later candidates
-/// for the next cleanup. One slot: a newer preview replaces it, a Reset
-/// invalidates it, a successful execution consumes it, and a failed
-/// one puts it back for the dialog's retry.
+/// A confirmed preview may be stale. Execution revalidates its candidates, and Reset invalidates the stored plan.
 #[derive(Clone, Default)]
 pub(crate) struct CleanupPlans {
     slot: Arc<Mutex<CleanupPlanSlot>>,
@@ -93,8 +85,6 @@ struct CleanupPlanSlot {
 }
 
 impl CleanupPlans {
-    /// Plans whose database generation follows `maintenance`, the lock Reset
-    /// holds.
     pub(crate) fn new(maintenance: DataMaintenanceLock) -> Self {
         Self {
             slot: Arc::default(),
@@ -131,10 +121,7 @@ impl CleanupPlans {
         id
     }
 
-    /// The stored plan `id` names, when it was computed for this data root,
-    /// scope, and preset, and no Reset ran since. `None` asks
-    /// the caller to plan afresh. Call it while holding the data maintenance
-    /// lock.
+    /// Call while holding the data maintenance lock so Reset cannot invalidate the plan during lookup.
     fn take(
         &self,
         id: u32,
@@ -157,10 +144,7 @@ impl CleanupPlans {
         .then_some(stored)
     }
 
-    /// Puts back a plan whose execution failed, so retrying the same
-    /// confirmation runs it again; every delete is re-checked, so rows a
-    /// partial execution already removed are simply missed. A newer preview
-    /// wins over it.
+    /// Retrying after partial execution is safe because each delete revalidates the candidate.
     fn restore(&self, stored: StoredCleanupPlan) {
         let mut slot = self
             .slot
@@ -182,20 +166,16 @@ struct HistoryStorage {
 pub(crate) struct History {
     paths: HistoryStorage,
     is_game_running: fn() -> bool,
-    /// Cleanup refuses unless this confirms the game is closed.
     cleanup_game_probe: fn(&Path) -> anyhow::Result<bool>,
 }
 
 impl History {
-    /// The installation History reads: the first of the selected, startup and
-    /// detected installations that has a history database.
     pub(crate) fn resolved_game_path(app: &tauri::AppHandle) -> Option<PathBuf> {
         app.state::<SelectedGameInstallationState>()
             .resolve(app, None, GamePathAcceptance::DatabaseExists)
             .map(|resolution| resolution.game_path)
     }
 
-    /// History of the selected installation that has a history database.
     pub(crate) fn selected(app: &tauri::AppHandle) -> Result<Self, SemanticProblem> {
         Self::at(Self::resolved_game_path(app))
     }
@@ -237,7 +217,6 @@ impl History {
         thumbnails: &HistoryThumbnails,
         card_names: &GameCardNames,
     ) -> Result<HistoryRunList, SemanticProblem> {
-        // The page's thumbnails stay bound to the installation it was read from.
         let source = thumbnails.register(&self.paths.game_path);
         list_history_runs(
             &self.paths.database_path,
@@ -264,13 +243,11 @@ impl History {
             .with_context(|| format!("History run {run_id} was not found."))
     }
 
-    /// Shows the screenshot of `run_id` in the system file browser.
     pub(crate) fn reveal_run_screenshot(&self, run_id: &str) -> Result<(), SemanticProblem> {
         let path = self.run_screenshot_path(run_id)?;
         as_action_problem(REVEAL_SCREENSHOT, || reveal_in_file_browser(&path))
     }
 
-    /// Shows the video `video_id` of `battle_id` in the system file browser.
     pub(crate) fn reveal_battle_video(
         &self,
         battle_id: &str,
@@ -280,7 +257,6 @@ impl History {
         as_action_problem(REVEAL_VIDEO, || reveal_in_file_browser(&path))
     }
 
-    /// The screenshot file `reveal_run_screenshot` shows for `run_id`.
     fn run_screenshot_path(&self, run_id: &str) -> Result<PathBuf, SemanticProblem> {
         as_action_problem(REVEAL_SCREENSHOT, || {
             self.require_database_exists()?;
@@ -289,7 +265,6 @@ impl History {
         })
     }
 
-    /// The video file `reveal_battle_video` shows for `battle_id`.
     fn battle_video_path(
         &self,
         battle_id: &str,
@@ -374,7 +349,6 @@ impl History {
         })
     }
 
-    /// Plans with cutoffs derived from `preset` at the current local time.
     fn plan_cleanup(
         &self,
         scope: StorageCleanupScope,
@@ -399,9 +373,7 @@ impl History {
         })
     }
 
-    /// Executes the confirmed preview's plan when `plans` still holds it for
-    /// this installation, scope, and preset; otherwise plans again first.
-    /// Call it while holding the data maintenance lock.
+    /// Hold the data maintenance lock so Reset cannot replace the database during execution.
     fn execute_cleanup(
         &self,
         scope: StorageCleanupScope,
@@ -415,8 +387,6 @@ impl History {
             };
             let result = self.execute_plan(&stored.plan);
             if result.is_err() {
-                // A refusal (the game is running) or a failure leaves the
-                // preview's plan for the dialog's retry.
                 plans.restore(stored);
             }
             result
@@ -456,9 +426,7 @@ impl History {
     }
 }
 
-/// Cleanup holds the data maintenance lock and resolves the installation only
-/// once it holds it, so it never acts on a data root a Reset is deleting. A
-/// preview plan computed for another data root is not reused.
+/// Resolve the installation under the data maintenance lock so cleanup cannot select a root being reset.
 pub(crate) async fn execute_storage_cleanup_with(
     maintenance: &DataMaintenanceLock,
     plans: CleanupPlans,
@@ -488,8 +456,6 @@ fn history_paths_for_game_path(game_path: PathBuf) -> HistoryStorage {
     }
 }
 
-/// Runs one history action and reports its diagnostic as the semantic
-/// `HistoryActionFailed` problem the frontend renders for `operation`.
 fn as_action_problem<T>(
     operation: &str,
     action: impl FnOnce() -> anyhow::Result<T>,
@@ -514,10 +480,7 @@ fn history_read_problem_with(
             .with_diagnostic(diagnostic);
     }
 
-    // The game keeps this database open, and a game process that outlived its
-    // window is the one cause the user can act on. Naming it turns an opaque
-    // SQLite failure into a fixable one, so it wins over the generic read code
-    // whenever the process is still there.
+    // A game process can outlive its window and hold the database open. Surface that actionable cause first.
     if is_game_running() {
         return SemanticProblem::new(SemanticProblemCode::HistoryReadBlockedByGame)
             .with_param("operation", operation)
@@ -882,8 +845,6 @@ mod tests {
         assert_eq!(preview.runs, 1);
         assert_eq!(preview.battles, 1);
 
-        // A run that finishes after the preview is not what the user confirmed:
-        // executing the preview's plan leaves it for the next cleanup.
         let conn = rusqlite::Connection::open(&database_path).unwrap();
         conn.execute_batch(
             "
@@ -926,8 +887,6 @@ mod tests {
         assert_eq!(result.deleted_runs, 1);
         assert_eq!(run_count(), 1);
 
-        // Execution consumed the plan; confirming the same id again (a retry
-        // after a failure) plans afresh and reaches the new run.
         let execution = history
             .execute_cleanup(
                 StorageCleanupScope::RunData,
@@ -968,7 +927,6 @@ mod tests {
         let older = store(StorageCleanupScope::Screenshots);
         let latest = store(StorageCleanupScope::Screenshots);
         assert_ne!(older, latest);
-        // A superseded id misses and leaves the latest plan in place.
         assert!(plans
             .take(
                 older,
@@ -985,7 +943,6 @@ mod tests {
                 StorageCleanupPreset::All
             )
             .is_some());
-        // Taking consumes it.
         assert!(plans
             .take(
                 latest,
@@ -1014,7 +971,6 @@ mod tests {
         ] {
             let id = store(StorageCleanupScope::RunData);
             assert!(plans.take(id, other_root, scope, preset).is_none());
-            // A mismatched confirmation discards the plan rather than keep it.
             assert!(plans
                 .take(
                     id,
@@ -1033,8 +989,6 @@ mod tests {
                 StorageCleanupPreset::All,
             )
         };
-        // A failed execution puts its plan back for the retry, unless a newer
-        // preview came meanwhile.
         let id = store(StorageCleanupScope::RunData);
         plans.restore(take(id).unwrap());
         let failed = take(id).unwrap();
@@ -1043,7 +997,6 @@ mod tests {
         assert!(take(id).is_none());
         assert!(take(newer).is_some());
 
-        // A Reset between preview and confirmation invalidates it.
         let id = store(StorageCleanupScope::RunData);
         maintenance
             .run_blocking_with_overlay_stopped(
@@ -1054,7 +1007,6 @@ mod tests {
             .unwrap();
         assert!(take(id).is_none());
 
-        // So does one that was still running when the preview planned.
         let during = {
             let plans = plans.clone();
             maintenance
@@ -1076,8 +1028,6 @@ mod tests {
         assert!(take(during).is_none());
     }
 
-    /// The dialog offers Retry after "Close The Bazaar". Retrying the same
-    /// confirmation must run the preview's plan, not a fresh one.
     #[test]
     fn a_refused_cleanup_keeps_the_preview_plan_for_its_retry() {
         let temp = tempfile::tempdir().unwrap();

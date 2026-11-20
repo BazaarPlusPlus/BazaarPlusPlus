@@ -30,7 +30,6 @@ public sealed class CombatStatusBarStateTests
         Assert.Equal("0:01.20", result);
     }
 
-    // The Android clock wrapped digit runs with Regex.Replace(@"\d+") before; the output stays.
     [Theory]
     [InlineData("0:00.00")]
     [InlineData("0:01.20")]
@@ -149,9 +148,7 @@ public sealed class CombatStatusBarStateTests
         Assert.True(CombatStatusBarState.ShouldRenderForState(true, _runContext, _probe));
     }
 
-    // Replay's start guard forces the cached flag to false, and entering ReplayState never
-    // fires RunStarted, so the cache stays false throughout playback; the live probe reports
-    // ReplayState as in-game-run (row inRun: false, inReplay: true).
+    // Entering ReplayState never fires RunStarted, so the cached run flag stays false during playback.
     [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]

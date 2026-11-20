@@ -4,12 +4,6 @@ using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>
-/// The desktop's reads for Core's <see cref="EncounterPreviewModule"/>: the publisher's plans,
-/// bound to the source they were published for, and the game state of
-/// <see cref="IEncounterPreviewGameRuntime"/>. Templates show their own texts, which
-/// <c>EncounterPreviewGameText</c> localizes.
-/// </summary>
 internal sealed class DesktopEncounterPreviewReads(
     EncounterPreviewPlanPublisher publisher,
     IEncounterPreviewGameRuntime runtime

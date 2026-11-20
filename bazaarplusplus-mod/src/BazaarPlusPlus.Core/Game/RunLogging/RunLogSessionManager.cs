@@ -79,7 +79,7 @@ public sealed class RunLogSessionManager
         _store.AppendEvent(session.RunId, entry);
 
         session.LastSeq = entry.Seq;
-        // A held Run Message Stream frame keeps the earlier time it was observed.
+        // Buffered stream frames can carry timestamps older than the session's current last-seen time.
         if (entry.Ts > session.LastSeenAtUtc)
             session.LastSeenAtUtc = entry.Ts;
         session.Day = entry.Day ?? session.Day;

@@ -26,7 +26,7 @@ public static class PathConstants
     public static string CombatReplayVideos(string dataRoot) =>
         Combine(dataRoot, CombatReplayVideoDirectoryName);
 
-    // A favorite's own replay copy: never evicted by replay retention, removed only with the favorite.
+    // Replay retention skips favorite copies, which are removed with the favorite.
     public static string FavoriteBattles(string dataRoot) =>
         Combine(dataRoot, FavoriteBattlesDirectoryName);
 

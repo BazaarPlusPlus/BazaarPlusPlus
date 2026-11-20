@@ -26,10 +26,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 {
     private const float EntityPreviewHeight = 52f;
 
-    // The row capacity is measured once, at Show. The controller only reaches Show after the native
-    // fade-in completes, so the scale is already final. The canvas can still grow before a later
-    // Position or a lazily built Received perspective (a window resize, a fullscreen toggle), and
-    // doubling the capacity keeps it an upper bound unless the canvas more than doubles.
+    // Double the measured row capacity to allow for a larger canvas after a resize or fullscreen toggle.
     private const int EntityPreviewRowCapacityHeadroom = 2;
     private const float SkillPreviewTrailingPadding = 4f;
     private const float TooltipPreferredWidth = 660f;
@@ -153,10 +150,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             return false;
         }
 
-        // The host owns taking over the native pair; it self-cleans and returns false (never
-        // throws) so the caller keeps reporting AuxiliaryTooltipContentUnavailable rather than
-        // TooltipRenderException. The failure detail is logged here because these were the only
-        // silent dismissal paths in the whole presentation.
         if (!_session.TryOpen(auxiliary, primary, PairedOptions, out var openFailure))
         {
             LogShowRejected(MapOpenFailure(openFailure));
@@ -202,13 +195,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         return _session.AttachContent(_contentRoot, ApplyMetricColumnWidth);
     }
 
-    /// <summary>
-    /// Retunes the metric columns whenever the host resizes the panel.
-    /// </summary>
-    /// <remarks>
-    /// The column ratio and its clamps are Combat Impact design parameters, so they stay here
-    /// instead of becoming defaults inside the shared host. Only a float crosses the boundary.
-    /// </remarks>
     private void ApplyMetricColumnWidth(float contentWidth)
     {
         var metricWidth = Mathf.Clamp(
@@ -229,8 +215,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             return false;
 
         var previousPerspective = _activePerspective;
-        // The host only masks and rebuilds; choosing the perspective, deciding the swap failed,
-        // and rolling it back are Combat Impact decisions and stay here.
         using (_session.BeginMaskedLayout())
         {
             if (!EnsurePerspectiveBuilt(perspective))
@@ -268,14 +252,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         return result.Positioned;
     }
 
-    /// <summary>
-    /// Turns a placement outcome into this feature's reason codes.
-    /// </summary>
-    /// <remarks>
-    /// Kept here rather than in the host: the once-only latches and their reset-on-recovery
-    /// behavior decide how many records reach the log, and that is Combat Impact's contract.
-    /// A pass that never positioned logs nothing and leaves the latches untouched.
-    /// </remarks>
     private void LogPlacementDegradations(PlacementResult result)
     {
         if (!result.Positioned)
@@ -313,10 +289,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
 
     public bool OnNativeAuxiliaryTooltipShowing(AuxiliaryTooltipController controller)
     {
-        // A confirmed native show must receive a fully usable pooled host, not merely the exact
-        // content-active flags captured before Combat Impact took it over. Native Show assigns
-        // text but never reactivates header/body, so replaying an inactive snapshot produces an
-        // empty, layout-collapsed frame.
         return _session.ReleaseForNativeShow(controller);
     }
 
@@ -325,13 +297,8 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         if (!_session.OwnsAuxiliary(controller))
             return false;
 
-        // Restore the reusable host geometry for native fade-out, but keep its original content
-        // inactive until the next real native show. Reactivating the header here lets a later
-        // native fade/tween expose a detached title at this host's old paired position.
-        //
-        // This is also the recovery path for a fade coroutine that never completes: it is hosted
-        // on the native controller, so deactivating that MonoBehaviour kills it silently and no
-        // generation check can rescue a callback that never fires.
+        // Keep the native text inactive through fade-out because the native tween can expose
+        // a detached title at the old paired position.
         _session.ForceSettle();
         return true;
     }
@@ -339,14 +306,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     public bool TryConcealVisibleEmptyNativeAuxiliary(AuxiliaryTooltipController controller) =>
         _session.TryConcealVisibleEmptyNativeAuxiliary(controller);
 
-    /// <summary>
-    /// Releases this feature's own resources during <see cref="NativePairedTooltipSession.Release"/>.
-    /// </summary>
-    /// <remarks>
-    /// Invoked by the host after it has stopped the fade and bumped the generation, but before it
-    /// destroys UI or restores native state. Relying on that ordering is what keeps a cancelled
-    /// preview continuation from re-attaching to a presentation that is being torn down.
-    /// </remarks>
     private void ReleaseOwnerResources()
     {
         DisposeNativePreviews();
@@ -389,15 +348,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         moreText.transform.parent.gameObject.SetActive(true);
     }
 
-    /// <summary>
-    /// Combat Impact's batched height budget, driven by the host while it fits the panel.
-    /// </summary>
-    /// <remarks>
-    /// Reproduces the original nested loop exactly: walk the blocks from last to first, dropping
-    /// each block's detail rows from last to first, then the block itself (with its leading
-    /// divider). Settled row heights are consumed in that order before the host commits one final
-    /// layout, instead of rebuilding the complete Tooltip after every dropped item.
-    /// </remarks>
     private sealed class ImpactContentBudget : IPairedContentBudget
     {
         private readonly List<ImpactContentBlock> _blocks;
@@ -492,16 +442,8 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         private static float PreferredHeight(RectTransform rect) =>
             Mathf.Max(0f, LayoutUtility.GetPreferredHeight(rect));
 
-        /// <summary>
-        /// Preferred height of a row that is still inactive when the budget is computed.
-        /// </summary>
-        /// <remarks>
-        /// <see cref="LayoutUtility.GetPreferredHeight"/> skips every layout component whose
-        /// behaviour is not active-and-enabled, so on the hidden disclosure row it reports 0 and the
-        /// budget would under-trim by that row's height. The row is built with an explicit
-        /// <see cref="LayoutElement"/> (priority 1, so it wins over the row's layout group once the
-        /// row is active); read that value directly instead.
-        /// </remarks>
+        // LayoutUtility skips inactive components, so read the hidden disclosure row's explicit
+        // LayoutElement height to avoid undercounting it.
         private static float InactiveRowPreferredHeight(RectTransform rect) =>
             rect.gameObject.activeInHierarchy ? PreferredHeight(rect)
             : rect.TryGetComponent<LayoutElement>(out var element)
@@ -518,10 +460,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             {
                 _previewCancellation.Cancel();
             }
-            catch
-            {
-                // Continue deterministic native-preview release.
-            }
+            catch { }
             _previewCancellation.Dispose();
             _previewCancellation = null;
         }
@@ -532,10 +471,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             {
                 session.Dispose();
             }
-            catch
-            {
-                // Scope disposal below remains the final ownership boundary.
-            }
+            catch { }
         }
         _previewSessions.Clear();
 
@@ -632,16 +568,8 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         return true;
     }
 
-    /// <summary>
-    /// The most entity rows, counted in build order across one perspective, that can still be
-    /// visible after <see cref="ImpactContentBudget"/> trims the panel to the canvas.
-    /// </summary>
-    /// <remarks>
-    /// The budget hides rows from the end, so the visible rows are a prefix in build order, and
-    /// each row is at least <see cref="EntityPreviewHeight"/> tall. A row past this capacity is
-    /// always trimmed into the "+N more" disclosure, so it gets no native preview: no
-    /// <c>AcquireAsync</c>, no canvas fit, no pending reveal count.
-    /// </remarks>
+    // Trimming removes rows from the end, so rows beyond this upper bound can skip native
+    // preview acquisition and its pending reveal budget.
     private static int ResolveEntityPreviewRowCapacity(float contentHeightLimit)
     {
         var rows = NativePairedTooltipPlacementMath.MaximumVisibleRows(
@@ -660,8 +588,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         return System.Diagnostics.Stopwatch.GetTimestamp();
     }
 
-    // Debug builds record what one hover built, so the cost of a perspective build and the
-    // previews it skipped can be read from LogOutput.log without a profiler.
     [System.Diagnostics.Conditional("DEBUG")]
     private void LogPerspectiveBuilt(CombatImpactPerspective perspective, long startedAt)
     {
@@ -1054,8 +980,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             flexibleWidth: 1f
         );
         labelText.alignment = TextAlignmentOptions.MidlineLeft;
-        // Group titles are controlled product labels and must stay literal even when the row is
-        // constrained; unlike generic cloned text, they never opt into ellipsis.
+        // Keep controlled group titles literal even when the row is constrained.
         labelText.overflowMode = TextOverflowModes.Overflow;
         if (!hasSecondaryMetric)
         {
@@ -1071,10 +996,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             return;
         }
 
-        // Render the authoritative total and its ruby-like realized metric as one TMP block. Its
-        // preferred width can consume the header's unused space, while auto-sizing fits both lines
-        // together inside the fixed row height. Overflow remains literal; this Tooltip never
-        // replaces constrained text with ellipsis.
         var secondaryColor = ColorUtility.ToHtmlStringRGB(DisclosureColor);
         var stackedMetric = CloneText(
             textTemplate,
@@ -1137,8 +1058,6 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
     )
     {
         var row = CreateHorizontal(rowName, parent, 10f, preferredHeight: EntityPreviewHeight + 2f);
-        // A row past the capacity is always trimmed, so it skips the preview column that a
-        // failed preview would hide anyway (ResolveEntityPreviewRowCapacity).
         if (_entityPreviewRowsBuilt++ < _entityPreviewRowCapacity)
         {
             // CombatImpactProjector builds every ledger entity as the host record that carries
@@ -1351,10 +1270,7 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             if (scheduleFlush)
                 ScheduleNativePreviewFitFlush(generation);
         }
-        catch (OperationCanceledException)
-        {
-            // Replacement and dismissal cancel compact native previews as one presentation.
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             HidePreviewSlot(slot);
@@ -1375,11 +1291,8 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
         }
     }
 
-    /// <summary>
-    /// Coalesces native previews that finish acquisition in the same Unity synchronization-context
-    /// turn. The outer presentation still counts each queued preview as pending until this batch has
-    /// completed, so it cannot reveal geometry that has not been fitted yet.
-    /// </summary>
+    // Queued previews count as pending until the shared fit completes so the presentation
+    // cannot reveal unfitted geometry.
     private void ScheduleNativePreviewFitFlush(int generation) =>
         _ = FlushNativePreviewFits(generation);
 
@@ -1611,9 +1524,8 @@ internal sealed class NativePostCombatImpactTooltipView : IPostCombatImpactToolt
             layout.preferredWidth = columnWidth;
         }
 
-        // Nothing reads the row's geometry before the next canvas update or Position's full
-        // rebuild, so the row is only marked. One deferred pass replaces a synchronous rebuild
-        // per preview.
+        // No consumer reads row geometry before the next canvas update or Position rebuild,
+        // so a deferred pass can replace one synchronous rebuild per preview.
         if (column.parent is RectTransform row)
             LayoutRebuilder.MarkLayoutForRebuild(row);
         return true;
