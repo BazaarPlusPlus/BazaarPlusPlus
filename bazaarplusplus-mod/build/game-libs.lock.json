@@ -10,11 +10,11 @@
       "capturedAt": "2026-11-11T23:03:14.906Z"
     },
     "macos-staging": {
-      "gameVersion": "1.0.13257-staging-macos-arm64-959c7245",
-      "sha256": "bdd2319e801db687da7c933103adb6655205d41a83120763d73e8cb79f888dc8",
-      "buildid": "26746546",
+      "gameVersion": "1.0.13295-staging-macos-arm64-710bc150",
+      "sha256": "c09fccb76b632214605b33fc5c4e61ebfbb9df0733f46c7bc6c87544de5a01a5",
+      "buildid": "26800691",
       "steamBranch": "staging",
-      "capturedAt": "2026-11-18T04:42:41.827Z"
+      "capturedAt": "2026-11-20T02:35:52.626Z"
     },
     "macos-ptr": {
       "gameVersion": "1.0.13121-ptr-macos-arm64-84d93d55",
@@ -31,11 +31,11 @@
       "capturedAt": "2026-11-11T23:03:19.515Z"
     },
     "windows-staging": {
-      "gameVersion": "1.0.13260-staging-windows-x64-15fc3fb2",
-      "sha256": "c9986fcb72b9d724d3bdff37f18b1746a96c76060759bb6bf365bb5936d13aa8",
-      "buildid": "26746546",
+      "gameVersion": "1.0.13294-staging-windows-x64-710bc150",
+      "sha256": "2453d84e1f26ceb3185296b806a8eef42d1539de310d1c28ae67b12fddf30a79",
+      "buildid": "26800691",
       "steamBranch": "staging",
-      "capturedAt": "2026-11-18T04:42:49.037Z"
+      "capturedAt": "2026-11-20T02:36:02.174Z"
     },
     "windows-ptr": {
       "gameVersion": "1.0.13122-ptr-windows-x64-84d93d55",
