@@ -4,7 +4,10 @@ using System.Text;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-// Run on a background thread. Media Foundation copies H.264 samples and only re-encodes the loopback audio.
+/// <summary>
+/// Background-only Media Foundation bridge. H.264 samples are copied without re-encoding while
+/// the single endpoint-loopback WAV is converted to stereo 48 kHz AAC.
+/// </summary>
 internal static class WindowsNativeReplayAudioMuxer
 {
     internal const int TimeoutResultCode = -8;

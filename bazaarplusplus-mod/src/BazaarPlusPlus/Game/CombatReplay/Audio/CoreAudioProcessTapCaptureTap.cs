@@ -3,7 +3,26 @@ using System.Runtime.InteropServices;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
-// The native IOProc stays outside Mono because GC suspension, thread attach, or JIT on the real-time thread can drop audio.
+/// <summary>
+/// Captures the game's audio on macOS via a CoreAudio process tap — i.e. the exact output PCM the game
+/// process itself emits, taken downstream of all of FMOD/Resonance's internal mixing and 3D
+/// spatialisation. Like the Windows WASAPI loopback tap this is independent of FMOD's bus/DSP routing,
+/// so it captures everything the player hears: music, settlement, VO, AND the spatialised combat/board
+/// SFX whose signal does not appear on any tappable FMOD channel group. Tapping the game's own process
+/// (self-tap) is per-process and device-independent, so unlike default-endpoint loopback it never
+/// records other apps' audio.
+///
+/// All CoreAudio interaction lives in the native <c>BppMacAudio</c> dylib: it owns the tap, the
+/// aggregate device, the real-time IOProc, the planar→interleave conversion, and a wait-free FIFO. This
+/// C# side is a PURE PULL loop — structurally identical to <see cref="WasapiLoopbackCaptureTap"/> — that
+/// only P/Invokes <c>BppMacAudio_Read</c> to drain interleaved float32 from the FIFO. Keeping the
+/// real-time IOProc out of managed code avoids dragging a hard-deadline RT thread into Mono (GC suspend
+/// / thread attach / first-call JIT → dropped frames).
+///
+/// Everything degrades gracefully: any failure during <see cref="TryStart"/> tears the tap down, logs a
+/// Warn, and returns false so the recorder proceeds with a silent video. Game playback is never affected
+/// (the tap is read-only and unmuted).
+/// </summary>
 internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
 {
     private readonly string _wavFilePath;
@@ -57,6 +76,7 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
             _sampleRate = rate;
             _channels = ch;
 
+            // The tap is already 32-bit float interleaved PCM — no format conversion needed.
             _wav = new WavStreamWriter(_wavFilePath, rate, ch);
 
             _running = true;
@@ -174,7 +194,10 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
                 if (File.Exists(_wavFilePath))
                     File.Delete(_wavFilePath);
             }
-            catch { }
+            catch
+            {
+                // Deferred cleanup is best-effort after the typed stop failure is recorded.
+            }
         }
     }
 
@@ -186,7 +209,10 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
         {
             Stop();
         }
-        catch { }
+        catch
+        {
+            // Stop is fully guarded; final safety net so a start failure never escapes.
+        }
     }
 
     private void CaptureLoop()
@@ -209,7 +235,8 @@ internal sealed class CoreAudioProcessTapCaptureTap : IReplayAudioCaptureTap
                 }
             }
 
-            // Stopping the tap can leave one final IOProc buffer in the FIFO.
+            // Final drain: _running is now false, but the FIFO may still hold the last ~8ms the
+            // IOProc pushed. Pull it out (bounded) so the tail of the capture is not lost.
             for (var i = 0; i < 64; i++)
             {
                 var n = BppMacAudio_Read(_handle, scratch, scratch.Length);
