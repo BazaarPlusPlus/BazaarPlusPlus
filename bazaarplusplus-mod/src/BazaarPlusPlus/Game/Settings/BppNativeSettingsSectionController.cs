@@ -588,6 +588,14 @@ internal sealed class BppNativeSettingsSectionController : MonoBehaviour
 
     private static void SetRowLabel(NativeRowView row, string labelText)
     {
+        if (row.Toggle != null)
+        {
+            // The native checkbox can carry multiple copies of its label, including inactive ones.
+            foreach (var label in row.Root.GetComponentsInChildren<TextMeshProUGUI>(true))
+                label.text = labelText;
+            return;
+        }
+
         TextMeshProUGUI? best = null;
         foreach (var label in row.Root.GetComponentsInChildren<TextMeshProUGUI>(true))
         {
