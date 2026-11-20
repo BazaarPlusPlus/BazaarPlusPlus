@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:test';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import worker from '../../src/index';
 import {
@@ -8,6 +8,8 @@ import {
   uploadRequest
 } from '../fixtures/bundle';
 import { expectGolden } from '../fixtures/golden';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('POST /bundles', () => {
   test('stores one Run-only Bundle and returns its receipt', async () => {
@@ -32,6 +34,44 @@ describe('POST /bundles', () => {
          WHERE b.bundle_id = '01J00000000000000000000001'`
       ).first()
     ).toEqual({ player_account_id: 'account-uploader' });
+  });
+
+  test('logs where a stored upload waited', async () => {
+    const fixture = await makeBundleFixture({
+      bundleId: '01J00000000000000000000008',
+      runId: 'run-008',
+      screenshotBytes: new Uint8Array([0xff, 0xd8, 8, 0xff, 0xd9])
+    });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const response = await worker.fetch(
+      uploadRequest(fixture.body, fixture.headers),
+      env
+    );
+    expect(response.status).toBe(201);
+
+    const event = log.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+      .find(({ event }) => event === 'bundle.ingest');
+    expect(event).toMatchObject({
+      bundle_id: '01J00000000000000000000008',
+      outcome: 'stored',
+      has_screenshot: true
+    });
+    const spans = event as Record<string, number>;
+    for (const field of [
+      'manifest_ms',
+      'inspect_ms',
+      'body_ms',
+      'store_ms',
+      'commit_ms',
+      'total_ms'
+    ]) {
+      expect(spans[field], field).toBeGreaterThanOrEqual(0);
+    }
+    expect(spans.body_ms).toBeLessThanOrEqual(spans.store_ms);
+    expect(spans.total_ms).toBe(
+      spans.manifest_ms + spans.inspect_ms + spans.store_ms + spans.commit_ms
+    );
   });
 
   test('rejects a segment mutation even when the whole-body digest is valid', async () => {

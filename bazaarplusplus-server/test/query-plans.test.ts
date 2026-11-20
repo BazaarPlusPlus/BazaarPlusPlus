@@ -106,15 +106,17 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
   expect(feed.results).toHaveLength(51);
   expect(feed.meta.rows_read).toBeLessThan(150);
 
-  // One opponent owns 20 of 2,000 Ghost rows; its page joins only those Bundles.
+  // One opponent owns 20 of 2,000 Ghost rows; its page reads only those rows,
+  // and their stored object keys spare it a lookup into bundles per row.
   await env.DB.prepare(`
     INSERT INTO ghost_battle_summaries (
       uploader_account_id, battle_id, bundle_id, opponent_account_id,
-      recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name
+      recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id, player_display_name,
+      object_key
     )
     SELECT 'backlog-uploader', 'battle-' || bundle_id, bundle_id,
       CASE WHEN bundle_id < '01J9' || printf('%022d', 20) THEN 'plan-opponent' ELSE 'bystander' END,
-      available_at_ms, 0, 1, 1, 'win', 'Player', 'Uploader'
+      available_at_ms, 0, 1, 1, 'win', 'Player', 'Uploader', object_key
     FROM bundles WHERE uploader_account_id = 'backlog-uploader'
   `).run();
   const ghosts = await worker.fetch(
@@ -133,5 +135,5 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
     queries,
     /^SELECT .* FROM ghost_battle_summaries /
   ).result;
-  expect(ghost.meta.rows_read).toBeLessThan(20 * 3 + 10);
+  expect(ghost.meta.rows_read).toBeLessThan(20 + 10);
 });

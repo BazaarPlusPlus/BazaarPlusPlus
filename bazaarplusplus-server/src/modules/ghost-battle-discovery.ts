@@ -49,6 +49,7 @@ export async function discoverGhostBattles(
   env: Env,
   requestId: string
 ): Promise<GhostDiscoveryResponse> {
+  const startedAt = Date.now();
   const rateLimitKey = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   let rateLimit: RateLimitOutcome;
   try {
@@ -58,8 +59,15 @@ export async function discoverGhostBattles(
   } catch {
     throw apiError('storage_unavailable', 'Ghost rate limiter is unavailable');
   }
+  // Workers advance Date.now() only across I/O, so these spans time the
+  // limiter and D1 round trips; URL signing is CPU and shows as zero here.
+  const rateLimitMs = Date.now() - startedAt;
   if (!rateLimit.success) {
-    logEvent('ghost.discovery', { request_id: requestId, limited: true });
+    logEvent('ghost.discovery', {
+      request_id: requestId,
+      limited: true,
+      rate_limit_ms: rateLimitMs
+    });
     throw apiError('rate_limited', 'Ghost Battle request rate exceeded', {
       headers: { 'Retry-After': '60' }
     });
@@ -104,6 +112,8 @@ export async function discoverGhostBattles(
     });
   }
 
+  // Rows stored before migration 0004 have no object_key copy and read their
+  // parent Bundle's key; the foreign key guarantees that Bundle exists.
   const issuedAt = Date.now();
   let rows: GhostRow[];
   try {
@@ -118,9 +128,11 @@ export async function discoverGhostBattles(
          g.player_display_name, g.player_hero_name, g.opponent_hero_name,
          g.player_rank, g.player_rating,
          g.opponent_level, g.opponent_prestige, g.opponent_victories,
-         x.object_key
+         COALESCE(
+           g.object_key,
+           (SELECT x.object_key FROM bundles AS x WHERE x.bundle_id = g.bundle_id)
+         ) AS object_key
        FROM ghost_battle_summaries AS g INDEXED BY idx_ghost_summaries_query
-       JOIN bundles AS x ON x.bundle_id = g.bundle_id
        WHERE g.opponent_account_id = ?1
          AND g.recorded_at_ms >= ?2
        ORDER BY g.recorded_at_ms DESC, g.battle_id DESC
@@ -132,6 +144,7 @@ export async function discoverGhostBattles(
   } catch {
     throw apiError('storage_unavailable', 'Ghost Battle query failed');
   }
+  const queryMs = Date.now() - issuedAt;
 
   const downloads = await signDownloadPage(
     createBundleDownloadSigner(env),
@@ -171,7 +184,10 @@ export async function discoverGhostBattles(
     request_id: requestId,
     account_hash: await accountHash(accountId),
     row_count: rows.length,
-    limited: false
+    limited: false,
+    rate_limit_ms: rateLimitMs,
+    query_ms: queryMs,
+    total_ms: Date.now() - startedAt
   });
   return { battles };
 }

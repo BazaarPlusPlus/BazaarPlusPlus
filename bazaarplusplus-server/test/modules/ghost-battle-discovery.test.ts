@@ -48,7 +48,8 @@ describe('GET /ghost-battles', () => {
     };
 
     expect(battles).toHaveLength(2);
-    // Rows stored before the progress columns existed carry no local progress.
+    // Rows stored before the progress and object key columns existed carry no
+    // local progress and sign their parent Bundle's key.
     expect(battles[0].opponent).toMatchObject({
       level: null,
       prestige: null,
@@ -131,7 +132,22 @@ describe('GET /ghost-battles', () => {
       );
       expect(uploaded.status).toBe(201);
     }
+    // Each stored projection carries its Bundle's object key, so discovery
+    // signs it without reading bundles.
+    expect(
+      await env.DB.prepare(
+        `SELECT g.object_key, g.object_key = b.object_key AS matches
+         FROM ghost_battle_summaries AS g JOIN bundles AS b USING (bundle_id)
+         WHERE g.battle_id = 'battle-a-fresh'`
+      ).first()
+    ).toEqual({
+      object_key: expect.stringMatching(
+        /^bundles\/\d{4}-\d{2}-\d{2}\/01J00000000000000000000203\.bundle$/
+      ),
+      matches: 1
+    });
 
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const response = await worker.fetch(
       new Request(
         `https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=${accountB}`,
@@ -158,6 +174,16 @@ describe('GET /ghost-battles', () => {
         'X-Amz-Expires'
       )
     ).toBe('604800');
+    const event = log.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+      .find(({ event }) => event === 'ghost.discovery');
+    expect(event).toMatchObject({
+      row_count: 2,
+      limited: false,
+      rate_limit_ms: expect.any(Number),
+      query_ms: expect.any(Number),
+      total_ms: expect.any(Number)
+    });
   });
 
   test('rate limits before parsing the query or touching D1', async () => {

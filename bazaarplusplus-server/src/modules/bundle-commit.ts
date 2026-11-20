@@ -137,7 +137,7 @@ function buildStatements(
             uploader_account_id, battle_id, bundle_id, opponent_account_id,
             recorded_at_ms, is_final_battle, day, hour, result, winner_combatant_id,
             player_display_name, player_hero_name, opponent_hero_name, player_rank, player_rating,
-            opponent_level, opponent_prestige, opponent_victories
+            opponent_level, opponent_prestige, opponent_victories, object_key
           )
           SELECT ?2,
                  json_extract(value, '$.battle_id'),
@@ -156,13 +156,19 @@ function buildStatements(
                  json_extract(value, '$.player.rating'),
                  json_extract(value, '$.opponent.level'),
                  json_extract(value, '$.opponent.prestige'),
-                 json_extract(value, '$.opponent.victories')
+                 json_extract(value, '$.opponent.victories'),
+                 ?4
           FROM json_each(?1)
           WHERE ${ELIGIBILITY_PREDICATE}
           ON CONFLICT(uploader_account_id, battle_id) DO NOTHING
           RETURNING battle_id`
         )
-        .bind(battles, descriptor.uploaderAccountId, descriptor.bundleId)
+        .bind(
+          battles,
+          descriptor.uploaderAccountId,
+          descriptor.bundleId,
+          descriptor.objectKey
+        )
     },
     {
       name: 'count_eligible',
