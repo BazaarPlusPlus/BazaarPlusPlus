@@ -543,6 +543,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
     {
         var battleId = operation.BattleId;
         var attemptedBootstrap = false;
+        var attemptedInjection = false;
         _publisher.BeginSession(battleId, manifest, source, operation.RecordVideo);
         try
         {
@@ -567,6 +568,7 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
                 PathConstants.RunLogDatabase(_services.Paths.RequireDataRoot()),
                 operation
             );
+            attemptedInjection = true;
             await start.InjectAsync(_publisher.PublishStarting);
             var interruption = _lifecycle.TakeStartupInterruption();
             if (interruption != null)
@@ -598,7 +600,9 @@ public sealed class SavedReplayPlayback : ISavedReplayRuntime, IDisposable
                 failureException = ended.Exception;
             }
             var rollbackStatus = ReplayRollbackStatus.NotRequired;
-            if (attemptedBootstrap)
+            // Injection also pushes ReplayState when the game scene was already ready.
+            // A failure after that push needs the same reset before another replay can start.
+            if (attemptedBootstrap || (attemptedInjection && _host.InReplayState))
             {
                 var rollback = await RollbackAsync(start);
                 rollbackStatus = rollback.Succeeded

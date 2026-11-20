@@ -456,6 +456,8 @@ internal sealed class InMemorySavedReplayStart(
         Record("rollback");
         if (RollbackThrows != null)
             throw RollbackThrows;
+        if (Rollback.Succeeded)
+            host.InReplayState = false; // AppState.Reset() in the host rollback.
         return Task.FromResult(Rollback);
     }
 

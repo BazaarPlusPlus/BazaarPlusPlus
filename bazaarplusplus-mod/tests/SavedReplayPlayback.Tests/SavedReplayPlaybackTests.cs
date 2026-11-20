@@ -395,7 +395,7 @@ public sealed class SavedReplayPlaybackTests
     }
 
     [Fact]
-    public void Rollback_runs_only_after_a_bootstrap_attempt_and_its_failure_overrides()
+    public void Before_entering_replay_only_a_bootstrap_attempt_rolls_back_and_its_failure_overrides()
     {
         using var noBootstrap = new SavedReplayPlaybackHarness();
         noBootstrap.Save(BattleA);
@@ -500,6 +500,27 @@ public sealed class SavedReplayPlaybackTests
         Assert.False(h.Playback.IsSavedReplayPlaybackActive);
         Assert.True(h.LeaseIsFree());
         Assert.Equal(2, h.Terminals().Count);
+    }
+
+    [Fact]
+    public void Injection_failing_after_entering_replay_in_a_ready_scene_allows_another_battle()
+    {
+        using var h = new SavedReplayPlaybackHarness();
+        h.Save(BattleA);
+        h.Save(BattleB);
+        using var context = new ReplayTestContext();
+        var injection = new TaskCompletionSource();
+        h.Host.ConfigureStart = start => start.InjectGate = injection;
+        Assert.True(context.Finish(h.Playback.ReplaySavedAsync(BattleA, recordVideo: false)));
+
+        h.Host.InReplayState = true;
+        injection.SetException(new InvalidOperationException("Failed after pushing ReplayState."));
+
+        Assert.True(h.Playback.CanReplaySavedCombats(out var reason), reason);
+        Assert.Contains(" rollback_status=succeeded", h.SingleTerminal());
+        h.Host.ConfigureStart = null;
+        Assert.True(context.Finish(h.Playback.ReplaySavedAsync(BattleB, recordVideo: false)));
+        Assert.Equal(BattleB, h.Playback.Active?.BattleId);
     }
 
     [Fact]

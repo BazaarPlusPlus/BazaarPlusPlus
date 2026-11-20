@@ -82,7 +82,10 @@ public interface ISavedReplayStart
     /// </summary>
     Task InjectAsync(Func<ReplayPlaybackPublishOutcome> publishStarting);
 
-    /// <summary>Returns a failed lobby bootstrap to the lobby; reports a failure, never throws.</summary>
+    /// <summary>
+    /// Returns a failed start to the lobby after a bootstrap attempt or entry into ReplayState.
+    /// Reports a rollback failure in the result.
+    /// </summary>
     Task<ReplayBootstrapRollback> RollbackBootstrapAsync();
 }
 
