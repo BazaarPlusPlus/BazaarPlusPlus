@@ -4,7 +4,10 @@ using System.Text;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-// Run on a background thread. AVFoundation copies H.264 samples and only re-encodes audio.
+/// <summary>
+/// Background-only AVFoundation bridge for the macOS finalize pass. H.264 samples are copied
+/// without re-encoding while the captured PCM WAV tracks are mixed and encoded to AAC.
+/// </summary>
 internal static class MacNativeReplayAudioMuxer
 {
     internal const int TimeoutResultCode = -8;
