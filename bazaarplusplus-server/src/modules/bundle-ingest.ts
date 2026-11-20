@@ -84,14 +84,25 @@ async function validateExistingObject(
   }
 }
 
+interface ObjectWrite {
+  created: boolean;
+  storedAtMs: number;
+  // When the last body byte reached the R2 stream; null when the body was not streamed.
+  bodyReceivedAtMs: number | null;
+}
+
 async function putConditionally(
   env: Env,
   opened: OpenedBundle,
   digest: string
-): Promise<{ created: boolean; storedAtMs: number }> {
+): Promise<ObjectWrite> {
   const descriptor = opened.descriptor;
   const fixed = new FixedLengthStream(descriptor.objectBytes);
-  const pump = opened.body.pipeTo(fixed.writable);
+  let bodyReceivedAtMs = null as number | null;
+  const pump = opened.body.pipeTo(fixed.writable).then(() => {
+    bodyReceivedAtMs = Date.now();
+    return undefined;
+  });
   void pump.catch(() => undefined);
   let object: R2Object | null;
   try {
@@ -135,13 +146,17 @@ async function putConditionally(
       digest,
       descriptor.bundleId
     );
-    return { created: false, storedAtMs };
+    return { created: false, storedAtMs, bodyReceivedAtMs: null };
   }
 
   try {
     await pump;
     await opened.digest;
-    return { created: true, storedAtMs: object.uploaded.getTime() };
+    return {
+      created: true,
+      storedAtMs: object.uploaded.getTime(),
+      bodyReceivedAtMs
+    };
   } catch (error) {
     await env.BUNDLE_BUCKET.delete(descriptor.objectKey).catch(() => undefined);
     if (error instanceof HttpError) throw error;
@@ -154,6 +169,9 @@ export async function ingestBundle(
   env: Env,
   requestId: string
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
+  // Workers advance Date.now() only across I/O, so each span below is the wait
+  // on the client body, R2, or D1; CPU work inside a span reads as zero.
+  const startedAt = Date.now();
   if (request.headers.get('Content-Type') !== BUNDLE_CONTENT_TYPE) {
     throw apiError(
       'unsupported_content_type',
@@ -168,6 +186,7 @@ export async function ingestBundle(
     throw apiError('invalid_content_length', 'Bundle body is missing');
   }
   const opened = await openBundle(request.body, contentLength, digest);
+  const manifestReadAt = Date.now();
   const { descriptor } = opened;
   if (descriptor.battles.length === 0) {
     // Validate the rest of the Bundle first, so a corrupt upload still gets its format error.
@@ -182,6 +201,7 @@ export async function ingestBundle(
     await opened.body.cancel(error).catch(() => undefined);
     throw apiError('storage_unavailable', 'Bundle index is unavailable');
   }
+  const inspectedAt = Date.now();
   if (existing?.kind === 'duplicate') {
     await opened.body.cancel('duplicate Bundle').catch(() => undefined);
     return { status: 200, receipt: existing.receipt };
@@ -210,6 +230,7 @@ export async function ingestBundle(
     }
     throw error;
   }
+  const committedAt = Date.now();
   if (outcome.kind === 'duplicate') {
     return { status: 200, receipt: outcome.receipt };
   }
@@ -228,7 +249,18 @@ export async function ingestBundle(
     run_id: descriptor.runId,
     bytes: descriptor.objectBytes,
     has_screenshot: descriptor.screenshot !== null,
-    outcome: 'stored'
+    outcome: 'stored',
+    // Prefix and manifest arrive first; store_ms is the rest of the body
+    // streaming into R2 plus R2 finishing the PUT, and body_ms its first part.
+    manifest_ms: manifestReadAt - startedAt,
+    inspect_ms: inspectedAt - manifestReadAt,
+    body_ms:
+      objectWrite.bodyReceivedAtMs === null
+        ? null
+        : objectWrite.bodyReceivedAtMs - inspectedAt,
+    store_ms: now - inspectedAt,
+    commit_ms: committedAt - now,
+    total_ms: committedAt - startedAt
   });
   return { status: 201, receipt: outcome.receipt };
 }

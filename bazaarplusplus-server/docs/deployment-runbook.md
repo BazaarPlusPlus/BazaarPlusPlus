@@ -122,7 +122,32 @@ Suggested starting thresholds; tune against real traffic.
 Classified 4xx responses are intentionally not logged; they are client errors and
 would drown the signal.
 
-### 6.2 D1 state checks (external prober)
+### 6.2 Latency spans
+
+`bundle.ingest` (stored uploads) and `ghost.discovery` carry the wait of each step in
+milliseconds, so a Workers Observability query with `p50`/`p90` of a field, filtered on
+the event, shows where a request spends its time. Workers advance the clock only
+across I/O, so these spans are waits on the client, R2, D1, or the rate limiter; CPU
+work such as digesting or URL signing reads as zero.
+
+| Event | Field | Wait |
+| --- | --- | --- |
+| `bundle.ingest` | `manifest_ms` | Receiving the prefix and manifest |
+| `bundle.ingest` | `inspect_ms` | D1 lookup of an existing Bundle or Run |
+| `bundle.ingest` | `body_ms` | Receiving the rest of the body while it streams into R2 |
+| `bundle.ingest` | `store_ms` | `body_ms` plus R2 finishing the PUT |
+| `bundle.ingest` | `commit_ms` | The D1 commit batch |
+| `bundle.ingest` | `total_ms` | Sum of `manifest_ms`, `inspect_ms`, `store_ms`, `commit_ms` |
+| `ghost.discovery` | `rate_limit_ms` | The rate limiter call |
+| `ghost.discovery` | `query_ms` | The D1 Ghost query |
+| `ghost.discovery` | `total_ms` | The handler, excluding route dispatch |
+
+Ad-hoc analysis does not run against the production D1. D1 executes one query at a
+time per database, so a 5–15 s scan holds every concurrent upload and turns them into
+`503 storage_unavailable`, as on 2026-11-14 and 2026-11-16. Export the database and
+query the copy instead.
+
+### 6.3 D1 state checks (external prober)
 
 The oldest retained Bundle can be inspected with this read-only probe from an operator
 shell or external monitoring service. The retention Cron reports deletion progress and
@@ -140,7 +165,7 @@ Metrics and alert at 80% of the database's configured storage limit. Retention l
 the history window; it does not cap the volume uploaded within those 15 days or the
 deployment-lifetime `bundle_uploaders` table.
 
-### 6.3 Ecosystem gates
+### 6.4 Ecosystem gates
 
 - Verify the analyzer and BazaarDB clients compare the decoded Run identity/version with the Bundle manifest and quarantine mismatches.
 
