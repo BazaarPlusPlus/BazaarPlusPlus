@@ -47,12 +47,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
                 return;
             }
 
-            // TooltipPreviewModePolicy.Resolve is a pure function of these inputs, so the
-            // resolved mode cannot change unless one of them changes. Skip re-resolving
-            // (and the downstream refresh check) on frames where the inputs are identical.
-            // The latch sweep still runs on those frames: hover moving off a card changes
-            // no resolve input, and the native hide path skips its upgrade-preview exit
-            // while a card-to-card tooltip transition is active.
+            // Always sweep the latch because hover-out changes no mode input and native hide can skip upgrade-preview exit during a tooltip transition.
             var inputs = ReadResolveInputs();
             if (_hasResolvedInputs && inputs.Equals(_lastInputs))
             {
@@ -108,8 +103,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         return new ResolveInputs(holdUpgrade, holdEnchant, enchantMode, pedestalKind);
     }
 
-    // The encounter probe rebuilds the selection ids and pedestal snapshot on every read, so the
-    // kind is reused while this screen key is unchanged (ChoicePedestalKindCache).
+    // The encounter probe rebuilds selection IDs and the pedestal snapshot on every read.
     private ChoiceScreenPedestalKind ReadPedestalKind()
     {
         var runState = Data.CurrentState;
@@ -155,9 +149,7 @@ internal sealed class TooltipModifierRefreshController : MonoBehaviour
         if (!TryResolveRefreshTarget(tooltipParent, out var target))
             return;
 
-        // A primary tooltip can remain addressable briefly after native hover-out. Toggle mode
-        // stays active across that window, so refreshing it would re-enter upgrade preview after
-        // the native hide path already cleared the card and leave the fusion visual latched.
+        // A tooltip can outlive hover-out briefly. Refreshing it in toggle mode would relatch the fusion visual.
         if (!target.Controller.IsCursorOverCard)
             return;
 

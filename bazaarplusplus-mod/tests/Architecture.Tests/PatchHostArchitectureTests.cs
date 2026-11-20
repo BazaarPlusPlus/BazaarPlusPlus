@@ -14,8 +14,7 @@ public sealed class PatchHostArchitectureTests
     // call on a service that BppPatchHost handed out compiles to callvirt and is not one.
     private static readonly string[] StaticReach = ["call", "ldsfld", "ldsflda", "stsfld", "ldftn"];
 
-    // The reaches that existed when the rule was written (#994). Remove a line when its patch
-    // goes through BppPatchHost; never add one.
+    // Remove each exception when its patch switches to BppPatchHost.
     private static readonly string[] Debt =
     [
         "Patches.CollectionPanel.CollectionCardPreviewDestroyPatch -> Game.CollectionPanel.Grid.CollectionNativeCardPreviewOwner",

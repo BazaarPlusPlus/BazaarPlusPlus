@@ -13,14 +13,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.TagTypography;
 
-/// <summary>
-/// Resolves tag display data from the game's native tooltip typography: the keyword
-/// configuration table first (official localized text, official color, uppercase rule), the
-/// game string table second. Every failure point degrades to the native APIs' own behavior
-/// (string-table miss returns the enum name); there is no mod-side tag dictionary.
-/// Main thread only. The core lookup is string-keyed so the v2 keywords facet (EHiddenTag)
-/// can reuse the same adapter.
-/// </summary>
+// Main thread only.
 internal static class NativeTagTypography
 {
     private static readonly LocalizedTextSet ReferenceSuffixText = new(" Related", "相关", "相關");
@@ -31,10 +24,7 @@ internal static class NativeTagTypography
         "經濟"
     );
 
-    // GetConfiguration is private and overloaded (string / ECardAttributeType); resolve the
-    // string overload explicitly. The MethodInfo is cached, but the TooltipTypography instance
-    // is never cached: locale changes rebuild it as a fresh instance, so a stored reference
-    // would silently go stale.
+    // Cache the method only. A locale change replaces the TooltipTypography instance.
     private static readonly MethodInfo? GetConfigurationMethod = AccessTools.Method(
         typeof(TooltipTypography),
         "GetConfiguration",
@@ -50,20 +40,14 @@ internal static class NativeTagTypography
         new[] { typeof(ECardAttributeType) }
     );
 
-    // Cache key: the typography instance reference (a new instance per locale change makes the
-    // reference a natural invalidation key) plus the mod-side language code. Results resolved
-    // while typography is null are NOT cached, so the table self-heals once the game's async
-    // typography registration completes. The BPP Chinese script mode is deliberately NOT part
-    // of the key: tag labels show the game's native zh-CN text as-is in Taiwan mode
-    // (per-character conversion of game vocabulary was judged worse than the script mismatch).
+    // Avoid caching before async typography registration completes. Taiwan mode keeps
+    // native zh-CN labels because character conversion can change game terminology.
     private static readonly Dictionary<string, NativeTagDisplay> Cache = new(
         StringComparer.Ordinal
     );
     private static TooltipTypography? _cachedTypography;
     private static string _cachedLanguageCode = string.Empty;
 
-    // One-time fail-closed switch for the reflection path (game update renamed the member or
-    // changed its shape): labels keep flowing through the game string table, colors are lost.
     private static bool _configurationPathBroken;
     private static NativeTagTypographyFailure? _pendingFailure;
 
@@ -72,10 +56,8 @@ internal static class NativeTagTypography
     // resolution (and vice versa).
     private static bool _attributeConfigurationPathBroken;
 
-    /// <summary>True once the game's async typography registration has completed (or after a
-    /// locale change rebuilt the instance). While false, <see cref="Resolve(string)"/> degrades
-    /// to the string-table path; consumers that rendered in that window can poll this to know
-    /// when a re-render will pick up native labels and colors.</summary>
+    // Consumers can poll after startup or a locale change to replace string-table fallbacks
+    // once the native typography has registered.
     public static bool IsNativeTypographyAvailable => Data.TooltipTypography != null;
 
     public static NativeTagDisplay Resolve(ECardTag tag) => Resolve(tag.ToString());
@@ -104,17 +86,10 @@ internal static class NativeTagTypography
     public static NativeTagDisplay Resolve(string key) =>
         Resolve(key, aliasKey: null, overrideConfigurationStyle: false);
 
-    /// <summary>
-    /// Resolves display data for a card attribute through the typography table's AttributeKeys
-    /// mapping (label, official accent color, keyword icon name). Degrades exactly like the
-    /// string path: no configuration (or reflection failure) yields a string-table label with
-    /// no color and no icon.
-    /// </summary>
     public static NativeTagDisplay Resolve(ECardAttributeType attributeType)
     {
         var typography = Data.TooltipTypography;
         var languageCode = L.CurrentLanguageCode;
-        // Prefixed so attribute entries can never collide with keyword-string cache keys.
         var cacheKey = "attr:" + attributeType;
 
         if (typography == null)
@@ -190,11 +165,7 @@ internal static class NativeTagTypography
         }
     }
 
-    /// <summary>
-    /// The game's word for the keyword a tooltip icon stands for (<c>&lt;sprite name=Regen&gt;</c>
-    /// is the configured text of the configuration that draws <c>Regen</c>); null while the
-    /// typography is not ready, or when no configuration draws the icon or the table cannot be read.
-    /// </summary>
+    // A sprite tag's icon name resolves through the keyword configuration that draws it.
     public static string? IconLabel(string iconName)
     {
         var typography = Data.TooltipTypography;
@@ -237,8 +208,7 @@ internal static class NativeTagTypography
         var typography = Data.TooltipTypography;
         var languageCode = L.CurrentLanguageCode;
 
-        // Startup window (async registration pending) or tooltip host destroyed: resolve
-        // through the string table only and skip the cache so the next call retries.
+        // Skip caching until the game's async typography registration completes.
         if (typography == null)
             return ResolveUncached(null, key, aliasKey, overrideConfigurationStyle);
 
@@ -405,7 +375,6 @@ internal static class NativeTagTypography
         }
     }
 
-    // Only reachable while the broken flag is still unset, so this warns exactly once.
     private static void ReportConfigurationPathBroken(
         NativeTagTypographyFailureReason reason,
         Exception? exception

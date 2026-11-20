@@ -5,10 +5,6 @@ using Il2CppTheBazaar.UI.Components;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Adds the BazaarPlusPlus section to the game's settings dialog before its scroll spy wires the
-/// sections, the desktop's <c>BppNativeSettingsScrollSpyAwakePatch</c> on IL2CPP.
-/// </summary>
 [HarmonyPatch(typeof(ScrollSpyController), nameof(ScrollSpyController.Awake))]
 internal static class NativeSettingsScrollSpyAwakePatch
 {
@@ -28,10 +24,6 @@ internal static class NativeSettingsScrollSpyAwakePatch
     }
 }
 
-/// <summary>
-/// The settings dialog opened: its BazaarPlusPlus rows read the settings again. Their layout and
-/// touch targets wait for the section's next tick, which sees it opened.
-/// </summary>
 [HarmonyPatch(typeof(OptionsDialogController), nameof(OptionsDialogController.OnEnable))]
 internal static class NativeSettingsDialogEnablePatch
 {
@@ -51,7 +43,6 @@ internal static class NativeSettingsDialogEnablePatch
     }
 }
 
-/// <summary>The game's language changed: the BazaarPlusPlus labels follow it.</summary>
 [HarmonyPatch(
     typeof(OptionsDialogController),
     nameof(OptionsDialogController.OnLanguageOptionChanged)

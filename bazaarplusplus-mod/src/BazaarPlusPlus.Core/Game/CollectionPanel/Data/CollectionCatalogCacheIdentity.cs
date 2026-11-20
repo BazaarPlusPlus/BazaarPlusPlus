@@ -3,11 +3,7 @@ using BazaarPlusPlus.Infrastructure;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-/// <summary>
-/// What a cached Collection catalog was built from: the downloaded game data and translation
-/// (their manifest ETags), the language, the game version (the translations a build ships in its
-/// resources) and the mod build that projected it. Any difference is a miss.
-/// </summary>
+/// <summary>The game version also keys translations bundled in the game itself, which have no downloaded TranslationEtag.</summary>
 public sealed class CollectionCatalogCacheIdentity : IEquatable<CollectionCatalogCacheIdentity>
 {
     public CollectionCatalogCacheIdentity(
@@ -27,7 +23,6 @@ public sealed class CollectionCatalogCacheIdentity : IEquatable<CollectionCatalo
 
     public string GameDataEtag { get; }
 
-    /// <summary>Empty when the language has no downloaded translation.</summary>
     public string TranslationEtag { get; }
 
     public string Language { get; }
@@ -36,10 +31,6 @@ public sealed class CollectionCatalogCacheIdentity : IEquatable<CollectionCatalo
 
     public string ModBuild { get; }
 
-    /// <summary>
-    /// Reads both manifests; null when the game data manifest names no ETag, so nothing is cached.
-    /// Any thread: file reads only.
-    /// </summary>
     public static CollectionCatalogCacheIdentity? Resolve(
         string gameDataManifestPath,
         string translationsManifestPath,

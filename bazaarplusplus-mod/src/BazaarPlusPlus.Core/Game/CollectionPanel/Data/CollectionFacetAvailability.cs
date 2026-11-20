@@ -3,9 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Facet availability is a pure projection of the immutable built catalog, so it can be
-// computed once per catalog (one scan covering every facet the panel renders) instead of
-// re-scanning every card on each RefreshView.
+// The catalog is immutable, so one scan supplies facets for every refresh.
 public sealed class CollectionFacetAvailabilitySnapshot
 {
     public static readonly CollectionFacetAvailabilitySnapshot Empty = new(
@@ -51,7 +49,6 @@ public sealed class CollectionFacetAvailabilitySnapshot
     public IReadOnlyList<CollectionKeywordFacetOption> ItemKeywordOptions { get; }
     public IReadOnlyList<CollectionKeywordFacetOption> SkillKeywordOptions { get; }
 
-    // Non-Skill maps to Item, mirroring CollectionTabProfile.For.
     public IReadOnlyList<CardTag> TagsFor(CardType type) =>
         type == CardType.Skill ? SkillTags : ItemTags;
 

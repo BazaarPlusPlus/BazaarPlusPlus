@@ -3,9 +3,7 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Presentation identity for the shared keyword/mechanic facet. Cards retain their native hidden
-// keyword collection and compact mechanic flags separately; only the small UI option list is
-// unified, preventing a per-card union allocation.
+// Unify the filter options at the UI boundary to avoid allocating a union for every card.
 public readonly record struct CollectionKeywordFacetOption
 {
     private CollectionKeywordFacetOption(CardHiddenTag? keyword, CollectionMechanic? mechanic)

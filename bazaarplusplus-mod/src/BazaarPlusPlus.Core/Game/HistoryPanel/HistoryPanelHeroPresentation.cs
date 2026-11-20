@@ -3,7 +3,6 @@ using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-// The Runs hero filter over stored hero ids; display names come from the host's native names.
 public static class HistoryPanelHeroPresentation
 {
     private static readonly string[] RunFilterRoster =

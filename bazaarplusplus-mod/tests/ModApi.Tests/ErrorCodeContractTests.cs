@@ -22,8 +22,8 @@ public sealed class ErrorCodeContractTests
             .Select(row => row.GetProperty("code").GetString()!)
             .ToHashSet(StringComparer.Ordinal);
 
-        // Inspect the same compiled classifier used by uploads, rather than duplicating its
-        // code strings in the test. BazaarDbLinkClient talks to the partner API, not this server.
+        // Read error codes from the compiled upload classifier so the test has no duplicate list.
+        // BazaarDbLinkClient uses the partner API and is outside this contract.
         var uploadClient = typeof(ModApiSession).Assembly.GetType(
             "BazaarPlusPlus.ModApi.Clients.BundleUploadClient",
             throwOnError: true

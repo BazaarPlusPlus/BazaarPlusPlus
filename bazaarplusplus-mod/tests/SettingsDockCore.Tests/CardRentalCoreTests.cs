@@ -5,11 +5,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The native card rental's ledger (#396), driven over a fake backend: every instance the game
-/// instantiated is destroyed, lost, held or pooled, whatever order rents, returns, retargets,
-/// release-alls and native completions arrive in.
-/// </summary>
 public sealed class CardRentalCoreTests
 {
     private static readonly Guid Small = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -371,7 +366,6 @@ public sealed class CardRentalCoreTests
         Assert.Same(low, first.Card!.SetUpAttributes);
         Assert.Same(high, second.Card!.SetUpAttributes);
 
-        // A pooled instance a saved card set up is set up again for the next subject.
         rental.Return(second);
         var template = RentReady(rental, backend, new(Small, CardTier.Silver));
         Assert.Null(template.Card!.SetUpAttributes);
@@ -528,7 +522,7 @@ public sealed class CardRentalCoreTests
 
         public void Detach(FakeCard card) => card.Parent = "pool";
 
-        /// <summary>The game destroys every card still under <paramref name="parent"/>, as a destroyed view does.</summary>
+        // Model Unity destroying a view and every card still parented to it.
         public void DestroyParent(string parent)
         {
             foreach (var card in _cards)

@@ -2,7 +2,6 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Android.Settings;
 
-/// <summary>The Android host's own words for its rows in the game's settings dialog.</summary>
 internal static class AndroidTouchText
 {
     public static readonly LocalizedTextSet GameUpdated = new(

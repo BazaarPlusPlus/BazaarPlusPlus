@@ -1,10 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.GameState;
 
-/// <summary>
-/// What the host copies from a combat-simulation message on the game thread before the
-/// simulation starts. It carries only the fields a Core consumer reads.
-/// </summary>
+// Take the snapshot on the game thread before the simulation starts.
 public sealed class CombatSimSnapshot
 {
     public CombatSimSnapshot(string messageId, int frameCount)
@@ -13,9 +10,8 @@ public sealed class CombatSimSnapshot
         FrameCount = frameCount;
     }
 
-    /// <summary>The network message id; a re-sent message keeps its id.</summary>
+    // A re-sent network message keeps its original ID.
     public string MessageId { get; }
 
-    /// <summary>Simulation frames the client will play back.</summary>
     public int FrameCount { get; }
 }

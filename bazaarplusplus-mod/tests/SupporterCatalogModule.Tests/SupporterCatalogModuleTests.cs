@@ -5,7 +5,6 @@ using Xunit;
 // Not SupporterCatalogModule.Tests: that namespace would hide the type of the same name.
 namespace SupporterCatalog.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class SupporterCatalogModuleTests
 {
     [Fact]

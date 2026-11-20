@@ -12,7 +12,6 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
 {
     private readonly Dictionary<int, Presentation> _presentations = new();
 
-    // An entry's text or layout was restored or rewritten since the group last laid out.
     private bool _layoutDirty;
 
     public void Render(
@@ -56,11 +55,8 @@ internal sealed class AndroidQuestPreview(BppSettings settings) : IDisposable
         label.text = text;
     }
 
-    /// <summary>
-    /// Whether a quest entry's height may have changed since the last call: only then does its
-    /// group need the forced layout rebuild. A restore counts, or a reused entry keeps the
-    /// previous card's height.
-    /// </summary>
+    // A restore also dirties the layout because reused entries can retain the previous card's
+    // height.
     public bool ConsumeLayoutDirty()
     {
         var dirty = _layoutDirty;

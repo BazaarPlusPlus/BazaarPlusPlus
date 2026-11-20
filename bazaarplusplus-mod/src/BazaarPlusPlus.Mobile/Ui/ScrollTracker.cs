@@ -5,12 +5,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// One drag-scrolled list's gestures, from the first moving frame to the frame it settles: each
-/// finished gesture logs <paramref name="scrolled"/> with how far it went in dp, its peak speed,
-/// and how many frames it coasted after the finger lifted (inertia). History's lists and
-/// Collection's grid and rail log through it; tick it every frame the list is visible.
-/// </summary>
 internal sealed class ScrollTracker(BppLogEvent scrolled, string name, ScrollRect scroll)
 {
     private Vector2 _last = scroll.content.anchoredPosition;
@@ -20,7 +14,6 @@ internal sealed class ScrollTracker(BppLogEvent scrolled, string name, ScrollRec
     private int _coast;
     private float _peak;
 
-    /// <summary>Whether a finger or the mouse is down this frame.</summary>
     public static bool PointerPressed()
     {
         try

@@ -3,22 +3,17 @@ using BazaarPlusPlus.Core.Cards;
 
 namespace BazaarPlusPlus.Core.Combat;
 
-// BPP's combat timeline (ADR-0019): the facts of one finished combat that the Combat Impact
-// producer reads, in BPP vocabulary. Each host adapter fills it from its own game build's
-// simulation, in the game's iteration order, so set and dictionary order match the game's.
-// The shape mirrors the game's simulation DTOs member for member so attribution reads the same
-// facts by the same names; the game fields no attribution reads are left out.
+// Combat facets copy native enum values to reproduce the game's set and sort order. Adapters map by name (ADR-0019).
+// Host adapters also preserve native iteration order when copying timelines.
 
-/// <summary>A finished combat: its frames in order and the per-card totals the game reports.</summary>
 public sealed class CombatTimeline
 {
-    /// <summary>Starts with one empty frame, as the game's simulation does.</summary>
+    // The game's simulation begins with an empty frame.
     public List<CombatFrame> Frames { get; set; } = new() { new CombatFrame() };
 
     public Dictionary<string, Dictionary<CombatCardStat, int>> CardStats { get; set; } = new();
 }
 
-/// <summary>One tick: the events it ran and the player and card changes they produced.</summary>
 public sealed class CombatFrame
 {
     public List<CombatEvent> Events { get; set; } = new();
@@ -27,7 +22,6 @@ public sealed class CombatFrame
 
     public CombatPlayerUpdate? OpponentUpdates { get; set; }
 
-    /// <summary>Card changes by card instance id.</summary>
     public Dictionary<string, CombatCardUpdate> CardUpdates { get; set; } = new();
 }
 
@@ -82,10 +76,8 @@ public sealed class CombatCardAttributeUpdate
     public int Delta => CurrentValue - PreviousValue;
 }
 
-/// <summary>An event a frame ran. An adapter leaves out the game events attribution never reads.</summary>
 public abstract class CombatEvent { }
 
-/// <summary>An effect that ran an action on a target.</summary>
 public sealed class CombatEffectExecuted : CombatEvent
 {
     public string ExecutionContextId { get; set; } = string.Empty;
@@ -94,16 +86,13 @@ public sealed class CombatEffectExecuted : CombatEvent
 
     public CombatActionType ActionType { get; set; }
 
-    /// <summary>The card instance whose effect ran.</summary>
     public string? Source { get; set; }
 
-    /// <summary>The card instance whose trigger ran the effect.</summary>
     public string? TriggerSource { get; set; }
 
     public CombatTarget? Target { get; set; }
 }
 
-/// <summary>An aura applied to or removed from its targets.</summary>
 public sealed class CombatAuraExecuted : CombatEvent
 {
     public string ExecutionContextId { get; set; } = string.Empty;
@@ -137,22 +126,18 @@ public sealed class CombatCardTransformed : CombatEvent
 {
     public string OriginalInstanceId { get; set; } = string.Empty;
 
-    /// <summary>The instance ids of the cards the original became, in the game's order.</summary>
+    // Transformation order must match the game's order.
     public List<string>? TransformedCardInstanceIds { get; set; }
 }
 
 public sealed class CombatCardTransformReverted : CombatEvent
 {
-    /// <summary>The card the transformed cards revert to; null when the game sent none.</summary>
     public string? OriginalInstanceId { get; set; }
 
     public List<string>? TransformedCardInstanceIds { get; set; }
 }
 
-/// <summary>
-/// A card paid a player attribute to act. Optional in the game: builds that lack the event
-/// produce none, and attribution then leaves the cost unbooked.
-/// </summary>
+// Some game builds omit this event, so attribution leaves those costs unbooked.
 public sealed class CombatCardActionCostSpent : CombatEvent
 {
     public string ExecutingCard { get; set; } = string.Empty;
@@ -160,15 +145,11 @@ public sealed class CombatCardActionCostSpent : CombatEvent
     public CombatPlayerAttribute? PlayerAttributeSpent { get; set; }
 }
 
-/// <summary>
-/// What an effect targeted. Compared by reference, as the game's targets are, so an aura's
-/// target set keeps every target the game sent.
-/// </summary>
+// Use reference identity so distinct aura targets with equal values survive, as in the game.
 public abstract class CombatTarget { }
 
 public sealed class CombatCardTarget : CombatTarget
 {
-    /// <summary>The targeted card's instance id.</summary>
     public string Target { get; set; } = string.Empty;
 }
 

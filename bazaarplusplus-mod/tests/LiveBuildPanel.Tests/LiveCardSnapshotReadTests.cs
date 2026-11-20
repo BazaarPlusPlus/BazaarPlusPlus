@@ -7,13 +7,8 @@ using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
-/// <summary>
-/// Core's live read outcome through its one entry point: the no-run rule, the read-exception
-/// envelope, the socket-fit rule, the fallbacks, the numbering, and each host's degraded line.
-/// </summary>
 public sealed class LiveCardSnapshotReadTests
 {
-    // The capsule installed English before these checks.
     public LiveCardSnapshotReadTests() =>
         L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
@@ -274,16 +269,13 @@ public sealed class LiveCardSnapshotReadTests
             new Dictionary<string, int>()
         );
 
-    // The hosts' own events: the pinned lines are the production lines.
     private static BppLogEvent DesktopEvent() =>
         new(BppLogFeatureScope.LiveBuildPanel, DesktopEventId, storm: ["section", "reason_code"]);
 
     private static BppLogEvent TouchEvent() =>
         new(BppLogFeatureScope.Touch, TouchEventId, storm: ["section", "reason_code"]);
 
-    // A fresh pipeline per test resets the storm window; the previous pipeline's flush can still
-    // write its storm summaries (source_event=...) here, so lines are filtered by their own event
-    // id.
+    // Filter by event ID because flushing the previous pipeline can emit storm summaries during setup.
     private static List<string> Install()
     {
         var lines = new List<string>();

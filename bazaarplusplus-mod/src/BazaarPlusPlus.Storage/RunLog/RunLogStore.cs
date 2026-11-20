@@ -343,7 +343,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             """;
         command.Parameters.AddWithValue("$runId", runId);
 
-        // Without a starting rating the change is unknown, not zero: History renders NULL as "—".
+        // History renders an unknown rating change as “—”.
         var initialPlayerRating = command.ExecuteScalar();
         if (initialPlayerRating == null || initialPlayerRating is DBNull)
             return null;
@@ -352,8 +352,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
             - Convert.ToInt32(initialPlayerRating, CultureInfo.InvariantCulture);
     }
 
-    // A Run id this session cannot continue gets a collision id instead of reopening the row: a
-    // terminal Run, or a History-Only Run (imported history the mod never writes into).
+    // Use a collision ID to avoid reopening an imported or terminal Run.
     private static bool IsClosedToResume(
         SqliteConnection connection,
         SqliteTransaction transaction,
@@ -372,12 +371,7 @@ public sealed class RunLogStore : SqliteStoreBase, IRunLogStore
         return command.ExecuteScalar() != null;
     }
 
-    /// <summary>
-    /// The SQL condition for a Run the mod may resume or show as the current Run, over the runs
-    /// row aliased <paramref name="runAlias"/>: active and not History-Only. Only the installer's V5
-    /// import, removed in 6.2.0, wrote <c>history_only</c>; this keeps an unfinished imported Run
-    /// from being continued even if the import left it active.
-    /// </summary>
+    // Unfinished imported Runs can still be active in storage. History-Only Runs cannot resume.
     public static string ResumableRunCondition(string runAlias) =>
         $"({runAlias}.status = '{ActiveStatus}' AND {runAlias}.upload_policy = 'bundle')";
 

@@ -4,18 +4,8 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// Runs each of a host's PvP battle reads once, at most one read a frame, before the first battle
-/// needs them, and throws the results away. On a host that compiles and binds its code on first
-/// use (the Android host's JIT and IL2CPP interop), the window's first battle otherwise pays for
-/// every read at once, inside the one frame its opening, combat and closing messages arrive in.
-/// The player's reads run from <see cref="Tick"/>, and the message reads inside the
-/// <see cref="Offer"/> call that delivered a game sim no battle is using, since a message is valid
-/// only during that call. Both wait until the host says the player is readable: in a run, outside
-/// a fight. A hand without a card tries again on a later frame until one holds a card, so the card
-/// reads run too: a game sim outside a battle holds the opponent's cards only as a monster fight
-/// opens. A step that throws tries again until its attempts run out.
-/// </summary>
+// Spread the Android host's first-use JIT and IL2CPP binding across frames so the first battle doesn't pay for all reads at once.
+// Keep message reads inside Offer because the native message expires when its callback returns.
 public sealed class PvpBattleReadsRehearsal<TMessage>
     where TMessage : class
 {
@@ -35,11 +25,6 @@ public sealed class PvpBattleReadsRehearsal<TMessage>
     private int? _steppedFrame;
     private int? _deferredFrame;
 
-    /// <param name="reads">The reads the host's window uses.</param>
-    /// <param name="playerReadable">Whether the live player can be read now: in a run, outside a fight.</param>
-    /// <param name="frame">The host's frame number.</param>
-    /// <param name="serialize">The host's replay serialization of a game sim, run once.</param>
-    /// <param name="attempts">Throws of a step before it gives up.</param>
     public PvpBattleReadsRehearsal(
         IPvpBattleReads<TMessage> reads,
         Func<bool> playerReadable,
@@ -62,8 +47,7 @@ public sealed class PvpBattleReadsRehearsal<TMessage>
         foreach (var field in Values<PvpPlayerNumber>())
             _playerSteps.Add(() => Done(reads.PlayerNumber(field)));
 
-        // The opening's facts are cheap, so they run as one step; the hand runs last, since a game
-        // sim outside a battle seldom holds the opponent's cards.
+        // An unused game sim rarely carries an opponent hand, so try that read after the cheap facts.
         _messageSteps.Add(message =>
         {
             foreach (var field in Values<PvpOpeningText>())
@@ -87,10 +71,8 @@ public sealed class PvpBattleReadsRehearsal<TMessage>
 
     public bool IsDone => _playerStep == _playerSteps.Count && _messageStep == _messageSteps.Count;
 
-    /// <summary>The host's frame carries a battle: no step runs in it.</summary>
     public void Defer() => _deferredFrame = _frame();
 
-    /// <summary>Every frame: at most one of the player's reads.</summary>
     public void Tick()
     {
         if (_playerStep == _playerSteps.Count || !CanStep() || !Readable())
@@ -102,10 +84,6 @@ public sealed class PvpBattleReadsRehearsal<TMessage>
         }
     }
 
-    /// <summary>
-    /// A message no battle is using, inside the call that delivered it: at most one message read
-    /// on a game sim.
-    /// </summary>
     public void Offer(TMessage message)
     {
         if (message == null || _messageStep == _messageSteps.Count || !CanStep())
@@ -155,8 +133,7 @@ public sealed class PvpBattleReadsRehearsal<TMessage>
         }
     }
 
-    // Runs one try of a step in this frame. True when the step is over: it ran, or it gave up. A
-    // read can throw while the run is still loading, so a throw only ends this try.
+    // A read may throw while the run is still loading, so retry on a later frame.
     private bool Step(Func<bool> run, ref int throws)
     {
         _steppedFrame = _frame();

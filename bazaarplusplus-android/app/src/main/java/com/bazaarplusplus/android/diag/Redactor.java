@@ -3,19 +3,13 @@ package com.bazaarplusplus.android.diag;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Removes account data from text before a diagnostics export leaves the device: email addresses,
- * bearer and JWT tokens, the values of token, session, password and account/profile id fields,
- * UUIDs (the game's account and profile ids) and Steam ids. It over-redacts rather than miss one;
- * sha256 digests, versions and paths stay readable.
- */
+/** Redact conservatively to avoid leaking account data in exported diagnostics. */
 public final class Redactor {
     static final String MASK = "<redacted>";
 
     private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private static final Pattern AUTH_SCHEME = Pattern.compile("(?i)\\b(bearer|basic)\\s+[A-Za-z0-9._~+/=-]+");
     private static final Pattern JWT = Pattern.compile("\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]*)?");
-    /** A field whose name says it holds a secret or an account id, as key=value, key: value or "key": "value". */
     private static final Pattern SECRET_FIELD = Pattern.compile("(?i)(\"?[\\w.-]*(?:token|session|password|passwd|secret"
             + "|auth|cookie|ticket|credential|api_?key|(?:account|profile|user|player|steam|device|login)_?id)[\\w.-]*\"?"
             + "\\s*[:=]\\s*)(\"[^\"]*\"|[^\\s,;&}\\]\"]+)");
@@ -26,7 +20,7 @@ public final class Redactor {
     private Redactor() {}
 
     public static String redact(String text) {
-        // Schemes first: "Authorization: Bearer x" must lose x, not only the word Bearer.
+        // Mask authorization values first so the field pass cannot mask the scheme and leave the credential visible.
         String out = AUTH_SCHEME.matcher(text).replaceAll("$1 " + MASK);
         out = JWT.matcher(out).replaceAll(MASK);
         Matcher field = SECRET_FIELD.matcher(out);

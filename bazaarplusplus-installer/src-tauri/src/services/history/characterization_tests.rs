@@ -1,8 +1,4 @@
-//! What the History callers do with the stored paths of the #989 input table,
-//! and the problem each History operation reports. Every caller resolves a
-//! stored path through `StoredRelativePath` in `history/files.rs`, so an input
-//! the rule rejects names no file: reveal reports it, a delete keeps the file,
-//! and a reference still protects every file with its last segment as name.
+//! Rejected stored references still protect files sharing their final path segment.
 
 use super::{
     execute_storage_cleanup_with, CleanupPlans, History, StorageCleanupExecution,
@@ -36,8 +32,6 @@ const RUN_SQL: &str = "
 
 const RETRY_RECORD: &str = "installer-cleanup-video-retry.txt";
 
-/// Temporary games for one table, each with an empty history database, and a
-/// file outside every one of them that the `absolute` input names.
 struct Games {
     temp: tempfile::TempDir,
     outside: PathBuf,
@@ -60,7 +54,6 @@ impl Games {
         stored_path_inputs(dir, &self.outside)
     }
 
-    /// A fresh game per input, so no state crosses inputs.
     fn fresh(&self) -> PathBuf {
         let index = self.next.get();
         self.next.set(index + 1);
@@ -71,8 +64,6 @@ impl Games {
         game
     }
 
-    /// The labels of the files among `targets` and the outside file that are
-    /// gone, or `none`.
     fn removed(&self, targets: &[(&str, PathBuf)]) -> String {
         let removed = targets
             .iter()
@@ -88,7 +79,6 @@ impl Games {
         }
     }
 
-    /// The labels of `targets` still on disk, or `none`.
     fn kept(targets: &[(&str, PathBuf)]) -> String {
         let kept = targets
             .iter()
@@ -154,7 +144,6 @@ fn history(game: &Path) -> History {
         .with_cleanup_game_probe(|_| Ok(false))
 }
 
-/// `rejected` for the action problem of `operation`, anything else as found.
 fn action_problem(problem: &SemanticProblem, operation: &str) -> String {
     if problem.code == SemanticProblemCode::HistoryActionFailed
         && problem.params.get("operation").map(String::as_str) == Some(operation)
@@ -165,7 +154,6 @@ fn action_problem(problem: &SemanticProblem, operation: &str) -> String {
     }
 }
 
-/// Previews `scope` with preset `all` and executes that preview's plan.
 fn preview_and_execute(
     history: &History,
     scope: StorageCleanupScope,
@@ -271,7 +259,6 @@ fn delete_video_removes_the_file_each_stored_path_names() {
     assert_stored_path_table(
         "delete video",
         &games.inputs("a"),
-        // A path the rule rejects keeps every file and loses its row.
         &[
             (
                 "a/b.png",
@@ -395,7 +382,6 @@ fn screenshot_orphan_scan_spares_the_files_a_row_references() {
     assert_stored_path_table(
         "orphan scan",
         &games.inputs(dir),
-        // A rejected reference spares every file named as its last segment.
         &[
             ("a/b.png", "referenced"),
             (
@@ -435,9 +421,7 @@ fn screenshot_orphan_scan_spares_the_files_a_row_references() {
     );
 }
 
-/// Before the rule, the orphan scan dropped the leading separator of an
-/// absolute row, so `/2020-01-01/b.png` spared `2020-01-01/b.png`. The rule
-/// rejects the row, and its file name still spares the file.
+/// A rejected absolute reference still conservatively protects files with the same basename.
 #[test]
 fn an_absolute_row_still_spares_the_dated_file_it_names() {
     let games = Games::new();
@@ -467,8 +451,6 @@ fn run_data_cleanup_retries_each_recorded_video_path() {
     assert_stored_path_table(
         "retry record",
         &games.inputs("a"),
-        // The plan drops an empty line and a path the rule rejects, so no
-        // cleanup session opens and the record stays as written.
         &[
             (
                 "a/b.png",
@@ -509,9 +491,6 @@ fn run_data_cleanup_retries_each_recorded_video_path() {
     );
 }
 
-/// An empty plan opens no cleanup session, so it never asks whether the game
-/// runs. `a_refused_cleanup_keeps_the_preview_plan_for_its_retry` pins the
-/// refusal of a plan that is not empty.
 #[test]
 fn an_empty_cleanup_plan_executes_while_the_game_is_reported_running() {
     let games = Games::new();
@@ -589,8 +568,6 @@ fn a_video_delete_deletes_the_row_when_the_file_is_missing() {
     assert_eq!(video_rows(&game), 0);
 }
 
-/// The cleanup command resolves its installation inside the data maintenance
-/// lock; without one it reports History as unavailable, not as a failure.
 #[tokio::test]
 async fn cleanup_execution_without_an_installation_is_history_unavailable() {
     let problem = execute_storage_cleanup_with(
@@ -633,10 +610,6 @@ async fn cleanup_execution_failure_names_its_operation() {
     assert!(problem.diagnostic.is_some());
 }
 
-/// The read operations name the game when it still runs; the other five never
-/// do. `history_page_list_uses_semantic_unavailable_and_read_failed_problems`
-/// and `run_detail_page_distinguishes_not_found_read_and_action_problems` pin
-/// the same reads while the game is closed.
 #[test]
 fn history_reads_name_a_running_game() {
     let games = Games::new();

@@ -58,9 +58,6 @@ public static class EncounterEventDetailResolver
         );
     }
 
-    // Random-outcome events roll one weighted group: percentages normalize over the
-    // groups actually in the roll (day condition matching, ownership prerequisites
-    // met); prerequisite-unmet groups render dimmed without a percentage.
     private static IReadOnlyList<EncounterOutcomeView>? ResolveOutcomeGroups(
         EncounterPreviewEventPlan eventPlan,
         EncounterPreviewSnapshot snapshot,
@@ -129,8 +126,6 @@ public static class EncounterEventDetailResolver
                 AddChoiceDetail(details, template, isEligible: true, resolveLiveValue);
             }
 
-            // Dynamic pools roll a summary line; the reward filter drives the
-            // day-tier suffix exactly like card-text rewards.
             foreach (var pool in group.QueryPools)
             {
                 details.Add(
@@ -161,10 +156,7 @@ public static class EncounterEventDetailResolver
         return ShouldSuppressOutcomeViews(views, eventPlan.ChoiceLimit ?? 1) ? null : views;
     }
 
-    // A spawn limit above one means the roll composes multiple spawns (shop stock,
-    // multi-offer events) rather than picking one outcome. When such an event has no
-    // real alternatives to explain — a single view, or nothing but nameless random
-    // pools — the breakdown is stock composition noise, not outcome odds.
+    // A spawn limit above one can describe shop stock or multi-offer composition, where the group weights are misleading as outcome odds.
     public static bool ShouldSuppressOutcomeViews(
         IReadOnlyList<EncounterOutcomeView> views,
         int spawnLimit
@@ -248,8 +240,7 @@ public static class EncounterEventDetailResolver
         public List<EncounterChoiceDetail> Details { get; }
     }
 
-    // Same-shaped outcome groups are merged after current-locale text resolution so
-    // locale changes never require rebuilding the static plan.
+    // Merge after resolving localized text so locale changes never require rebuilding the static plan.
     public static List<EncounterOutcomeView> BuildOutcomeViews(
         List<OutcomeGroupResolution> resolutions,
         uint totalWeight
@@ -353,8 +344,7 @@ public static class EncounterEventDetailResolver
             }
         }
 
-        // A large cluster of title-only outcomes is a wall; collapse eligible and
-        // ineligible clusters separately so unavailable results stay dimmed.
+        // Collapse eligible and ineligible clusters separately so unavailable results stay dimmed.
         var slotsToRemove = new List<int>();
         foreach (var (eligible, titleOnlySlots) in titleOnlySlotsByEligibility)
         {
@@ -613,7 +603,6 @@ public static class EncounterEventDetailResolver
             return single;
         }
 
-        // Small pools expand into their entries; large ones stay a count summary.
         return PoolDetail(
             new EncounterChoicePool(
                 isCombat: false,
@@ -715,10 +704,7 @@ public static class EncounterEventDetailResolver
         if (rewardFilter == null)
             return null;
 
-        // The only field read below is FromAnyHero, which the parser sets from this exact
-        // substring test. Without the phrase the parse can only yield null or FromAnyHero=false,
-        // and both land on the same result -- so skip it. TryParse compiles ~50 uncached regexes
-        // per call and this runs per choice option on every tooltip hover.
+        // FromAnyHero can only be set by this phrase. Skip parsing other text to avoid compiling dozens of regexes per option on hover.
         if (
             string.IsNullOrWhiteSpace(resultText)
             || !resultText.ToLowerInvariant().Contains("from any hero", StringComparison.Ordinal)

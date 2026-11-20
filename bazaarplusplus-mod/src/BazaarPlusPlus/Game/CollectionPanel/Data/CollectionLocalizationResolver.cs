@@ -5,11 +5,7 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// TCardLocalization carries Title/Description TLocalizableText with Key + Text. The Text
-// field is the authored (English) fallback; the current-language translation resolves via
-// TooltipExtensions.GetLocalizedText -> LocalizationService.TryGetText keyed lookup, which
-// is what the native tooltip pipeline uses. We do the same, falling back to Text (and then
-// the key for diagnostic visibility) when the service is unavailable — e.g. in unit tests.
+// TLocalizableText.Text is the authored fallback. The native tooltip resolves the translation by key.
 internal static partial class CollectionLocalizationResolver
 {
     public static string? ResolveTitle(TCardBase template)
@@ -96,8 +92,6 @@ internal static partial class CollectionLocalizationResolver
         }
         catch (Exception)
         {
-            // Localization service unavailable (unit tests / early startup):
-            // fall back to the authored text below.
             return null;
         }
     }

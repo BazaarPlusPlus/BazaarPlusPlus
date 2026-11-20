@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 
-// A rental is registered before any native Resize/SetUp work can fail.
+// Register before Resize or SetUp can throw so partially prepared cards still return to the pool.
 internal sealed class NativeBoardCardRental : IDisposable
 {
     private readonly RectTransform _prefabRect;
@@ -46,9 +46,6 @@ internal sealed class NativeBoardCardRental : IDisposable
         }
     }
 
-    // tinySize: the size of an item saved below its template's, else null. ammoBar: the
-    // template that draws an item's ammo (NativeCardAmmoBar), null for a skill or when the game
-    // cannot give it.
     internal async Task Prepare(
         TCardBase template,
         TCardInstance instance,

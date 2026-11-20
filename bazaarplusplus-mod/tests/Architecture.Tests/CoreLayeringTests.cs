@@ -5,11 +5,6 @@ using static Architecture.Tests.ArchitectureRules;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Guards dependency directions that the single-assembly main project cannot express to the
-/// compiler. Behavior, UI geometry, call order, and exact implementation text belong in feature
-/// tests; they are deliberately not pinned here.
-/// </summary>
 public sealed class CoreLayeringTests
 {
     private const string Game = "BazaarPlusPlus.Game";
@@ -50,9 +45,6 @@ public sealed class CoreLayeringTests
     [Fact]
     public void Mobile_ui_has_no_second_source_tree()
     {
-        // ADR-0025: the Mobile UI is src/BazaarPlusPlus.Mobile/ alone. The Android host's Ui/ held
-        // its hand-mirrored copy until #701; a source file there again is a second copy of the
-        // Mobile UI. The host's adapters go in its Host/, GameInterop/ or feature folders.
         var android = Path.Combine(TestInputs.RepoRoot, "src", "BazaarPlusPlus.Android");
         Assert.True(Directory.Exists(android), $"'{android}' is missing.");
         var androidUi = Path.Combine(android, "Ui");
@@ -138,8 +130,7 @@ public sealed class CoreLayeringTests
             project => project.EndsWith("build/ManagedPath.props", StringComparison.Ordinal)
         );
 
-        // Enumerate from the project roots, never the repo root: an embedded worktree under
-        // .claude/ holds a stale checkout whose csproj still declares <ManagedPath>.
+        // Start at project roots so stale checkouts under .claude do not enter the sweep.
         var overrides = new[] { "src", "tests", "build" }
             .SelectMany(root =>
                 Directory.EnumerateFiles(

@@ -6,8 +6,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// Mounted before the Main Overlay Panel mounts (DesktopComposition order); panel mounts reach the
-// host through the Host property via a nullable accessor.
+// Mount before the Main Overlay Panels, which resolve the host during their own setup.
 internal sealed class OverlayPanelHostMount : IBppMountable
 {
     public DesktopOverlayPanels? Host { get; private set; }

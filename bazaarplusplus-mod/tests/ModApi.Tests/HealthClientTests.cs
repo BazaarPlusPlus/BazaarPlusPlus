@@ -62,8 +62,6 @@ public sealed class HealthClientTests
         );
     }
 
-    // Each case probes through the public session, so the /health route and the
-    // response contract are exercised exactly as the History panel reaches them.
     private static async Task<ModApiHealthProbeResult> ProbeAsync(
         Func<HttpRequestMessage, HttpResponseMessage> responder
     )

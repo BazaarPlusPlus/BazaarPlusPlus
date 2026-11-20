@@ -4,11 +4,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// When an open touch panel lays itself out again (<see cref="TouchRelayoutDebounce"/>): only for
-/// a screen key that has held still, not while a card is setting up, and never later than the
-/// busy cap.
-/// </summary>
 public sealed class TouchRelayoutDebounceTests
 {
     [Fact]

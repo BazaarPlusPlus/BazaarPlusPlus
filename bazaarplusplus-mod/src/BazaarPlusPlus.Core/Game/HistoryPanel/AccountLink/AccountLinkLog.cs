@@ -27,12 +27,8 @@ public enum AccountLinkReason
     UnexpectedOutcome,
 }
 
-/// <summary>
-/// The account-link terminal events. Each link attempt writes one of them on every path that
-/// returns or throws, and none when a stale panel session abandons it. Only the request id,
-/// method, and reason code are written: the account id, link code, token, and server response
-/// body never reach a field.
-/// </summary>
+/// <summary>Keep account IDs, link codes, tokens, and response bodies out of terminal log fields.
+/// An abandoned panel session writes no terminal event.</summary>
 public static class AccountLinkLog
 {
     internal static void Succeeded(string requestId, AccountLinkMethod method) =>

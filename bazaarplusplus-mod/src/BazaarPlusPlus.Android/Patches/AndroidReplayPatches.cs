@@ -10,11 +10,8 @@ using Il2CppTheBazaar.UI.EncounterPicker;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// The hit counts of the replay seams, for the hooks summary. A small IL2CPP method can be
-/// inlined at its native call sites and never reach a detour that installed cleanly, so a device
-/// run proves each seam by its count, not by its install line.
-/// </summary>
+// IL2CPP can inline a method at native call sites, so a successful detour install does not prove
+// the hook runs.
 internal static class AndroidReplayPatchCounters
 {
     private static long _exitHits;
@@ -42,16 +39,10 @@ internal static class AndroidReplayPatchCounters
             ("replay_visual_skips", Interlocked.Read(ref _visualSkips)),
         ];
 
-    /// <summary>A replay is starting or playing; the seams change nothing otherwise.</summary>
     public static bool ReplayActive =>
         AndroidPatchHost.Mode == AndroidPatchMode.Enabled && AndroidReplayGuard.IsActive;
 }
 
-/// <summary>
-/// The bootstrapped saved replay's exit (ADR-0002): the game's <c>ReplayState.Exit</c> routes into
-/// the runtime, which returns to the menu itself; the original body runs whenever the runtime
-/// does not own the exit.
-/// </summary>
 [HarmonyPatch(typeof(ReplayState), nameof(ReplayState.Exit))]
 internal static class AndroidReplayStateExitPatch
 {
@@ -76,11 +67,7 @@ internal static class AndroidReplayStateExitPatch
     }
 }
 
-/// <summary>
-/// The run initialization a lobby bootstrap would otherwise run against the live server: while a
-/// replay starts or plays, <c>StartRunAppState.FinalizeRunInitialization</c> returns the game's own
-/// completed task instead, the desktop's <c>CombatReplayFinalizeRunInitializationPatch</c> on IL2CPP.
-/// </summary>
+// The lobby bootstrap would otherwise initialize the replay's run against the live server.
 [HarmonyPatch(typeof(StartRunAppState), nameof(StartRunAppState.FinalizeRunInitialization))]
 internal static class AndroidReplayFinalizeRunInitializationPatch
 {
@@ -95,7 +82,6 @@ internal static class AndroidReplayFinalizeRunInitializationPatch
     }
 }
 
-/// <summary>Records each item setup task while a replay injects; the task is never replaced.</summary>
 [HarmonyPatch(typeof(ItemController), nameof(ItemController.Setup))]
 internal static class AndroidReplayItemSetupReadinessPatch
 {
@@ -110,7 +96,6 @@ internal static class AndroidReplayItemSetupReadinessPatch
     }
 }
 
-/// <summary>Records the replay board's spawn task, the parameterless overload only.</summary>
 [HarmonyPatch(typeof(ReplayState), nameof(ReplayState.SpawnCombatCards), new Type[0])]
 internal static class AndroidReplayBoardSpawnReadinessPatch
 {
@@ -125,7 +110,6 @@ internal static class AndroidReplayBoardSpawnReadinessPatch
     }
 }
 
-/// <summary>The lobby's encounter picker map stays hidden under a replay.</summary>
 [HarmonyPatch(typeof(EncounterPickerMapController), nameof(EncounterPickerMapController.Show))]
 internal static class AndroidReplayEncounterPickerShowPatch
 {
@@ -178,7 +162,6 @@ internal static class AndroidReplayClockEncounterPickerPatch
     }
 }
 
-/// <summary>A replayed board's price tags do not replay their change effect.</summary>
 [HarmonyPatch(typeof(PriceTagContainer), nameof(PriceTagContainer.PlayPriceChangeVFX))]
 internal static class AndroidReplayPriceTagVfxPatch
 {

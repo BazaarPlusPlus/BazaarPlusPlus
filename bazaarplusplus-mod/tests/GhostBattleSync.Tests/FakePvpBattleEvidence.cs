@@ -4,9 +4,6 @@ using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.TestSupport;
 
-// The game-typed PvP evidence reads, over the card enum table both hosts are held to. A replay
-// whose spawn message starts with RejectedReplayMarker fails verification, as bytes the game's
-// serializer cannot decode do.
 internal sealed class FakePvpBattleEvidence : IPvpBattleEvidenceBinding
 {
     public const byte RejectedReplayMarker = 0xFF;

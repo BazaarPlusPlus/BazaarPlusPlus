@@ -11,13 +11,6 @@ using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
-/// <summary>
-/// The copied Ten-Win Build against its goldens, one per language. The item text is shaped as
-/// the game's tooltip renders it (<c>TooltipTypography</c>: TextMeshPro sizes, fonts, colours and
-/// keyword sprites), including an icon that alone names a value (Black Rose's "gains [Regen]3") and one beside a
-/// word that is not its label ("when it [CritChance]Crits").
-/// Regenerate with <c>BPP_UPDATE_GOLDENS=1</c> and review <c>git diff</c>.
-/// </summary>
 public sealed class TenWinBuildMarkdownTests
 {
     private const string NumberFont =
@@ -71,7 +64,6 @@ public sealed class TenWinBuildMarkdownTests
         );
     }
 
-    // Cards out of socket order: the copy lists them left to right as the panel draws them.
     private static LiveBuildPanelSnapshot Snapshot() =>
         new()
         {
@@ -161,7 +153,6 @@ public sealed class TenWinBuildMarkdownTests
         );
     }
 
-    // The game's word for each keyword icon; an icon with no configuration has none.
     private static string? IconLabel(string icon)
     {
         var chinese = LanguageCodeMatcher.IsChinese(L.CurrentLanguageCode);

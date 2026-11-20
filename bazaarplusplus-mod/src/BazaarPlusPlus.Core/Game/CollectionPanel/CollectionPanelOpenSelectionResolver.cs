@@ -5,7 +5,6 @@ using BazaarPlusPlus.Game.CollectionPanel.Sources;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Reached only through CollectionViewState.Open; no host rebuilds the open order around it.
 internal static class CollectionPanelOpenSelectionResolver
 {
     public static CollectionPanelSelectionState Resolve(

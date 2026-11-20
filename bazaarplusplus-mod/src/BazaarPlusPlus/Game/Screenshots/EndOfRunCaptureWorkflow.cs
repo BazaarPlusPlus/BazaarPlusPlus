@@ -228,8 +228,7 @@ internal sealed class EndOfRunCaptureWorkflow : IEndOfRunCaptureWorkflow, IDispo
             _bufferedHeroName = heroName;
     }
 
-    // This runs once per frame while the workflow is live, and canonicalization is a ToString/Trim
-    // comparison chain, so the result is recomputed only when the run's hero actually changes.
+    // Cache by hero so the per-frame capture tick avoids repeated string canonicalization.
     private string CanonicalHeroId(EHero hero)
     {
         if (_canonicalHeroId != null && _canonicalHeroIdSource == hero)

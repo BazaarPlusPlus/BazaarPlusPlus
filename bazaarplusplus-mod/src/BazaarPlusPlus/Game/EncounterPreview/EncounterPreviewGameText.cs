@@ -5,9 +5,6 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-// The desktop side of Encounter Preview's text: the game's localization behind
-// EncounterPreviewLocalization.TextLocalizer, and the static ability values a compiled template
-// plan carries.
 internal static class EncounterPreviewGameText
 {
     internal static string? Localize(EncounterPreviewLocalizedText text) =>
@@ -54,8 +51,7 @@ internal static class EncounterPreviewGameText
         {
             if (CardAbilityValueReader.TryReadAura(template, placeholder, out var value))
             {
-                // Keep the existing plan/cache model; namespacing only aura keys avoids
-                // colliding with legacy unprefixed ability ids.
+                // Aura keys are namespaced to avoid collisions with unprefixed ability IDs.
                 result[$"aura.{placeholder}"] = new EncounterPreviewAbilityValue(
                     value.ValueText,
                     value.Unit

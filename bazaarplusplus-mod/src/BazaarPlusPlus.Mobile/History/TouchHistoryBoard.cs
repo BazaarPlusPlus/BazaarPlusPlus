@@ -8,17 +8,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// One of History's native boards on a mobile platform, the counterpart of the desktop's owned
-/// <c>MonsterBoardTooltip</c> preview: each planned card of a stored battle
-/// (<see cref="HistoryBoardProjection.Items"/>) rents the game's own card prefab at its tier,
-/// enchantment, and saved values, on its display socket (<see cref="HistoryTouchLayout.CardRect"/>).
-/// A re-render keeps the cards whose identity, socket, tier, enchantment, and values did not
-/// change and returns the rest, so stepping through a run's battles re-rents only what changed. A card's footprint takes
-/// the tap (the rented card takes none) and hands the card to the panel's inspection.
-/// <see cref="Facts"/> reports what the rented cards show as Core's board facts.
-/// <see cref="ReturnAll"/> gives every card back.
-/// </summary>
 internal sealed class TouchHistoryBoard
 {
     private readonly string _owner;
@@ -35,16 +24,10 @@ internal sealed class TouchHistoryBoard
         _onTap = onTap;
     }
 
-    /// <summary>The rental owner the board's leases are filed under.</summary>
     public string Owner => _owner;
 
-    /// <summary>Cards rented and not yet returned, Pending or Ready.</summary>
     public int Leases => _cells.Count;
 
-    /// <summary>
-    /// Main thread. The view laid out a new board region: the old cells go back to the rental and
-    /// the next <see cref="Render"/> rents into the new one.
-    /// </summary>
     public void Attach(RectTransform region, HistoryTouchLayout layout)
     {
         ReturnAll();
@@ -53,7 +36,6 @@ internal sealed class TouchHistoryBoard
         _layout = layout;
     }
 
-    /// <summary>Main thread. Rents, keeps, or returns cards so the board shows <paramref name="board"/>.</summary>
     public void Render(BppItemBoard board)
     {
         if (_region == null || _layout == null)
@@ -87,9 +69,6 @@ internal sealed class TouchHistoryBoard
         }
     }
 
-    /// <summary>
-    /// What the board shows, as Core's board facts; none (no message) while it shows nothing.
-    /// </summary>
     public HistoryBoardFacts Facts()
     {
         if (!_shown)
@@ -111,7 +90,6 @@ internal sealed class TouchHistoryBoard
         return HistoryBoardProjection.Facts(_cells.Count, pending, failed);
     }
 
-    /// <summary>The panel closed, the scene changed, or the view was laid out again.</summary>
     public int ReturnAll()
     {
         var returned = _cells.Count;
@@ -122,7 +100,6 @@ internal sealed class TouchHistoryBoard
         return returned;
     }
 
-    // Instance, template, socket, tier, enchantment, and values: what the rented card shows and where.
     private static string Key(BppItemBoardCard card) =>
         $"{card.InstanceId}|{card.TemplateId:N}|{card.DisplaySocketId}|{card.DisplaySpan}|{card.Tier}|{card.EnchantmentType}|{CardRentalSubject.AttributesKey(card.Attributes)}";
 
@@ -132,7 +109,7 @@ internal sealed class TouchHistoryBoard
         var card = cell.Card!;
         var rect = layout.CardRect(card.DisplaySocketId ?? 0, card.DisplaySpan);
         TouchScreen.Place(cell.Root, rect);
-        // The rental centres the card on its slot's top-left corner at the prefab's size.
+        // The rental centers the card on its slot's top-left corner.
         cell.Slot.anchoredPosition = new Vector2(rect.Width / 2f, -rect.Height / 2f);
         cell.Slot.localScale = new Vector3(layout.CardScale, layout.CardScale, 1f);
     }

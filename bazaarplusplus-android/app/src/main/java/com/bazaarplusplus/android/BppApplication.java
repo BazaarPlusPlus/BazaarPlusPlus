@@ -4,7 +4,6 @@ import android.app.Application;
 
 import com.bazaarplusplus.android.diag.AppLog;
 
-/** The App process. The game runs in this process too, under the App's UID and sandbox. */
 public final class BppApplication extends Application {
     public static final String TAG = "BppApp";
 

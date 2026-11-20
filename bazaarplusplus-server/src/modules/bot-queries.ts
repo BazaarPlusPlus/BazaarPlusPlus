@@ -96,8 +96,7 @@ export async function collectBotBundles(
     sha256: string;
   }[];
   try {
-    // Stored time over-selects candidates, including late uploads. Only the
-    // consumer's decoded Run.EndedAtMs determines membership in the report.
+    // Stored-time candidates include late uploads. The bot filters by decoded Run end time.
     const result = await env.DB.prepare(`
       SELECT bundle_id, run_id, stored_at_ms, object_key, bundle_sha256 AS sha256
       FROM bundles INDEXED BY idx_bundles_uploader_stored

@@ -34,10 +34,7 @@ internal static class CombatImpactEntitySnapshotReader
         return CombatImpactEntityName.RemoveNativeEnchantmentPrefix(nativeTooltipTitle);
     }
 
-    /// <summary>
-    /// Reads the live cards and both players from <c>TheBazaar.Data</c>. Call it on the game
-    /// thread before the simulation plays, because these are mutable runtime objects.
-    /// </summary>
+    // Copy mutable runtime cards and players on the game thread before the simulation plays.
     internal static CombatImpactRuntimeEntities ReadRuntime()
     {
         var entities = new Dictionary<string, CombatImpactEntity>(StringComparer.Ordinal);
@@ -71,13 +68,7 @@ internal static class CombatImpactEntitySnapshotReader
         );
     }
 
-    /// <summary>
-    /// Adds the cards that transforms created during combat, then both players, after the live
-    /// cards and in the same order as before the read was split. Call it on the game thread.
-    /// Rehydrating a card reads the game's static-data cache, which a cache miss writes to. It
-    /// also reads the current run and localization. Only the scan that finds
-    /// <paramref name="transformedCards"/> may run off the game thread.
-    /// </summary>
+    // Rehydrating transformed cards can write the game's static-data cache and reads live run state and localization, so use the game thread.
     internal static Dictionary<string, CombatImpactEntity> Complete(
         CombatImpactRuntimeEntities runtime,
         IReadOnlyList<CombatImpactTransformedCardSnapshot> transformedCards
@@ -248,10 +239,7 @@ internal static class CombatImpactEntitySnapshotReader
                 );
             }
         }
-        catch
-        {
-            // Fall through to the complete template graph when tier data is incomplete.
-        }
+        catch { }
 
         return new ActiveEffects(card.Template?.Abilities?.Values, card.Template?.Auras?.Values);
     }
@@ -357,7 +345,6 @@ internal static class CombatImpactEntitySnapshotReader
 
         foreach (var aura in auras)
         {
-            // Keep the same direct-only rule as abilities; nested aura actions are not unique.
             if (aura?.Action is not TAuraActionCardModifyAttribute modifier)
                 continue;
             AddUniqueEffectAttribute(
@@ -482,10 +469,6 @@ internal static class CombatImpactEntitySnapshotReader
     );
 }
 
-/// <summary>
-/// What <see cref="CombatImpactEntitySnapshotReader.ReadRuntime"/> copied on the game thread: the
-/// live cards keyed by instance id, the order the next entity takes, and both players.
-/// </summary>
 internal sealed record CombatImpactRuntimeEntities(
     Dictionary<string, CombatImpactEntity> Entities,
     int NextOrder,

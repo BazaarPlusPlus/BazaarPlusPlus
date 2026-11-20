@@ -77,10 +77,7 @@ internal static class TooltipPreviewContentRefresh
             tooltipData.CanFuse = restoreCanFuse;
             NativeCardTooltipContentRefresher.TryApply(tooltipController, tooltipData);
         }
-        catch
-        {
-            // Preserve the original refresh failure; the caller reports the degraded transition.
-        }
+        catch { }
     }
 
     private static void ApplyCardPreviewMode(

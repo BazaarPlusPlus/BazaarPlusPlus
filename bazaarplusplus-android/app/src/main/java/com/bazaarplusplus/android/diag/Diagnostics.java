@@ -21,18 +21,12 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/**
- * The diagnostics export: one zip in the shared Download folder (MediaStore, no permission or
- * FileProvider) with the launcher's state, the App's log, LemonLoader's Latest.log and the Launch
- * Record. Every text passes {@link Redactor} first.
- */
+/** MediaStore lets the App put exports in Downloads without requesting storage permission. */
 public final class Diagnostics {
-    /** LemonLoader's log, relative to the external files directory; the first that exists is taken. */
     static final String[] LOADER_LOGS = {"MelonLoader/MelonLoader/Latest.log", "MelonLoader/Latest.log"};
 
     private Diagnostics() {}
 
-    /** The files of one export, by entry name; missing sources are left out. */
     public static Map<String, String> collect(File external, File appLog, String launchRecordPath, String state) {
         Map<String, String> files = new LinkedHashMap<>();
         files.put("state.txt", state);
@@ -53,7 +47,6 @@ public final class Diagnostics {
         return files;
     }
 
-    /** Writes each file, redacted, into one zip. */
     public static void zip(Map<String, String> files, OutputStream out) throws IOException {
         try (ZipOutputStream zip = new ZipOutputStream(out)) {
             for (Map.Entry<String, String> file : files.entrySet()) {
@@ -64,7 +57,6 @@ public final class Diagnostics {
         }
     }
 
-    /** A saved export: its file name in Download/ and its MediaStore URI, which the share sheet reads. */
     public static final class Exported {
         public final String name;
         public final Uri uri;
@@ -75,7 +67,6 @@ public final class Diagnostics {
         }
     }
 
-    /** Saves the export to Download/. */
     public static Exported export(Context context, Map<String, String> files) throws IOException {
         String name = "BazaarPlusPlus-diagnostics-"
                 + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(new Date()) + ".zip";

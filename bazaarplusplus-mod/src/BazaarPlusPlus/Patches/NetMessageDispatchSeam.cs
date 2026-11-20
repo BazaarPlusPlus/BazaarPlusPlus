@@ -7,18 +7,10 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Patches;
 
-/// <summary>
-/// Resolves, per game-build shape, the single NetMessageProcessor method that every
-/// live-run net message flows through.
-/// </summary>
 internal static class NetMessageDispatchSeam
 {
-    // PTR moved dispatch into a private Receive(INetMessage, bool) and unwraps
-    // NetMessageAggregate children by recursing through it, so patching the public
-    // one-arg ReceiveOrQueue there would silently miss aggregated messages. Online has
-    // no such method; its public ReceiveOrQueue self-recurses aggregate children.
-    // Preferring the private method when present therefore targets, on each build, the
-    // one method every message (including aggregate children) passes through.
+    // Builds with private Receive(INetMessage, bool) recurse there for aggregate children.
+    // Other builds recurse through ReceiveOrQueue. Patch the recursive seam to catch both.
     internal static MethodBase? ResolveTarget()
     {
         return AccessTools.Method(

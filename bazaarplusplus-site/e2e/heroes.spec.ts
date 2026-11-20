@@ -38,7 +38,6 @@ function rankingTable(page: Page) {
   return page.getByTestId('hero-ranking-table');
 }
 
-/** One tab-separated line per ranking row; hero cells contribute the hero's full name. */
 async function rankingLines(page: Page): Promise<string[]> {
   return rankingTable(page).evaluate((table) => {
     const header = Array.from(table.querySelectorAll('thead th'), (cell) => {
@@ -68,11 +67,7 @@ async function rankingHeroes(page: Page): Promise<string[]> {
     );
 }
 
-/**
- * Clicks each column header once, in order, and records the resulting hero order. A header
- * other than the active one sorts in its first-click direction, so every column's direction and
- * null handling lands in the golden.
- */
+/** Click each header once to capture its initial sort direction and null ordering. */
 async function sortOrderLines(
   page: Page,
   headers?: string[]
@@ -247,7 +242,6 @@ test.describe('route states', () => {
       await expect(page.getByText(copy.body)).toBeVisible();
       const progress = page.getByRole('progressbar', { name: copy.progress });
       await expect(progress).toBeVisible();
-      // Hero scope canonicalizes at the location boundary, before any data arrives.
       expect(relativeUrl(page)).toBe(copy.canonical);
       await expect.poll(() => routes.hits.metrics).toBe(1);
       await expect(
@@ -311,7 +305,6 @@ test.describe('Hero Analysis dashboard', () => {
       { mode: 'replace', href: '/heroes?lang=en&w=3d&s=non_legend' }
     ]);
 
-    // Only Non-Legend rows rank with data; Legend-only heroes trail with zero runs.
     expect((await rankingHeroes(page)).slice(0, 3).toSorted()).toEqual([
       'Dooley',
       'Mak',
@@ -447,7 +440,6 @@ test.describe('Hero Analysis dashboard', () => {
       )
     ).toBeVisible();
     await expect(rankingTable(page)).toBeVisible();
-    // The usable days carry a non-canonical hero; analysis leaves it out everywhere.
     await expect(
       page.locator('[data-hero="Common"], [data-hero-badge="Common"]')
     ).toHaveCount(0);
@@ -465,7 +457,6 @@ test.describe('Hero Analysis dashboard', () => {
   });
 });
 
-/** Reads one column's text per row, in rendered order. */
 async function column(page: Page, index: number): Promise<string[]> {
   return rankingTable(page)
     .locator(`tbody tr td:nth-child(${index + 1})`)

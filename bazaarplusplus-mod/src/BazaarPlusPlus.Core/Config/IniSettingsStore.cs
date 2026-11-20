@@ -3,13 +3,7 @@ using System.Text;
 
 namespace BazaarPlusPlus.Core.Config;
 
-/// <summary>
-/// Settings store for a host without BepInEx (Android): an INI file in the BepInEx cfg syntax,
-/// so every host's settings file has the same shape. A bind reads the
-/// persisted value (unparsable or missing falls back to the default) and rewrites the file when
-/// that changed it; a write persists only a value whose serialized form changed, so setting the
-/// current value again touches no file. Keys nothing binds survive a rewrite, as in BepInEx.
-/// </summary>
+// Use the BepInEx cfg syntax and preserve unbound keys so settings remain compatible across hosts.
 public sealed class IniSettingsStore : IBppSettingsStore
 {
     private readonly string _path;

@@ -16,8 +16,6 @@ public enum CollectionFacetMatchMode
     All,
 }
 
-// Mutable selection state held by CollectionPanel; pure data. The filter engine reads
-// this and produces an ordered visible set.
 public sealed class CollectionFilterState
 {
     public CollectionTabKind ActiveTab { get; private set; } = CollectionTabKind.Items;
@@ -31,8 +29,7 @@ public sealed class CollectionFilterState
     }
     public CardHero? SelectedHero { get; private set; }
 
-    // Keeps the currently selected concrete hero as the return point when the all-heroes scope
-    // is turned back off. The query uses this flag to omit hero scoping entirely.
+    // Keep the concrete hero selected as the return point when All Heroes is toggled off.
     public bool AllHeroesSelected { get; private set; }
     public HashSet<CardTier> Tiers { get; } = new();
     public HashSet<CardTag> Tags { get; } = new();
@@ -41,14 +38,11 @@ public sealed class CollectionFilterState
     public CollectionFacetMatchMode TagMatchMode { get; set; } = CollectionFacetMatchMode.Any;
     public CollectionFacetMatchMode KeywordMatchMode { get; set; } = CollectionFacetMatchMode.Any;
 
-    // Item card size (Small/Medium/Large). The active tab profile decides whether this set is
-    // shown and applied.
     public HashSet<CardSize> Sizes { get; } = new();
     public string? SelectedSourceKey { get; set; }
     public string SearchQuery { get; set; } = string.Empty;
 
-    // The Day filter is a toggle. Its actual day and ceiling always come from the shared GameData
-    // resolver; unavailable data therefore leaves this selected while failing open.
+    // Unavailable GameData disables the day ceiling without clearing the user's toggle.
     public bool UseRunDayFilter { get; set; } = true;
     public CollectionSortPriority SortPriority { get; set; } = CollectionSortPriority.Quality;
 

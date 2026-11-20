@@ -1,5 +1,3 @@
-"""Build Corpus: eligible final boards, representative layouts, and selection."""
-
 import json
 import math
 from collections.abc import Iterable, Mapping
@@ -278,7 +276,6 @@ def _validate_builds(payload: Mapping[str, Any], _start: date, _end: date, _days
 
 
 def select_build_identities(candidates: Iterable[BuildRank]) -> tuple[tuple[str, ...], ...]:
-    """Apply deterministic Top-500 ranking and uncovered-card backfill."""
     ranked = sorted(
         candidates,
         key=lambda candidate: (

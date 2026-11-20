@@ -26,7 +26,6 @@ export function readJson(path: string): unknown {
 }
 
 const HERO_FIXTURES = {
-  // The analyzer owns this golden; it is the exact snapshot the pipeline publishes.
   latest: '../bazaarplusplus-analyzer/contracts/v6/fixtures/heroes.latest.json',
   threeDay: 'e2e/fixtures/heroes-3day.json',
   // Carries a non-canonical hero and one invalid day, so it is not schema-valid on purpose.
@@ -45,7 +44,6 @@ const validateHeroSnapshot = new Ajv2020({
   ) as object
 );
 
-/** Validates against the analyzer-owned schema; returns the Ajv errors, or null when valid. */
 export function heroSchemaErrors(snapshot: unknown): unknown {
   return validateHeroSnapshot(snapshot) ? null : validateHeroSnapshot.errors;
 }
@@ -61,7 +59,6 @@ export function heroSnapshot(fixture: HeroFixture): unknown {
   return snapshot;
 }
 
-/** A canned response, an HTTP status, or `'hang'` to leave the request pending. */
 export type SourceReply = { json: unknown } | { status: number } | 'hang';
 
 export type GoldenSources = {
@@ -80,7 +77,6 @@ export function goldenSources(
   return {
     metrics: { json: heroSnapshot('latest') },
     supporters: { json: readJson('e2e/fixtures/supporters.json') },
-    // The workspace release fixtures are read in place, never copied.
     windows: {
       json: readJson('../release/fixtures/latest/windows-x86_64.json')
     },
@@ -116,16 +112,11 @@ async function reply(route: Route, source: SourceReply): Promise<void> {
 }
 
 export type GoldenRoutes = {
-  /** Non-localhost requests that matched no source and were aborted. */
   unexpected: string[];
-  /** How many requests each source received. */
   hits: Record<keyof GoldenSources, number>;
 };
 
-/**
- * Serves the external sources from fixtures and aborts every other non-localhost request,
- * so a source nobody intercepted fails the spec instead of reaching production.
- */
+/** Abort unmatched external requests to keep golden specs off production. */
 export async function installGoldenRoutes(
   page: Page,
   sources: GoldenSources = goldenSources()
@@ -171,7 +162,6 @@ export async function installGoldenRoutes(
   return state;
 }
 
-/** Ends a golden spec: nothing may have tried to leave localhost unintercepted. */
 export function expectNoUnexpectedRequests(routes: GoldenRoutes): void {
   expect(
     routes.unexpected,
@@ -179,12 +169,10 @@ export function expectNoUnexpectedRequests(routes: GoldenRoutes): void {
   ).toEqual([]);
 }
 
-/** Pretty JSON with a trailing newline, the format every JSON golden is committed in. */
 export function goldenJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-/** Writes a golden when updating (or when it is missing), and returns the committed value. */
 export function readOrWriteGolden(
   testInfo: TestInfo,
   name: string,

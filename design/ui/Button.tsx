@@ -11,8 +11,7 @@ import { SpinnerIcon } from './icons';
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'md' | 'sm' | 'icon' | 'icon-sm';
 
-/** Class list for anything that should look like a Button, such as a router
- *  `Link`. */
+/** Use this on controls like router links that render their own element. */
 export function buttonClassName({
   variant = 'secondary',
   size = 'md',
@@ -30,7 +29,6 @@ interface SharedProps {
   size?: ButtonSize;
   /** Leading icon. Replaced by a spinner while `busy`. */
   icon?: ReactNode;
-  /** Shows a spinner and blocks activation. */
   busy?: boolean;
   /** Label shown while busy; the button keeps the wider label's width. */
   busyLabel?: ReactNode;
@@ -45,8 +43,7 @@ export type ButtonElementProps = SharedProps &
     ref?: Ref<HTMLButtonElement>;
   };
 
-/** A link drawn as a button. While disabled or busy it leaves the tab order
- *  and ignores clicks. */
+/** Disabled and busy links leave the tab order and ignore clicks. */
 export type LinkButtonProps = SharedProps &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof SharedProps> & {
     href: string;

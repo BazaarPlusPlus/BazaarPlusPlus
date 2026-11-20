@@ -3,7 +3,6 @@ using System.Text;
 
 namespace BazaarPlusPlus.TestSupport;
 
-/// <summary>A minimal line diff (LCS) with three lines of context, for golden mismatches.</summary>
 internal static class UnifiedDiff
 {
     internal static string Render(string expected, string actual, string label)

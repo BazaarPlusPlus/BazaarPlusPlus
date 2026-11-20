@@ -9,7 +9,7 @@ using UnityEngine.AddressableAssets;
 
 namespace BazaarPlusPlus.GameInterop.AssetLoading;
 
-// The shared native prefab/reference seam. Callers own every successfully returned root.
+// Callers own instances returned by RentInactiveAsync.
 internal static class NativeCardPrefabLoader
 {
     private static readonly MethodInfo? InstantiateAssetMethod = AccessTools.Method(

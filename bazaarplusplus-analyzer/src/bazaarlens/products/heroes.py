@@ -1,5 +1,3 @@
-"""Hero metrics: additive outcomes and decided Matchups by Source Day."""
-
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from pathlib import Path

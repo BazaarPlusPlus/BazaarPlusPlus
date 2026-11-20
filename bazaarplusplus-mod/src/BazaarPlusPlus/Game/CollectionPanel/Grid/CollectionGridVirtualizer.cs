@@ -14,19 +14,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Recycler virtualizer: instead of laying out every card in the visible set up front, we
-// only realize cells inside the scroll window (+ overscan) and keep ~realizedRows*cols
-// native preview sessions alive at a time. Scrolling just rewrites anchoredPosition on
-// the existing cells (O(visible)); only when a cell index moves out of the window do we
-// dispose its opaque session and bind a fresh one for the cell entering it.
-//
-// Native preview acquisition does not complete until SetUp and resize have settled. The scope
-// owns cancellation, pool reuse, and late continuation cleanup; realized cells only retain the
-// opaque session plus feature layout/hover state.
-//
-// Filter/tab changes cancel everything in flight by bumping the global generation guard.
-// Already-shown cards that remain in the next visible set keep their native instances and
-// move directly to their new indices; removed and not-yet-shown cells are recycled.
+// Native preview acquisition waits for SetUp and resize so a half-initialized preview cannot receive hover.
 internal sealed class CollectionGridVirtualizer
 {
     private readonly CollectionGridOverlay _overlay;
@@ -46,9 +34,7 @@ internal sealed class CollectionGridVirtualizer
     private float _viewportHeight;
     private float _scrollY;
 
-    // Pixelization of the fixed unit grid for the current viewport. _unit is one column's width
-    // (px), derived from a shared cross-tab grid envelope so Item/Skill switches do not move the
-    // display-case edges; _originX/_originY are the inset (horizontal centering + uniform padding).
+    // The shared grid envelope keeps the display-case edges fixed across Items and Skills.
     private float _unit;
     private float _gap = CollectionGridConstants.GridGap;
     private float _originX = CollectionGridConstants.GridOuterPadding;
@@ -75,8 +61,6 @@ internal sealed class CollectionGridVirtualizer
             _slots = new CollectionGridSlotLayer(overlay.BoardRoot);
     }
 
-    // Content height in overlay pixels: top + bottom display-case padding plus the packed
-    // shelves. Consumed by the UITK ScrollView spacer so the scrollbar range is correct.
     public float ContentHeight =>
         _layout.ShelfCount == 0
             ? 0f
@@ -85,9 +69,7 @@ internal sealed class CollectionGridVirtualizer
     public bool HasPendingBinds => _pendingBindTracker.HasPendingBinds;
     public Task WhenPendingBindsSettled => _pendingBindTracker.WhenSettled;
 
-    // SetVisible swaps in a new ordered visible set (typically after filter change). Cards
-    // already shown in both sets retain their native instances and current opacity; only newly
-    // realized cards enter the fade-in path. Caller is expected to also reset scrollY to 0.
+    // The caller resets scrollY after changing the visible set.
     public void SetVisible(IReadOnlyList<CollectionCardVm> visible, CollectionTabKind activeTab)
     {
         var retention = BuildRetentionPlan(visible);
@@ -132,7 +114,6 @@ internal sealed class CollectionGridVirtualizer
             return;
         }
 
-        // Visible window is a contiguous shelf range (Core: CollectionGridLayout.VisibleIndexRange).
         var (firstIdx, lastIdx) = _layout.VisibleIndexRange(
             _scrollY,
             _viewportHeight,
@@ -147,7 +128,6 @@ internal sealed class CollectionGridVirtualizer
             _layout.ShelfCount
         );
 
-        // 1) Recycle cells that scrolled out of window.
         _recycleScratch.Clear();
         foreach (var pair in _realized)
         {
@@ -169,7 +149,6 @@ internal sealed class CollectionGridVirtualizer
         foreach (var index in _pendingRecycleScratch)
             CancelPendingBind(index);
 
-        // 2) Realize newly-visible cells, rate-limited by wall-clock budget for cold binds.
         var tickStart = Time.realtimeSinceStartup;
         var coldBudgetSeconds = CollectionGridConstants.ColdBindBudgetMs * 0.001f;
         for (var idx = firstIdx; idx <= lastIdx; idx++)
@@ -182,12 +161,7 @@ internal sealed class CollectionGridVirtualizer
         }
         _firstWindowDiagnostics?.TryLogBindingPhase(_generation);
 
-        // 3) Reposition realized cells whenever the scroll offset moved (or the base unit
-        // changed on a viewport resize, _scaleDirty). Skipping when nothing changed avoids
-        // forcing a Canvas rebuild on idle frames. Slots track the same window so the grid
-        // order is visible even where cards have not finished loading.
-        // Scroll-only frames use cached bounds (zero measure). Scale dirty invalidates every
-        // cell's bounds cache so ApplyScale remeasures once for the new unit/cellRect.
+        // Avoid a Canvas rebuild on idle frames. Scroll-only frames can reuse measured card bounds.
         // ReSharper disable once CompareOfFloatsByEqualityOperator
         if (_scrollY != _lastScrollY || _scaleDirty)
         {
@@ -225,14 +199,6 @@ internal sealed class CollectionGridVirtualizer
         _firstWindowDiagnostics = null;
     }
 
-    // Polled hover (CollectionGridHostConstants.UsePolledHover = true, the default). Called
-    // from CollectionPanel.Update with the mouse position and the viewport rect, both in
-    // screen pixels (bottom-left origin). Maps the cursor into the realized cell under it
-    // and dispatches OnHover/OnHoverOut accordingly.
-    //
-    // Acquisition completes native SetUp before a cell is realized, so hover never targets a
-    // half-initialized preview. _hoverDispatched prevents repeated native enter calls while the
-    // cursor remains within the same cell.
     public void PollHover(Vector2 mousePixels, Rect viewportBoundsPx)
     {
         if (_inspectionBlocked)
@@ -249,13 +215,10 @@ internal sealed class CollectionGridVirtualizer
         }
 
         var localX = mousePixels.x - viewportBoundsPx.x;
-        // Viewport bottom-left origin → invert to top-left origin so layout math matches.
+        // The viewport origin is bottom-left and the grid origin is top-left.
         var localY = viewportBoundsPx.height - (mousePixels.y - viewportBoundsPx.y);
         var contentY = localY + _scrollY;
 
-        // Hit-test against precomputed cell rects: find the shelf band under the cursor, then
-        // the cell within it whose span rect contains the point. Rects exclude the gutter, so a
-        // cursor in the gap matches nothing and dispatches hover-out — same as the old gap reject.
         var shelfPitch = _layout.ShelfPitch(_unit, _gap);
         if (shelfPitch <= 0f)
         {
@@ -297,7 +260,6 @@ internal sealed class CollectionGridVirtualizer
             _hoverDispatched = false;
         }
 
-        // Move the display-case hover highlight to the pointed cell (board-local rect, y down).
         var hoverRect = _layout.ContentRectFor(idx, _unit, _gap, _originX, _originY);
         _slots?.SetHover(
             new CollectionGridRect(
@@ -315,11 +277,9 @@ internal sealed class CollectionGridVirtualizer
                 realizedCell.Session.Root.transform.SetAsLastSibling();
         }
 
-        // Already fired OnHover for this cell — nothing to do until the cursor leaves.
         if (_hoverDispatched)
             return;
 
-        // Successful acquisition means native SetUp and resize have already completed.
         if (_realized.TryGetValue(idx, out var cell))
         {
             cell.HoverRelay?.OnPointerEnter(null!);
@@ -384,8 +344,6 @@ internal sealed class CollectionGridVirtualizer
 
     private void DispatchHoverOut()
     {
-        // Hide the display-case highlight on every hover-out path (outside the viewport, in a
-        // gutter, off the grid, or moving to a new cell).
         _slots?.SetHover(null);
         if (_hoverPollIndex < 0)
         {
@@ -522,12 +480,10 @@ internal sealed class CollectionGridVirtualizer
             hover,
             hoverScale,
             rect,
-            // The owner attached this group while the card was inactive; TickFades writes it.
             card.GetComponent<CanvasGroup>()
         );
         _realized[index] = cell;
         BindArtLoadedHook(cell);
-        // Fresh session: empty cache measures once here; scroll later reads the warm cache.
         cell.BoundsCache.InvalidateOnRebind();
         var cellRect = _layout.ContentRectFor(index, _unit, _gap, _originX, _originY);
         ApplyCardScale(cell, cellRect);
@@ -546,7 +502,6 @@ internal sealed class CollectionGridVirtualizer
         new()
         {
             TemplateId = vm.Id,
-            // A projected card's facets came from this build's enums, so the lookup holds.
             Tier = DesktopCardFacets.Tier.TryToSource(vm.StartingTier, out var tier)
                 ? tier
                 : ETier.Bronze,
@@ -554,10 +509,7 @@ internal sealed class CollectionGridVirtualizer
             InstanceIdPrefix = "bpp-collection",
         };
 
-    // Push the visible window's board-local cell rects to the slot layer. Driven by the layout
-    // window (not the realized-card set), so every visible cell shows its display-case slot
-    // immediately, before its native card art has loaded. Board space is top-left origin, y
-    // increasing downward, so content Y is offset by the current scroll.
+    // Draw slots from the layout window so their positions are visible before card art loads.
     private void SyncSlots(int firstIdx, int lastIdx)
     {
         if (_slots == null)
@@ -614,9 +566,6 @@ internal sealed class CollectionGridVirtualizer
                 cell.BoundsCache,
                 allowMeasure: false
             );
-            // Show(true) re-activates _cardImage / _frameContainer; the CanvasGroup at the
-            // root was zeroed on Take, so the card still renders transparent. Hand the cell
-            // off to TickFades to ramp it up.
             cell.FadeAlpha = 0f;
             cell.FadeActive = true;
             cell.IsShown = true;
@@ -634,8 +583,6 @@ internal sealed class CollectionGridVirtualizer
         }
     }
 
-    // Advance the per-cell fade-in animation. Called from CollectionPanel.Update each frame
-    // while the panel is visible. Acquisition has completed native SetUp before cells reach here.
     public void TickFades(float deltaSeconds)
     {
         if (deltaSeconds <= 0f)
@@ -659,8 +606,6 @@ internal sealed class CollectionGridVirtualizer
         }
     }
 
-    // Advance the collection-only hover scale after PollHover has updated the current target.
-    // Cards that are not transitioning return immediately from their controller.
     public void TickHoverScale(float deltaSeconds)
     {
         if (deltaSeconds <= 0f)
@@ -685,7 +630,6 @@ internal sealed class CollectionGridVirtualizer
         var marker = root.GetComponent<CollectionPanelOwnedMarker>();
         if (marker == null)
             return;
-        // Capture the cell identity so a late art completion after recycle is ignored.
         var generation = cell.Generation;
         var session = cell.Session;
         marker.OnArtLoaded = () => OnCellArtLoaded(session, generation);
@@ -775,9 +719,7 @@ internal sealed class CollectionGridVirtualizer
         foreach (var pair in previousCells)
         {
             var cell = pair.Value;
-            // A retained card can be destroyed out from under us; recycle it like the
-            // pre-retention path did
-            // instead of dereferencing a dead GameObject and orphaning the rest of the loop.
+            // A retained card can lose its GameObject independently of the current filter update.
             if (!retention.TryGetValue(pair.Key, out var newIndex) || cell.Session.Root == null)
             {
                 RecycleCell(cell);
@@ -789,7 +731,6 @@ internal sealed class CollectionGridVirtualizer
             cell.HoverRelay?.Bind(cell.Session);
             cell.Index = newIndex;
             cell.Vm = _visible[newIndex];
-            // Same native instance retained: keep warm bounds cache; only cellRect changes.
             BindArtLoadedHook(cell);
             _realized[newIndex] = cell;
             var cellRect = _layout.ContentRectFor(newIndex, _unit, _gap, _originX, _originY);
@@ -826,9 +767,6 @@ internal sealed class CollectionGridVirtualizer
         _failedBindGuids.Clear();
     }
 
-    // Derive the per-viewport base unit and display-case origin. The active tab keeps its fixed
-    // column count and expands its unit width to fill the available display-case viewport.
-    // originY is the fixed top padding. Marks realized cards for rescale on the next reposition.
     private void RecomputePixelization()
     {
         _scaleDirty = true;
@@ -893,8 +831,6 @@ internal sealed class CollectionGridVirtualizer
         public NativeCardCellBoundsCache BoundsCache { get; }
         public bool IsShown { get; set; }
 
-        // Fade state. ShowCell sets FadeActive=true with FadeAlpha=0 right after the
-        // card's Show(true); TickFades ramps FadeAlpha → 1 and writes it to Group.
         public bool FadeActive { get; set; }
         public float FadeAlpha { get; set; }
     }

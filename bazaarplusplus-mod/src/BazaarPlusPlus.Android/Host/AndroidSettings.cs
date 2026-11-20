@@ -2,10 +2,6 @@ using BazaarPlusPlus.Core.Config;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// The settings only the Android host has, in the same <c>BazaarPlusPlus.cfg</c> that holds the
-/// shared <see cref="BppSettings"/> and the Mobile UI's <c>[Touch]</c> switch.
-/// </summary>
 internal sealed class AndroidSettings
 {
     public AndroidSettings(IBppSettingsStore store)
@@ -25,15 +21,7 @@ internal sealed class AndroidSettings
         );
     }
 
-    /// <summary>
-    /// Whether <see cref="Game.AndroidFrameRatePriority"/> turns off the game's frame-rate
-    /// scaling. Off by default.
-    /// </summary>
     public ISetting<bool> FrameRatePriority { get; }
 
-    /// <summary>
-    /// The developer seam for the game-update row: 0, the default, reads the published manifest
-    /// (<see cref="Lobby.AndroidVersionCheck.DevManifest"/>).
-    /// </summary>
     public ISetting<int> DevReleaseManifestPort { get; }
 }

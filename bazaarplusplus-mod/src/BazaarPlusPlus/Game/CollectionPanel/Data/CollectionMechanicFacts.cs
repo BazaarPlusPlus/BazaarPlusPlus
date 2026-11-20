@@ -9,8 +9,6 @@ using BazaarPlusPlus.GameInterop.Cards;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-// Collection-owned structured facts projected once while a catalog VM is built. Filtering and
-// view refreshes read only the resulting flags; they never revisit game effect graphs.
 internal static class CollectionMechanicFacts
 {
     private const CollectionMechanic AllAbilityMechanics =
@@ -93,10 +91,7 @@ internal static class CollectionMechanicFacts
             && modifier.AttributeType == ECardAttributeType.Multicast
         )
             return CollectionMechanic.Multicast;
-        // Direct destroy plus the rest of the destroy-cluster action surfaces. Nested abilities
-        // carried inside TActionCardTransformDestroyed.Abilities belong to the spawned
-        // replacement and are intentionally never walked (sub-rule retained from #149; no
-        // longer separately observable through the single Destroy flag).
+        // Nested transform abilities belong to the spawned replacement card.
         if (action is TActionCardDestroy or TActionCardRepair or TActionCardTransformDestroyed)
             return CollectionMechanic.Destroy;
         if (action is not TActionAnd combined)
@@ -108,9 +103,7 @@ internal static class CollectionMechanicFacts
         return facts;
     }
 
-    // Destruction-reaction triggers only. TTriggerOnCardRepaired is deliberately excluded —
-    // the "was repaired" trigger is not part of the destroy cluster (repair *actions* match
-    // via ProjectActionFacts instead).
+    // TTriggerOnCardRepaired is outside the destroy cluster. Repair actions still qualify.
     private static CollectionMechanic ProjectTriggerFacts(TTriggerBase? trigger)
     {
         if (

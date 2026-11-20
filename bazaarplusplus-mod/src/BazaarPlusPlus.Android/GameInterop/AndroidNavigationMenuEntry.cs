@@ -6,16 +6,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// One BPP tile in the game's lobby navigation menu (the MENU button's grid,
-/// <c>NavigationMenuController</c>): a clone of a native scene tile
-/// (<see cref="AndroidNativeMenuClone"/>), added as the grid's last child so its
-/// <c>GridLayoutGroup</c> places it after the native tiles. It lives under the menu's pooled grid,
-/// so it shows and hides with the menu; its alpha follows the menu's open state, since the game
-/// fades only its pooled tiles. A tap closes the menu, as the native tiles do, then runs
-/// <paramref name="open"/>. A grid rebuilt with the menu loses the tile, which is cloned again on
-/// the next open. Main thread only.
-/// </summary>
+// The native menu fades only its pooled tiles, so the BPP tile must track that fade separately.
 internal sealed class AndroidNavigationMenuEntry(
     string name,
     Func<string> label,
@@ -39,8 +30,7 @@ internal sealed class AndroidNavigationMenuEntry(
             if (Time.unscaledTime < _nextLookup)
                 return;
             _nextLookup = Time.unscaledTime + 1f;
-            // A run has no navigation menu, and the scene-wide search cost 2-11 ms per call on the
-            // emulator: a once-a-second frame spike for the whole run.
+            // A scene-wide menu search can stall a frame during a run, where the menu cannot exist.
             if (InRunScene())
                 return;
             _menu = UnityEngine.Object.FindFirstObjectByType<NavigationMenuController>();

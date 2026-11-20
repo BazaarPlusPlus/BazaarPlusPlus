@@ -18,8 +18,6 @@ const sha256 = (bytes: string | NodeJS.ArrayBufferView): string =>
 const jsonBytes = (value: unknown): Buffer =>
   Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 
-// One product version's Android upload; every artifact's bytes and the
-// signatures have defaults.
 export interface UploadAndroidOptions {
   version: ProductVersion;
   gitCommit: string;
@@ -36,19 +34,11 @@ export interface UploadedAndroid {
   appKey: string;
 }
 
-// An artifact record of a fragment: where it is served.
 interface ServedRecord {
   url: string;
 }
 
-// What the Android release job leaves in the store for one product version
-// (ADR 0012, ADR 0019): its Android App APK, each Game Adaptation's Interop
-// Package (one content-addressed object every version of the same snapshot
-// shares) and Managed Payload zip, and the fragment that names them. The
-// publisher adaptation keeps the earlier fixture's game and bytes. The bytes are literal; the interop
-// signature is a placeholder that no certificate verifies. The App bytes are
-// the earlier fixture's APK bytes, so the site's screenshot goldens keep the
-// size and SHA-256 they show.
+// Keep the APK fixture bytes stable because the site's screenshot goldens show their size and digest.
 export async function uploadAndroid(
   store: ObjectStore,
   {

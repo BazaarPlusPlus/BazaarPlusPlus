@@ -26,7 +26,6 @@ describe('POST /bundles', () => {
     );
     expect(object).not.toBeNull();
     expect(object?.size).toBe(fixture.body.byteLength);
-    // A stored Bundle records its uploader assertion.
     expect(
       await env.DB.prepare(
         `SELECT u.player_account_id

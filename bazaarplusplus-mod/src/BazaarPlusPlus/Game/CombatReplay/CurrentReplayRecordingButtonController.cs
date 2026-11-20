@@ -43,8 +43,7 @@ internal sealed class CurrentReplayRecordingButtonController
     private CurrentReplayRecordingUiLayoutReasonCode _layoutReasonCode;
     private TooltipKey? _lastTooltipKey;
 
-    // Live controllers, so BindNativeActions needs no scene scan. Awake registers; Initialize
-    // registers again for a component added to an inactive object, whose Awake is deferred.
+    // Unity defers Awake for components added to inactive objects.
     private static readonly List<CurrentReplayRecordingButtonController> Instances = new();
 
     internal static CurrentReplayRecordingButtonController? Attach(Button settingsButton)
@@ -139,7 +138,6 @@ internal sealed class CurrentReplayRecordingButtonController
         SyncLayoutAndRefresh();
     }
 
-    // An unconditional sync already carries a fresh layout, so Refresh need not repeat it.
     private void SyncLayoutAndRefresh()
     {
         SyncLayout();
@@ -150,12 +148,7 @@ internal sealed class CurrentReplayRecordingButtonController
 
     private void LateUpdate()
     {
-        // SyncLayout() sweeps every Button in the scene. The triggers follow the sibling
-        // BppPanelDockButtonsController's cadence, plus anchor activity: this button docks against
-        // the last panel button, which screenshot suppression toggles inactive outside of any scene
-        // or resolution change. The trackers always advance, but the sweep runs only while the
-        // button can show (a ReplayState with a latched battle); the sync on the frame it becomes
-        // showable lives in Refresh, which every path that can show the button goes through.
+        // SyncLayout scans scene buttons. Screenshot suppression can hide the dock anchor without a scene or resolution change.
         var anchorIsActive = IsDockAnchorActive();
         var shouldSync = _layoutSync.ShouldSync(
             ActiveSceneNameCache.Current,
@@ -176,9 +169,7 @@ internal sealed class CurrentReplayRecordingButtonController
         return collectionRect != null && collectionRect.gameObject.activeInHierarchy;
     }
 
-    // The sibling dock controller lives on the settings button's own GameObject and is stable once
-    // attached, so the component lookup is cached. Attach order is not guaranteed (only the
-    // FightMenu path orders the two attaches), so a still-missing sibling is re-probed.
+    // The sibling dock controller can attach later, so retry a missing lookup.
     private BppPanelDockButtonsController? ResolveDockAnchorController()
     {
         if (_dockAnchorController != null)
@@ -268,8 +259,7 @@ internal sealed class CurrentReplayRecordingButtonController
     {
         if (_clone == null || _button == null)
             return;
-        // The layout stops updating while the button is hidden, so whichever path first sees it
-        // showable syncs before deciding to show it.
+        // Layout can go stale while the button is hidden.
         if (snapshot.Visible && !_snapshotWasVisible)
             SyncLayout();
         _snapshotWasVisible = snapshot.Visible;
@@ -301,8 +291,6 @@ internal sealed class CurrentReplayRecordingButtonController
         _button.interactable = snapshot.CanReveal || (nativeActionsBound && snapshot.CanStart);
         if (_cueActivator != null)
         {
-            // The tooltip text is a pure function of these inputs, so it is rebuilt only when one
-            // of them changes rather than on every visible frame.
             var tooltipKey = new TooltipKey(
                 snapshot.Phase,
                 snapshot.CanStart,

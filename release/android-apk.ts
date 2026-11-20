@@ -2,13 +2,6 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-// Reads the facts an Interop Snapshot records from an official Android build
-// (root GLOSSARY.md, ADR 0008): the publisher's single APK, or a Google Play
-// install's base APK and its splits (ADR 0019). It reads the entries interop
-// generation consumes, the package versionName and versionCode from the binary
-// AndroidManifest.xml, and the Unity version from the data.unity3d bundle
-// header. Nothing here needs the Android SDK; entries are read through `unzip`.
-
 export const APK_ENTRIES = Object.freeze({
   il2cpp: 'lib/arm64-v8a/libil2cpp.so',
   metadata: 'assets/bin/Data/Managed/Metadata/global-metadata.dat',
@@ -16,16 +9,13 @@ export const APK_ENTRIES = Object.freeze({
   dataBundle: 'assets/bin/Data/data.unity3d'
 });
 
-/** The name of an APK entry interop generation consumes. */
 export type ApkEntryName = keyof typeof APK_ENTRIES;
 
-/** The <manifest> element's package version. */
 export interface AndroidManifestVersion {
   versionName: string;
   versionCode: number;
 }
 
-/** What readApk extracts and reads from an official Android build. */
 export interface ApkFacts extends AndroidManifestVersion {
   unityVersion: string;
   /** The base APK. */
@@ -34,13 +24,10 @@ export interface ApkFacts extends AndroidManifestVersion {
   splitApkSha256s: string[];
   il2cppSha256: string;
   metadataSha256: string;
-  /** The extracted libil2cpp.so. */
   il2cpp: string;
-  /** The extracted global-metadata.dat. */
   metadata: string;
 }
 
-// execFileSync fails with the child's stderr attached.
 type UnzipError = Error & { stderr?: Buffer };
 
 export async function sha256File(file: string): Promise<string> {
@@ -49,7 +36,6 @@ export async function sha256File(file: string): Promise<string> {
   return hash.digest('hex');
 }
 
-// Copies one APK entry to a file; a missing entry fails naming it.
 export function extractApkEntry(
   apk: string,
   entry: string,
@@ -107,8 +93,6 @@ function stringPool(bytes: Buffer, start: number): string[] {
   return strings;
 }
 
-// The <manifest> element's versionName and versionCode from a compiled
-// (binary XML) AndroidManifest.xml.
 export function parseAndroidManifest(bytes: Buffer): AndroidManifestVersion {
   if (bytes.length < 8 || bytes.readUInt16LE(0) !== RES_XML)
     throw new Error('AndroidManifest.xml is not a compiled binary XML file');
@@ -201,10 +185,7 @@ function apkEntryNames(apk: string): Set<string> {
   }
 }
 
-// Extracts the generation inputs into `into` and reads the build's identity.
-// `apks` is the base APK, then any splits. The manifest is read from the base,
-// since every split carries its own; each other entry must occur in exactly
-// one APK.
+// Read the base APK's manifest because splits carry separate manifests.
 export async function readApk(
   apks: readonly string[],
   into: string

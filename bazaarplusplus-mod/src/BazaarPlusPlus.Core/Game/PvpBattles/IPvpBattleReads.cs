@@ -1,26 +1,17 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// One host's reads of a PvP battle for <see cref="PvpBattleCaptureWindow{TMessage}"/>: what kind
-/// of net message arrived, the opening message's battle and opponent facts and boards, the live
-/// player facts and boards, and an opaque replay part per stage. A read may throw or return null;
-/// the window guards each field on its own. A message is valid only during the
-/// <see cref="PvpBattleCaptureWindow{TMessage}.Observe"/> call that delivered it, so a host never
-/// keeps one past its read (an IL2CPP proxy is serialized when it arrives).
-/// </summary>
+// Message reads are valid only during Observe. Android must serialize replay parts
+// before the IL2CPP message proxy expires.
 public interface IPvpBattleReads<TMessage>
     where TMessage : class
 {
     PvpBattleSignal Classify(TMessage message);
 
-    /// <summary>Read only during the observe call that delivered the opening.</summary>
     string? OpeningText(TMessage opening, PvpOpeningText field);
 
-    /// <summary>Read only during the observe call that delivered the opening.</summary>
     int? OpeningNumber(TMessage opening, PvpOpeningNumber field);
 
-    /// <summary>The opponent's board from the opening message's events.</summary>
     IReadOnlyList<PvpBattleCardSnapshot> OpponentBoard(
         TMessage opening,
         PvpSnapshotSection section
@@ -30,30 +21,14 @@ public interface IPvpBattleReads<TMessage>
 
     int? PlayerNumber(PvpPlayerNumber field);
 
-    /// <summary>The player's board from the live game state.</summary>
     IReadOnlyList<PvpBattleCardSnapshot> PlayerBoard(PvpSnapshotSection section);
 
-    /// <summary>
-    /// The player's attributes as the combat opens, keyed by the game's member name: the live
-    /// game state with the opening message's player changes applied on top. The opening carries
-    /// only what changed for the player, so the message alone does not hold them. Null when the
-    /// host does not read them. Read only during the observe call that delivered the opening, and
-    /// asked only for a PvP combat.
-    /// </summary>
+    // The opening message contains only changed attributes. Apply those changes to live values keyed by game member name.
     IReadOnlyDictionary<string, int>? PlayerAttributes(TMessage opening);
 
-    /// <summary>
-    /// The cards in the player's stash from the live game state, as the combat opens. Stash cards
-    /// can act in a combat (quest progress, auras) though no board set holds them. Null when the
-    /// host does not read them. Asked only for a PvP combat.
-    /// </summary>
+    // Stash cards can affect combat through quests and auras even though they appear on no board.
     IReadOnlyList<PvpBattleCardSnapshot>? PlayerStash();
 
-    /// <summary>
-    /// The replay part of <paramref name="stage"/>: the opening game sim for
-    /// <see cref="PvpReplayStage.Spawn"/>, the combat sim for <see cref="PvpReplayStage.Combat"/>,
-    /// the closing game sim for <see cref="PvpReplayStage.Despawn"/>. Asked only for a PvP combat.
-    /// </summary>
     PvpReplayPart KeepReplayPart(PvpReplayStage stage, TMessage message, string battleId);
 }
 
@@ -64,10 +39,6 @@ public enum PvpBattleSignalKind
     CombatSim,
 }
 
-/// <summary>
-/// What a net message is to the window: a game sim with its run state name, a combat sim with its
-/// winner and loser combatant ids as the game names them, or anything else.
-/// </summary>
 public readonly record struct PvpBattleSignal
 {
     private PvpBattleSignal(
@@ -100,16 +71,13 @@ public readonly record struct PvpBattleSignal
         new(PvpBattleSignalKind.CombatSim, null, winner, loser);
 }
 
-/// <summary>The run states whose game sim opens a window.</summary>
 [Flags]
 public enum PvpOpeningKinds
 {
     None = 0,
 
-    /// <summary>The <c>PVPCombat</c> state: a battle against another player's board.</summary>
     PvpCombat = 1,
 
-    /// <summary>The <c>Combat</c> state: a monster fight, captured without a replay.</summary>
     MonsterCombat = 2,
 }
 
@@ -155,11 +123,6 @@ public enum PvpReplayStage
     Despawn,
 }
 
-/// <summary>
-/// One message of a Replay Payload, kept from the observe call that delivered it until the window
-/// closes. <see cref="Serialized"/> holds bytes taken on arrival (empty when that failed);
-/// <see cref="Deferred"/> holds a producer the window runs once, at close.
-/// </summary>
 public abstract class PvpReplayPart
 {
     private PvpReplayPart() { }
@@ -170,7 +133,6 @@ public abstract class PvpReplayPart
     public static PvpReplayPart Deferred(Func<byte[]> bytes) =>
         new DeferredPart(bytes ?? throw new ArgumentNullException(nameof(bytes)));
 
-    /// <summary>A part already known to have no bytes.</summary>
     internal abstract bool FailedNow { get; }
 
     internal abstract byte[] Resolve();

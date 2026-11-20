@@ -1,7 +1,3 @@
-// The BazaarPlusPlus Web component library: one React implementation of each
-// shared component, drawn only with the bpp-* classes in
-// ../components/bundle.css. The installer and the site import it as `@bpp/ui`;
-// nothing here imports a product (docs/adr/0018-one-web-component-library.md).
 export { Badge, type BadgeProps, type BadgeTone } from './Badge';
 export {
   Button,

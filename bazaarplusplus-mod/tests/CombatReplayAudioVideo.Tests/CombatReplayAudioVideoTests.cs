@@ -2,17 +2,6 @@ using System.Reflection;
 using BepInEx.Logging;
 using Xunit;
 
-// Behavioral unit tests for the design-mandated pure-logic units of the
-// combat-replay audio/video pipeline, reached as internal types via reflection
-// (Type.GetType("Full.Name, BazaarPlusPlus")):
-//   1) WavStreamWriter    -- byte-exact WAV header
-//   2) WallClockCfrPacer  -- wall-clock repeat/drop counting
-// Plus native encoder policy, timing, mux fallback and lifecycle contracts. Each class is one
-// check of the capsule; a class whose Run() called named checks has one Fact per check.
-
-// ---------------------------------------------------------------------------
-// 1) WavStreamWriter.BuildHeader: byte-exact 44-byte IEEE-float WAV header.
-// ---------------------------------------------------------------------------
 public sealed class WavHeaderTests
 {
     private static readonly Type WavType = TestReflection.RequireType(
@@ -22,7 +11,6 @@ public sealed class WavHeaderTests
     [Fact]
     public static void StereoHeader()
     {
-        // 48000 Hz, 2ch, dataByteLength = 8.
         var header = BuildHeader(48000, 2, 8);
         TestReflection.Assert(header.Length == 44, "WAV header must be exactly 44 bytes.");
 
@@ -59,7 +47,7 @@ public sealed class WavHeaderTests
     [Fact]
     public static void MonoEmptyHeader()
     {
-        // 44100 Hz, 1ch, dataByteLength = 0 (placeholder header on file open).
+        // The header written on file open has no audio bytes yet.
         var header = BuildHeader(44100, 1, 0);
         TestReflection.Assert(header.Length == 44, "Mono header must be exactly 44 bytes.");
         TestReflection.Assert(U16(header, 22) == 1, "Mono header channels must be 1.");
@@ -98,23 +86,18 @@ public sealed class WavHeaderTests
         return new string(chars);
     }
 
-    // Decode little-endian explicitly (do not rely on host endianness).
     private static uint U32(byte[] b, int o) =>
         (uint)(b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24));
 
     private static int U16(byte[] b, int o) => b[o] | (b[o + 1] << 8);
 }
 
-// ---------------------------------------------------------------------------
-// 2) WallClockCfrPacer: wall-clock CFR repeat/drop counting via CfrTickResult.
-// ---------------------------------------------------------------------------
 public sealed class CfrPacerTests
 {
     private static readonly Type PacerType = TestReflection.RequireType(
         "BazaarPlusPlus.Game.CombatReplay.Video.WallClockCfrPacer"
     );
 
-    // First tick with no frame available: nothing emitted, clock not started.
     [Fact]
     public static void NoLeadingPad()
     {
@@ -126,7 +109,6 @@ public sealed class CfrPacerTests
             "No leading pad: empty tick before first frame."
         );
 
-        // Still not started: even a much later no-frame tick stays empty.
         r = Tick(pacer, now: 5.0, hasFrame: false, latestSeq: 0, ref lastEmitted);
         TestReflection.Assert(
             r.Emit == 0 && r.Repeat == 0 && r.Dropped == 0,
@@ -134,8 +116,6 @@ public sealed class CfrPacerTests
         );
     }
 
-    // 30 fps, clock advances exactly one frame interval per tick, a NEW seq each
-    // tick: total emits == 30, repeats == 0 over the simulated second.
     [Fact]
     public static void SteadyCadenceNoRepeats()
     {
@@ -172,8 +152,6 @@ public sealed class CfrPacerTests
         );
     }
 
-    // After priming one frame, advance the clock by 3 intervals while keeping
-    // latestSeq CONSTANT: the extra slots repeat the last frame.
     [Fact]
     public static void RepeatsWhenCaptureStalls()
     {
@@ -182,15 +160,12 @@ public sealed class CfrPacerTests
         long lastEmitted = -1;
         const long frozenSeq = 7;
 
-        // Prime: first frame at t=0 establishes the timeline and emits slot 0 (new).
         var prime = Tick(pacer, now: 0.0, hasFrame: true, latestSeq: frozenSeq, ref lastEmitted);
         TestReflection.Assert(
             prime.Emit == 1 && prime.Repeat == 0,
             "Priming tick should emit exactly the first (new) frame."
         );
 
-        // Advance ~3 intervals total with the SAME seq across a few ticks, staying
-        // under the overshoot resync threshold so nothing is dropped.
         var totalEmit = prime.Emit;
         var totalRepeat = prime.Repeat;
         var totalDropped = prime.Dropped;
@@ -204,8 +179,6 @@ public sealed class CfrPacerTests
             totalDropped += r.Dropped;
         }
 
-        // Slots elapsed = 4 (slot0 prime + 3 more). Emit==slots; the 3 beyond the
-        // first duplicate the frozen frame => RepeatCount == slots-1.
         TestReflection.Assert(
             totalEmit == 4,
             $"Four CFR slots should be emitted across the stall, got {totalEmit}."
@@ -220,24 +193,18 @@ public sealed class CfrPacerTests
         );
     }
 
-    // Prime, then jump the clock far past resyncOvershootIntervals*interval in a
-    // single tick. EmitCount is clamped by maxEmitsPerTick=3, DroppedCount>0, and
-    // the pacer resyncs so the next steady tick emits normally (0 or 1).
     [Fact]
     public static void DropOnOvershootResync()
     {
-        // maxEmitsPerTick=3, resyncOvershootIntervals=5.
         var pacer = New(30, maxEmitsPerTick: 3, resyncOvershootIntervals: 5);
         var interval = 1.0 / 30.0;
         long lastEmitted = -1;
         long seq = 0;
 
-        // Prime at t=0.
         var prime = Tick(pacer, now: 0.0, hasFrame: true, latestSeq: seq, ref lastEmitted);
         TestReflection.Assert(prime.Emit == 1, "Priming tick should emit the first frame.");
         seq++;
 
-        // Single huge jump: ~10 intervals past the last emit time in one tick.
         var jumpNow = 10.0 * interval;
         var r = Tick(pacer, jumpNow, hasFrame: true, latestSeq: seq, ref lastEmitted);
         TestReflection.Assert(r.Emit <= 3, $"maxEmitsPerTick clamp must hold (emit={r.Emit}).");
@@ -246,8 +213,6 @@ public sealed class CfrPacerTests
             $"Overshoot resync must count skipped slots as dropped (dropped={r.Dropped})."
         );
 
-        // After resync the clock is realigned to jumpNow+interval, so a tick a hair
-        // before that emits 0, and a tick one interval later emits exactly 1.
         var before = Tick(
             pacer,
             jumpNow + (interval * 0.5),
@@ -312,9 +277,6 @@ public sealed class CfrPacerTests
     private readonly record struct TickResult(int Emit, int Repeat, int Dropped);
 }
 
-// ---------------------------------------------------------------------------
-// 4) ReplayVideoFramePool: optional Rent/Return + cap micro-check.
-// ---------------------------------------------------------------------------
 public sealed class VideoEncoderProfileTests
 {
     private static readonly Type ProfileType = TestReflection.RequireType(
@@ -372,10 +334,6 @@ public sealed class VideoEncoderProfileTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 4b) Platform backend contract: supported desktop platforms are native and
-//     unknown platforms are rejected.
-// ---------------------------------------------------------------------------
 public sealed class VideoBackendPolicyTests
 {
     [Fact]
@@ -417,10 +375,6 @@ public sealed class VideoBackendPolicyTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 5) Byte budget: pool payload is bounded independently from queue references,
-//    and the writer gets one headroom slot (queue = pool - 1).
-// ---------------------------------------------------------------------------
 public sealed class VideoBufferPlanTests
 {
     private static readonly Type PlanType = TestReflection.RequireType(
@@ -506,10 +460,6 @@ public sealed class VideoBufferPlanTests
         (bool)TestReflection.GetProp(PlanType, value, name)!;
 }
 
-// ---------------------------------------------------------------------------
-// 6) Copy timing: Debug builds keep the samples their diagnostic events report;
-//    Release builds, whose Debug events compile out, keep none.
-// ---------------------------------------------------------------------------
 public sealed class CopyTimingTests
 {
     [Fact]
@@ -554,10 +504,6 @@ public sealed class CopyTimingTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 10) Replay output names include the recording identity, so overlapping drains
-//     for the same battle and wall-clock second cannot share either artifact.
-// ---------------------------------------------------------------------------
 public sealed class OutputFileNameTests
 {
     [Fact]
@@ -597,12 +543,7 @@ public sealed class OutputFileNameTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 11) ReplayVideoAudioMuxer.IsLikelyZeroDurationOutput: the gate that stops a
-//    -shortest mux of an empty WAV (exit 0, ~hundred-byte stub) from deleting the
-//    good silent first-pass video. Reproduced sizes: a real 3s recording is
-//    multi-MB; the empty-output stub is ~261 bytes.
-// ---------------------------------------------------------------------------
+// ffmpeg's -shortest can exit successfully with a ~261-byte stub when the WAV is empty.
 public sealed class ZeroDurationMuxGuardTests
 {
     private static readonly Type MuxerType = TestReflection.RequireType(
@@ -612,42 +553,32 @@ public sealed class ZeroDurationMuxGuardTests
     [Fact]
     public static void Run()
     {
-        // The repro: a ~261-byte empty-output stub against a multi-MB silent video
-        // must be flagged as zero-duration so the muxer keeps the silent recording.
         TestReflection.Assert(
             Guard(261, 3_000_000),
             "An empty-output stub far smaller than the silent video must be flagged zero-duration."
         );
 
-        // A real muxed file (slightly larger than the silent input, since -c:v copy
-        // carries the full video payload plus an AAC track) must NOT be flagged.
         TestReflection.Assert(
             !Guard(3_100_000, 3_000_000),
             "A muxed file at least the size of the silent video must not be flagged."
         );
 
-        // A tiny but legitimate recording: output >= silent size is always accepted.
         TestReflection.Assert(
             !Guard(5_000, 4_000),
             "A small but valid output >= silent size must not be flagged."
         );
 
-        // An empty output (0 bytes) is always zero-duration, regardless of silent size.
         TestReflection.Assert(Guard(0, 3_000_000), "A zero-byte output must be flagged.");
         TestReflection.Assert(
             Guard(0, 0),
             "A zero-byte output must be flagged even if silent size is unknown."
         );
 
-        // When the silent size is unknown (0), only a truly empty output is rejected;
-        // a non-empty output cannot be measured against a baseline so it is accepted.
         TestReflection.Assert(
             !Guard(200, 0),
             "With unknown silent size, a non-empty output must not be flagged."
         );
 
-        // Exactly half the silent size is the boundary: strictly-less-than-half is the
-        // rejection rule, so == half is accepted and just-under-half is rejected.
         TestReflection.Assert(
             !Guard(500, 1000),
             "Output exactly half the silent size must be accepted (boundary)."
@@ -675,10 +606,6 @@ public sealed class ZeroDurationMuxGuardTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 5) ReplayVideoAudioMuxer.BuildArguments: multi-WAV capture must mix the base
-//    bus audio and SFX bus audio into one AAC input via amix.
-// ---------------------------------------------------------------------------
 public sealed class AudioTapPlanTests
 {
     private static readonly Type TapPlanType = TestReflection.RequireType(
@@ -716,10 +643,6 @@ public sealed class AudioTapPlanTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 8) Native encoder diagnostics remain bounded in terminal records.
-//    chunk-fed tail. A single hostile line must never expand retained memory.
-// ---------------------------------------------------------------------------
 public sealed class RecordingOperationContractTests
 {
     private static readonly Type OperationType = TestReflection.RequireType(
@@ -1414,10 +1337,6 @@ public sealed class RecordingOperationContractTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 11) Audio teardown timeout is a typed result, and never leaves a timed-out
-//     tap eligible for muxing.
-// ---------------------------------------------------------------------------
 public sealed class AudioStopTimeoutTests
 {
     [Fact]
@@ -1456,10 +1375,6 @@ public sealed class AudioStopTimeoutTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// 12) Resolved final metadata: the persisted recorder status must agree with
-//     the verified artifact and terminal capture outcome.
-// ---------------------------------------------------------------------------
 public sealed class RecorderIntegrationContractTests
 {
     [Fact]
@@ -1502,15 +1417,11 @@ public sealed class RecorderIntegrationContractTests
     }
 }
 
-// ---------------------------------------------------------------------------
-// Shared reflection helpers (file-scoped types cannot see top-level locals).
-// ---------------------------------------------------------------------------
 file static class TestReflection
 {
     public static void Assert(bool condition, string message) =>
         Xunit.Assert.True(condition, message);
 
-    // The replay video types live in the host; the playback source enum in Core.
     public static Type RequireType(string fullName) =>
         Type.GetType($"{fullName}, BazaarPlusPlus")
         ?? Type.GetType($"{fullName}, BazaarPlusPlus.Core")

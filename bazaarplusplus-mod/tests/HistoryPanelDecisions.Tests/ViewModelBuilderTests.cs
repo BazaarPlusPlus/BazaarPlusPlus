@@ -4,12 +4,8 @@ using BazaarPlusPlus.Game.Supporters;
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-// The view model both hosts render. Without a coordinator the panel shows itself unavailable;
-// the board layout and the delete action follow the section (ADR-0002: Ghost shows only the
-// challenger's board).
 public sealed class ViewModelBuilderTests
 {
-    // The capsule ran these checks with English installed.
     public ViewModelBuilderTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     [Fact]

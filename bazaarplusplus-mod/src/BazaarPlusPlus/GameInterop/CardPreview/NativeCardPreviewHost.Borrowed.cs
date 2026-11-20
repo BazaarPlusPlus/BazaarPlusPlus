@@ -108,7 +108,6 @@ internal sealed partial class NativeCardPreviewHost
             if (!ReferenceEquals(_borrowedHovered, this))
                 return;
             _borrowedHovered = null;
-            // Only hide the primary tooltip if it still belongs to this card.
             var parent = Data.TooltipParentComponent;
             if (
                 Card != null

@@ -21,29 +21,15 @@ internal enum AndroidCollectionCatalogStatus
     Unavailable,
 }
 
-/// <summary>How much of a frame the catalog's build may take.</summary>
 internal enum AndroidCollectionCatalogPace
 {
-    /// <summary>The panel is open and waiting for it.</summary>
     Waiting,
 
-    /// <summary>Built ahead of the first open: one card a frame, none after a slow frame.</summary>
     Warm,
 }
 
-/// <summary>
-/// The Collection catalog on Android, built once per game language and kept for the session.
-/// It never calls the game's <c>GetCardMap</c>, which deserializes every card on the main thread
-/// (19–29 s on the emulator). Once the game has initialized, so its localization is loaded, the
-/// main thread reads the game data paths and a pool thread either finds the catalog in
-/// <see cref="CollectionCatalogCacheStore"/> or reads the candidate card ids from the game data's
-/// <c>cards</c> table (<see cref="ReadCandidateIds"/>). A miss then projects one candidate at a
-/// time in frame slices, each loaded by the game's own per-card <c>GetCardById</c>, hands every
-/// projected template to the card rental, and saves a clean build for the next launch. A hit
-/// hands the rental nothing: it loads each template when a card is rented. It is the Android
-/// host's <see cref="ICollectionCardCatalog"/> (ADR-0025 decision 4); the touch UI warms it ahead
-/// of the first open.
-/// </summary>
+// GetCardMap deserializes every card on the Unity thread and can stall it for seconds. Load
+// individual cards instead.
 internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
 {
     private const float SlowFrameSeconds = 0.02f;
@@ -74,21 +60,18 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
 
     public IReadOnlyList<CollectionCardVm>? Cards { get; private set; }
 
-    /// <summary>Whether the catalog still has frames of work before it is ready or unavailable.</summary>
     public bool IsBuilding =>
         Status
             is AndroidCollectionCatalogStatus.Idle
                 or AndroidCollectionCatalogStatus.Preparing
                 or AndroidCollectionCatalogStatus.Projecting;
 
-    /// <summary>The cached cards for the current language, or null when a build is needed.</summary>
     public IReadOnlyList<CollectionCardVm>? Cached =>
         Status == AndroidCollectionCatalogStatus.Ready
         && string.Equals(_language, L.CurrentLanguageCode, StringComparison.Ordinal)
             ? Cards
             : null;
 
-    /// <summary>Main thread, once per frame while a panel waits or the touch UI warms it.</summary>
     public void Advance(AndroidCollectionCatalogPace pace)
     {
         if (
@@ -112,7 +95,6 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
         }
     }
 
-    /// <summary>The open panel's step: a slice at the waiting pace.</summary>
     public CollectionCardCatalogStatus Advance()
     {
         Advance(AndroidCollectionCatalogPace.Waiting);
@@ -124,19 +106,14 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
         };
     }
 
-    /// <summary>A failed build may be retried on the next open.</summary>
     public void RetryIfUnavailable()
     {
         if (Status == AndroidCollectionCatalogStatus.Unavailable)
             Reset();
     }
 
-    /// <summary>
-    /// Any thread: the ids of the game data's cards that can be catalog cards, read without the
-    /// game's deserializer. A superset of <see cref="CollectionCardEligibility"/>, which the
-    /// projection still applies: a row is dropped only for a text <c>Type</c> other than Item or
-    /// Skill, or a <c>SpawningEligibility</c> of Never. A row that is not JSON is kept.
-    /// </summary>
+    // The SQL prefilter must keep a superset of CollectionCardEligibility, including rows it cannot
+    // parse.
     internal static List<Guid> ReadCandidateIds(string path)
     {
         var connectionString = new SqliteConnectionStringBuilder
@@ -296,7 +273,6 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
         var slice = Stopwatch.StartNew();
         _projectClock.Start();
         _frames++;
-        // At least one card: one game data read can take longer than any budget.
         do
         {
             var id = candidates[_cursor++];
@@ -313,7 +289,6 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
             }
             catch (Exception)
             {
-                // One card the game or the projection cannot read stays out; the rest load.
                 _failed++;
             }
             _cardMs.Add(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
@@ -388,7 +363,6 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
         return Math.Round(_cardMs[index], 1);
     }
 
-    // Only a complete build of one language from one manager is worth keeping.
     private bool Cacheable()
     {
         if (_identity == null || _failed > 0 || _unresolved > 0 || Cards is not { Count: > 0 })
@@ -404,8 +378,8 @@ internal sealed class AndroidCollectionCatalog : ICollectionCardCatalog
         }
     }
 
-    // Pool thread: the manifests are read again so a download during the build is not saved
-    // under the identity it replaced.
+    // Re-read the manifests so a download during projection cannot cache the results under a stale
+    // identity.
     private void Save(
         CollectionCatalogCacheIdentity identity,
         Request request,

@@ -58,7 +58,6 @@ import type {
   RecordMainlandMirrorsOptions
 } from './publish.ts';
 
-// A release checkout and the commits its labels name.
 interface ReleaseFixture {
   workspaceRoot: string;
   rootDir: string;
@@ -78,9 +77,6 @@ afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
 });
 
-// A release checkout: a git repository whose installer project holds the
-// native build output. `commit` labels name its commits; `a` is the initial
-// one and any other label is created on first use.
 function fixture(version = '3.1.1'): ReleaseFixture {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-release-'));
   roots.push(workspaceRoot);
@@ -129,8 +125,6 @@ const installerName = (platform: string, version: string) =>
     ? `BazaarPlusPlus_${version}_x64-setup.exe`
     : `BazaarPlusPlus_${version}_aarch64.dmg`;
 
-// Builds `platform` from the commit labelled `commit` with the real artifact
-// manifest, then uploads it.
 async function upload(
   data: ReleaseFixture,
   store: MemoryStore,
@@ -172,8 +166,6 @@ const missingShare: MirrorPage = {
 const mirrorUrl = (platform: string, version: string) =>
   `https://mirror.example/${platform}-${version}`;
 
-// A share host serving the correctly named installer at each platform's
-// mirror address for `version`; `overrides` replaces individual pages.
 function mirrorProbe(
   version: string,
   overrides: Record<string, MirrorPage> = {}
@@ -360,8 +352,7 @@ test('upload is platform-local; latest is promoted only after both verified plat
     'windows-x86_64',
     'darwin-aarch64'
   ]);
-  // Platform manifests are written before the lockstep manifest so a client
-  // that installs through latest.json finds its platform file afterwards.
+  // Clients installing through latest.json need their platform manifest to exist first.
   const order = [
     'latest/windows-x86_64.json',
     'latest/mod/windows-x86_64.json',
@@ -427,7 +418,6 @@ test('confirming an already published release fills missing mod endpoints withou
   await promote(data, store);
   const modKeys = ['windows-x86_64', 'darwin-aarch64'].map(modManifestPath);
   for (const key of modKeys) store.objects.delete(key);
-  // Published mirror addresses are authoritative, even without their old records.
   for (const key of store.objects.keys())
     if (key.includes('/mirror/')) store.objects.delete(key);
   const before = store.writes.length;
@@ -758,7 +748,6 @@ test('promotion requires every platform mirror unless explicitly waived, and a w
   expect(log).toHaveBeenCalledWith(
     expect.stringMatching(/WARNING.*darwin-aarch64 without a mainland mirror/)
   );
-  // Confirming the published release needs no waiver and writes nothing.
   const writes = store.writes.length;
   expect((await promote(data, store)).version).toBe(data.version);
   expect(store.writes).toHaveLength(writes);
@@ -828,8 +817,6 @@ test('the manifest writer refuses a mainland mirror recorded for another file na
   ).toThrow(/recorded for other\.exe/);
 });
 
-// A desktop `downloads[platform]` record is the installer plus the game and
-// the self-update facts its fragment carries beside it.
 function splitDesktopRelease({
   game,
   managedPayload,
@@ -891,24 +878,20 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
       /latest\.json unchanged: platforms are at 3\.1\.2 and 3\.1\.1/
     )
   );
-  // Confirming the old lockstep release cannot move the newer mod endpoint back.
   const modAhead = (await store.get(modManifestPath('windows-x86_64')))!.bytes;
   await promote(data, store);
   expect((await store.get(modManifestPath('windows-x86_64')))!.bytes).toEqual(
     modAhead
   );
-  // The published platform manifest freezes its mirror and refuses rollback.
   await expect(record(next, store, 'windows')).rejects.toThrow(
     /already published/
   );
   await expect(promoteOne(data, store, 'windows')).rejects.toThrow(/rollback/);
-  // Re-running is a confirmation that writes nothing.
   const writes = store.writes.length;
   expect((await promoteOne(next, store, 'windows')).platform.version).toBe(
     '3.1.2'
   );
   expect(store.writes).toHaveLength(writes);
-  // The other platform must ship the same commit, and then latest.json advances.
   await expect(upload(next, store, 'macos', 'b')).rejects.toThrow(
     /was uploaded from commit/
   );
@@ -950,7 +933,6 @@ test('a mirror record cannot silently diverge from an address promoted during it
   expect(published.downloads['windows-x86_64'].mainlandUrl).toBe(
     mirrorUrl('windows', next.version)
   );
-  // Confirming the platform again reads the published address, not a record.
   store.objects.set('3.1.2/windows-x86_64/mirror/mainland.json', {
     bytes: Buffer.from(
       JSON.stringify({
@@ -1057,8 +1039,7 @@ test('a platform manifest promotes a fragment without game and refuses an invali
       ),
       verified: true
     };
-    // A fragment uploaded before `game` existed promotes without it, and its
-    // published manifest still validates when the same version is confirmed.
+    // The fixture simulates a fragment uploaded before desktop game compatibility was tracked.
     const { game: _game, ...withoutGame } = expected.downloads[key];
     const older = { ...expected, downloads: { [key]: withoutGame } };
     expect(
@@ -1087,9 +1068,6 @@ test('a platform manifest promotes a fragment without game and refuses an invali
   }
 });
 
-// Android (ADR 0012): its own Platform Release Manifest, outside latest.json,
-// under the same one-commit-per-version rule. Tests that are not about its
-// mainland mirror waive it.
 const ANDROID = 'android-aarch64';
 const promoteAndroid = (
   data: Pick<ReleaseFixture, 'version'>,
@@ -1142,9 +1120,7 @@ test('Android promotion checks the three artifacts and publishes only its own ma
   expect((await store.get(modManifestPath(ANDROID)))!.bytes).toEqual(
     (await store.get(`latest/${ANDROID}.json`))!.bytes
   );
-  // The waiver writes no mirror record.
   expect(store.writes.some((key) => key.includes('mirror'))).toBe(false);
-  // Repeating the promotion leaves the manifest unchanged.
   const published = store.objects.get(`latest/${ANDROID}.json`)!.bytes;
   await promoteAndroid(data, store);
   expect(store.objects.get(`latest/${ANDROID}.json`)!.bytes).toEqual(published);
@@ -1176,7 +1152,6 @@ test('an Android mirror serves the App APK, stays recordable after latest.json m
       store,
       probeMirror: mirrorProbe(data.version, { [url]: page })
     });
-  // A share of a desktop installer is not the APK.
   await expect(
     recordAndroid(sharePage(installerName('windows', data.version)))
   ).rejects.toThrow(/missing-or-misnamed/);
@@ -1194,7 +1169,6 @@ test('an Android mirror serves the App APK, stays recordable after latest.json m
     url
   );
   expect((await store.get(modManifestPath(ANDROID)))!.bytes).toEqual(published);
-  // Once published, the address is frozen, and a repeat keeps it.
   await expect(recordAndroid(sharePage(apk))).rejects.toThrow(
     `latest/${ANDROID}.json has already published ${data.version}`
   );
@@ -1264,13 +1238,11 @@ test('upload and promote refuse an Android App another key signed, in both layer
     baseUrl,
     signerSha256: other
   });
-  // Layer 1: the pinned release certificate.
   await expect(promoteAndroid(data, store)).rejects.toThrow(
     `signed by ${other}, not the release key ${ANDROID_RELEASE_SIGNER_SHA256}`
   );
   expect(await store.get(`latest/${ANDROID}.json`)).toBeNull();
-  // Layer 2: the certificate of the promoted Android App, here for a build
-  // whose release code pins another key than the one already promoted.
+  // A new pinned certificate still has to match the already-promoted App.
   await promoteAndroid(data, store, { releaseSignerSha256: other });
   await uploadAndroid(store, {
     version: '3.1.3',
@@ -1415,7 +1387,6 @@ test("an Android fragment names its own version's App, the content-addressed int
   expect(invalid({ game: play.game })).toThrow(
     /must be the publisher adaptation's/
   );
-  // ADR 0010's fragments are refused by their kind.
   const { app, interop, ...rest } = fragment;
   expect(() =>
     validatePlatformFragment(
@@ -1432,7 +1403,6 @@ test("an Android fragment names its own version's App, the content-addressed int
   expect(() =>
     buildAndroidFragment({
       ...facts,
-      // Deliberately missing.
       selfUpdatable: undefined
     } as unknown as BuildAndroidFragmentOptions)
   ).toThrow(/Invalid android-aarch64 release facts/);

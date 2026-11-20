@@ -4,18 +4,11 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The native shortcut and playback targets on the screens the Android host must fit: the 20:9 emulator
-/// with its cutouts, a 16:10 tablet with and without its top inset, a 16:9 phone, and a screen
-/// that reports no density.
-/// </summary>
 public sealed class TouchHudLayoutTests
 {
     private const float Reference = 1080f;
 
-    // name: width, height, dpi, and the safe area in Unity's pixels (x from the left, y from the
-    // bottom). The device fixtures include: 2400x1080 with a cutout on each side,
-    // and 2560x1600 with its top 91 px unsafe.
+    // Unity reports safe area origins in pixels from the lower-left corner.
     private static readonly Dictionary<
         string,
         (float Width, float Height, float Dpi, float X, float Y, float SafeWidth, float SafeHeight)
@@ -31,7 +24,6 @@ public sealed class TouchHudLayoutTests
 
     public static TheoryData<string> Screens => new(Devices.Keys);
 
-    /// <summary>The overlay canvas's metrics on the named screen.</summary>
     public static TouchMetrics Metrics(string name)
     {
         var device = Devices[name];
@@ -47,10 +39,7 @@ public sealed class TouchHudLayoutTests
         );
     }
 
-    /// <summary>
-    /// Where the bank sits on a height-scaled, centered board: its right border 0.59 canvas
-    /// heights right of center, spanning 0.761 to 0.978 canvas heights from the top.
-    /// </summary>
+    // The offsets model the native bank on a height-scaled, centered board.
     private static TouchRect Bank(TouchMetrics metrics)
     {
         var height = metrics.CanvasHeight;
@@ -119,7 +108,6 @@ public sealed class TouchHudLayoutTests
                 Assert.True(safe.Contains(target));
                 AssertFitsShortcut(metrics, gear, target);
                 Assert.False(target.Overlaps(gear));
-                // Centred on the gear unless that would leave the safe area's top.
                 Assert.Equal(
                     Math.Max(safe.Top, gear.CenterY - target.Height / 2),
                     target.Top,
@@ -134,7 +122,6 @@ public sealed class TouchHudLayoutTests
     [Fact]
     public void Shortcuts_make_a_row_only_in_a_run_on_a_screen_that_gathers_the_hud_above()
     {
-        // 4:3 gathers the HUD above the board; 16:10 and 20:9 do not.
         var square = TouchMetrics.From(2048f, 1536f, 264f, Reference, 0f, 0f, 2048f, 1536f);
         foreach (
             var (metrics, row) in new[]
@@ -164,10 +151,6 @@ public sealed class TouchHudLayoutTests
         }
     }
 
-    /// <summary>
-    /// A settings button in the top-right corner, smaller and larger than a touch target: the
-    /// shortcuts copy its artwork at its size.
-    /// </summary>
     private static TouchRect[] Gears(TouchMetrics metrics)
     {
         var safe = metrics.SafeArea;
@@ -179,7 +162,6 @@ public sealed class TouchHudLayoutTests
         ];
     }
 
-    /// <summary>A full touch target with room for the gear's artwork.</summary>
     private static void AssertFitsShortcut(TouchMetrics metrics, TouchRect gear, TouchRect target)
     {
         Assert.True(target.Height >= metrics.MinTarget && target.Width >= metrics.MinTarget);
@@ -192,7 +174,6 @@ public sealed class TouchHudLayoutTests
     {
         var metrics = Metrics(name);
         var bank = Bank(metrics);
-        // A cosmetic narrower than the usual bank and sitting higher on the board.
         var vault = new TouchRect(bank.Left + 30, bank.Top - 40, bank.Width - 60, bank.Height - 20);
         Assert.True(TouchHudLayout.FitsBesideVault(metrics, vault));
         var clock = TouchHudLayout.Playback(metrics, vault);
@@ -203,11 +184,8 @@ public sealed class TouchHudLayoutTests
         Assert.False(clock.Row);
     }
 
-    /// <summary>
-    /// A foldable's inner display (2480x2248) fills with the board scaled by width, which leaves
-    /// a band under it; the vault read there on the emulator sits 0.15 canvas heights above the
-    /// bottom edge. The clock is one row in that band.
-    /// </summary>
+    // The emulator's nearly square display scales the board by width,
+    // leaving the band below the vault.
     [Fact]
     public void Clock_sits_under_the_vault_on_a_nearly_square_screen()
     {
@@ -234,11 +212,6 @@ public sealed class TouchHudLayoutTests
         Assert.Equal(clock.Controls.CenterX, clock.Speed.Right, 0.01f);
     }
 
-    /// <summary>
-    /// With the board lowered to the bottom edge of a 2480x2248 screen, the HUD gathers in the
-    /// band above it: the clock is one row centred there, its hit areas a target tall and no
-    /// lower than the band.
-    /// </summary>
     [Fact]
     public void Clock_sits_in_the_band_above_a_lowered_board()
     {
@@ -269,7 +242,6 @@ public sealed class TouchHudLayoutTests
         foreach (
             var read in new[]
             {
-                // Off the canvas, left of center (the stash), shorter than a touch target, not finite.
                 bank with
                 {
                     Top = metrics.CanvasHeight - 10,

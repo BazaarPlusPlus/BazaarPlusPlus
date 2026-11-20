@@ -17,8 +17,6 @@ const SCALAR_SCRIPT =
 
 export const PRODUCTION_ORIGIN = 'https://mod-api-v6.bazaarplusplus.com';
 
-// A route documents its success responses and the error codes it can return;
-// the builder adds the shared error envelope, X-Request-Id, and security.
 export interface RouteDocs extends Omit<
   ZodOpenApiOperationObject,
   'responses' | 'security'
@@ -118,7 +116,6 @@ export function buildOpenApiDocument(
           auth === undefined
             ? undefined
             : [{ [SECURITY_SCHEMES[auth].name]: [] }],
-        // The route shell turns any unclassified exception into internal_error.
         responses: {
           ...success,
           ...errorResponses([...errors, 'internal_error'])

@@ -15,9 +15,7 @@ import java.util.List;
 import java.util.Set;
 
 public class LaunchGateTest {
-    /** The publisher's adapted game. */
     static final GameCodeHash ADAPTED = new GameCodeHash("a".repeat(64), "b".repeat(64));
-    /** Google Play's adapted game. */
     static final GameCodeHash PLAY_ADAPTED = new GameCodeHash("e".repeat(64), "f".repeat(64));
     static final GameCodeHash OTHER = new GameCodeHash("c".repeat(64), "d".repeat(64));
     static final String PUBLISHER_SIGNER = "f8f508cf8b590e715a2f5bdba78098f03daf988cf828dd61fcbee8aa9b21632a";
@@ -38,10 +36,6 @@ public class LaunchGateTest {
         return decision;
     }
 
-    /**
-     * {@code bppLaunch()} with and without a Development interop, and the tier either way: the
-     * Development interop is a fact for the BPP launch rule, never for the tier.
-     */
     static void assertBppLaunch(LaunchGate.Installed installed, List<LaunchGate.Adapted> adapted, Tier tier,
             boolean without, boolean with) {
         LaunchGate.Decision plain = decide(installed, adapted, false);
@@ -53,7 +47,6 @@ public class LaunchGateTest {
         assertEquals("native launch ignores the Development interop", plain.nativeLaunch(), development.nativeLaunch());
     }
 
-    /** A game the publisher signed. */
     static LaunchGate.Installed installed(long versionCode, GameCodeHash hash) {
         return installed(versionCode, hash, Set.of(PUBLISHER_SIGNER));
     }
@@ -75,7 +68,6 @@ public class LaunchGateTest {
 
     @Test
     public void aDevelopmentInteropNeverLaunchesAnAndroidReleaseApk() {
-        // LemonLoader would deploy the copy's assets/LemonLoader/deployment/ over the Mods (ADR 0012).
         LaunchGate.Installed copy = new LaunchGate.Installed(12825, ADAPTED, Set.of(PUBLISHER_SIGNER), true);
         assertBppLaunch(copy, RELEASE, Tier.ANDROID_RELEASE_APK, false, false);
         assertBppLaunch(copy, null, Tier.ANDROID_RELEASE_APK, false, false);
@@ -144,7 +136,6 @@ public class LaunchGateTest {
 
     @Test
     public void anOlderPlayGameComparesWithPlayOnly() {
-        // 13100 is newer than the publisher's 12825: only Play's 13168 counts for a Play game.
         LaunchGate.Decision decision = decide(installed(13100, OTHER, Set.of(PLAY_SIGNER)), RELEASE);
         assertEquals(Tier.OLDER, decision.tier);
         assertSame(PLAY, decision.adaptation);
@@ -179,7 +170,6 @@ public class LaunchGateTest {
 
     @Test
     public void aContentOnlyUpdateWithTheSameCodeStaysNormal() {
-        // Only the Game Code Hash decides: a higher versionCode with the adapted code is normal.
         assertEquals(Tier.NORMAL, decide(installed(12900, ADAPTED), RELEASE).tier);
     }
 

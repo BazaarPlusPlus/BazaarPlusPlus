@@ -6,18 +6,12 @@ import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * The Interop Package's layout (ADR 0012, "发布产物"): each top-level file of an Interop Snapshot
- * at {@code assets/LemonLoader/runtime/interop/<name>}, nothing else. A resource loader added
- * after the runtime would shadow any runtime asset of the same name, so the App refuses a zip
- * with any other entry before it adds it to the game's resources.
- */
+/** A later resource loader can shadow runtime assets, so interop entries must stay under {@link #ENTRY_ROOT}. */
 public final class InteropPackage {
     public static final String ENTRY_ROOT = "assets/LemonLoader/runtime/interop/";
 
     private InteropPackage() {}
 
-    /** The first entry that does not belong, or null when every entry is an interop file. */
     public static String strayEntry(File zip) throws IOException {
         try (ZipFile file = new ZipFile(zip)) {
             Enumeration<? extends ZipEntry> entries = file.entries();

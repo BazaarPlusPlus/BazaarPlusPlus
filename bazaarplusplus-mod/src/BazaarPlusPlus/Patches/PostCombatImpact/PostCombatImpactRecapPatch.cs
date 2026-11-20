@@ -70,9 +70,8 @@ internal static class PostCombatImpactRecapPointerExitPatch
         if (!__state || !___IsHovering)
             return;
 
-        // Native OnPointerExit skips the entire visual reset while its tooltip is locked.
-        // Combat impact temporarily owns that lock, so restore the native hover state without
-        // unlocking or disrupting the paired-tooltip dismissal grace period.
+        // Native OnPointerExit skips visual reset while locked. Restore hover visuals without
+        // releasing Combat Impact's temporary lock or disturbing its dismissal grace period.
         ___IsHovering = false;
         __instance.Move();
     }

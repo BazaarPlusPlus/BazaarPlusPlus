@@ -6,15 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 
-/**
- * The Launch Record (ADR 0012, "启动记录"), the contract between the App and the mod: written to
- * {@code MelonLoader/UserData/BazaarPlusPlus.launch.json} under the external files directory
- * before every BPP launch. Its format is this serializer plus the shared golden
- * {@code bazaarplusplus-android/contracts/launch-record.v1.json}: pretty-printed with two-space
- * indents, keys in the order below, and a final newline, as {@code JSON.stringify(x, null, 2)}.
- * Version 1 was edited in place once, before the first release (root ADR 0013); a later field
- * change bumps {@link #SCHEMA_VERSION} together with the mod's reader.
- */
+// Adding a field requires a schema bump in the App and the mod and an update to contracts/launch-record.v1.json.
 public final class LaunchRecord {
     public static final int SCHEMA_VERSION = 1;
     public static final String PATH = "MelonLoader/UserData/BazaarPlusPlus.launch.json";
@@ -23,7 +15,6 @@ public final class LaunchRecord {
         final String packageName;
         final String versionName;
         final long versionCode;
-        /** Null for a development build. */
         final String nonManagedPayloadDigest;
 
         public App(String packageName, String versionName, long versionCode, String nonManagedPayloadDigest) {
@@ -100,14 +91,12 @@ public final class LaunchRecord {
                 .toString();
     }
 
-    /** Writes the record under {@code externalFiles} with a temporary file and a rename. */
     public File write(File externalFiles) throws IOException {
         File target = new File(externalFiles, PATH);
         AtomicFiles.writeUtf8(target, toJson());
         return target;
     }
 
-    /** JSON.stringify's string form: the short escapes, \\u00XX for other control characters. */
     static String quote(String value) {
         if (value == null) return "null";
         StringBuilder out = new StringBuilder(value.length() + 2).append('"');

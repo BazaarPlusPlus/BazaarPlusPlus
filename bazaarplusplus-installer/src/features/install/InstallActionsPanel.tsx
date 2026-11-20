@@ -9,11 +9,7 @@ import type {
   InstallWorkflowIntents
 } from './installWorkflow';
 
-/**
- * Uninstall and reset tools, folded away by default so destructive actions
- * are not on screen during everyday use. The section opens itself while one
- * of its operations runs or has left failure details to read.
- */
+/** Fold these destructive actions away during ordinary use. */
 export function InstallActionsPanel({
   snapshot,
   intents

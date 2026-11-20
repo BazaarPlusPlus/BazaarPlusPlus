@@ -10,23 +10,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The Android Platform Release Manifest {@code latest/mod/android-aarch64.json} in ADR 0019's
- * shape ("平台清单：加 adaptations 列表"): {@code downloads["android-aarch64"]} holds {@code app},
- * {@code loader}, the Managed Payload's compatibility facts and {@code adaptations}, one Game
- * Adaptation per Android source. The top-level {@code game}, {@code interop} and
- * {@code managedPayload} repeat the publisher's adaptation for Apps before ADR 0019; this App
- * reads only {@code adaptations}. release/manifest.ts {@code validateAndroidRelease} owns the shape.
- */
+/** The Android manifest shape is owned by release/manifest.ts {@code validateAndroidRelease}. */
 public final class PlatformManifest {
-    /** The publisher's APK. */
     public static final String PUBLISHER = "publisher";
-    /** Google Play. */
     public static final String PLAY = "play";
-    /** The Android sources, in the order the manifest lists their adaptations (ADR 0019). */
     public static final List<String> SOURCES = List.of(PUBLISHER, PLAY);
 
-    /** A downloadable file the manifest pins by size and sha256. */
     public static final class Artifact {
         public final String url;
         public final long size;
@@ -44,7 +33,6 @@ public final class PlatformManifest {
             return new Artifact(url, StrictJson.positive(json, "size"), StrictJson.sha256(json, "sha256"));
         }
 
-        /** An artifact whose URL the release names exactly. */
         static Artifact exact(JSONObject json, String expected) throws MalformedReleaseException {
             String url = StrictJson.string(json, "url");
             if (!url.equals(expected)) throw new MalformedReleaseException(url + " is not " + expected);
@@ -64,7 +52,6 @@ public final class PlatformManifest {
         }
     }
 
-    /** The game a release adapts. */
     public static final class Game {
         public final String gameVersion;
         public final long versionCode;
@@ -82,7 +69,6 @@ public final class PlatformManifest {
         }
     }
 
-    /** An Interop Package: the zip, its Interop Snapshot digest and its signed interop statement. */
     public static final class Interop {
         public final Artifact file;
         public final String snapshotSha256;
@@ -113,11 +99,6 @@ public final class PlatformManifest {
         }
     }
 
-    /**
-     * One Game Adaptation: the game of one Android source, its Interop Package and the Managed
-     * Payload built against that interop. {@code signerSha256} is the source's game signing
-     * certificate, by which the App tells the installed game's source.
-     */
     public static final class Adaptation {
         public final String source;
         public final String signerSha256;
@@ -161,9 +142,7 @@ public final class PlatformManifest {
 
     public final String version;
     public final String gitCommit;
-    /** Null only in the release an APK carries. */
     public final App app;
-    /** One adaptation per source of {@link #SOURCES}, in that order. */
     public final Map<String, Adaptation> adaptations;
     public final Loader loader;
     public final boolean selfUpdatable;
@@ -182,12 +161,11 @@ public final class PlatformManifest {
         this.nonManagedPayloadDigest = nonManagedPayloadDigest;
     }
 
-    /** Decodes a manifest. Anything that is not ADR 0019's shape throws, a manifest without adaptations too. */
     public static PlatformManifest decode(String text, ReleaseOrigin origin) throws MalformedReleaseException {
         return decode(text, origin, false);
     }
 
-    /** The release an APK carries: a manifest without {@code app}, which an APK cannot describe. */
+    /** An APK cannot carry its own artifact metadata because the APK digest would include it. */
     static PlatformManifest decodeCarried(String text, ReleaseOrigin origin) throws MalformedReleaseException {
         return decode(text, origin, true);
     }
@@ -221,7 +199,7 @@ public final class PlatformManifest {
 
     private static Map<String, Adaptation> adaptations(JSONObject json, ReleaseOrigin origin, String version)
             throws MalformedReleaseException {
-        // A key set, not an order: JSON objects are unordered, and a reader may not keep the order.
+        // JSON object readers need not preserve key order.
         if (json.length() != SOURCES.size()) throw new MalformedReleaseException("adaptations must be exactly " + SOURCES);
         Map<String, Adaptation> adaptations = new LinkedHashMap<>();
         for (String source : SOURCES) {

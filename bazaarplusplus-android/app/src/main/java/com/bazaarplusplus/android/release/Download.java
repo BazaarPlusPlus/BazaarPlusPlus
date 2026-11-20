@@ -12,19 +12,13 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Every download of ADR 0012 ("下载与 Managed Payload 的安装"): written to a temporary file, checked
- * for size and sha256, then renamed into place read-only. A file that fails a check is deleted.
- */
 public final class Download {
     static final int TIMEOUT_MS = 15_000;
 
-    /** Opens the bytes to download. */
     public interface Source {
         InputStream open() throws IOException;
     }
 
-    /** Bytes received so far of {@code total}. */
     public interface Progress {
         void update(long received, long total);
     }
@@ -45,7 +39,6 @@ public final class Download {
         };
     }
 
-    /** A small text document, at most {@code limit} bytes, as UTF-8. */
     public static String text(Source source, int limit) throws IOException {
         try (InputStream in = source.open()) {
             byte[] bytes = AtomicFiles.readAtMost(in, limit);
@@ -53,10 +46,6 @@ public final class Download {
         }
     }
 
-    /**
-     * {@code target} when it already holds the expected bytes; otherwise downloads into it. The
-     * cached copy is hashed again, so a corrupted cache is downloaded anew.
-     */
     public static File cachedOrFetch(Source source, long size, String sha256, File target, Progress progress)
             throws IOException {
         if (matches(target, size, sha256)) return target;

@@ -1,18 +1,3 @@
-// Frontend translation catalog. `zh` is the source of truth for the set of
-// message keys; `en` is typed `Record<MessageKey, string>`, so TypeScript fails
-// the build whenever a translation is missing or stale. Interpolate runtime
-// values with `{name}` placeholders and pass them through `formatMessage`.
-//
-// Count-dependent English wording uses `{name|singular|plural}`, which selects
-// on the numeric value of the `name` parameter. Chinese has no plural form, so
-// zh copy simply omits the token.
-//
-// Product vocabulary, keep it consistent:
-//   BazaarPlusPlus 本体 = 插件 / plugin
-//   插件 + BepInEx 等一起写入游戏目录的文件 = 组件 / components
-//   本地 HTTP 服务 = 直播服务 / stream service
-//   直播画面上的那一层 = 叠加层 / overlay
-
 export type Locale = 'en' | 'zh';
 
 export const defaultLocale: Locale = 'zh';
@@ -20,19 +5,14 @@ export const defaultLocale: Locale = 'zh';
 export const LOCALE_STORAGE_KEY = 'locale';
 
 const zh = {
-  // Document
   htmlLang: 'zh-CN',
 
-  // Header / brand
-  // Label shown on the language button for the CURRENT locale; clicking it
-  // switches to the other language, so the zh copy invites English.
   languageToggle: 'Switch to English',
   headerCheckUpdate: '检查更新',
   headerCheckingUpdate: '检查中',
   supportProject: '支持项目',
   primaryNavigation: '主导航',
 
-  // Window controls (Windows custom chrome)
   windowControls: '窗口控制',
   minimizeWindow: '最小化窗口',
   maximizeWindow: '最大化窗口',
@@ -41,7 +21,6 @@ const zh = {
   hideToTray: '隐藏到托盘',
   hideToTrayWhileStreaming: '隐藏到托盘（直播服务仍在运行）',
 
-  // Header social links
   socialXiaohongshu: '小红书',
   socialXiaohongshuTitle: '来小红书找我',
   socialXiaohongshuSubtitle: 'VibeCoding 日常和碎碎念',
@@ -53,7 +32,6 @@ const zh = {
   bilibiliAuthorSubtitle: 'BazaarLine 作者',
   bilibiliCoreDevSubtitle: 'CoreDev',
 
-  // Support menu + payment modal
   wechatPay: '微信支付',
   kofiSubtitle: '请作者喝杯咖啡',
   supporterList: '支持者名单',
@@ -65,7 +43,6 @@ const zh = {
   supportLine1: '有你支持，Bazaar++ 会冒出更多好东西',
   supportLine2: '如果愿意，欢迎在备注里留一个支持者 ID',
 
-  // Navigation rail
   navInstall: '安装',
   navHistory: '战绩',
   navStream: '直播',
@@ -73,7 +50,6 @@ const zh = {
   navSupport: '支持',
   navLanguage: 'EN',
 
-  // Shared actions
   close: '关闭',
   notifications: '通知',
   cancel: '取消',
@@ -82,13 +58,11 @@ const zh = {
   retry: '重试',
   problemDiagnostics: '查看诊断信息',
 
-  // Page titles
   installTitle: '安装',
   historyTitle: '战绩',
   streamTitle: '直播',
   aboutTitle: '关于',
 
-  // Install page
   gamePathEmpty: '未选择 The Bazaar 游戏目录',
   installDetecting: '正在检测 The Bazaar 与 BazaarPlusPlus',
   installRefreshing: '正在重新检测安装状态',
@@ -185,7 +159,6 @@ const zh = {
   installProblemLegacyDeleteFailed:
     '删除旧数据文件夹失败，请关闭占用文件的程序后重试。',
 
-  // Legacy Roots
   legacyDataHeading: '旧版本数据',
   legacyDataHint:
     '早期版本写入游戏目录的数据文件夹。当前版本不再读取它们，只有在你确认后才会删除。',
@@ -211,7 +184,6 @@ const zh = {
   legacyDeleteNothingToDelete: '{name} 已不存在',
   legacyDeletePartialFailure: '有 {count} 个项目未能删除。请关闭游戏后重试。',
 
-  // Install confirmation modal
   installModalTitle: '安装 BazaarPlusPlus',
   tutorialKicker: '使用教程',
   installModalBody: '安装完成后，从 Steam 启动游戏即可使用。',
@@ -224,7 +196,6 @@ const zh = {
   installing: '安装中…',
   confirmInstall: '确认安装',
 
-  // Update check (header)
   updaterPreview: '浏览器预览',
   updaterCurrent: '已是最新',
   headerCheckFailed: '检查失败',
@@ -262,7 +233,6 @@ const zh = {
   updaterProblemRestartFailedWindows:
     '自动重启失败，但 BazaarPlusPlus {version} 已安装完成。请退出 BazaarPlusPlus，再从开始菜单重新打开。',
 
-  // History page
   historyLoading: '读取战绩中',
   noLocalRuns: '暂无本地战绩',
   historyEmptyDescription: '完成一局游戏后，战绩会出现在这里。',
@@ -296,8 +266,7 @@ const zh = {
   runModeRanked: '排位',
   runModeUnranked: '匹配',
   runModeNormal: '普通',
-  // Game data stays English at rest; History translates heroes and rank tiers
-  // at display time. Names follow the game's official Simplified Chinese copy.
+  // Hero and rank labels follow the game's official Simplified Chinese copy.
   heroVanessa: '凡妮莎',
   heroPygmalien: '皮格马利翁',
   heroDooley: '杜利',
@@ -348,7 +317,6 @@ const zh = {
   runStatRank: '段位',
   runStatRating: '段位分',
 
-  // Run detail page
   runDetailBack: '返回战绩列表',
   runDetailLoading: '读取详情中',
   runDetailNotFound: '没有找到这局战绩',
@@ -398,7 +366,6 @@ const zh = {
   deleteVideoConfirmAction: '删除视频',
   deleteVideoRunning: '正在删除目标视频…',
 
-  // Storage cleanup (History page)
   storageCleanupTitle: '存储管理',
   storageCleanupRangeLabel: '{scope}的清理时间范围',
   storageCleanupPreviewLabel: '预览清理{scope}',
@@ -430,7 +397,6 @@ const zh = {
     '已删除 {runs} 局对局和 {files} 个文件，释放约 {size}。',
   noVideo: '无视频',
 
-  // Stream page
   streamDisplayModeLabel: '显示样式',
   streamModeCurrent: '战斗场数',
   streamModeHero: '完整英雄',
@@ -487,7 +453,6 @@ const zh = {
   dbConnected: '数据库已连接',
   dbMissing: '数据库未找到',
 
-  // About page
   aboutAppLabel: '应用',
   aboutBppLabel: '插件',
   aboutCredits: '致谢',
@@ -502,7 +467,6 @@ const zh = {
   aboutUnavailableValue: '不可用',
   aboutRetrying: '正在重试',
 
-  // Refined dashboard copy
   installOverviewHealthyShort: '所有组件运行正常',
   installOverviewUpdateDescription: '当前组件版本不一致，重新安装即可完成更新',
   installOverviewNotInstalledDescription: '选择游戏目录后即可安装插件',
@@ -1062,7 +1026,6 @@ export const messages: Record<Locale, Record<MessageKey, string>> = { zh, en };
 
 export type TranslateParams = Record<string, string | number>;
 
-// `{name|singular|plural}` selects on the numeric value of `params[name]`.
 const PLURAL_TOKEN = /\{([a-zA-Z0-9_]+)\|([^|{}]*)\|([^|{}]*)\}/g;
 
 export function formatMessage(
@@ -1101,7 +1064,6 @@ export function resolveInitialLocale(): Locale {
   if (saved === 'en' || saved === 'zh') {
     return saved;
   }
-  // No stored choice yet: follow the host language before falling back to zh.
   const languages =
     typeof navigator === 'undefined'
       ? []

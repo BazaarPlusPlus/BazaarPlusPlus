@@ -323,10 +323,7 @@ internal sealed class ReplayVideoCaptureSession : IDisposable
                 {
                     _encoder?.Dispose();
                 }
-                catch
-                {
-                    // best effort
-                }
+                catch { }
                 _encoder = null;
                 _metalEncoder = null;
                 _windowsEncoder = null;

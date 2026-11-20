@@ -4,7 +4,6 @@ using SteamKit2.CDN;
 
 namespace BazaarPlusPlus.SteamSnapshot;
 
-/// <summary>Reads a branch and downloads the snapshot files of one of its depots.</summary>
 public static class SteamDepot
 {
     private const string PublicBranch = "public";
@@ -35,8 +34,8 @@ public static class SteamDepot
         return BranchState.Read(product.Value.KeyValues["depots"], branch, depots);
     }
 
-    // Steam leaves a password-protected branch out of the app's product info. Its access code
-    // gives a key, and the key gives the depots section of that branch.
+    // Steam omits protected branches from app product info. The access code unlocks
+    // the branch's separate depots section.
     private static async Task<KeyValue> PrivateDepotSection(
         SteamSession session,
         uint app,
@@ -60,7 +59,6 @@ public static class SteamDepot
         return beta.DepotSection;
     }
 
-    /// <summary>Writes the files <paramref name="select"/> picks under <paramref name="output"/>; returns the branch state read.</summary>
     public static async Task<BranchState> Download(
         SteamSession session,
         uint app,

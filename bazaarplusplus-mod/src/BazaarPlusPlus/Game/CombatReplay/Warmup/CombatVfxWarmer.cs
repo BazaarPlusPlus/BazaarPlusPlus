@@ -159,10 +159,7 @@ internal static class CombatVfxWarmer
                 ?.GetValue(task) as AssetReference;
     }
 
-    // One replay's VFX warmup. Loads go to the Current scope, as VFXManager instantiates them
-    // during playback: the game releases them with that scope. The key set lives only for this
-    // replay, so many action/size/override lookups resolving to one prefab load and count it once,
-    // and the next replay warms again after a scope release.
+    // Playback's VFXManager uses Current scope, whose release makes any process-wide warmup cache stale.
     private sealed class ReplayVfxWarmup(
         AssetLoader assetLoader,
         ReplayWarmupStats stats,

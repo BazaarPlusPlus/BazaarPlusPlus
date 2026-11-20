@@ -126,10 +126,7 @@ public sealed class RunEventV6
     public string PayloadJson { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// One frame of the Run Message Stream: a message the game received, or a command it sent.
-/// Exactly one of <see cref="Message"/> and <see cref="Command"/> is set.
-/// </summary>
+/// <summary>Exactly one of <see cref="Message"/> and <see cref="Command"/> is set.</summary>
 [MessagePackObject]
 public sealed class RunMessageFrameV6
 {

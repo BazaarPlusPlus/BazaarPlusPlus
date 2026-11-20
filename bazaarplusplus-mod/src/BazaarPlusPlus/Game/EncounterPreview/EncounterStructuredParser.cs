@@ -10,11 +10,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>
-/// The desktop's route into Core's card reader: a typed template serialized with the settings the
-/// game reads static data with (<c>JsonGameDataManager</c>), so its JSON carries the same
-/// <c>$type</c> discriminators and enum names as the static-data rows the Android host reads.
-/// </summary>
+// The game's serializer preserves the static-data type discriminators and enum names that Core also reads on Android.
 internal static class EncounterStructuredParser
 {
     // Built once: the game's converter reflects over every discriminated type when constructed.

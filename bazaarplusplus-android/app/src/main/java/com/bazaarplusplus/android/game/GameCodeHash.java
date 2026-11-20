@@ -10,12 +10,7 @@ import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * The Game Code Hash (root GLOSSARY.md): the sha256 of the game's libil2cpp.so and
- * global-metadata.dat, taken from whichever of its APKs holds each (a Play install splits them
- * between base.apk and split_config.arm64_v8a.apk). Release tooling reads the same two entries
- * (release/android-apk.ts, APK_ENTRIES).
- */
+/** A Play install can place libil2cpp.so and global-metadata.dat in different APKs. */
 public final class GameCodeHash {
     public static final String IL2CPP_ENTRY = "lib/arm64-v8a/libil2cpp.so";
     public static final String METADATA_ENTRY = "assets/bin/Data/Managed/Metadata/global-metadata.dat";
@@ -28,7 +23,6 @@ public final class GameCodeHash {
         this.metadataSha256 = Objects.requireNonNull(metadataSha256);
     }
 
-    /** Hashes both entries across the given APKs; fails when either is missing or appears twice. */
     public static GameCodeHash compute(List<String> apks) throws IOException {
         String il2cpp = null;
         String metadata = null;

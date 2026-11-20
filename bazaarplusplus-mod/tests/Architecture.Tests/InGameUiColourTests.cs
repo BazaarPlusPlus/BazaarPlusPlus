@@ -5,7 +5,6 @@ namespace Architecture.Tests;
 
 public sealed class InGameUiColourTests
 {
-    // The Desktop UI the in-game kit covers (ADR-0026, ADR-0027).
     private static readonly string[] Scope =
     {
         "BazaarPlusPlus.Game.CollectionPanel",

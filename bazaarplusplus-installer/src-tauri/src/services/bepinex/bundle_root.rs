@@ -1,6 +1,4 @@
-//! Preserve the duplicate application shipped at the root of some Steam builds.
-//! Content-addressed backups make interrupted and repeated repairs resumable.
-//! Only the latest backup is retained; unknown or modified backups are never removed.
+//! Content-addressed backups let Repair resume after interruption without removing unknown or modified copies.
 
 use anyhow::{bail, Context as _};
 use sha2::{Digest, Sha256};
@@ -47,8 +45,7 @@ fn file_digest(path: &Path) -> anyhow::Result<String> {
     Ok(hex(&digest.finalize()))
 }
 
-// The manifest is a persistent backup format. Reject ambiguous names and links
-// instead of following them outside the owned tree.
+// The tree format persists across repairs. Reject ambiguous names and symlinks to keep it unambiguous.
 fn fingerprint(root: &Path) -> anyhow::Result<String> {
     fn visit(root: &Path, path: &Path, records: &mut Vec<String>) -> anyhow::Result<()> {
         let relative = path.strip_prefix(root)?;
@@ -187,8 +184,7 @@ pub(super) fn normalize(game: &Path) -> anyhow::Result<()> {
     }
     directory(&backups)?;
 
-    // Inspect every existing backup BEFORE deleting or moving anything. A legacy
-    // stash is adopted without changing its contents, including after an update.
+    // Validate existing backups before mutation so an unrecognized backup stays intact.
     let mut snapshots = Vec::new();
     let mut tombstones = Vec::new();
     let mut legacy = None;
@@ -284,8 +280,6 @@ pub(super) fn normalize(game: &Path) -> anyhow::Result<()> {
             backups.display()
         );
     }
-    // The current contents are now preserved outside the app, even if signing or
-    // cleanup is interrupted. Re-entry completes cleanup without restoring bad layout.
     for (path, digest) in snapshots {
         if digest != current {
             retire(&backups, &path, &digest)?;
@@ -515,7 +509,6 @@ pub(super) mod tests {
         normalize(game.path()).unwrap();
         assert!(!tombstone.exists());
         assert!(backups.join(format!("{current}.app")).is_dir());
-        // Adopt an intact, uniquely identifiable snapshot left by an older migration.
         fs::remove_file(backups.join("current")).unwrap();
         normalize(game.path()).unwrap();
         assert_eq!(

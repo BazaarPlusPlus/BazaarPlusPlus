@@ -12,17 +12,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.LiveBuild;
 
-/// <summary>
-/// The Live Build panel's touch view for one <see cref="LiveBuildTouchLayout"/>: the full sheet,
-/// the pinned recommended build, one fixed board switched among current, stash and shop, and the overview
-/// sidebar. It renders a <see cref="LiveBuildPanelSnapshot"/> as the desktop's
-/// <c>LiveBuildPanelView</c> maps one, and hands taps to the panel. A rented card carries its own
-/// canvas, which the list's <c>RectMask2D</c> does not clip, so the list draws first and opaque
-/// bands above and below it hide the cards scrolled past its edges, as the Collection grid does.
-/// Stacked (<see cref="LiveBuildTouchLayout.Stacked"/>), the final build's cards and the overview
-/// are children of the list's content, so they scroll with the selected board; the final build's title band,
-/// the pager, and the close button stay over the list.
-/// </summary>
+// Rented card canvases bypass RectMask2D, so opaque bands hide cards past the scroll edges.
 internal sealed class TouchLiveBuildView
 {
     private readonly NativeSkin _skin = new();
@@ -67,11 +57,8 @@ internal sealed class TouchLiveBuildView
             Vector2.zero,
             Vector2.zero
         );
-        // A view that throws while it builds destroys its partial sheet, which is opaque and
-        // active until the last line, so a failed build never covers the screen.
         try
         {
-            // Opaque: the sheet covers the whole screen, and nothing of the scene shows through.
             var background = UiKit.PanelColor;
             background.a = 1f;
             UiKit.Fill(root, background);
@@ -83,7 +70,6 @@ internal sealed class TouchLiveBuildView
             );
             var metrics = layout.Metrics;
 
-            // The list first, then the bands over its edges, then everything else.
             var scrollArea = TouchScreen.Child("List", root, layout.Scroll);
             (_scroll, _content) = UiKit.VerticalScroll(scrollArea);
             _content.sizeDelta = new Vector2(0f, layout.ScrollContentHeight);
@@ -130,7 +116,6 @@ internal sealed class TouchLiveBuildView
                 )
             );
 
-            // Side by side the overview and the final build's cards are fixed; stacked, they scroll.
             var scrolled = layout.Stacked ? _content : root;
             var boardSelector = _skin.Button(
                 TouchScreen.Child("BoardSelector", scrolled, layout.BoardSelector),
@@ -265,7 +250,6 @@ internal sealed class TouchLiveBuildView
                         cellArea.Height
                     )
                 );
-                // The metric reads as typography, without a competing solid tile.
                 var inset = layout.Gap;
                 var label = UiKit.Text(
                     UiKit.Rect(
@@ -367,10 +351,8 @@ internal sealed class TouchLiveBuildView
 
     public bool IsVisible => _root.activeSelf;
 
-    /// <summary>Cards the four boards and the inspection hold, Pending or Ready.</summary>
     public int Leases => _rows.Values.Sum(row => row.Board.Leases) + Inspection.Leases;
 
-    /// <summary>A board card or the inspected one is still being instantiated or set up.</summary>
     public bool SettingUp
     {
         get
@@ -394,16 +376,12 @@ internal sealed class TouchLiveBuildView
         _root.SetActive(visible);
     }
 
-    /// <summary>The list's scroll offset from its top, for the drag evidence.</summary>
     public float ScrollOffset => _content.anchoredPosition.y;
 
-    /// <summary>How far the list can scroll.</summary>
     public float ScrollMax => Math.Max(0f, _layout.ScrollContentHeight - _layout.Scroll.Height);
 
-    /// <summary>The list has come to rest after a drag and its inertia.</summary>
     public bool ScrollSettled => _scroll.velocity.sqrMagnitude < 1f;
 
-    /// <summary>Main thread: maps the snapshot onto the view, as the desktop's view does.</summary>
     public void Refresh(LiveBuildPanelSnapshot snapshot, bool boards, BppItemBoardId selectedBoard)
     {
         _includeTinyLabel.text = LiveBuildPanelText.IncludeTiny();
@@ -486,10 +464,8 @@ internal sealed class TouchLiveBuildView
         UpdateBoardStatus();
     }
 
-    /// <summary>Main thread, every frame while visible: the boards' loading and failure lines.</summary>
     public void Tick() => UpdateBoardStatus();
 
-    /// <summary>Every board returns its cards; the inspection too.</summary>
     public int ReturnAll(string reason)
     {
         Inspection.Close(reason);
@@ -579,7 +555,6 @@ internal sealed class TouchLiveBuildView
             Vector2.one * _layout.Gap,
             Vector2.one * -_layout.Gap
         );
-        // The frame takes empty-space drags; cards and tags stay inside its inset.
 
         var status = UiKit.Text(
             UiKit.Rect("Status", region, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
@@ -693,7 +668,6 @@ internal sealed class TouchLiveBuildView
 
         public int CardCount { get; set; }
 
-        /// <summary>The status text last written; the label is created empty.</summary>
         public string LastStatus { get; set; } = string.Empty;
     }
 }

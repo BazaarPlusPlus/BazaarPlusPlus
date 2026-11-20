@@ -15,17 +15,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * One BPP launch after the gate allowed it (ADR 0012, ADR 0019): verify the selected adaptation's
- * Interop Package and take it from the APK or the network, stage its Managed Payload the same way,
- * reset LemonLoader's stale deployment state, prepare the game in this process and write the Launch
- * Record last. Any failure stops the launch. The steps are plain Java over {@link LaunchDirs}; only
- * {@link LaunchHost} reaches Android, so a JVM test drives them.
- */
 final class BppLaunch {
     static final String TAG = LauncherActivity.TAG;
 
-    /** What the launcher shows while a step runs. */
     interface Progress {
         void preparing();
 
@@ -41,10 +33,8 @@ final class BppLaunch {
     }
 
     void prepare(LaunchInputs in, Progress progress) throws Exception {
-        // The gate decides first, before any file or network side effect. NOT_INSTALLED refuses, so
-        // past this line the game is installed.
+        // A refused decision can lack launch inputs, so the gate must run before any preparation.
         refuseUnlessAllowed(in.decision);
-        // Whether the APK carries a runtime is not a gate fact; the launcher hides Play without one.
         if (!in.runtime) throw new IOException("This build carries no Android App Runtime");
         // One prepared game per process: a second launch would keep the first launch's interop
         // while the Launch Record names this one.
@@ -58,15 +48,11 @@ final class BppLaunch {
             prepareDevelopment(in, appVersionCode);
             return;
         }
-        // Past the guard without a Development interop the tier is NORMAL, and LaunchCheck.run decides
-        // NORMAL only against an adaptation of a manifest it read, so neither is null.
         PlatformManifest manifest = in.manifest;
         PlatformManifest.Adaptation adaptation = in.adaptation;
         PlatformManifest.Interop interop = adaptation.interop;
         String purpose = InteropStatement.releasePurpose(manifest.version);
 
-        // The signature binds the zip to the installed game's code and this launch's purpose;
-        // check it before downloading anything.
         if (!InteropStatement.verify(interop.file.sha256, in.hash, purpose, interop.signature, in.trusted)) {
             throw new IOException("The interop statement for " + interop.file.sha256 + " (" + purpose + ") does not verify");
         }
@@ -86,8 +72,7 @@ final class BppLaunch {
         String release = manifest.version;
         File updates = dirs.updates;
         String staged = null;
-        // Mods built for another game's interop crash it, and the Updater swaps by version only: a
-        // switch replaces them even with the same version (ADR 0019).
+        // Mods built for another game's interop can crash it. The Updater compares versions only (ADR 0019).
         String game = adaptation.game.hash.toString();
         boolean switched = !game.equals(ManagedPayloadStaging.remembered(dirs.stagedGame));
         if (switched || ManagedPayloadStaging.compareVersions(in.installedModsVersion, release) < 0) {
@@ -121,7 +106,6 @@ final class BppLaunch {
         AppLog.i(TAG, "wrote " + written + ": release " + release + " interop " + interop.file.sha256);
     }
 
-    /** Throws unless {@link LaunchGate.Decision#bppLaunch} allows this launch; it reads nothing else. */
     static void refuseUnlessAllowed(LaunchGate.Decision decision) throws IOException {
         if (!decision.bppLaunch()) {
             throw new IOException("No BPP launch in the launch tier " + decision.tier
@@ -129,10 +113,7 @@ final class BppLaunch {
         }
     }
 
-    /**
-     * A Development interop: no manifest, no staging. ADR 0012's rule for a development deployment
-     * applies, so the launch writes no Launch Record and deletes a stale one.
-     */
+    /** Clear a stale Launch Record so the Updater treats this as a development deployment (ADR 0012). */
     private void prepareDevelopment(LaunchInputs inputs, long appVersionCode) throws Exception {
         File interop = readOnlyCopy(inputs.devInterop, new File(dirs.interopCache, "development.zip"));
         String sha256 = Sha256.of(interop);
@@ -158,7 +139,7 @@ final class BppLaunch {
         }
     }
 
-    /** A read-only copy in internal storage: a loader must not see the file change under it. */
+    /** Loaders require a stable, read-only copy of the developer's interop. */
     static File readOnlyCopy(File source, File target) throws IOException {
         if (target.isFile() && target.length() == source.length() && target.lastModified() >= source.lastModified()) {
             return target;

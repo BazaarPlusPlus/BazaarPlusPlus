@@ -9,11 +9,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The compiled host's Bundle evidence, run against the interop enums the host ships with. The
-/// card enum fixture is shared with BundlePipeline.Tests, which holds the desktop's evidence over
-/// the game's Mono assemblies to the same table, so both hosts write the same numbers.
-/// </summary>
+// The desktop checks this same fixture so both hosts write the same card enum values.
 public sealed class AndroidPvpBattleEvidenceTests
 {
     private const string CardEnumFixture = "tests/Shared/fixtures/pvp-card-enums.json";
@@ -137,7 +133,6 @@ public sealed class AndroidPvpBattleEvidenceTests
     }
 }
 
-/// <summary>MessagePack values shaped like game messages: an array holding a message id.</summary>
 internal static class ReplayMessages
 {
     public static byte[] Message(string part) =>

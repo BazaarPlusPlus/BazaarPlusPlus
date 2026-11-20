@@ -1,10 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// Host-thread-only row availability cache. The host supplies monotonic realtime seconds.
-/// A cached offer is only a UI hint; playback always reads the actual payload again.
-/// </summary>
+/// <summary>Use monotonic Host time on the Host thread. An offer is only a UI hint because playback rechecks the payload.</summary>
 public sealed class SavedReplayOfferCache(Func<string, bool> probe)
 {
     private const float LifetimeSeconds = 5f;

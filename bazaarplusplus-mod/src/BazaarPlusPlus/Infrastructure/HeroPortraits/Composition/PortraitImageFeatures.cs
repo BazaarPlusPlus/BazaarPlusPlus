@@ -23,7 +23,6 @@ internal static class PortraitImageFeatures
         {
             var a = image.Rgba[i * 4 + 3] / 255f;
             alpha[i] = a;
-            // Ignore transparent padding and undo PMA for the semi-opaque artwork edges.
             if (a < 0.5f)
             {
                 gray[i] = 0;
@@ -57,8 +56,7 @@ internal static class PortraitImageFeatures
             Resize(gray, image.Width, image.Height, w, h, g);
             Blur(g, w, h, 1f, temporary);
             Resize(alpha, image.Width, image.Height, w, h, levelAlpha);
-            // Borders were zero-initialized in the original per-level arrays. Clear the
-            // active image, not the rented capacity, before the partial gradient writes.
+            // Clear the active image because pooled arrays can retain stale gradients on unwritten borders.
             Array.Clear(gx, 0, w * h);
             Array.Clear(gy, 0, w * h);
             Array.Clear(xx, 0, w * h);

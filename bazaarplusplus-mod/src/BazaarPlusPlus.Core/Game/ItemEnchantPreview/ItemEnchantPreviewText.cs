@@ -4,11 +4,6 @@ using System.Text.RegularExpressions;
 
 namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
-/// <summary>
-/// The host-free parts of the enchant preview's text: each enchantment's label color, keyed by
-/// the game's enchantment name so that both hosts' enum types map onto one table, and the
-/// scaling of the game's inline size tags into the preview's smaller text.
-/// </summary>
 public static class ItemEnchantPreviewText
 {
     private static readonly Regex SizeTagRegex = new(
@@ -38,7 +33,6 @@ public static class ItemEnchantPreviewText
             _ => "FFFFFF",
         };
 
-    /// <summary>Multiplies every <c>&lt;size=N%&gt;</c> tag of rendered game text by a scale.</summary>
     public static string ScaleInlineSizes(string text, float scale)
     {
         if (string.IsNullOrEmpty(text))

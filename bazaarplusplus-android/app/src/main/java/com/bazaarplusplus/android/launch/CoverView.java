@@ -8,21 +8,12 @@ import android.widget.ImageView;
 
 import com.bazaarplusplus.android.R;
 
-/**
- * The launcher's cover (design/components/Launcher, Cover art). A wide cover (short, when the panel
- * takes most of the window) shows the library hero cropped around the hunter's face; any other
- * cover (phones, tablets, the cover pane) shows the promotional hero capsule
- * from its top, so the logo stays in view. Plain bg-hover until the art decodes. Laid out by
- * weight, it takes whatever height the layout gives it; measured freely (the page scrolls), it is
- * half as tall as it is wide.
- */
 public final class CoverView extends ImageView {
-    /** Width over height from which a cover counts as wide. */
     static final float WIDE = 1.2f;
-    /** The hunter's face in the current library hero, as fractions of its width and height. */
+    /** Fractions chosen to center the hunter's face in the library hero. */
     static final float HERO_FOCUS_X = 0.70f;
     static final float HERO_FOCUS_Y = 0.30f;
-    /** The centre of the logo in the hero capsule, as a fraction of its width. */
+    /** The crop keeps the promotional capsule's logo centered. */
     static final float PROMO_FOCUS_X = 0.53f;
 
     private CoverArt.Images art;
@@ -59,7 +50,6 @@ public final class CoverView extends ImageView {
         return changed;
     }
 
-    /** Picks the image for the cover's shape and scales it to cover the view around its focus. */
     private void crop() {
         int width = getWidth();
         int height = getHeight();
@@ -74,10 +64,6 @@ public final class CoverView extends ImageView {
                 wide ? HERO_FOCUS_X : PROMO_FOCUS_X, wide ? HERO_FOCUS_Y : 0f));
     }
 
-    /**
-     * Scales an image to cover the view and moves its focus as near the view's centre as the
-     * image's edges allow.
-     */
     static Matrix focus(int imageWidth, int imageHeight, int width, int height, float focusX, float focusY) {
         float scale = Math.max((float) width / imageWidth, (float) height / imageHeight);
         float scaledWidth = imageWidth * scale;

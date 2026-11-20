@@ -8,20 +8,12 @@ import java.io.IOException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/**
- * Reads the Platform Release Manifest from the network and keeps the last copy that decoded in the App's internal storage, so a launch without network uses the last
- * verified release (ADR 0012: "读不到平台清单（离线）时，用上一次校验过的清单与已下载的产物").
- */
 public final class ReleaseCache {
     static final int MAX_DOCUMENT = 1 << 20;
 
-    /** The manifest as the launcher sees it. */
     public static final class ManifestState {
-        /** Null when nothing could be read. */
         public final PlatformManifest manifest;
-        /** The network failed and {@link #manifest} is the cached copy. */
         public final boolean fromCache;
-        /** Why the network read failed, or null. */
         public final String networkError;
 
         ManifestState(PlatformManifest manifest, boolean fromCache, String networkError) {
@@ -42,7 +34,6 @@ public final class ReleaseCache {
     private final Function<String, Download.Source> network;
     private final Supplier<PlatformManifest> carried;
 
-    /** {@code carried} supplies the release the APK carries, or null, for when nothing newer can be read. */
     public ReleaseCache(File dir, ReleaseOrigin origin, Function<String, Download.Source> network,
             Supplier<PlatformManifest> carried) {
         this.dir = dir;
@@ -68,11 +59,10 @@ public final class ReleaseCache {
             try {
                 last = PlatformManifest.decode(cached, origin);
             } catch (MalformedReleaseException e) {
-                // A cache from another origin or an older App: as if there were none.
             }
         }
         PlatformManifest carriedRelease = carried.get();
-        // An App updated offline carries a newer release than the one it last read.
+        // An APK updated offline can carry a newer release than the cache.
         PlatformManifest best = last == null ? carriedRelease
                 : carriedRelease == null || ManagedPayloadStaging.compareVersions(last.version, carriedRelease.version) >= 0
                         ? last : carriedRelease;

@@ -2,11 +2,6 @@ import { useEffect, useState } from 'react';
 import { commandClient } from '../../api/commandClient';
 import type { LegacyDataPresence } from '../../types/backend';
 
-/**
- * Where History sends a user who has no current database: `reinstall` when V5
- * history exists but the installed mod still writes an old Data Root, otherwise
- * `null` (the plain Install link).
- */
 export type HistoryUnavailableGuidance = 'reinstall' | null;
 
 export function historyUnavailableGuidance(
@@ -20,12 +15,7 @@ export function historyUnavailableGuidance(
   return null;
 }
 
-/**
- * Reads which Legacy Roots exist in the selected game directory while History
- * is unavailable, without measuring them (the Install page does that). The
- * read accepts any directory, so it answers even where History cannot resolve
- * one; a failure keeps the plain Install link.
- */
+/** Accept any selected directory because History may have no current database there. */
 export function useHistoryUnavailableGuidance(
   active: boolean
 ): HistoryUnavailableGuidance {

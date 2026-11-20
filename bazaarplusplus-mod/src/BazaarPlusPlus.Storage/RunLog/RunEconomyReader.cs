@@ -3,11 +3,8 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Storage.RunLog;
 
-/// <summary>
-/// Reads a Run's recorded income and gold, which a replay falls back to when its battle manifest
-/// lacks them. It opens the database the record chain already initialized, so it runs no schema
-/// DDL and sets no journal mode.
-/// </summary>
+// Replays fall back to recorded economy when the battle manifest lacks it.
+// The record chain initializes this database and owns its journal mode.
 public static class RunEconomyReader
 {
     public static (int? Income, int? Gold) TryRead(string databasePath, string runId)

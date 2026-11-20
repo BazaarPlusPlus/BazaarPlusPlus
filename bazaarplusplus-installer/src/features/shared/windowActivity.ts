@@ -2,20 +2,12 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { hasTauriRuntime } from '../../api/runtime';
 
-/**
- * Emitted natively after the main window hides to the tray
- * (`HIDDEN_EVENT` in `src-tauri/src/main_window.rs`). A WebView hidden that
- * way need not report `visibilitychange`.
- */
+/** A WebView hidden to the tray may omit `visibilitychange`, so Rust emits `HIDDEN_EVENT`. */
 export const MAIN_WINDOW_HIDDEN_EVENT = 'main-window-hidden';
 
 const noop: () => void = () => undefined;
 
-/**
- * Registers a native listener and returns its release. A registration that
- * lands after release is stopped at once; a failed one calls `onFailure`
- * unless already released.
- */
+/** Release registrations that finish after disposal so they cannot leak listeners. */
 function nativeListener(
   register: () => Promise<() => void>,
   onFailure: () => void = noop
@@ -36,13 +28,7 @@ function nativeListener(
   };
 }
 
-/**
- * Calls `onResume` whenever the window regains focus or the page becomes
- * visible. Visibility counts in every mode, because a page can become visible
- * without the window gaining focus (an uncovered macOS window). In Tauri focus
- * follows the native window, falling back to browser focus outside Tauri or
- * when native registration fails.
- */
+/** An uncovered macOS window can become visible without gaining focus. */
 export function observeWindowResume(onResume: () => void): () => void {
   let active = true;
   const resume = () => {
@@ -73,10 +59,6 @@ export function observeWindowResume(onResume: () => void): () => void {
   };
 }
 
-/**
- * Calls `onHidden` when the window hides to the tray or the page reports
- * itself hidden. Pair it with `observeWindowResume` to resume.
- */
 export function observeWindowHidden(onHidden: () => void): () => void {
   let active = true;
   const hidden = () => {
@@ -86,7 +68,6 @@ export function observeWindowHidden(onHidden: () => void): () => void {
     if (document.visibilityState === 'hidden') hidden();
   };
   document.addEventListener('visibilitychange', visibilityChanged);
-  // Without the native event the page pauses only on `visibilitychange`.
   const stopNative = hasTauriRuntime()
     ? nativeListener(() => listen(MAIN_WINDOW_HIDDEN_EVENT, hidden))
     : noop;

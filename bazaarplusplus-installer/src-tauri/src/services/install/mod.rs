@@ -35,8 +35,7 @@ use crate::{
 
 const STEAM_BAZAAR_URL: &str = "steam://rungameid/1617400";
 
-/// Detects the install state on the blocking pool: on macOS, detection runs
-/// `codesign --verify --deep --strict` over the whole game bundle.
+/// macOS code-signature verification walks the whole game bundle, so keep detection off async workers.
 pub async fn detect_install_state(
     app: tauri::AppHandle,
     game_path: Option<String>,
@@ -97,9 +96,7 @@ pub async fn run_reset_bepinex(
     Ok(ResetBepinexResult { state, removed })
 }
 
-/// Legacy Roots of the selected game directory. History needs a database to
-/// resolve its directory; this accepts any directory, so a user with only V5
-/// data still sees it. Resolution and measurement run on the blocking pool.
+/// Accept a directory without a database so users with only Legacy Roots can still manage them.
 pub async fn run_get_legacy_data_state(
     app: tauri::AppHandle,
     game_path: Option<String>,
@@ -120,8 +117,6 @@ pub async fn run_get_legacy_data_state(
     .await
 }
 
-/// The Legacy Roots present in the selected (or given) game directory,
-/// unmeasured; History's unavailable guidance reads only this.
 pub async fn run_get_legacy_data_presence(
     app: tauri::AppHandle,
     game_path: Option<String>,
@@ -153,9 +148,7 @@ pub async fn run_delete_legacy_root(
         .map_err(|diagnostic| install_action_problem("delete_legacy_root", diagnostic))
 }
 
-/// Uninstalls, then returns the state detected afterwards. Uninstall needs only
-/// the Steam path, which the startup context holds for the whole session, so
-/// it does not detect (and verify the bundle signature) once more beforehand.
+/// Reuse the session's Steam path to avoid an extra bundle signature verification before uninstall.
 pub async fn run_uninstall(
     app: tauri::AppHandle,
     game_path: String,
@@ -320,7 +313,6 @@ mod tests {
     use crate::services::detect::InstallEnvironmentSnapshot;
     use crate::services::vdf::SteamLaunchOptionsState;
 
-    /// A found, valid game with no warning-relevant facts set.
     fn snapshot() -> InstallEnvironmentSnapshot {
         InstallEnvironmentSnapshot {
             steam_path: None,

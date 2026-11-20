@@ -11,8 +11,7 @@ namespace BazaarPlusPlus.Patches.CollectionPanel;
 [HarmonyPatch]
 internal static class CollectionLockVariantPanelPatch
 {
-    // Older clients do not ship the variant panel. Keep this optional without taking
-    // a compile-time dependency on its state, options, or panel types.
+    // Some builds lack the variant panel. Resolve targets without a compile-time dependency.
     [HarmonyTargetMethods]
     private static IEnumerable<MethodBase> TargetMethods()
     {

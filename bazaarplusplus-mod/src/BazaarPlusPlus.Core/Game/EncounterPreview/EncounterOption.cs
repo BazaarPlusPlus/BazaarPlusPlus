@@ -32,8 +32,6 @@ public sealed class EncounterOption
 
     public bool HasChoiceDetails => ChoiceDetails.Count > 0;
 
-    // Non-null for random-outcome events (the event rolls one weighted group instead
-    // of presenting choices).
     public IReadOnlyList<EncounterOutcomeView>? OutcomeGroups { get; }
 
     public bool HasOutcomeGroups => OutcomeGroups is { Count: > 0 };

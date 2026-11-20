@@ -14,18 +14,15 @@ import type { LoginReceipt } from './android-login.ts';
 import type { ScreenReport } from './android-screen.ts';
 import { androidSdkPaths } from './android-sdk.ts';
 
-/** One AVD of the device matrix: its landscape screen and emulator port. */
 export interface DeviceProfile {
   name: string;
   width: number;
   height: number;
   dpi: number;
   port: number;
-  /** The Android lock entry whose official game the AVD installs (ADR 0019). */
   source: AndroidSource;
 }
 
-/** The Android SDK tools and AVD directory this machine uses. */
 export interface SdkPaths {
   sdk: string;
   avds: string;
@@ -64,7 +61,6 @@ export interface AndroidRuntime {
   arm64Isa: string;
 }
 
-// ARM translation is a prerequisite, not proof that the game and Loader work.
 export function assertArm64Runtime(
   image: SystemImage,
   runtime: AndroidRuntime
@@ -82,13 +78,11 @@ export function assertArm64Runtime(
     );
 }
 
-/** One `adb devices` row. */
 export interface AdbDevice {
   serial: string;
   state: string;
 }
 
-/** init.json: one init attempt of one AVD and what it found. */
 export interface InitReceipt {
   name: string;
   serial: string;
@@ -101,7 +95,6 @@ export interface InitReceipt {
   runtime?: AndroidRuntime;
 }
 
-// The environment provisioning gives recipes: this SDK's adb and the device.
 interface DeviceEnv extends NodeJS.ProcessEnv {
   ADB: string;
   ANDROID_SERIAL: string;
@@ -114,14 +107,12 @@ interface InitOptions {
   recreate: boolean;
 }
 
-// run's options; the output is text unless encoding is null.
 interface RunOptions extends Omit<SpawnSyncOptions, 'encoding'> {
   encoding?: BufferEncoding;
 }
 
 const root = path.resolve(import.meta.dirname, '../..');
 const gamePackage = 'com.tempogames.thebazaar';
-// The debug Android App launches the game as a player does; the game runs in its process.
 const app = 'com.bazaarplusplus.android.dev';
 // Relative to run-as's working directory: the game's files in the App's sandbox (ADR 0012).
 const latestLog = 'no_backup/game-external/MelonLoader/MelonLoader/Latest.log';
@@ -135,9 +126,7 @@ const evidence = (profile: DeviceProfile): string =>
     'bazaarplusplus-mod/artifacts/android',
     `setup-device-${profile.name}`
   );
-// These exercise the unchanged, screen-fill-only and gathered-HUD branches of
-// Core/Ui/ScreenFill. Dimensions are the game's landscape framebuffer, not wm overrides.
-// One AVD runs the Google Play build, so both Game Adaptations get a device.
+// Use the game's landscape framebuffer dimensions so the matrix covers all ScreenFill branches.
 export const profiles: DeviceProfile[] = [
   {
     name: 'bpp_emu_20_9',
@@ -244,8 +233,7 @@ const matrixImage = (
   config['image.sysdir.1']?.replaceAll('\\', '/').replace(/\/?$/, '/') ===
     image.path && config['abi.type'] === image.abi;
 
-// The matrix owns these screen keys on every AVD. None of them touches a disk, so init
-// rewrites them in place on an existing AVD and its game and login stay.
+// Rewriting these keys preserves the userdata disk and its signed-in account.
 const screenConfig = (profile: DeviceProfile) => ({
   'hw.lcd.width': profile.height,
   'hw.lcd.height': profile.width,
@@ -277,7 +265,6 @@ export function reconcileAvd(
   profile: DeviceProfile
 ): boolean {
   const directory = avdDirectory(p.avds, profile.name);
-  // Every caller creates the AVD first.
   if (!directory) throw new Error(`AVD ${profile.name} does not exist`);
   const config = readConfig(directory);
   if (!matrixImage(config, p.image))
@@ -294,7 +281,6 @@ export function reconcileAvd(
   return true;
 }
 
-// Deletes only the layout cloneAvd writes, never a directory another .ini points to.
 export function removeAvd(p: Pick<SdkPaths, 'avds'>, name: string): void {
   const target = path.join(p.avds, `${name}.avd`);
   const directory = avdDirectory(p.avds, name);
@@ -324,8 +310,6 @@ function run(
   args: string[],
   options: SpawnSyncOptions = {}
 ): string | Buffer {
-  // Text unless the caller asked for bytes; the failure message reads stderr
-  // as text either way.
   const result = spawnSync(binary, args, {
     encoding: 'utf8',
     timeout: 30_000,
@@ -360,7 +344,6 @@ function avdDirectory(avds: string, name: string): string | null {
   return directory;
 }
 
-// Every AVD here, by its .ini name, and whether it is on the matrix image and so can be the seed.
 export function localAvds(
   p: Pick<SdkPaths, 'avds' | 'image'>
 ): { name: string; seedable: boolean }[] {
@@ -372,13 +355,10 @@ export function localAvds(
       const name = file.slice(0, -'.ini'.length);
       let seedable = false;
       try {
-        // The .ini exists, so avdDirectory returns its path or throws.
         const directory = avdDirectory(p.avds, name);
         if (!directory) throw new Error(`No ${name}.ini`);
         seedable = matrixImage(readConfig(directory), p.image);
-      } catch {
-        /* A broken AVD cannot be the seed. */
-      }
+      } catch {}
       return { name, seedable };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -397,8 +377,7 @@ function missingSeed(
     : `Seed AVD ${seed} is missing and no AVD here uses ${p.image.path}. Create one with that image in Android Studio, then rerun with --seed NAME.`;
 }
 
-// Every device in `adb devices` output, whatever its state and whatever adb printed before the list.
-// bazaarplusplus-mod/scripts/android.sh applies the same selection rule in Bash (find_device).
+// Keep device selection in sync with find_device in bazaarplusplus-mod/scripts/android.sh.
 export function listedDevices(listing: string): AdbDevice[] {
   const lines = listing.split(/\r?\n/);
   return lines
@@ -411,7 +390,6 @@ export function listedDevices(listing: string): AdbDevice[] {
 const listedText = (listed: AdbDevice[]): string =>
   listed.map((d) => `${d.serial} ${d.state}`).join(', ');
 
-// The serial of the one running device; none, several or one not yet online is refused.
 export function onlyDevice(listing: string, selected?: string): string {
   const all = listedDevices(listing);
   const listed = selected
@@ -558,9 +536,6 @@ async function until(
   throw new Error(message);
 }
 
-// Brings the AVD to the player's setup with this checkout: the locked official game, the debug
-// Android App with its runtime and the Development interop, this checkout's mod in the App's game
-// files, and the game login from config.toml [game] when it holds one.
 async function provision(
   adb: (...args: string[]) => string,
   env: DeviceEnv,
@@ -670,7 +645,6 @@ async function initialize(
     );
   save();
   const adb = (...args: string[]) => run(p.adb, ['-s', serial, ...args]);
-  // Recipes and android-login call bare adb and Gradle: give them this SDK.
   const env: DeviceEnv = {
     ...process.env,
     ADB: p.adb,

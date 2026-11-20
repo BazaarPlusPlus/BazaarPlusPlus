@@ -2,8 +2,6 @@
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-// The playback codes both hosts' replay runtimes log; the desktop's capture, persistence,
-// warmup and current-replay codes stay in its own CombatReplayLogCodes.
 public enum ReplayPlaybackReasonCode
 {
     None,

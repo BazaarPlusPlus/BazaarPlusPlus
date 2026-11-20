@@ -14,11 +14,7 @@ import {
 } from './android-interop.ts';
 import type { InteropStatementInputs } from './android-interop.ts';
 
-// The interop statement against the shared fixture in
-// release/fixtures/android-interop/, which the Android App's verifier reads
-// too, and its signature's failure modes (another game, another purpose,
-// another key). Keys are throwaway ones generated in a temporary directory;
-// BPP_UPDATE_GOLDENS=1 rewrites the fixture.
+// The Android App's verifier reads this same fixture, including its exact statement bytes.
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures', 'android-interop');
 const fixture = (name: string): string => path.join(FIXTURES, name);
@@ -42,8 +38,6 @@ const tempDir = () => {
   return root;
 };
 
-// A throwaway RSA key and its self-signed certificate, as the release
-// keystore holds one, plus that keystore as PKCS12.
 function throwawayKey(root: string = tempDir()) {
   const keyFile = path.join(root, 'key.pem');
   const certificateFile = path.join(root, 'certificate.pem');
@@ -88,7 +82,6 @@ test('the interop statement is five LF-terminated lines, as in the shared fixtur
   );
 });
 
-// Each row changes one input; a missing digest is deliberately invalid input.
 test.each<[string, Partial<InteropStatementInputs>, RegExp]>([
   ['an unknown purpose', { purpose: 'pre-adaptation' }, /purpose/],
   ['a release purpose without a version', { purpose: 'release ' }, /./],

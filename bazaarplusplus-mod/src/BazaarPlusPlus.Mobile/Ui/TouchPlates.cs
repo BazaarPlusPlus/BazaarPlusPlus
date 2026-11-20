@@ -5,11 +5,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// The touch controls' two plates (normal and selected), drawn by <c>design/kit-art.ts</c> from
-/// the Desktop UI kit's material: Ten-Win Builds and Collection load them here, History
-/// with its badges (<c>TouchHistoryBadges</c>).
-/// </summary>
+// design/kit-art.ts generates these plates from the Desktop UI kit's material.
 internal sealed class TouchPlates : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();

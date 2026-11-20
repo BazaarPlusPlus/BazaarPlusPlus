@@ -3,25 +3,13 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// The id rule <c>BppLogEventRenderer</c> enforces at runtime, checked over compiled call sites
-/// (ADR-0009) so a bad id fails a test instead of rendering as <c>logging.render.failed</c>. Each
-/// <c>BppLogEvent</c> construction passes a declared scope's getter and, directly after it, a
-/// literal id under that scope's prefix with at least three dotted-snake segments
-/// (<see cref="BppLogSchemaRules.IsDottedSnakeIdentifier"/>). Compiled into Architecture.Tests,
-/// which scans the desktop and shared assemblies, and AndroidHost.Tests, which scans the Android
-/// host.
-/// </summary>
 internal static class LogEventIdRule
 {
     internal const string EventType = "BazaarPlusPlus.Infrastructure.Logging.BppLogEvent";
     internal const string ScopeType = "BazaarPlusPlus.Infrastructure.Logging.BppLogFeatureScope";
     internal const int MinimumSegments = 3;
 
-    /// <summary>
-    /// Scope property name to event id prefix, read from the scope type's static constructor:
-    /// <c>ldstr prefixName; ldstr eventIdPrefix; newobj .ctor; stsfld &lt;Name&gt;k__BackingField</c>.
-    /// </summary>
+    // The scope initializer emits the prefix as the second ldstr before the constructor and stsfld.
     internal static IReadOnlyDictionary<string, string> Prefixes(CompiledType scopeType)
     {
         var prefixes = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -56,7 +44,6 @@ internal static class LogEventIdRule
         return prefixes;
     }
 
-    /// <summary>Every <c>BppLogEvent</c> construction in <paramref name="methods"/>.</summary>
     internal static IReadOnlyList<(CompiledMethod Method, string? Scope, string? Id)> Constructions(
         IEnumerable<CompiledMethod> methods,
         IReadOnlyDictionary<string, string> prefixes
@@ -100,7 +87,6 @@ internal static class LogEventIdRule
         return found;
     }
 
-    /// <summary>One line per construction whose id would not render; fails if none is found.</summary>
     internal static IEnumerable<string> Violations(
         IEnumerable<CompiledMethod> methods,
         IReadOnlyDictionary<string, string> prefixes

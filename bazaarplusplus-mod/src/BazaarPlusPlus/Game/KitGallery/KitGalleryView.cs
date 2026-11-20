@@ -13,9 +13,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.KitGallery;
 
-// The Kit Gallery's sheet: every Desktop UI kit control in every state, next to the game art BPP
-// shows (hero portraits, trophies, rank badges), on History's canvas. The strings are fixed
-// Simplified Chinese samples: the sheet is a Debug-build tool, not a player surface.
 internal sealed class KitGalleryView : IDisposable
 {
     private const float RailWidth = 380f;
@@ -103,8 +100,6 @@ internal sealed class KitGalleryView : IDisposable
         shell.childForceExpandWidth = false;
         shell.childForceExpandHeight = true;
 
-        // The list is the first thing to read and the way into every other part, so its rail
-        // is on the left; what the selected run shows is on the right.
         var rail = Column(_root.transform, "Rail", InGameSizes.Space12, 22, 24);
         _kit.Surface(rail, KitSurface.Ground);
         DesktopKit.Size(rail, RailWidth, -1);
@@ -114,8 +109,6 @@ internal sealed class KitGalleryView : IDisposable
         content.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
         BuildContent(content);
     }
-
-    // ---- the sheet ----
 
     private void BuildContent(RectTransform content)
     {
@@ -278,7 +271,6 @@ internal sealed class KitGalleryView : IDisposable
         scroll.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
         var gain = ColorUtility.ToHtmlStringRGB(InGameTheme.Success);
         var loss = ColorUtility.ToHtmlStringRGB(InGameTheme.Failure);
-        // The names follow the order the game lists its heroes in, which the portraits use.
         RunRow(list, 0, "皮格", "普通 · 12 场 · 10/27 19:23", null, 2, null);
         RunRow(list, 1, "凡妮莎", "普通 · 3 场 · 10/27 17:29", null, -1, KitMark.Abandoned);
         RunRow(
@@ -316,8 +308,6 @@ internal sealed class KitGalleryView : IDisposable
         kit.Button(actions, "回放", KitButtonKind.Primary, KitSize.Md, () => { });
     }
 
-    // A run row as History will draw it: the kit's row, with the hero, the rank badge (a
-    // ranked run) and one mark (a trophy tier, or a state mark) arriving after it.
     private void RunRow(
         Transform list,
         int index,
@@ -339,9 +329,6 @@ internal sealed class KitGalleryView : IDisposable
             DesktopKit.Show(row.Mark, DesktopKit.Mark(state));
     }
 
-    // A row that ends in a quiet sm button (and, with left, starts in a quiet arrow): the
-    // label and the arrow's ink sit on the row's edges, with the other right-aligned text of the rail.
-    // A row that ends in a quiet button pulls it out, so its label sits on the row's edge.
     private static void Flush(RectTransform row) =>
         row.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(
             0,
@@ -394,8 +381,6 @@ internal sealed class KitGalleryView : IDisposable
             _segments[i].On = i == index;
     }
 
-    // ---- native art ----
-
     private void LoadArt()
     {
         if (_heroLoad == null)
@@ -447,8 +432,6 @@ internal sealed class KitGalleryView : IDisposable
             + string.Concat(missing.Select(line => "\n" + line));
     }
 
-    // ---- layout helpers ----
-
     private static RectTransform Column(
         Transform parent,
         string name,
@@ -478,7 +461,6 @@ internal sealed class KitGalleryView : IDisposable
         return rect;
     }
 
-    // A fixed-width cell that keeps its control at the control's own width, left-aligned.
     private static RectTransform Cell(Transform row, float width)
     {
         var cell = Row(row, "Cell", 0, TextAnchor.MiddleLeft);

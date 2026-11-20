@@ -4,20 +4,13 @@ using BazaarPlusPlus.ManagedPayload;
 
 namespace BazaarPlusPlus.Updater;
 
-/// <summary>
-/// One Updater run for a host: the Data Root sits beside the host's install root on both hosts
-/// (<c>&lt;GameRoot&gt;/BazaarPlusPlusV6</c>, <c>files/BazaarPlusPlusV6</c>). Nothing escapes;
-/// the game must start whatever happens here.
-/// </summary>
+// Updater failures must leave the loader free to start the game.
 internal static class UpdaterRun
 {
     /// <summary>PathConstants.DataRootDirectoryName, which the Updater may not reference.</summary>
     public const string DataRootDirectoryName = "BazaarPlusPlusV6";
 
-    /// <summary>
-    /// The Updater's own version; it ships only with the installer or the APK. MelonInfo needs a
-    /// constant, so this repeats the csproj Version; a test pins the built assembly to it.
-    /// </summary>
+    // MelonInfo requires a constant. A test pins it to the assembly's fixed project version.
     public const string Version = "1.0.0";
 
     // ReleaseManifestEndpoints' platform keys, which the Updater may not reference; a test pins
@@ -31,8 +24,6 @@ internal static class UpdaterRun
         : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? WindowsPlatformKey
         : null;
 
-    // runtimeDigest: the running runtime's non-managed payload digest from the Android App's
-    // Launch Record (RuntimeDigest); null compares with the installed manifest's.
     public static SwapOutcome? Run(
         string installRoot,
         ManagedPayloadHost host,
@@ -70,13 +61,8 @@ internal static class UpdaterRun
     }
 
 #if NET
-    /// <summary>
-    /// The digest of the runtime the Android App started this process with: its Launch Record's
-    /// <c>app.nonManagedPayloadDigest</c>, when the record parses and this process wrote it (root
-    /// ADR 0012). No record, an unreadable one, another process's, or a development App's (no
-    /// digest) yields null, which keeps the installed manifest's rule. The record's release is
-    /// not checked: it is the version this launch may swap in.
-    /// </summary>
+    // A record from this process supplies the runtime digest before any Mods load.
+    // Its release is the one this launch may swap in.
     public static string? RuntimeDigest(string recordPath, int processId, UpdaterLog log)
     {
         try

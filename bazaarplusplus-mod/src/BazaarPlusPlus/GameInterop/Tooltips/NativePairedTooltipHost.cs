@@ -8,43 +8,14 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.GameInterop.Tooltips;
 
-/// <summary>
-/// Plugin-lifetime owner of the "custom content inside the native auxiliary tooltip, pinned beside
-/// the native card tooltip" presentation.
-/// </summary>
-/// <remarks>
-/// <para>
-/// The host holds at most one active <see cref="NativePairedTooltipSession"/>. It is deliberately
-/// <b>not</b> <see cref="IDisposable"/>: composition does not dispose GameInterop hosts (the native
-/// card-preview host is the precedent), and the releasable unit here is the session, not the host.
-/// Once a session is released the host keeps no Unity references, so it cannot carry a destroyed
-/// <see cref="AuxiliaryTooltipController"/> across a scene load.
-/// </para>
-/// <para>
-/// The host does not observe native tooltip events and does not arbitrate between features
-/// competing for the native singleton. It can only answer "is this controller mine"
-/// (<see cref="NativePairedTooltipSession.OwnsPrimary"/> /
-/// <see cref="NativePairedTooltipSession.OwnsAuxiliary"/>); the decision of what to do about a
-/// conflict — and any logging about it — belongs to the consuming feature's patch chain. Note that
-/// the native auxiliary controller is a game-wide singleton that other code can drive directly
-/// without going through this host, so a single active session serializes this host's own usage
-/// only.
-/// </para>
-/// </remarks>
+// The native auxiliary controller is a game-wide singleton. This host serializes its own
+// sessions, while each consumer must resolve conflicts with other native tooltip users.
 internal sealed class NativePairedTooltipHost
 {
     private NativePairedTooltipSession? _activeSession;
 
-    /// <summary>
-    /// Acquires the single active session. An existing session belonging to another owner is
-    /// released first.
-    /// </summary>
-    /// <param name="owner">Identity used to detect re-entrant acquisition.</param>
-    /// <param name="releaseOwnerResources">
-    /// Invoked in the middle of <see cref="NativePairedTooltipSession.Release"/>, after the host has
-    /// stopped the fade and invalidated the generation but before it destroys UI or restores native
-    /// state. The owner must cancel in-flight async work and drop its own references here.
-    /// </param>
+    // Release invalidates the generation before calling releaseOwnerResources. Cancel pending
+    // work and drop the owner's references here, before the host destroys UI or restores it.
     internal NativePairedTooltipSession Acquire(object owner, Action releaseOwnerResources)
     {
         if (_activeSession != null && !_activeSession.HasOwner(owner))
@@ -57,9 +28,6 @@ internal sealed class NativePairedTooltipHost
     }
 }
 
-/// <summary>
-/// One feature's hold on the paired native tooltips.
-/// </summary>
 internal sealed class NativePairedTooltipSession
 {
     private readonly object _owner;
@@ -89,16 +57,8 @@ internal sealed class NativePairedTooltipSession
         _releaseOwnerResources = releaseOwnerResources;
     }
 
-    /// <summary>
-    /// Monotonic identity of the current presentation.
-    /// </summary>
-    /// <remarks>
-    /// This is the single generation counter for the whole presentation — the host's fade
-    /// callbacks and the owner's async content work must both compare against it. Do not keep a
-    /// second counter on the owner side: the increment happens inside <see cref="Release"/>
-    /// <b>before</b> the owner releases its resources, and that ordering is what stops an already
-    /// cancelled async continuation from re-attaching to a torn-down presentation.
-    /// </remarks>
+    // Owner work and host fades must share this generation so a racing continuation cannot
+    // reattach after Release invalidates it.
     internal int Generation => _generation;
 
     internal bool HasOwner(object owner) => ReferenceEquals(_owner, owner);
@@ -110,8 +70,6 @@ internal sealed class NativePairedTooltipSession
         ReferenceEquals(_activeAuxiliary, controller);
 
     internal bool IsContentActive => _contentRoot?.activeInHierarchy == true;
-
-    // ── Preparation ────────────────────────────────────────────────────────────────────────
 
     internal void PreparePrimary(CardTooltipController primary)
     {
@@ -132,10 +90,7 @@ internal sealed class NativePairedTooltipSession
                 Data.TooltipParentComponent?.HideAuxiliaryTooltipController();
         }
         RestorePreparedPrimaryGate();
-        // Whether a "Tooltip_Main" descendant exists under every tier and under both the Desktop
-        // and Mobile tooltip prefabs is unverified. When it is absent the gate stays null and the
-        // primary tooltip is simply left unconcealed — silently, by design, so a missing node
-        // degrades the paired presentation instead of throwing mid-hover.
+        // Tooltip_Main may be absent in a native prefab. Leave the primary visible in that case.
         var target = FindDescendant(primary.CanvasContentRectTransform, "Tooltip_Main");
         if (target != null)
             _preparedPrimaryGate = CanvasGroupGate.Create(primary, target.gameObject);
@@ -160,22 +115,11 @@ internal sealed class NativePairedTooltipSession
         if (_activeAuxiliary != null || _contentRoot != null)
             Release(restoreNativeContent: false);
         RestorePreparedNativeHost();
-        // Capture is ordering-sensitive against the consuming feature's AssignTooltipFrame, which
-        // writes backgroundImage.sprite: this Prepare path captures BEFORE that call, while the
-        // Show path below captures AFTER it. The restored sprite therefore depends on which path
-        // ran. Keep both capture points where they are — swapping their relative order produces a
-        // wrong-tier auxiliary tooltip frame, which no test or compiler catches.
+        // Prepare captures the frame before AssignTooltipFrame and Show captures it afterward.
+        // Moving either capture across that call can restore the wrong tier sprite.
         _preparedNativeHost = NativeAuxiliaryHostState.Capture(auxiliary);
-        // auxParent (Tooltip_Aux_Content in the Tooltip_Aux_P prefab) owns the COMPLETE visual
-        // tree — Background, TitleText, BodyText and Divider are its children — so this gate is
-        // the one effective concealment. Do not gate the controller root instead: the root is a
-        // world-space Transform above the prefab's own nested Canvas (Tooltip_Aux_Canvas), and a
-        // CanvasGroup there does not propagate into the canvas at all.
-        //
-        // When the native controller is reused for a rapid re-request, the previous cancellation
-        // deliberately left this gate closed. Reuse it as-is: restore-then-recreate briefly puts
-        // the restored group (alpha 1) back on the object during the same frame — Destroy is
-        // deferred to frame end — which renders the shell for one frame.
+        // Gate auxParent because a root CanvasGroup cannot reach the nested Canvas.
+        // Reuse a closed gate to avoid a one-frame flash while Unity defers destruction.
         if (
             _preparedAuxiliaryGate != null
             && ReferenceEquals(_preparedAuxiliaryGate.Controller, auxiliary)
@@ -205,13 +149,8 @@ internal sealed class NativePairedTooltipSession
         )
             return;
 
-        // Every current caller hands this BPP-owned request straight back to the native hide
-        // sequence. Keep the auxParent gate CLOSED through that teardown: it is the only
-        // concealment the native fade cannot rewrite (the serialized CanvasGroup set to zero here
-        // is re-raised whenever the native fade-in is still in flight), and every visual child —
-        // Background, TitleText, BodyText, Divider — lives under auxParent. The gate is handed
-        // back by the next PrepareAuxiliary reuse, by ReleaseForNativeShow when a foreign show takes
-        // the controller, or it dies with the despawned controller.
+        // Keep the auxParent gate closed through native teardown because an in-flight native fade
+        // can bring its own CanvasGroup back up.
         ConcealNativeAuxiliary(auxiliary);
         if (ReferenceEquals(_activeAuxiliary, auxiliary))
             Release(restoreNativeContent: false);
@@ -219,14 +158,6 @@ internal sealed class NativePairedTooltipSession
             RestorePreparedNativeHost(restoreContentVisibility: false);
     }
 
-    /// <summary>
-    /// Hands the pooled host to a confirmed new native show, releasing an active custom
-    /// presentation when necessary.
-    /// </summary>
-    /// <remarks>
-    /// Native Show does not reactivate header/body, so this handoff restores native geometry and
-    /// normalizes those text nodes instead of blindly replaying an inactive captured state.
-    /// </remarks>
     internal bool ReleaseForNativeShow(AuxiliaryTooltipController controller)
     {
         var displacedActivePresentation = OwnsAuxiliary(controller);
@@ -238,15 +169,8 @@ internal sealed class NativePairedTooltipSession
         return displacedActivePresentation;
     }
 
-    /// <summary>
-    /// Conceals a native auxiliary frame that is visible without native or paired content.
-    /// </summary>
-    /// <remarks>
-    /// The native fade-in owns <see cref="BaseTooltipController.tooltipCanvasGroup"/> and can
-    /// raise its alpha after a direct concealment. The gate therefore lives on auxParent, below
-    /// that animated group and above the complete visual tree, and remains closed until either the
-    /// current paired presentation reveals or the next native show restores it.
-    /// </remarks>
+    // The native fade can restore its own CanvasGroup's alpha. Gate auxParent below it
+    // to keep the empty frame concealed.
     internal bool TryConcealVisibleEmptyNativeAuxiliary(AuxiliaryTooltipController auxiliary)
     {
         if (auxiliary == null || auxiliary.auxParent == null)
@@ -271,13 +195,6 @@ internal sealed class NativePairedTooltipSession
             && _preparedAuxiliaryGate.Alpha <= NativePairedTooltipMetrics.Epsilon;
     }
 
-    // ── Open / content ─────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Takes over the native pair: hides native auxiliary content, mirrors the primary frame, and
-    /// clones the native background. Returns false (never throws) when the native shape is not
-    /// usable, having already undone any partial work.
-    /// </summary>
     internal bool TryOpen(
         AuxiliaryTooltipController auxiliary,
         CardTooltipController primary,
@@ -326,11 +243,8 @@ internal sealed class NativePairedTooltipSession
         }
         if (_preparedAuxiliaryGate == null)
         {
-            // Gate creation only fails on a controller whose Destroy is already pending; this
-            // takeover cannot be concealed, so report an unusable native shape and let the caller
-            // re-request a live controller. Conceal before Release: Release restores the gates to
-            // their visible originals while the native header is still active, which is exactly
-            // the header-only orphan this presentation must never expose.
+            // Conceal the native canvas group before Release restores its gates, or the active
+            // header can flash on its own.
             ConcealNativeAuxiliary(auxiliary);
             Release(restoreNativeContent: false);
             failure = NativePairedTooltipOpenFailure.DyingController;
@@ -371,21 +285,8 @@ internal sealed class NativePairedTooltipSession
         return true;
     }
 
-    /// <summary>
-    /// Registers the owner's content root and sizes it to the preferred width.
-    /// </summary>
-    /// <remarks>
-    /// No layout is committed here. Every consumer follows this with <see cref="Position"/>, which
-    /// resets the width and settles the full tree; the pair stays gated at alpha 0 until then, and
-    /// nothing in between reads the auxiliary's settled geometry, so an intermediate rebuild was
-    /// two recursive passes of wasted work.
-    /// </remarks>
-    /// <param name="contentRoot">Root the host will size and, on release, destroy.</param>
-    /// <param name="onContentWidthChanged">
-    /// Invoked whenever the host resizes the content, so the owner can retune width-dependent
-    /// pieces of its own layout. Deliberately a plain float callback: nothing about the owner's
-    /// content model crosses this boundary.
-    /// </param>
+    // The host owns contentRoot after attachment. Position settles its layout at the final
+    // width while the pair is still concealed.
     internal bool AttachContent(GameObject contentRoot, Action<float>? onContentWidthChanged)
     {
         var auxiliary = _activeAuxiliary;
@@ -398,12 +299,7 @@ internal sealed class NativePairedTooltipSession
         return true;
     }
 
-    /// <summary>
-    /// Measures the tallest content, in its local units, that <see cref="Position"/> could leave
-    /// visible on the current canvas (<see cref="NativePairedTooltipPlacementMath.ContentHeightLimit"/>).
-    /// Owners call it after <see cref="TryOpen"/>, while they build content, to skip work for rows
-    /// the height budget would hide. Returns false when the pair has no canvas yet.
-    /// </summary>
+    // Call after TryOpen to avoid building rows that the canvas height budget will hide.
     internal bool TryMeasureContentHeightLimit(out float contentHeightLimit)
     {
         contentHeightLimit = 0f;
@@ -423,12 +319,6 @@ internal sealed class NativePairedTooltipSession
         return true;
     }
 
-    // ── Placement ──────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Measures, chooses a side, shrinks the content to fit, positions the pair, and reports what
-    /// happened. The host performs no logging: the caller owns its reason codes.
-    /// </summary>
     internal PlacementResult Position(Transform anchor, IPairedContentBudget content)
     {
         var auxiliary = _activeAuxiliary;
@@ -441,9 +331,8 @@ internal sealed class NativePairedTooltipSession
         )
             return PlacementResult.Unplaced;
 
-        // Only the primary is settled here: its bounds drive side selection and the width budget.
-        // The auxiliary is resized below and settled in full at that final width, so rebuilding it
-        // at the stale width first would be a recursive pass whose result is discarded.
+        // The primary's bounds determine the final width. Rebuilding the auxiliary now would
+        // measure it at a stale width.
         Canvas.ForceUpdateCanvases();
         TempoUIUtility.ForceRebuildRecursive(primary.PositioningRectTransform);
         LayoutRebuilder.ForceRebuildLayoutImmediate(primary.PositioningRectTransform);
@@ -539,18 +428,8 @@ internal sealed class NativePairedTooltipSession
         );
     }
 
-    /// <summary>
-    /// Masks the pair for the duration of a content swap, so intermediate
-    /// <see cref="ContentSizeFitter"/> passes never reach the screen.
-    /// </summary>
-    /// <remarks>
-    /// Disposal restores the pre-mask alpha even when the body throws — callers rely on the pair
-    /// not being stranded at alpha 0 after a failed swap. The host does not orchestrate what
-    /// happens inside the scope: applying, reverting and re-positioning are the caller's business.
-    /// </remarks>
+    // Mask intermediate ContentSizeFitter passes so a swap cannot flash unsettled geometry.
     internal IDisposable BeginMaskedLayout() => new MaskedLayoutScope(this);
-
-    // ── Visibility ─────────────────────────────────────────────────────────────────────────
 
     internal void Reveal()
     {
@@ -590,22 +469,11 @@ internal sealed class NativePairedTooltipSession
         StartVisibilityFade(targetAlpha: 0f, cleanupOnComplete: true);
     }
 
-    /// <summary>
-    /// Finishes a hide synchronously, skipping any in-flight fade.
-    /// </summary>
-    /// <remarks>
-    /// The fade coroutine is hosted on the native <see cref="AuxiliaryTooltipController"/>, whose
-    /// lifetime this host does not control: if that MonoBehaviour is deactivated or destroyed
-    /// mid-fade the coroutine dies silently and the completion callback never arrives. Generation
-    /// checks reject <i>late</i> callbacks but cannot rescue one that never fires, so the consuming
-    /// feature must call this from whatever native signal tells it the tooltip is going away.
-    /// </remarks>
+    // Call from the native dismissal signal because deactivating the controller can kill
+    // its fade coroutine without running the completion callback.
     internal void ForceSettle()
     {
-        // Deliberately not CompleteAnimatedHide: that also asks the tooltip parent to hide the
-        // native auxiliary controller, which is right when *we* decided to hide but wrong here —
-        // the native side is already tearing itself down and re-entering it changes behavior.
-        // Release() stops any in-flight fade on its own.
+        // The native side is already tearing down. Completing its hide here would re-enter it.
         ConcealNativeAuxiliary(_activeAuxiliary);
         Release(restoreNativeContent: false);
     }
@@ -703,28 +571,8 @@ internal sealed class NativePairedTooltipSession
             auxiliary.tooltipCanvasGroup.alpha = 0f;
     }
 
-    // ── Release ────────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Tears the presentation down. Returns false when there was nothing to release.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Release is two-phase, not once-only.</b> With
-    /// <paramref name="restoreNativeContent"/> = false the presentation is dropped but the native
-    /// host snapshot and auxiliary gate are deliberately kept, so a later call with true still has
-    /// something to hand back. Holding the gate also prevents the native fade from exposing an
-    /// empty background shell after custom content is destroyed. That second pass is what restores
-    /// the native auxiliary tooltip's header, body and divider; making this idempotent leaves the
-    /// game's own auxiliary tooltip permanently blank.
-    /// </para>
-    /// <para>
-    /// The ordering is load-bearing: stop the fade and bump the generation <i>first</i>, then let
-    /// the owner drop its async work, and only then destroy UI and restore native state. Releasing
-    /// owner resources before the generation is invalidated lets an in-flight continuation slip
-    /// through its own identity check and re-attach to a presentation that is being destroyed.
-    /// </para>
-    /// </remarks>
+    // Release can hand the native host back in a later call. Keep the gate closed while the
+    // native fade can expose an empty shell. Invalidate the generation before owner cleanup.
     internal bool Release(bool restoreNativeContent)
     {
         var hadActiveContent =
@@ -815,8 +663,6 @@ internal sealed class NativePairedTooltipSession
         _preparedPrimaryGate = null;
     }
 
-    // ── Native layout plumbing ─────────────────────────────────────────────────────────────
-
     private void PrepareNativePresentation(AuxiliaryTooltipController auxiliary)
     {
         _nativeAuxParentRect = auxiliary.auxParent.transform as RectTransform;
@@ -831,9 +677,7 @@ internal sealed class NativePairedTooltipSession
         _nativeAuxParentRect.anchorMin = new Vector2(0.5f, 0.5f);
         _nativeAuxParentRect.anchorMax = new Vector2(0.5f, 0.5f);
         _nativeAuxParentRect.pivot = new Vector2(0.5f, 0.5f);
-        // auxParent and the frame are sibling rects in the native Auxiliary Tooltip prefab.
-        // Match the frame's center instead of mirroring its serialized offset; mirroring doubles
-        // any inset and makes the left/right content padding visibly asymmetric.
+        // Match the sibling frame's center because mirroring its serialized offset doubles the inset.
         _nativeAuxParentRect.anchoredPosition = frameRect.anchoredPosition;
 
         _nativeAuxLayout = auxiliary.auxParent.GetComponent<VerticalLayoutGroup>();
@@ -892,14 +736,6 @@ internal sealed class NativePairedTooltipSession
         );
     }
 
-    /// <summary>
-    /// Applies the owner's final trim prefix and commits the resulting panel height once.
-    /// </summary>
-    /// <remarks>
-    /// The complete tree has already settled at its final width. The host converts the panel's
-    /// canvas-space overflow into the owner's local height, while the owner uses its settled row
-    /// geometry to apply the whole trim prefix without intermediate layout rebuilds.
-    /// </remarks>
     private void FitContentToCanvas(
         AuxiliaryTooltipController auxiliary,
         RectTransform canvasRect,
@@ -975,9 +811,7 @@ internal sealed class NativePairedTooltipSession
 
     private void RebuildAfterHeightBudgetChange(AuxiliaryTooltipController auxiliary)
     {
-        // The visibility plan was computed from a fully settled tree, so only the final layout
-        // needs committing. The general rebuild path remains two-pass for newly activated nested
-        // ContentSizeFitters outside this measured height-budget path.
+        // The visibility plan already used settled geometry, so one final pass is enough here.
         Canvas.ForceUpdateCanvases();
         TempoUIUtility.ForceRebuildRecursive(auxiliary.PositioningRectTransform);
         LayoutRebuilder.ForceRebuildLayoutImmediate(auxiliary.PositioningRectTransform);
@@ -1088,8 +922,6 @@ internal sealed class NativePairedTooltipSession
         destination.enabled = source.enabled;
     }
 
-    // ── Canvas-space measurement ───────────────────────────────────────────────────────────
-
     private readonly Vector3[] _worldCorners = new Vector3[4];
 
     private Rect GetCanvasLocalBounds(RectTransform rect, RectTransform canvasRect)
@@ -1187,8 +1019,6 @@ internal sealed class NativePairedTooltipSession
         return null;
     }
 
-    // ── Nested helpers ─────────────────────────────────────────────────────────────────────
-
     private sealed class MaskedLayoutScope : IDisposable
     {
         private readonly NativePairedTooltipSession _session;
@@ -1207,8 +1037,6 @@ internal sealed class NativePairedTooltipSession
             if (_disposed)
                 return;
             _disposed = true;
-            // Content swaps are atomic. Do not expose the intermediate ContentSizeFitter passes
-            // that otherwise make the paired tooltips jump for a frame.
             _session._preparedAuxiliaryGate?.SetAlpha(_visibleAlpha);
         }
     }
@@ -1259,10 +1087,8 @@ internal sealed class NativePairedTooltipSession
                 group = target.AddComponent<CanvasGroup>();
                 ownedGroup = true;
             }
-            // AddComponent refuses a target whose Destroy is pending and hands back a dead
-            // reference, while every other liveness check on the same object still passes until
-            // frame end. A dead gate cannot conceal anything, so fail creation instead of letting
-            // the first property read throw.
+            // AddComponent can return a dead reference on a target awaiting deferred destruction,
+            // even while the target still passes other liveness checks.
             if (group == null)
                 return null;
             return new CanvasGroupGate(controller, group, forceNonInteractive, ownedGroup);
@@ -1289,11 +1115,8 @@ internal sealed class NativePairedTooltipSession
             _group.interactable = _originalInteractable;
             _group.blocksRaycasts = _originalBlocksRaycasts;
             _group.ignoreParentGroups = _originalIgnoreParentGroups;
-            // DestroyImmediate, not Destroy: a deferred destroy leaves the corpse attached until
-            // frame end, so a same-frame re-prepare adopts it via GetComponent and loses its gate
-            // when the corpse dies — the ungated native fade-in then flashes the tooltip shell.
-            // The restore-to-original alpha above is also only safe when the component leaves the
-            // hierarchy within the same frame.
+            // A deferred Destroy leaves a gate that same-frame Prepare can adopt and then lose
+            // at frame end, flashing the shell.
             if (_ownedGroup)
                 Object.DestroyImmediate(_group);
         }
@@ -1396,12 +1219,8 @@ internal sealed class NativePairedTooltipSession
 
         internal void RestoreForNativeShow()
         {
-            // A pooled auxiliary can arrive here after Combat Impact deliberately kept the
-            // native text nodes inactive through teardown. The native Show method only assigns
-            // strings; it never reactivates header/body, so restoring that captured inactive
-            // state would render a layout-collapsed background with no content. A confirmed new
-            // native show owns fresh content: restore geometry/art, normalize its text nodes, and
-            // leave divider visibility to the native showDivider argument that runs next.
+            // Native Show assigns strings without reactivating header/body. A pooled controller
+            // can otherwise retain inactive text and render an empty frame.
             Restore(restoreContentVisibility: false);
             if (Controller.headerText != null)
                 Controller.headerText.gameObject.SetActive(true);

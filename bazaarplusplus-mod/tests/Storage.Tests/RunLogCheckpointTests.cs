@@ -6,8 +6,6 @@ using Xunit;
 
 public sealed class RunLogCheckpointTests
 {
-    // A checkpoint carries progress, never terminal state: a late checkpoint for a run that is
-    // already completed or abandoned must not reopen it as the active run.
     [Fact]
     public void LateCheckpointDoesNotReopenAFinishedRun()
     {

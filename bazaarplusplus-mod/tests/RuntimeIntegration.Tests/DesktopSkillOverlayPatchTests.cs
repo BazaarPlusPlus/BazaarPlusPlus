@@ -117,8 +117,7 @@ public sealed class DesktopSkillOverlayPatchTests
             Assert.Equal(original[i].blocks, after.blocks);
         }
 
-        // Execute the replacement: it must not consult the tooltip's lifetime or require
-        // a live Unity receiver. The rest of TryOpenOverlay still runs its native gates.
+        // Invoke with a null receiver to check that the replacement never calls the Unity getter.
         var gate = new DynamicMethod(
             "SkillOverlayTooltipGate",
             typeof(bool),

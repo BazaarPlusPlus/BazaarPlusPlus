@@ -7,9 +7,6 @@ using TheBazaar;
 using TheBazaar.AppFramework;
 using Xunit;
 
-// The warmup over one replay manifest, run twice, released, failed and overridden: one sequence
-// over one loader and the static fakes in RuntimeFakes.cs, so it stays one test, as in the
-// capsule.
 public sealed class ReplayPresentationWarmupTests
 {
     [Fact]
@@ -28,7 +25,6 @@ public sealed class ReplayPresentationWarmupTests
         manifest.Snapshots.PlayerHand.Items.Add(card);
         manifest.Snapshots.OpponentHand.Items.Add(card.Clone());
 
-        // A duplicate on the other board shares one preload; a different size is a separate request.
         var larger = card.Clone();
         larger.Size = CardSize.Large;
         manifest.Snapshots.OpponentHand.Items.Add(larger);

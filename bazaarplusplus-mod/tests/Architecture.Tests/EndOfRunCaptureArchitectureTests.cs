@@ -75,8 +75,6 @@ public sealed class EndOfRunCaptureArchitectureTests
                 var services = Is(build.Type("BazaarPlusPlus.Core.Runtime.IBppServices").FullName);
                 var persistence = build.Type(Screenshots + ".EndOfRunArtifactPersistence");
                 var mapper = build.Type(Screenshots + ".RunScreenshotRecordMapper");
-                // The constructor may read static facts (build channel, data root) from the
-                // services; nothing may keep them to sample live state at persist time.
                 var retained = persistence
                     .Fields.Where(field => field.Type is { } type && services(type))
                     .Select(field => $"{field.DeclaringType}::{field.Name} retains {field.Type}");

@@ -87,7 +87,6 @@ public sealed class EncounterPreviewCompilerTests
         Assert.True(result.Snapshot.TryGetTemplate(stepId, out var stepPlan));
         Assert.NotNull(stepPlan.RewardFilter);
         Assert.True(result.Snapshot.TryGetTemplate(itemId, out var itemPlan));
-        // An item's abilities are never scanned for rewards.
         Assert.Null(itemPlan.RewardFilter);
     }
 

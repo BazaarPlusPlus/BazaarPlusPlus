@@ -4,19 +4,13 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>Choice/outcome structure shared by hosts; native enum names are host adapters.</summary>
 public sealed class EncounterChoicePlanParser(Func<string, string?, string?> normalize)
 {
     private readonly EncounterRewardFilterParser _rewards = new(normalize);
 
     private string? Normalize(string kind, string? raw) => normalize(kind, raw);
 
-    /// <summary>
-    /// The merchant that accepts a package, read off its JSON as the desktop's
-    /// <c>PackageMerchantIdentity</c> reads the typed template: a <c>Package</c> whose ability
-    /// prerequisites gate on one current encounter's template id. Null for any other card, or
-    /// when its abilities name two encounters.
-    /// </summary>
+    /// <summary>The game encodes a Package's accepting merchant as a current-encounter prerequisite on the card's ability.</summary>
     public Guid? TryParsePackageMerchant(JToken? card)
     {
         if (
@@ -56,13 +50,6 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
         return merchant;
     }
 
-    /// <summary>
-    /// A merchant event's quality rule, read off its JSON: no query spawn context or no
-    /// behaviours sells by the day's distribution; a <c>TSpawnBehaviorTier</c> that is not an
-    /// exclusion and names one tier pins it; an enabled <c>TSpawnBehaviorIgnoreTierTable</c>
-    /// without a pinned tier leaves no rule. The tier goes through the host's <c>"Tier"</c>
-    /// normalization.
-    /// </summary>
     public EncounterMerchantTierRule TryParseMerchantTierRule(JToken? card)
     {
         if (
@@ -100,17 +87,7 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
             : new EncounterMerchantTierRule(null, UsesDayDistribution: !ignoresDayTable);
     }
 
-    /// <summary>
-    /// A static-data <c>level_ups</c> row's rewards, read off its JSON as the desktop's
-    /// <c>EncounterPreviewPlanCompiler.CompileLevelUps</c> reads the typed <c>TLevelUp</c>: a
-    /// group gated on board cards (<c>TPrerequisiteCardCount</c>) is left out, a
-    /// <c>TRunConditionalPlayerHero</c> run prerequisite becomes a hero condition and any other
-    /// prerequisite is ignored, only <c>TSpawnFilterIdList</c> filters contribute ids, a
-    /// <c>TFixedValue</c> limit counts and any other limit is one. <paramref name="hero"/> maps a
-    /// native hero name to its facet, null when it has none. Null when the row's
-    /// <paramref name="key"/> disagrees with its level, as the compiler rejects it, or the row
-    /// does not read.
-    /// </summary>
+    /// <summary>Omit board-gated bonus groups because the level-up preview does not have the board state to verify them.</summary>
     public LevelUpPreviewPlan? TryParseLevelUp(
         int key,
         JToken? levelUp,
@@ -201,7 +178,6 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
         return new LevelUpPreviewGroup(ReadUInt(group["RandomWeight"]), limit, ids, heroConditions);
     }
 
-    // "$type" names the short type, or the full one with its assembly after a comma.
     private static bool TypeIs(JObject token, string typeName, bool whenUntyped)
     {
         var type = token["$type"]?.ToString();
@@ -287,7 +263,6 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
         var spawnContext = token.SelectToken("SelectionContext.SpawnContext");
         if (spawnContext == null)
             return false;
-        // The host maps a numeric enum value to its name.
         if (Normalize("SelectionMethod", spawnContext["SelectionMethod"]?.ToString()) != "Random")
             return false;
 
@@ -305,16 +280,10 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
                             if (!ids.Contains(id))
                                 ids.Add(id);
 
-                        // TSpawnFilterQuery: a dynamic pool instead of fixed ids
-                        // (e.g. Treasure Chest's 9-weight small/medium item pool).
-                        // Dropping these groups would corrupt the probability
-                        // normalization of everything else, so they are kept as
-                        // pool summaries even when the constraints don't parse.
+                        // Keep dynamic pools in the roll even when their constraints fail to parse. Dropping one would inflate the other outcomes' odds.
                         var constraintsToken = filter["Constraints"];
                         if (constraintsToken != null && constraintsToken.Type != JTokenType.Null)
                         {
-                            // Constraints arrive as a single (possibly ConstraintAnd)
-                            // object; enumerate to its leaf constraint objects.
                             var quantity = ReadQuantity(group);
                             queryPools.Add(
                                 new EncounterOutcomeQueryPool(
@@ -425,7 +394,6 @@ public sealed class EncounterChoicePlanParser(Func<string, string?, string?> nor
         var amountToken = obj["Amount"];
         if (comparisonToken == null || amountToken == null)
             return null;
-        // The host maps a numeric enum value to its name.
         var comparison = Normalize("Comparison", comparisonToken.ToString());
         if (comparison == null)
             return null;

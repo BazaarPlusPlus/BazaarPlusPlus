@@ -12,11 +12,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android compose path as the host wires it: Core's net10.0 <see cref="RunPayloadComposer"/>
-/// over a history database every store opened with <see cref="AndroidComposition.DatabaseOptions"/>,
-/// with the host's own <see cref="AndroidPvpBattleEvidence"/>.
-/// </summary>
 public sealed class AndroidRunPayloadComposeTests : IDisposable
 {
     private const string RunId = "run-android";
@@ -52,7 +47,6 @@ public sealed class AndroidRunPayloadComposeTests : IDisposable
 
         var payload = composition.Payload;
         Assert.Empty(composition.ReplayFailures);
-        // A Missing set leaves its battle unreplayable under the shared Run Bundle contract.
         Assert.Equal(new[] { "battle-1" }, payload.ReplayableBattleIds);
         Assert.Equal(new[] { "battle-2" }, payload.Degradation.ReplayOmittedBattleIds);
         var final = payload.Battles[1];
@@ -154,7 +148,6 @@ public sealed class AndroidRunPayloadComposeTests : IDisposable
         );
     }
 
-    // The documents an Android capture is stored as: enum member names, as the codec writes them.
     private static PvpBattleRecord Battle(string battleId, int day) =>
         new()
         {
@@ -192,7 +185,6 @@ public sealed class AndroidRunPayloadComposeTests : IDisposable
                     PvpBattleCaptureStatus.CapturedEmpty,
                     PvpBattleCaptureSource.OpeningMessage
                 ),
-                // The last battle's opponent skills were never captured.
                 OpponentSkills =
                     day == 2
                         ? Set(PvpBattleCaptureStatus.Missing, PvpBattleCaptureSource.Unknown)

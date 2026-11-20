@@ -5,14 +5,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// One BPP row in the game's in-run menu (the settings button's <c>FightMenuDialog</c>): a clone
-/// of the Report Bug row (<see cref="AndroidNativeMenuClone"/>) placed right after Resume. The
-/// column has a fixed height, so the rows' spacing shrinks to keep every row inside the frame,
-/// and comes back while the row is hidden. Like the game's Return to Main Menu row, the row dims
-/// and takes no tap while <paramref name="available"/> is false (a combat or a replay). A tap
-/// closes the menu as Resume does, then runs <paramref name="open"/>. Main thread only.
-/// </summary>
+// The native column has a fixed height, so the extra entry can push a row outside its frame.
 internal sealed class AndroidFightMenuEntry(
     string name,
     Func<string> label,
@@ -104,7 +97,6 @@ internal sealed class AndroidFightMenuEntry(
         return true;
     }
 
-    // The native spacing while the native rows fit, else the spacing that keeps them in the frame.
     private void Fit()
     {
         if (_column == null)

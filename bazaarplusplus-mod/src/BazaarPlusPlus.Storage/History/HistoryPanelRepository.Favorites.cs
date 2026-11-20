@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
 public sealed partial class HistoryPanelRepository
 {
-    // The battles columns a favorite copies under the same names; HistoryPanelRowMapper reads both.
+    // Keep the battles column names so HistoryPanelRowMapper can read both row shapes.
     private const string FavoriteDisplayColumns =
         "run_id, local_player_account_id, uploader_account_id, remote_battle_id, recorded_at_ms, "
         + "day, hour, encounter_id, combat_kind, player_name, player_account_id, player_hero, "
@@ -17,7 +17,6 @@ public sealed partial class HistoryPanelRepository
         + "opponent_victories, opponent_hand_item_count, opponent_skill_count, result, "
         + "winner_combatant_id, loser_combatant_id, is_final_battle";
 
-    // The board snapshots stay a detail read (LoadFavoriteSnapshots), as battle_snapshots do.
     public HistoryCountedPage<HistoryFavoriteRecord> ListFavorites(HistoryPageRequest request) =>
         ReadCountedPage(
             HistoryPageQuery.Favorites(),
@@ -55,8 +54,6 @@ public sealed partial class HistoryPanelRepository
         return ids;
     }
 
-    // The newest favorites of the player's own battles, as their battles read; Ghost-origin
-    // favorites are left out.
     public IReadOnlyList<HistoryBattleRecord> ListLocalFavoriteBattles(int limit)
     {
         var battles = new List<HistoryBattleRecord>();
@@ -80,10 +77,8 @@ public sealed partial class HistoryPanelRepository
         return battles;
     }
 
-    // Copies the battle's display columns and board snapshots in one statement. Local snapshots
-    // come from battle_snapshots; a Ghost battle has none there, so the caller passes the ones from
-    // its payload manifest (recorder perspective, as stored for Ghost rows). Returns false when the
-    // battle is already a favorite or no longer exists.
+    // Ghost boards come from the payload manifest in recorder perspective because Ghost
+    // battles have no battle_snapshots rows.
     public bool AddFavorite(
         string battleId,
         bool replayCopySaved,
@@ -156,9 +151,7 @@ public sealed partial class HistoryPanelRepository
         return command.ExecuteNonQuery() == 1;
     }
 
-    // Null when the favorite has no recorded boards (a Ghost favorite whose payload never loaded).
-    // A later board the row left NULL comes back as an empty document, which reads as an empty
-    // capture.
+    // An uncaptured favorite has no boards. Individual NULL boards read as empty captures.
     public PvpBattleSnapshotDocuments? LoadFavoriteSnapshots(string battleId)
     {
         if (!DatabaseExists)

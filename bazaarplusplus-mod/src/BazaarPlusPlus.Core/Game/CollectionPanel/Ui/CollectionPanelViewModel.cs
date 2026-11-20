@@ -35,8 +35,6 @@ public sealed class CollectionPanelViewModel
     public bool SourceSelectorEnabled { get; set; } = true;
     public CollectionSortPriority SortPriority { get; set; } = CollectionSortPriority.Quality;
 
-    // Day filter icon: DayFilterValue is the current run day, or null when unavailable;
-    // DayFilterActive highlights it when the day participates in filtering.
     public bool DayFilterActive { get; set; }
     public int? DayFilterValue { get; set; }
     public IReadOnlyList<CardHero> AvailableHeroes { get; set; } = Array.Empty<CardHero>();
@@ -48,8 +46,6 @@ public sealed class CollectionPanelViewModel
     public IReadOnlyList<CollectionSourceOptionViewModel> AvailableSources { get; set; } =
         Array.Empty<CollectionSourceOptionViewModel>();
 
-    // AvailableSources in cells: the desktop folds the merchants of a folding catalog group
-    // (CollectionViewState's foldSources); otherwise each source is its own group.
     public IReadOnlyList<CollectionSourceGroup> SourceGroups { get; set; } =
         Array.Empty<CollectionSourceGroup>();
     public float ContentHeight { get; set; }

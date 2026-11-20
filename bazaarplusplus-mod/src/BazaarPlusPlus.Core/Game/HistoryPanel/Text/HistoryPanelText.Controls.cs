@@ -4,7 +4,6 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-// The labels of History's own controls, the same words on both hosts.
 public static partial class HistoryPanelText
 {
     private static readonly LocalizedTextSet NewerText = new("Newer", "较新", "較新");

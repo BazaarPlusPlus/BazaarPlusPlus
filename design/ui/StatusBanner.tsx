@@ -21,8 +21,7 @@ export interface StatusBannerProps extends HTMLAttributes<HTMLDivElement> {
   diagnosticLabel?: string;
 }
 
-/** An inline notice above the content it is about. Errors interrupt as alerts;
- *  every other tone is announced politely. */
+/** Errors announce as alerts. Other tones announce politely. */
 export function StatusBanner({
   tone = 'info',
   icon,

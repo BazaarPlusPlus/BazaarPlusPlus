@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
-/// <summary>
-/// The player's current item context, used purely to rank ten-win build matches against what
-/// they already own. Board cards weigh the most, stash less, shop the least. Live state never
-/// drives recall — recall is keyed on the manually selected candidate cards.
-/// </summary>
+// Live state ranks only. Manually selected template IDs determine which builds are recalled.
 public sealed class BuildLiveState
 {
     public const int BoardWeight = 3;
@@ -39,10 +35,6 @@ public sealed class BuildLiveState
         IReadOnlyCollection<Guid>? shop
     ) => new(board, stash, shop);
 
-    /// <summary>
-    /// Highest applicable zone weight for a card (board &gt; stash &gt; shop), or zero when the card
-    /// is not currently live. A card is counted once even if it appears in multiple zones.
-    /// </summary>
     public int WeightFor(Guid templateId)
     {
         if (templateId == Guid.Empty)

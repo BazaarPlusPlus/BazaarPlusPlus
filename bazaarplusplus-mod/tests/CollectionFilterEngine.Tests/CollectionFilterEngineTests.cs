@@ -7,9 +7,6 @@ using Xunit;
 
 namespace CollectionFilters.Tests;
 
-// The Collection filter state, filter engine, query, search and facet maps, against Core alone.
-// Each test is one paragraph of checks the console capsule ran in sequence; checks that share a
-// card or a filter state stay in one test, in their original order.
 public sealed class CollectionFilterEngineTests
 {
     [Fact]
@@ -2138,7 +2135,6 @@ public sealed class CollectionFilterEngineTests
         );
     }
 
-    // --- Day filter: shared GameData MaximumTier gates StartingTier and ANDs with other dimensions. ---
     [Fact]
     public void Day_filter_gates_starting_tier_and_ands_with_other_filters()
     {
@@ -2149,8 +2145,6 @@ public sealed class CollectionFilterEngineTests
         var dayLegendary = Card("Day Legendary", CardTier.Legendary);
         var dayPool = new[] { dayBronze, daySilver, dayGold, dayDiamond, dayLegendary };
 
-        // The host derives the ceiling from GameData weights (GameDataDayTierTable.FromWeights, tested
-        // in EncounterPreview.Tests); the filter sees only the resulting tier.
         var bronzeDayCeiling = CardTier.Bronze;
         var goldDayCeiling = CardTier.Gold;
         var diamondDayCeiling = CardTier.Diamond;
@@ -2224,7 +2218,6 @@ public sealed class CollectionFilterEngineTests
             "The GameData day predicate ANDs with the resolved offer pool."
         );
 
-        // --- Day filter: fixed-tier sources (offer rule pins a starting tier) ignore the day gate. ---
         AssertSequence(
             CollectionFilterEngine.Apply(
                 dayPool,
@@ -2418,7 +2411,6 @@ public sealed class CollectionFilterEngineTests
         );
     }
 
-    // --- Card facet name maps: each host adapter maps its game enum by member name (ADR-0015). ---
     [Fact]
     public void Card_facet_name_maps_map_game_enums_by_member_name()
     {
@@ -2665,7 +2657,6 @@ internal sealed class DictionarySourceCatalog : ICollectionSourceCatalog
         StringComparer.Ordinal
     );
 
-    // Insertion order, as the port promises.
     private readonly List<CollectionSourceEntry> _ordered = new();
 
     public DictionarySourceCatalog(params CollectionSourceEntry[] entries)

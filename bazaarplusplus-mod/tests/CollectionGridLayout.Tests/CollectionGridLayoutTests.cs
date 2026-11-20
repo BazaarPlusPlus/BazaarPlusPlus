@@ -7,8 +7,6 @@ using Xunit;
 
 namespace CollectionGrid.Tests;
 
-// Grid geometry, fit math, material LRU, bounds cache and tier-text merge, against Core alone.
-// Each test is one paragraph of checks the console capsule ran in sequence.
 public sealed class CollectionGridLayoutTests
 {
     [Fact]
@@ -156,7 +154,6 @@ public sealed class CollectionGridLayoutTests
         AssertFalse(retention.ContainsKey(1), "Filtered-out cards should not be retained.");
     }
 
-    // --- Skill grid: SkillColumns-wide square array, ceil(count / SkillColumns) shelves ---
     [Fact]
     public void Skill_and_item_grids_pack_pixelize_and_window()
     {
@@ -177,7 +174,6 @@ public sealed class CollectionGridLayoutTests
         AssertShelf(skillLayout.ShelfAt(0), 0, 6, "Skill shelf 0 covers indices 0..6.");
         AssertShelf(skillLayout.ShelfAt(2), 14, 18, "Skill shelf 2 covers the tail 14..18.");
 
-        // --- Item grid: span-aware shelf packing (small 1, medium 2, large 3; all 2 units tall) ---
         var trio = new[] { Item(CardSize.Small), Item(CardSize.Small), Item(CardSize.Medium) };
         var trioLayout = CollectionGridLayout.Build(trio, CollectionTabKind.Items);
 
@@ -188,7 +184,6 @@ public sealed class CollectionGridLayoutTests
         AssertCell(trioLayout, 1, 1, 0, 1, "Second small item at col1.");
         AssertCell(trioLayout, 2, 2, 0, 2, "Medium item spans 2 units at col2.");
 
-        // Wrap: four mediums take 8 of 10 columns, the large (3) can't fit the last 2 so it wraps.
         var wrap = new[]
         {
             Item(CardSize.Medium),
@@ -204,7 +199,6 @@ public sealed class CollectionGridLayoutTests
         AssertShelf(wrapLayout.ShelfAt(0), 0, 3, "Item shelf 0 covers the four mediums.");
         AssertShelf(wrapLayout.ShelfAt(1), 4, 4, "Item shelf 1 holds the wrapped large.");
 
-        // Exact fit: three larges (3 * 3 = 9 <= 10) share a shelf; a fourth wraps.
         var twoLarge = CollectionGridLayout.Build(
             new[] { Item(CardSize.Large), Item(CardSize.Large) },
             CollectionTabKind.Items
@@ -232,7 +226,6 @@ public sealed class CollectionGridLayoutTests
         AssertEqual(2, fourLarge.ShelfCount, "Fourth large wraps (9 + 3 > 10).");
         AssertCell(fourLarge, 3, 0, 1, 3, "Fourth large wraps to col0 / shelf1.");
 
-        // --- Pixelization (unit = 100, gap = 10, originX = 18, originY = 18; step = 110) ---
         AssertRect(
             skillLayout.ContentRectFor(9, 100f, 10f, 18f, 18f),
             238f,
@@ -271,7 +264,6 @@ public sealed class CollectionGridLayoutTests
         AssertApprox(220f, wrapLayout.ShelfPitch(100f, 10f), "Item shelf pitch is 2 * 110.");
         AssertApprox(110f, skillLayout.ShelfPitch(100f, 10f), "Skill shelf pitch is 1 * 110.");
 
-        // --- Visible window: shelves in view plus RowOverscan each way, clamped to the shelf range ---
         AssertEqual(
             (0, 13),
             skillLayout.VisibleIndexRange(0f, 50f, 100f, 10f, 18f),
@@ -294,7 +286,6 @@ public sealed class CollectionGridLayoutTests
         );
     }
 
-    // --- Pixelization keeps the grid envelope stable across Item / Skill tabs ---
     [Fact]
     public void Pixelization_keeps_the_grid_envelope_across_tabs()
     {
@@ -320,7 +311,6 @@ public sealed class CollectionGridLayoutTests
         );
     }
 
-    // --- Material cache LRU: evicts only unreferenced materials and stays bounded when possible ---
     [Fact]
     public void Material_lru_evicts_only_unreferenced_materials()
     {
@@ -372,7 +362,6 @@ public sealed class CollectionGridLayoutTests
         );
     }
 
-    // --- Degenerate: empty visible set ---
     [Fact]
     public void Empty_visible_set_has_no_cells_or_height()
     {
@@ -385,10 +374,7 @@ public sealed class CollectionGridLayoutTests
         AssertApprox(0f, empty.ContentHeight(100f, 10f), "Empty layout is zero tall.");
     }
 
-    // --- CollectionCardFitMath: scale + position (Unity-free pure rules) ---
-    // Large outer-frame clamp: measured width includes flourishes wider than the body. Without the
-    // body-width clamp (aspect-derived), frame-wide maxWidth would shrink Large cards shorter than
-    // Medium; with it, scale stays height-driven when body fits, and only clamps when body overflows.
+    // Decorative frame flourishes can make a Large card shrink below Medium if the fit uses the full frame width.
     [Fact]
     public void Fit_math_scale_follows_the_body_not_the_frame()
     {
@@ -397,7 +383,6 @@ public sealed class CollectionGridLayoutTests
         const float inset = 0.06f;
         var largeCell = new CollectionGridRect(x: 0f, y: 0f, width: 300f, height: 200f);
 
-        // Frame flourishes make measured width wide while body (aspect * bodyH) is narrower and fits.
         var largeFrameBounds = new CardVisualBounds(
             width: 600f,
             height: 310f,
@@ -420,7 +405,6 @@ public sealed class CollectionGridLayoutTests
             "Large with body-aspect should keep height-driven scale when body width fits maxWidth."
         );
 
-        // Same measured frame without aspect falls back to natW and clamps (frame wider than cell+gap).
         var frameClampedScale = CollectionCardFitMath.ComputeScale(
             largeFrameBounds,
             aspectRatio: null,
@@ -439,7 +423,6 @@ public sealed class CollectionGridLayoutTests
             "Null aspect should clamp by measured visual width against cellWidth+gap."
         );
 
-        // Degenerate aspectRatio falls back to measured width (same as null).
         foreach (var badAspect in new[] { float.NaN, float.PositiveInfinity, 0f, 0.01f, -1f })
         {
             var scale = CollectionCardFitMath.ComputeScale(
@@ -457,7 +440,6 @@ public sealed class CollectionGridLayoutTests
             );
         }
 
-        // Zero / negative / non-finite visual height poisons targetH/natH → final scale guard returns 1f.
         foreach (
             var badHeight in new[]
             {
@@ -480,7 +462,6 @@ public sealed class CollectionGridLayoutTests
             AssertApprox(1f, scale, $"Visual height {badHeight} must guard scale to 1f.");
         }
 
-        // Body overflow clamp: narrow cell forces body-width clamp even with usable aspect.
         var narrowCell = new CollectionGridRect(x: 0f, y: 0f, width: 80f, height: 200f);
         var overflowBounds = new CardVisualBounds(
             width: 200f,
@@ -504,7 +485,6 @@ public sealed class CollectionGridLayoutTests
         );
     }
 
-    // Position: center-align with zero scroll and measured visual center at origin.
     [Fact]
     public void Fit_math_position_centers_the_visual_in_its_cell()
     {
@@ -529,7 +509,6 @@ public sealed class CollectionGridLayoutTests
             "Zero visual center should place root at cell center Y (negated)."
         );
 
-        // Scroll offset: content Y shifts up by scrollY, so screenTop drops and target Y rises.
         var (pxScrolled, pyScrolled) = CollectionCardFitMath.ComputeAnchoredPosition(
             centeredBounds,
             scaleX: 0.5f,
@@ -540,7 +519,6 @@ public sealed class CollectionGridLayoutTests
         AssertApprox(px, pxScrolled, "Scroll should not move horizontal anchor.");
         AssertApprox(py + 20f, pyScrolled, "ScrollY should shift anchored Y by +scrollY.");
 
-        // Non-zero visual center offsets placement by center*scale.
         var offsetBounds = new CardVisualBounds(
             width: 50f,
             height: 50f,
@@ -558,8 +536,6 @@ public sealed class CollectionGridLayoutTests
         AssertApprox(-(40f + 50f) - (-4f) * 3f, pyOff, "Anchored Y subtracts centerY * scaleY.");
     }
 
-    // --- NativeCardCellBoundsCache: hit/miss matrix for the three invalidation hooks ---
-    // Store once, then assert each scroll-style read hits and each named hook clears.
     [Fact]
     public void Bounds_cache_hits_until_an_invalidation_hook_clears_it()
     {
@@ -589,7 +565,6 @@ public sealed class CollectionGridLayoutTests
         AssertApprox(storedBounds.CenterY, hitBounds.CenterY, "Hit returns stored centerY.");
         AssertEqual(storedAspect, hitAspect, "Hit returns stored aspectRatio.");
 
-        // Scroll-style reads (no invalidation) stay warm across many frames.
         for (var i = 0; i < 5; i++)
         {
             AssertTrue(
@@ -598,7 +573,6 @@ public sealed class CollectionGridLayoutTests
             );
         }
 
-        // Hook matrix: each invalidation clears, re-store restores, other hooks independently clear.
         var hooks = new (string name, System.Action invalidate)[]
         {
             ("InvalidateOnRebind", () => boundsCache.InvalidateOnRebind()),
@@ -618,7 +592,6 @@ public sealed class CollectionGridLayoutTests
                 $"{name} must make subsequent TryGet miss."
             );
 
-            // After miss, Store restores a hit (simulates force remeasure on that hook).
             boundsCache.Store(storedBounds, storedAspect);
             AssertTrue(
                 boundsCache.TryGet(out _, out _),
@@ -626,7 +599,6 @@ public sealed class CollectionGridLayoutTests
             );
         }
 
-        // Cross-hook: invalidate A, hit remains false until Store; invalidate B after re-Store still clears.
         boundsCache.Store(storedBounds, storedAspect);
         boundsCache.InvalidateOnRebind();
         AssertFalse(
@@ -640,14 +612,11 @@ public sealed class CollectionGridLayoutTests
         boundsCache.InvalidateOnArtLoaded();
         AssertFalse(boundsCache.TryGet(out _, out _), "ArtLoaded after re-Store must miss.");
 
-        // Null aspect is a valid stored value (skills / no AspectRatioFitter).
         boundsCache.Store(storedBounds, aspectRatio: null);
         AssertTrue(boundsCache.TryGet(out _, out var nullAspect), "Null aspect Store must hit.");
         AssertEqual(null, nullAspect, "Stored null aspect must round-trip.");
     }
 
-    // The touch host packs into fewer columns (CollectionTouchLayout.GridColumns); the desktop
-    // overload keeps the desktop's count.
     [Fact]
     public void Touch_column_count_packs_into_fewer_columns()
     {
@@ -715,8 +684,6 @@ public sealed class CollectionGridLayoutTests
             Assert.Fail($"{message} Expected: {expected}, Actual: {actual}");
     }
 
-    // Reads a cell through ContentRectFor at unit 1, gap 0, origin 0, where x is the column, y is
-    // shelf * ShelfHeightUnits, and width is the span.
     private static void AssertCell(
         CollectionGridLayout layout,
         int index,

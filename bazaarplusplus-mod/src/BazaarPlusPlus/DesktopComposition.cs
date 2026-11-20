@@ -57,11 +57,6 @@ using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus;
 
-/// <summary>
-/// The Desktop Host composition root (BepInEx): binds the host ports and Mono probes into
-/// <see cref="CoreComposition"/>, then wires the feature modules, settings dock rows, and Unity
-/// mountables that still live in this host.
-/// </summary>
 internal sealed class DesktopComposition : IDisposable
 {
     private readonly CoreComposition _core;
@@ -310,8 +305,6 @@ internal sealed class DesktopComposition : IDisposable
                 }
             )
         );
-        // Plugin-lifetime, like _nativeCardPreviewHost: composition does not dispose
-        // GameInterop hosts, and the releasable unit is the session the view acquires from it.
         var pairedTooltipHost = new NativePairedTooltipHost();
         _mountables.Register(
             new ComponentMount<PostCombatImpactController>(

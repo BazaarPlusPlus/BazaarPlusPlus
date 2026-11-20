@@ -1,18 +1,10 @@
-// Keeps the projects on Vite+ (ADR 0017) on one version. Root package.json
-// `vite-plus` owns it; `just vite-plus-sync` copies it into the other
-// projects and into every `vite` alias, which `vp` requires to name the same
-// core version. Dependabot does not update `npm:` aliases, so
-// .github/workflows/vite-plus-sync.yml runs this on its PRs.
-//
-// Usage: bun scripts/vite-plus.ts [checkout] [bun install flags...]
-// The checkout defaults to this repository; the workflow passes the PR head.
+// Dependabot leaves npm: aliases untouched, so vite-plus-sync.yml runs this on its PRs.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const repository = path.resolve(import.meta.dirname, '..');
 
-/** The directories, relative to the root, whose package.json uses Vite+. */
 export const VITE_PLUS_PROJECTS = [
   '.',
   'bazaarplusplus-site',
@@ -34,14 +26,12 @@ function readManifest(checkout: string, project: string): Manifest {
   return JSON.parse(fs.readFileSync(manifestPath(checkout, project), 'utf8'));
 }
 
-/** The `vite-plus` version in root package.json. */
 export function ownerVersion(checkout = repository): string {
   const version = readManifest(checkout, '.').devDependencies?.['vite-plus'];
   if (!version) throw new Error('root package.json has no vite-plus');
   return version;
 }
 
-/** Each pin that differs from the owner version, as `<file> <field>: <value>`. */
 export function misalignments(checkout = repository): string[] {
   const version = ownerVersion(checkout);
   const found: string[] = [];
@@ -74,10 +64,6 @@ function pinText(text: string, version: string): string {
     );
 }
 
-/**
- * Pins every project to the owner version and refreshes the lockfile of each
- * project whose package.json changed. Returns those projects.
- */
 export function sync(checkout = repository, installFlags: string[] = []) {
   const version = ownerVersion(checkout);
   const changed: string[] = [];

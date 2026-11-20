@@ -80,12 +80,7 @@ internal static class BppCollectionDockButtonLayoutPlanner
         );
     }
 
-    /// <summary>
-    /// A button left of the gear, level with it: the corner's other arm, beside the column
-    /// <see cref="Resolve"/> stacks on the gear. Only the slot next to the gear counts: a button
-    /// stepped further left reads as unrelated to it, so a blocked slot places nothing and names
-    /// the blocker, and the next layout probe tries again.
-    /// </summary>
+    // A button farther left would look unrelated to the gear, so a blocked adjacent slot leaves it hidden.
     internal static BppCollectionDockButtonLayoutPlan ResolveBeside(
         BppDockButtonBounds viewportBounds,
         BppDockButtonBounds gearBounds,

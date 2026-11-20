@@ -8,8 +8,6 @@ use crate::services::history::{
 use crate::stream::history_thumbnails::HistoryThumbnails;
 use tauri::Manager;
 
-/// The problem a history command reports when its blocking task panics,
-/// under the same code and `operation` its own failures use.
 fn task_failed(
     code: SemanticProblemCode,
     operation: &'static str,

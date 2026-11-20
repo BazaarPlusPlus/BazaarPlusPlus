@@ -7,10 +7,6 @@ import com.bazaarplusplus.android.game.GameStorage;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * Where the launcher keeps its records. Internal storage holds what only the App reads; the
- * game storage is shared with LemonLoader and the mod (MelonLoader/, the Data Root).
- */
 final class AppFiles {
     /** The Data Root's name: the mod's PathConstants.DataRootDirectoryName (root AGENTS.md, Contracts). */
     static final String DATA_ROOT = "BazaarPlusPlusV6";
@@ -27,7 +23,6 @@ final class AppFiles {
         return updates(external(context));
     }
 
-    /** The Data Root's {@code Updates/} under the external files directory {@code external}. */
     static File updates(File external) {
         return new File(external, DATA_ROOT + "/" + com.bazaarplusplus.android.payload.ManagedPayloadStaging.UPDATES);
     }
@@ -52,7 +47,6 @@ final class AppFiles {
         return new File(context.getFilesDir(), "managed-staged.txt");
     }
 
-    /** The Game Code Hash of the adaptation whose Managed Payload this App staged last. */
     static File stagedGame(Context context) {
         return new File(context.getFilesDir(), "managed-staged-game.txt");
     }
@@ -61,7 +55,6 @@ final class AppFiles {
         return new File(context.getNoBackupFilesDir(), "loader-deployment.json");
     }
 
-    /** A BPP launch's directories. Paths only: unlike {@link #external}, it creates nothing. */
     static LaunchDirs launchDirs(Context context) {
         File external = GameStorage.root(context);
         return new LaunchDirs(external, interopCache(context), managedPayloadCache(context), updates(external),

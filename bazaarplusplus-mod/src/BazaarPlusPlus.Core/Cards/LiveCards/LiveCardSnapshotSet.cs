@@ -2,7 +2,7 @@
 
 namespace BazaarPlusPlus.Core.Cards.LiveCards;
 
-/// <summary>The live shop, board, and stash of the current run; a null hero means no run.</summary>
+// A null hero indicates that there is no active run.
 public sealed class LiveCardSnapshotSet
 {
     public static readonly LiveCardSnapshotSet Empty = new(

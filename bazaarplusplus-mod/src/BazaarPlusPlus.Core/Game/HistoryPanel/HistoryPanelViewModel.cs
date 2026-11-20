@@ -4,17 +4,11 @@ using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>
-/// One render of History for a host's view: every list, label and button state the panel shows,
-/// built by <see cref="HistoryPanelViewModelBuilder"/> so both hosts render the same panel.
-/// </summary>
 public sealed class HistoryPanelViewModel
 {
-    // Stands in for the detail when the section has nothing to show there (HistoryArchiveStatus).
     public string ArchiveEmptyMessage { get; set; } = string.Empty;
     public string? AccountId { get; set; }
 
-    // Gates the paging and action controls; the page label text comes from PageLabel.
     public bool PageLoading { get; set; }
     public bool HasNewer { get; set; }
     public bool HasOlder { get; set; }
@@ -82,10 +76,8 @@ public sealed class HistoryPanelViewModel
 
     public List<HistoryBattleRecord> VisibleBattles { get; set; } = new();
 
-    // One per row of Runs (runs) or of Ghost and Favorites (VisibleBattles), in the same order.
     public List<HistoryArchiveRow> ArchiveRows { get; set; } = new();
 
-    // The selected run's battles, in VisibleBattles order; empty outside Runs.
     public List<HistoryTimelineItem> Timeline { get; set; } = new();
 
     public HistoryBoardTitles BoardTitles { get; set; }
@@ -98,14 +90,12 @@ public sealed class HistoryPanelViewModel
 
     public bool ReplayButtonEnabled { get; set; }
 
-    // An unavailable replay stays pressable to explain its reason; a busy one does not.
     public bool ReplayButtonBusy { get; set; }
 
     public string RecordAndReplayButtonText { get; set; } = string.Empty;
 
     public bool RecordAndReplayButtonEnabled { get; set; }
 
-    // False on a host that records no video: the record action is not shown.
     public bool RecordAndReplayButtonVisible { get; set; }
 
     public bool DeleteButtonVisible { get; set; }

@@ -1,6 +1,5 @@
 package com.bazaarplusplus.android.release;
 
-/** A manifest that does not have the shape ADR 0012 defines. */
 public final class MalformedReleaseException extends Exception {
     public MalformedReleaseException(String message) {
         super(message);

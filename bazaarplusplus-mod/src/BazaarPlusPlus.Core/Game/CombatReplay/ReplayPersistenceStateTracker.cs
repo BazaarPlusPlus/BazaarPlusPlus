@@ -9,9 +9,7 @@ public static class ReplayPersistenceStateTracker
         StringComparer.Ordinal
     );
 
-    // Bumped by every completion, whatever its run: the seal coordinator stamps a replay wait with
-    // it, so a Replay Payload that lands afterwards forces a recompose (BundleSealCoordinator).
-    // A writer must call Completed only after its file/row attempt and result publication end.
+    // Call Completed after the file and row attempt and result publication. Any completion invalidates seal waits on omitted replays.
     private static long _completionGeneration;
 
     public static long CompletionGeneration => Interlocked.Read(ref _completionGeneration);

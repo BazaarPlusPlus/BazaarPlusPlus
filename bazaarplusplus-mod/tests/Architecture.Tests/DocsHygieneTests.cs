@@ -5,19 +5,9 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-// The documentation tree has been swept by hand three times (dbd4e6c5, 3f1f682c, 05467e44) and
-// regrown to roughly five times its post-sweep size within a month each time, because a sweep
-// leaves nothing behind that can fail. These tests are what a sweep leaves behind.
-//
-// Each one guards a failure mode observed in the last regrowth, not a style preference:
-// - always-loaded files growing past what they cost an agent per turn;
-// - file references surviving the file they point at (dbd4e6c5 left three of them in src/).
 public class DocsHygieneTests
 {
-    // Budgets are bytes, not lines. These files are dense one-line entries, so a line count says
-    // nothing about their cost: MEMORY.md sat at 93 lines against a "200 line" budget while being
-    // twice its own stated byte ceiling. Each number is roughly 20% above the file's size when the
-    // budget was set, so ordinary edits pass and sustained growth does not.
+    // These files use dense one-line entries. Bytes capture their per-turn cost better than line count.
     private static readonly (string Path, int MaxBytes)[] AlwaysLoadedBudgets =
     {
         ("AGENTS.md", 9 * 1024),
@@ -62,9 +52,7 @@ public class DocsHygieneTests
         var repoRoot = TestInputs.RepoRoot;
         var broken = new List<string>();
 
-        // Only path-shaped references are checked. A bare `RunLogSchema.cs` in prose names a type's
-        // file without promising a location, and treating it as a path produces noise that trains
-        // people to ignore this test.
+        // Bare filenames in prose make no location promise, so only check path-shaped references.
         var reference = new Regex(
             @"`(?<path>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.(?:cs|csproj|json|sh|props|targets|md))(?::(?<start>\d+)(?:-(?<end>\d+))?)?`",
             RegexOptions.Compiled
@@ -174,8 +162,6 @@ public class DocsHygieneTests
 
     private static string? ResolveReference(string repoRoot, string target)
     {
-        // References are written relative to the repo root, and inside architecture prose also
-        // relative to the main source tree.
         foreach (var prefix in new[] { "", "src/BazaarPlusPlus/" })
         {
             var candidate = Path.Combine(

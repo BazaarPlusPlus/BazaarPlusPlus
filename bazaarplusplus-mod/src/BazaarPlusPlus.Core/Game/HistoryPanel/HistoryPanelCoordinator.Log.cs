@@ -5,9 +5,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-// Terminal events of the panel's user-initiated requests. Every request flow writes exactly one
-// terminal event on each path that returns or throws, and none when a stale panel session
-// abandons the request. The request id only correlates a request's lines.
+// An abandoned panel session writes no terminal event.
 public sealed partial class HistoryPanelCoordinator
 {
     private static string NewLogRequestId() => Guid.NewGuid().ToString("N");
@@ -103,7 +101,6 @@ public sealed partial class HistoryPanelCoordinator
             )
         );
 
-    /// <summary>Writes <c>degraded</c> when any replay payload cleanup failed, else <c>succeeded</c>.</summary>
     private static void LogRunDeleteCompleted(
         string requestId,
         string runId,

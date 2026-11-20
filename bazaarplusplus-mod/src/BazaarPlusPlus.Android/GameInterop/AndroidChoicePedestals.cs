@@ -6,13 +6,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The pedestal the player is offered, the desktop's <c>EncounterStateProbe</c> pedestal read on
-/// IL2CPP: on a choice, encounter, or level-up screen, the run's selection set resolved through
-/// <c>Data.Entities</c> to template ids; in a pedestal encounter, the current encounter's
-/// template id. Core's <see cref="ChoiceScreenPedestalResolver"/> classifies the ids. The read is
-/// cached for the frame, and a change of the resolved kind is logged.
-/// </summary>
 internal static class AndroidChoicePedestals
 {
     private static int _frame = int.MinValue;
@@ -27,7 +20,6 @@ internal static class AndroidChoicePedestals
 
     public static long Failures => Interlocked.Read(ref _failures);
 
-    /// <summary>Main thread: the offered pedestal, or why it could not be read.</summary>
     public static ChoicePedestalProbeOutcome Read()
     {
         var frame = Time.frameCount;

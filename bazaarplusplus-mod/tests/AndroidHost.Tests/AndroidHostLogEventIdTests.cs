@@ -6,10 +6,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// Architecture.Tests holds the desktop and shared assemblies to <see cref="LogEventIdRule"/>; no
-/// desktop build compiles the Android host, so its event ids are checked here.
-/// </summary>
 public sealed class AndroidHostLogEventIdTests
 {
     [Fact]

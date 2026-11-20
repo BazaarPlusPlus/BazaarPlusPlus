@@ -7,10 +7,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The settings dock's shared rows in Core, which both hosts register: the catalog's order, a
-/// cycling row's toggle and choice forms, and the rows the Android host takes from the desktop.
-/// </summary>
 public sealed class SettingsDockRowTests
 {
     [Fact]

@@ -6,9 +6,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.KitGallery;
 
-// The Kit Gallery (ADR-0027): a Debug-build Main Overlay Panel that shows every Desktop UI kit
-// control in every state beside the game's art. It has no hotkey; the Walkthrough Control opens
-// it (`open kit-gallery`), and `just mod::ui-shots` captures it.
+// The debug gallery has no hotkey. Open it with Walkthrough Control's open kit-gallery command.
 internal sealed class KitGalleryMount : IBppMountable
 {
     internal const string PanelId = "kit-gallery";

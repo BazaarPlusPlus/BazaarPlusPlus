@@ -10,15 +10,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.CombatReplay;
 
-/// <summary>
-/// The Android host's saved-replay playback: Core's <see cref="SavedReplayPlayback"/> (ADR-0020)
-/// over <see cref="AndroidSavedReplayHost"/> (the host records no video and has no
-/// current-replay recording). The module owns every start, exit and menu-return decision; this
-/// runtime wires the game to it: <c>ReplayState</c> transitions arrive through
-/// <c>Events.StateChanged</c>, the bootstrapped <c>ReplayState.Exit</c> prefix routes into
-/// <see cref="TryExitBootstrappedSavedReplayToMenu"/> (ADR-0002), the replay guard reads the
-/// module, and the melon's update ticks it. A plain object, not a MonoBehaviour.
-/// </summary>
 internal sealed class AndroidCombatReplayRuntime : IDisposable
 {
     private readonly AndroidSavedReplayHost _host;
@@ -45,10 +36,8 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         );
     }
 
-    /// <summary>The runtime the replay patches reach; null before start and after dispose.</summary>
     public static AndroidCombatReplayRuntime? Instance { get; private set; }
 
-    /// <summary>Saved Replay Playback, the runtime History replays through.</summary>
     public SavedReplayPlayback SavedReplays { get; }
 
     public long Starts => _host.Starts;
@@ -59,7 +48,6 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
 
     public long MenuReturns => _host.MenuReturns;
 
-    /// <summary>Main thread: listens for <c>ReplayState</c> transitions and arms the guards.</summary>
     public void Start()
     {
         Instance = this;
@@ -75,9 +63,8 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         }
         catch (Exception exception)
         {
-            // Without the listener, the ReplayState-gone poll in Tick still clears the latch and
-            // logs that exit's state_observed, but a native recap exit would not complete its
-            // operation and no other replay transition is logged: log it for the device run.
+            // The exit poll can clear the latch after a listener failure, but native recap exit
+            // still needs the state event to finish.
             _stateListener = null;
             BppLog.ErrorEvent(
                 new BppLogEvent(BppLogFeatureScope.Android, "android.replay.state_listener_failed"),
@@ -86,7 +73,6 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         }
     }
 
-    /// <summary>Main thread, every frame.</summary>
     public void Tick()
     {
         if (_disposed)
@@ -94,7 +80,6 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         using var scope = AndroidMainThread.Host.Enter();
         try
         {
-            // True only on the tick that clears a set exit latch, so an idle frame reads nothing.
             if (SavedReplays.Tick())
                 LogReplayState(false, "exit_latch_cleared");
         }
@@ -112,10 +97,6 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         }
     }
 
-    /// <summary>
-    /// The bootstrapped <c>ReplayState.Exit</c> prefix: true when the runtime handled the exit
-    /// (the original body is skipped), false to let the game exit as usual.
-    /// </summary>
     public static bool TryExitBootstrappedSavedReplayToMenu() =>
         Instance is { _disposed: false } runtime && runtime.SavedReplays.TryExitBootstrapped();
 
@@ -142,10 +123,8 @@ internal sealed class AndroidCombatReplayRuntime : IDisposable
         }
     }
 
-    // ReplayState transitions as the state listener sees them, plus the bootstrapped exit, which
-    // may leave ReplayState without a state event and shows only as Tick clearing the exit latch.
-    // Each change is logged once, whichever signal reports it first; the session is the one the
-    // signal finds, before a state exit settles it.
+    // Bootstrapped exit can leave ReplayState without a state event. The exit-latch poll catches
+    // that path.
     private void LogReplayState(bool inReplayState, string signal)
     {
         if (_loggedInReplayState == inReplayState)

@@ -4,11 +4,6 @@ using Il2CppBazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The Android host's card facet adapter (ADR-0015): the interop enums, managed copies of the
-/// game's with the same names, mapped to BPP card facets by member name. Mirrors the desktop
-/// host's <c>DesktopCardFacets</c>.
-/// </summary>
 internal static class AndroidCardFacets
 {
     public static readonly CardFacetNameMap<EHero, CardHero> Hero = new(
@@ -36,8 +31,6 @@ internal static class AndroidCardFacets
 
     public static bool IsHeroAvailable(CardHero hero) => Hero.TryToSource(hero, out _);
 
-    // A captured PvP card's facets, as the desktop's DesktopCardFacets maps them: a type the
-    // facets lack fails the board's read, and an unnamed size, section or socket is null.
     public static CardType CapturedType(ECardType type) =>
         Type.TryToFacet(type, out var facet)
             ? facet
@@ -52,7 +45,6 @@ internal static class AndroidCardFacets
     public static CardSocket? CapturedSocket(EContainerSocketId? socket) =>
         socket is { } value && Socket.TryToFacet(value, out var facet) ? facet : null;
 
-    // The game values a replay restores a captured card with, as the desktop's DesktopCardFacets.
     public static ECardType GameType(CardType type) =>
         Type.TryToSource(type, out var source) ? source : default;
 

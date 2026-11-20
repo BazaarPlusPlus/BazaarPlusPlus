@@ -5,11 +5,6 @@ using Xunit;
 
 namespace EncounterPreview.Tests;
 
-/// <summary>
-/// A static-data <c>level_ups</c> row read off its JSON, the Android host's input, held to the
-/// rules of the desktop's typed compiler (CollectionEncounterTooltip.Tests'
-/// <c>LevelUpPreviewCompilerTests</c>), then rendered by the formatter both hosts share.
-/// </summary>
 public sealed class LevelUpPlanParserTests
 {
     private static readonly Guid Ruby = Guid.Parse("1453be13-1d81-45ea-82a5-7d1ef35ec78b");
@@ -19,7 +14,6 @@ public sealed class LevelUpPlanParserTests
     private static readonly Guid Rage = Guid.Parse("0c71aef1-c049-483a-b9a0-19c5005b4fc7");
     private static readonly Guid Note = Guid.Parse("74d5ddf6-3654-45e7-8859-483bd8c84ff7");
 
-    // Raw JSON carries enum names, so the host's normalization has nothing to add.
     private static readonly EncounterChoicePlanParser Parser = new((_, _) => null);
 
     public LevelUpPlanParserTests()
@@ -27,7 +21,7 @@ public sealed class LevelUpPlanParserTests
         L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
     }
 
-    // A trimmed copy of the game's level 2 row: the outer query is Sequential over Random groups.
+    // Trimmed from the game's level 2 row.
     private static readonly string LevelTwo = $$"""
         {
           "$type": "TLevelUp",
@@ -121,20 +115,16 @@ public sealed class LevelUpPlanParserTests
         Assert.NotNull(plan);
         Assert.Equal(2, plan!.Level);
         Assert.Equal(150, plan.HealthIncrease);
-        // The outer query decides, not its groups.
         Assert.False(plan.IsRandomSelection);
-        // The board-gated group is left out; the empty query-only group adds nothing.
         Assert.Equal(
             new[] { new[] { Ruby }, new[] { Jules }, new[] { PoolA, PoolB }, new[] { Note } },
             plan.Groups.Select(group => group.TemplateIds.ToArray())
         );
         var excluded = Assert.Single(plan.Groups[0].HeroConditions);
         Assert.Equal("None", excluded.ComparisonOperator);
-        // A native hero with no facet drops out of the condition.
         Assert.Equal(new[] { CardHero.Dooley, CardHero.Jules }, excluded.Heroes);
         Assert.Equal("Any", Assert.Single(plan.Groups[1].HeroConditions).ComparisonOperator);
         Assert.Equal(3, plan.Groups[2].Limit);
-        // Any run condition other than a hero one is ignored, not a reason to drop the group.
         Assert.Empty(plan.Groups[3].HeroConditions);
         Assert.Equal(22u, plan.Groups[3].RandomWeight);
     }
@@ -143,9 +133,7 @@ public sealed class LevelUpPlanParserTests
     private static readonly Guid Sanguine = Guid.Parse("8dead654-6cd3-4819-a0f1-b9d5a70b59f7");
     private static readonly Guid Arcane = Guid.Parse("f1878b7e-cad6-4301-a5c1-bccf5d35da7b");
 
-    // A trimmed copy of the game's level 9 row (Behaviors dropped): the outer query is Random
-    // over a pool of nine pedestals weighted 199 and two enchant groups weighted by their card
-    // count, each group with a null Limit.
+    // Trimmed from the game's level 9 row with Behaviors removed.
     private static readonly string LevelNine = $$"""
         {
           "$type": "TLevelUp",
@@ -205,7 +193,6 @@ public sealed class LevelUpPlanParserTests
         Assert.True(plan!.IsRandomSelection);
         Assert.Equal(600, plan.HealthIncrease);
         Assert.Equal(new uint[] { 199, 2, 1 }, plan.Groups.Select(group => group.RandomWeight));
-        // A null Limit is one draw.
         Assert.All(plan.Groups, group => Assert.Equal(1, group.Limit));
         Assert.Equal(new[] { Yetarian, Sanguine }, plan.Groups[1].TemplateIds);
 
@@ -226,7 +213,6 @@ public sealed class LevelUpPlanParserTests
         Assert.DoesNotContain("board slots", text);
         Assert.Contains("Choose one:", text);
         Assert.Contains("Random reward (9 options)", text);
-        // The two enchant groups, weighted by their card count, are one pool of three.
         Assert.Contains("one of 3", text);
         Assert.Contains("Yetarian Tomb", text);
         Assert.Contains("Sanguine Valley", text);
@@ -261,7 +247,6 @@ public sealed class LevelUpPlanParserTests
         Assert.Contains("+ 2 board slots", text);
         Assert.Contains("Ruby", text);
         Assert.Contains("Melody", text);
-        // Jules's group requires Dooley or Jules.
         Assert.DoesNotContain("Recipe Book", text);
     }
 

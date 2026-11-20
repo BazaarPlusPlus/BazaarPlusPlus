@@ -7,17 +7,11 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.PvpBattles.Persistence;
 
-/// <summary>
-/// The only owner of the <c>battles</c> and <c>battle_snapshots</c> SQL: every host saves, attaches,
-/// and reads its local PvP battles here, and replay maintenance walks their payload states. Board
-/// captures pass through as the JSON documents the host wrote (<see cref="PvpBattleRecord"/>).
-/// </summary>
 public sealed class PvpBattleSqliteStore : SqliteStoreBase, IReplayPayloadMaintenanceCatalog
 {
     private readonly Action<ReplayPayloadMaintenanceStorageEvent>? _maintenanceDiagnostics;
 
-    // Shared column list + battle/snapshot join used by every record read. Callers append only
-    // their WHERE/ORDER/LIMIT clauses. Column order is fixed because ReadRecord depends on it.
+    // ReadRecord depends on this column order.
     private static readonly string SelectBattleRecordSql = $"""
         SELECT
             b.battle_id,
@@ -322,8 +316,7 @@ public sealed class PvpBattleSqliteStore : SqliteStoreBase, IReplayPayloadMainte
         return ReadRecord(reader);
     }
 
-    // The row TryLoad would find, without reading its columns or snapshots: History asks on every
-    // view refresh whether the selected battle has a saved replay.
+    // History checks for a saved replay on every refresh, so avoid reading snapshot JSON here.
     public bool Exists(string battleId)
     {
         if (string.IsNullOrWhiteSpace(battleId))

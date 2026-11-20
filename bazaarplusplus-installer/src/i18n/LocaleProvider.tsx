@@ -31,8 +31,6 @@ const I18nContext = createContext<I18nController | null>(null);
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>(resolveInitialLocale);
 
-  // Locale is authoritative on the frontend: persist it to localStorage so it
-  // survives a reload, reflect it on <html lang>, and sync the desktop tray.
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = messages[locale].htmlLang;
@@ -73,6 +71,6 @@ async function syncTrayLocale(locale: Locale) {
   try {
     await commandClient.setAppLocale(locale);
   } catch {
-    // The web UI still switches even when the desktop tray sync fails.
+    // Tray sync is best effort so the frontend can switch languages independently.
   }
 }

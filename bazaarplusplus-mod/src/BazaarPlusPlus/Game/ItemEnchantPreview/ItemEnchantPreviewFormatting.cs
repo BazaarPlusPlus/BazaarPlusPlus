@@ -18,8 +18,7 @@ public static class ItemEnchantPreviewFormatting
     private const string LineHeightEnd = "</line-height>";
     private static readonly string EntryBreak = BuildEntryBreak(EntryBreakLineHeight);
 
-    // Localized labels for the active game language; a language switch empties the table. Only
-    // successful lookups are kept, so a failing one still reports and falls back every time.
+    // Failed lookups stay uncached so diagnostics and fallback run on each attempt.
     private static readonly Dictionary<EEnchantmentType, string> EnchantmentLabels = new();
     private static string? _enchantmentLabelLanguage;
 

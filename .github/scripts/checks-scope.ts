@@ -11,16 +11,13 @@ export type Project =
   | 'mod'
   | 'android';
 
-// Each check lane names its reasons; a lane with no reason does not run.
 export type ChecksPlan = Record<string, string[]>;
 
-// One `git diff --name-status` entry.
 export interface DiffChange {
   status: string;
   file: string;
 }
 
-// The workflow_dispatch inputs of checks.yml.
 export interface ManualInputs {
   scope?: string;
   platform?: string;
@@ -31,7 +28,6 @@ export interface ManualSelection {
   platform: string;
 }
 
-// The fields of the GitHub event payload that the plan reads.
 export interface ChecksEvent {
   pull_request?: { head?: { sha?: string }; base?: { sha?: string } };
   before?: string;
@@ -162,8 +158,7 @@ export function manualScope(inputs?: ManualInputs): ChecksPlan {
   );
 }
 
-// Path expansions, not another contract definition. Owners are documented in
-// AGENTS.md; executable references are checked below on every classification.
+// AGENTS.md owns the contracts. Every classification also checks executable references.
 export const SHARED_INPUTS: [string, string[]][] = [
   [
     'bazaarplusplus-analyzer/tests/fixtures/run-payload-v6.projection.json',
@@ -259,7 +254,6 @@ function covers(input: string, file: string): boolean {
   return file === input || (input.endsWith('/') && file.startsWith(input));
 }
 
-// These are comments pointing to the opposite side of a contract, not reads.
 const INFORMATIONAL_REFERENCES: [string, string][] = [
   [
     'bazaarplusplus-server/test/contracts/ghost-summary-contract.test.ts',
@@ -310,7 +304,6 @@ export function unregisteredReferences(file: string, source: string): string[] {
       )
     )
       return [];
-    // Directory reads such as Vite's fs.allow cover all files in that directory.
     if (
       SHARED_INPUTS.some(
         ([input, consumers]) =>
@@ -390,9 +383,7 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
             select(consumer, `Shared input: ${file}`);
       }
     } else if (file.startsWith('design/')) {
-      // The design system (AGENTS.md: Design tokens and shared component
-      // styles) feeds the installer frontend, the site and the Android App;
-      // the release lane runs `just design::check` beside the other root gates.
+      // The release lane includes design::check, which verifies outputs consumed by the apps.
       for (const consumer of [
         'installer-frontend',
         'site',

@@ -48,7 +48,6 @@ import {
 export default function RunDetail() {
   const navigate = useNavigate();
   const location = useLocation();
-  // The History List page and filter this run was opened from.
   const historyList = parseHistoryQuery(
     new URLSearchParams(String(location.state?.historySearch ?? ''))
   );
@@ -70,8 +69,6 @@ export default function RunDetail() {
       runDetailProblemFromError
     );
 
-  // Only the loading phase may claim to be loading; every terminal phase
-  // without a run needs a heading that matches what the body actually says.
   const pageTitle =
     (detail ? formatHero(detail.run.hero, t) : undefined) ??
     (page.state.phase === 'initial-loading'

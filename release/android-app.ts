@@ -16,12 +16,7 @@ import { ANDROID_SOURCES } from './snapshot-lock.ts';
 import type { LoaderPin } from './snapshot-lock.ts';
 import type { AndroidCarriedRelease } from './manifest.ts';
 
-// The Android App's inputs (docs/adr/0012-android-app.md): the Android App
-// Runtime it carries (the Loader Release's bootstrap and runtime, the locked
-// native libraries and the Updater) and the Interop Package it downloads.
-// Both zips put their entries under assets/LemonLoader/, the path LemonLoader
-// reads through the game's AssetManager once the App adds the zip as a
-// resource loader. Both are deterministic: same inputs, same bytes.
+// LemonLoader reads assets/LemonLoader/ through the game's AssetManager after the App adds each zip.
 
 const WORKSPACE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -30,10 +25,8 @@ const WORKSPACE_ROOT = path.resolve(
 const sha256 = (bytes: string | NodeJS.ArrayBufferView): string =>
   crypto.createHash('sha256').update(bytes).digest('hex');
 
-// A Loader Release as a lock entry pins it: its tag and the zip's sha256.
 type RuntimeLoader = Pick<LoaderPin, 'tag' | 'sha256'>;
 
-// assets/bpp-runtime.json: what the staged runtime is, as the App reads it.
 export interface RuntimeFacts {
   schemaVersion: number;
   loader: RuntimeLoader;
@@ -51,13 +44,11 @@ export interface StageAndroidAppRuntimeOptions {
   loaderPath: string;
   loader: RuntimeLoader;
   updaterDll: string;
-  // Each locked native library's file name and its verified file.
   nativeLibs: Record<string, string>;
   nonManagedPayloadDigest?: string | null;
   outDir: string;
 }
 
-// One zip the carried release names, copied in under its sha256.
 export interface CarriedZip {
   sha256: string;
   file: string;
@@ -65,8 +56,6 @@ export interface CarriedZip {
 
 export interface StageCarriedReleaseOptions {
   outDir: string;
-  // The release document the APK carries (androidCarriedRelease); staging
-  // only serializes it.
   release: AndroidCarriedRelease;
   zips: CarriedZip[];
 }
@@ -84,7 +73,6 @@ export const CARRIED_RELEASE_FILE = 'release.json';
 // LemonLoader's asset root inside the game's AssetManager.
 const ASSET_ROOT = 'assets/LemonLoader';
 export const INTEROP_ASSET_ROOT = `${ASSET_ROOT}/runtime/interop`;
-// The Updater is the App's one packaged LemonLoader deployment.
 export const UPDATER_ASSET = `${ASSET_ROOT}/deployment/Plugins/BazaarPlusPlus.Updater.dll`;
 const ABI = 'arm64-v8a';
 const LOADER_BOOTSTRAP = `lib/${ABI}/libmain.so`;
@@ -105,8 +93,6 @@ function filesUnder(root: string): string[] {
 
 const zipEntry = (name: string, data: Buffer) => ({ name, data, mode: 0o644 });
 
-// The Interop Package: every top-level file of an Interop Snapshot directory
-// under assets/LemonLoader/runtime/interop/, and nothing else.
 export function buildInteropPackage(interopPath: string): Buffer {
   return buildZipBuffer(
     interopDirectoryRecords(interopPath).map(({ path: record }) => {
@@ -119,8 +105,6 @@ export function buildInteropPackage(interopPath: string): Buffer {
   );
 }
 
-// The Android App Runtime zip: the Loader Release's assets/LemonLoader/
-// (payload.json and runtime/) and the Updater as the packaged deployment.
 export function buildRuntimeZip({
   loaderPath,
   updaterDll
@@ -138,10 +122,7 @@ export function buildRuntimeZip({
   return buildZipBuffer(entries);
 }
 
-// Writes what the App's Gradle build takes as -Pbpp.runtimeDir:
-// assets/lemon-runtime.zip, assets/bpp-runtime.json, and under
-// jniLibs/arm64-v8a/ the loader bootstrap libmain.so and each locked native
-// library. `nonManagedPayloadDigest` is null for a development build.
+// A development build has no nonManagedPayloadDigest.
 export function stageAndroidAppRuntime({
   loaderPath,
   loader,
@@ -177,9 +158,6 @@ export function stageAndroidAppRuntime({
   return facts;
 }
 
-// Adds the release the APK carries to a staged runtime (ADR 0012): the Interop
-// Package and the Managed Payload zip under their sha256, and the document that
-// names them.
 export function stageCarriedRelease({
   outDir,
   release,
@@ -195,8 +173,6 @@ export function stageCarriedRelease({
   );
 }
 
-// The Updater's Android form (net10.0, a MelonPlugin) against the locked
-// Loader Release.
 function buildUpdater({
   workspaceRoot,
   loaderPath

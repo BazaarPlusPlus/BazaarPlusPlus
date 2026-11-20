@@ -434,11 +434,7 @@ internal static class VoiceLineDisplay
             SubtitlePosition.TopCenter => TextAlignmentOptions.Top,
             _ => TextAlignmentOptions.TopLeft,
         };
-        // Wrap long lines within the box width and never clip vertically: with a
-        // fixed box height but font scale up to 2.5x, NoWrap + Ellipsis makes TMP's
-        // GenerateTextMesh hit the m_characterCount = 0 branch (no ellipsis-insertion
-        // candidate on an overflowing line) and drop the entire block. Overflow is not
-        // in that truncation switch, so the text always renders.
+        // TMP NoWrap and Ellipsis can drop the entire subtitle at large font sizes when no ellipsis insertion point fits.
         target.textWrappingMode = TextWrappingModes.Normal;
         target.overflowMode = TextOverflowModes.Overflow;
         target.richText = true;
@@ -590,9 +586,6 @@ internal static class VoiceLineDisplay
         {
             _chineseUiLabel.text = text.Chinese;
             _chineseUiLabel.gameObject.SetActive(!string.IsNullOrEmpty(text.Chinese));
-            // English now wraps to a variable number of lines, so push the Chinese row
-            // below the English row's measured height instead of a fixed single-line
-            // offset (which would overlap the later English lines at larger scales).
             var chineseOffset = hasEnglish ? -MeasureEnglishHeight(text.English) : 0f;
             ConfigureLineRect(
                 _chineseUiLabel.rectTransform,
@@ -608,9 +601,7 @@ internal static class VoiceLineDisplay
         if (_englishLabel == null || string.IsNullOrEmpty(englishText))
             return minimum;
 
-        // Measure wrapped English height at the label's current width so the Chinese
-        // row clears every English line. GetPreferredValues honours the label's
-        // font/scale/wrapping without needing an active layout pass.
+        // TMP GetPreferredValues measures wrapped text without an active layout pass.
         var width = CurrentRectTransform != null ? CurrentRectTransform.rect.width : 760f;
         if (width < 1f)
             width = 760f;
@@ -671,9 +662,7 @@ internal static class VoiceLineDisplay
             && AreScalesEquivalent(settings.EnglishFontScale, settings.ChineseFontScale)
         )
         {
-            // When bilingual subtitles use the same configured scale, Chinese looks
-            // slightly smaller next to the Latin line; a tiny render-only multiplier
-            // keeps the two rows visually balanced without changing the saved setting.
+            // The render-only multiplier offsets the smaller apparent size of Chinese glyphs at the same configured scale.
             return settings.EnglishFontScale * BilingualChineseScaleMultiplier;
         }
 
@@ -682,9 +671,7 @@ internal static class VoiceLineDisplay
 
     private static TextMeshProUGUI? ChineseRenderer() => _combinedLabel ?? _chineseUiLabel;
 
-    // The catalog stores Simplified text; Taiwan mode converts it only for display. The subtitle
-    // font was chosen by a Simplified probe, so a converted line whose new Traditional glyphs the
-    // font cannot render keeps its Simplified text rather than showing boxes.
+    // The font is chosen by a Simplified probe, so keep Simplified text when the Taiwan conversion would render missing-glyph boxes.
     internal static string DisplayChinese(
         string chinese,
         SubtitlePosition position,
@@ -743,8 +730,6 @@ internal static class VoiceLineDisplay
         if (halfwidthPunctuation == '\0')
             return chinese;
 
-        // This is display-only. Let TMP center the actual narrower punctuation advance
-        // instead of shifting a whole Chinese row by a guessed fixed width.
         return chinese.Substring(0, punctuationIndex)
             + halfwidthPunctuation
             + chinese.Substring(punctuationIndex + 1);

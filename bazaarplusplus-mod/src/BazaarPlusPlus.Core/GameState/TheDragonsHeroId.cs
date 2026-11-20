@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.GameState;
 
-/// <summary>
-/// The Dragons' hero ids across the game's enum-name transition, without the game's enum.
-/// <c>TheDragonsHeroIdentity</c> in the desktop host adds the enum and display-name side;
-/// delete both once every supported game build exposes the canonical enum name.
-/// </summary>
+// Keep the legacy alias while any supported game build still exposes it.
 public static class TheDragonsHeroId
 {
     public const string CanonicalId = "TheDragons";

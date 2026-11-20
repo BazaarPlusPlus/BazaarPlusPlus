@@ -15,7 +15,6 @@ import java.nio.file.Files;
 public class LaunchRecordTest {
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
-    /** The shared golden the mod reads (root AGENTS.md, Contracts); unit tests run in app/. */
     static final File GOLDEN = new File("../contracts/launch-record.v1.json");
 
     static LaunchRecord fromJson(JSONObject json) throws Exception {

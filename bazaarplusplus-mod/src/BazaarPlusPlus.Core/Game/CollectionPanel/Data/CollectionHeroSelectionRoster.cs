@@ -19,9 +19,7 @@ public static class CollectionHeroSelectionRoster
             }
         );
 
-    // The Dragons join the roster only when the accepted catalog deals them a card. A card can
-    // carry CardHero.TheDragons only when the host mapped it from this game build's hero enum,
-    // so a build without the hero never lists it.
+    // A Host can map a card to The Dragons only when the running game's hero enum contains it.
     public static IReadOnlyList<CardHero> ResolveAvailableHeroes(
         CollectionCatalogReadiness catalogReadiness,
         IReadOnlyList<CollectionCardVm> catalogCards

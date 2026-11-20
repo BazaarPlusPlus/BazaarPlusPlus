@@ -9,11 +9,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.Game;
 
-/// <summary>
-/// The Android host's reads for Core's <see cref="EncounterPreviewModule"/>: the plans
-/// <see cref="AndroidEncounterPreview"/> read off static data, the run's hero, cards and day, and
-/// each template's title and description as the game's own tooltip renders them. Main thread only.
-/// </summary>
 internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview preview)
     : IEncounterPreviewReads
 {
@@ -97,8 +92,7 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
         return values;
     }
 
-    // The desktop colors keywords in the plain lines it builds. A description the game's tooltip
-    // rendered already carries its colors and sprites, so it is left as it is.
+    // The game's tooltip formatter already supplies colors and sprites.
     public string ColorKeywords(string text)
     {
         if (text.Contains('<'))
@@ -118,8 +112,6 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
         }
     }
 
-    // A static template with the title and description the current language and the game's
-    // tooltip give it.
     public EncounterPreviewTemplatePlan Present(EncounterPreviewTemplatePlan template)
     {
         var id = template.TemplateId;
@@ -140,8 +132,6 @@ internal sealed class AndroidEncounterPreviewReads(AndroidEncounterPreview previ
         );
     }
 
-    // Static data's plans render no live value: the game's tooltip already filled in the
-    // descriptions Present gives.
     private sealed class Plans(EncounterPreviewSnapshot snapshot) : IEncounterPreviewPlans
     {
         public EncounterPreviewSnapshot Snapshot => snapshot;

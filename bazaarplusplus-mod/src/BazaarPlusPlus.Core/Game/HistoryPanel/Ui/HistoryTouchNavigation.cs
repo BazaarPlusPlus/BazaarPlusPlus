@@ -1,7 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
-/// <summary>Presentation state kept while a touch History view is rebuilt for another safe area.</summary>
 public sealed class HistoryTouchNavigation
 {
     public bool DetailOpen { get; private set; }

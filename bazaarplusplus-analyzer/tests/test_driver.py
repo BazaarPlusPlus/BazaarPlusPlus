@@ -204,7 +204,6 @@ def test_one_product_failure_preserves_it_but_the_other_product_still_updates(
         content_type="application/json",
     )
 
-    # The fixture store holds a current heroes snapshot; a changed digest makes it stale.
     monkeypatch.setattr("bazaarlens.snapshots.code_sha256", lambda: "0" * 64)
     monkeypatch.setattr(
         "bazaarlens.driver.PRODUCTS",

@@ -30,10 +30,6 @@ public static class ItemEnchantPreviewCache
         return $"{languageCode}|{snapshot.InstanceId}|{snapshot.TemplateId}|{snapshot.Section}|{snapshot.CurrentEnchantment}|{snapshot.PreviewEnchantment}|{attributes}";
     }
 
-    /// <summary>
-    /// Appends the cached segments for <paramref name="key"/> (from <see cref="CreateKey"/>) to
-    /// <paramref name="destination"/> while the entry is younger than the TTL.
-    /// </summary>
     public static bool TryAppend(string key, List<TooltipSegment> destination)
     {
         lock (Cache)

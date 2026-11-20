@@ -14,12 +14,8 @@ using MelonLoader.Utils;
 
 namespace BazaarPlusPlus.Updater;
 
-/// <summary>
-/// The Android Host form: a MelonPlugin in <c>MelonLoader/Plugins/</c>. LemonLoader loads
-/// plugins and raises <see cref="OnPreInitialization"/> before it scans <c>Mods/</c>, so the
-/// swapped Mods are the ones this launch loads. <c>UserLibs/</c> are already loaded by then; a
-/// swapped UserLib takes effect from the next launch.
-/// </summary>
+// LemonLoader scans Mods after OnPreInitialization but loads UserLibs earlier.
+// A replaced UserLib takes effect on the next launch.
 public sealed class MelonUpdaterPlugin : MelonPlugin
 {
     public override void OnPreInitialization()
@@ -41,9 +37,6 @@ public sealed class MelonUpdaterPlugin : MelonPlugin
             );
             return;
         }
-        // The Android App writes its Launch Record beside the host's settings file before it starts
-        // this process; the Mods to swap in must match the runtime it started, not the one the
-        // installed Mods were staged for.
         var runtimeDigest = UpdaterRun.RuntimeDigest(
             LaunchRecord.PathIn(MelonEnvironment.UserDataDirectory),
             Environment.ProcessId,

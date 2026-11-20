@@ -2,20 +2,14 @@ using SteamKit2;
 
 namespace BazaarPlusPlus.SteamSnapshot;
 
-/// <summary>
-/// What Steam reports for one branch: its build, when the branch last changed (Unix seconds, 0 when
-/// Steam gives no time), and each depot's manifest.
-/// </summary>
+// Steam reports the last change as Unix seconds, with zero when the timestamp is absent.
 public sealed record BranchState(
     string Buildid,
     long UpdatedAt,
     IReadOnlyDictionary<uint, ulong> Manifests
 )
 {
-    /// <summary>
-    /// Reads the branch from a depots section: the app's own, or the private one an access code
-    /// unlocks, which has the same shape. A missing value throws.
-    /// </summary>
+    // Steam uses the same depots shape for app product info and unlocked private branches.
     public static BranchState Read(KeyValue depotSection, string branch, IEnumerable<uint> depots)
     {
         var buildid = depotSection["branches"][branch]["buildid"].AsString();

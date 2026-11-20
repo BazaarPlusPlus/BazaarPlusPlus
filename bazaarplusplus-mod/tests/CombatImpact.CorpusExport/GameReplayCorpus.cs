@@ -10,14 +10,8 @@ using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.ModApi.Bundle;
 using MessagePack;
 
-/// <summary>One battle as the game sent it: the spawn state and the finished combat.</summary>
 internal sealed record GameReplay(string BattleId, GameSim Spawn, CombatSim Combat);
 
-/// <summary>
-/// The game replays in a corpus directory: a <c>run-bundles/</c> cache of sealed run bundles,
-/// raw V5 <c>*.bundle</c> files, or a replay payload store, sampled to
-/// <c>BPP_BUNDLE_CORPUS_LIMIT</c> bundles.
-/// </summary>
 internal sealed record GameReplayCorpus(
     string SourceKind,
     int SourceCount,

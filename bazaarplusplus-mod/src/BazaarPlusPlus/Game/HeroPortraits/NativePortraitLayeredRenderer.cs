@@ -11,8 +11,7 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-// The native renderer owns the strict interior. This companion transports cached UV
-// cuts with Spine's live vertices; a disjoint GPU mask admits only the bounded exterior.
+// A disjoint GPU mask keeps the breakout mesh out of the strict interior that the native renderer owns.
 internal sealed class NativePortraitLayeredRenderer : IDisposable
 {
     private const int MaxVertices = 100_000;
@@ -534,8 +533,7 @@ internal sealed class NativePortraitLayeredRenderer : IDisposable
                 }
             }
         var vertices = _weights.ToArray();
-        // A moving native clip can keep producing new UV keys. Evict old templates;
-        // cache pressure must never turn a healthy animation into a static fallback.
+        // A moving native clip can keep producing new UV keys, so evict old templates to keep animation running.
         if (vertices.Length <= MaxVertices)
         {
             while (_recent.Count >= 8192 || _cachedVertices + vertices.Length > MaxVertices)

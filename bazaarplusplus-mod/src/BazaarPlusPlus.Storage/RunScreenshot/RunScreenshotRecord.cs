@@ -13,7 +13,7 @@ public sealed class RunScreenshotRecord
 
     public string ImageRelativePath { get; set; } = string.Empty;
 
-    // The capture instant in the player's local offset; only its offset is stored.
+    // The database stores only the local offset.
     public DateTimeOffset CapturedAtLocal { get; set; }
 
     public DateTimeOffset CapturedAtUtc { get; set; }

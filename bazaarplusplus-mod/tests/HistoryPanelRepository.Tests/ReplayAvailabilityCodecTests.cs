@@ -6,8 +6,6 @@ using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// Every Replay Availability must survive the schema's ghost_replay_state CHECK and read back
-// unchanged through both Ghost read paths; a NULL state reads as Unavailable.
 public sealed class ReplayAvailabilityCodecTests : IDisposable
 {
     private readonly string root = TestRoot.Create();

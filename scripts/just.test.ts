@@ -10,7 +10,6 @@ import type { TestContext } from 'vite-plus/test';
 import { gitEnvironment } from './git-command.ts';
 import { runFixtureGit } from './test-support/git-fixture.ts';
 
-// One stubbed tool invocation, as record.mjs appends it to calls.jsonl.
 interface RecordedCall {
   tool: string;
   args: string[];
@@ -43,7 +42,6 @@ const projects = [
   'analyzer',
   'android'
 ];
-// Module files as the root JUSTFILE declares them, so the fixture follows it.
 const moduleFiles = [
   ...fs
     .readFileSync(path.join(root, 'JUSTFILE'), 'utf8')
@@ -177,9 +175,6 @@ test('the default lists every module, including from a project directory', (t) =
   assert.deepEqual(f.calls(), []);
 });
 
-// The aggregate recipes are checked by property, not by restating every
-// project's recipe: release publication never runs, every project gate runs in
-// its own directory, and nothing runs anywhere else.
 const publishingVerbs = new Set<string | null>([
   'prepare',
   'build',
@@ -234,7 +229,6 @@ test('check delegates source-only gates in their project directories', (t) => {
     hasCall(calls, call(f.dir, null, 'bun', 'design/build.ts', '--check'))
   );
   assert.ok(hasCall(calls, call(f.dir, null, ...rootOxfmt('--check'))));
-  // Named scripts use the project's installed toolchain.
   assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'run', 'typecheck')));
   assert.ok(hasCall(calls, call(f.dir, null, 'bun', 'run', 'lint')));
   assert.ok(
@@ -352,7 +346,6 @@ test('fmt formats every project, then re-projects release files', (t) => {
   const f = fixture(t);
   succeeded(f.run(['fmt']));
   const calls = f.calls();
-  // The Android App has no formatter.
   assertProjectGates(
     f.dir,
     calls,
@@ -510,8 +503,6 @@ test('device setup routes matrix preparation, status and the walkthrough without
   ]);
 });
 
-// The GitHub secrets recipes only route to the workspace CLI, which owns the
-// gh calls; flags pass through unchanged and nothing else runs.
 test('secrets-check and secrets-sync delegate to the workspace secrets commands', (t) => {
   const f = fixture(t);
   succeeded(f.run(['secrets-check']));
@@ -583,9 +574,6 @@ test('mod::decompile requires a snapshot channel before running anything', (t) =
   ]);
 });
 
-// Snapshot Lock recipes: fetch and lock-check never load credentials, publish
-// runs inside the release profile, and every one of them refuses an unknown
-// platform or channel before any script runs.
 test('mod snapshot recipes route to game.sh with validated platform and channel', (t) => {
   const f = fixture(t);
   for (const bad of [
@@ -809,8 +797,6 @@ for (const command of ['prepare', 'build', 'upload']) {
       succeeded(f.run([`release::${command}`, platform]));
       const args = releaseArgs(command, '--platform', platform);
       if (command !== 'upload') args.push('--');
-      // An Android build also reads R2, so it runs under the release profile
-      // around the signing one.
       if (command === 'build' && platform === 'android')
         args.unshift('scripts/workspace.ts', 'run', 'release', '--', 'bun');
       assert.deepEqual(f.calls(), [call(f.dir, null, 'bun', ...args)]);
@@ -880,7 +866,6 @@ function hooksFixture(
       path.join(f.dir, 'scripts', file)
     );
   }
-  // Run the installer script itself while git and lefthook can remain stubbed.
   fs.writeFileSync(
     path.join(f.dir, 'bin/bun'),
     `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} "$@"\n`
@@ -940,9 +925,7 @@ if (args.join(' ') === 'rev-parse --path-format=absolute --git-common-dir') {
 }
 `
     );
-    // Native Node cannot exec an extensionless Bash stub on Windows. Stub the
-    // git-command module boundary with a Node child; real fixtures retain the
-    // production module and exercise the actual Git executable.
+    // Native Node cannot exec an extensionless Bash stub on Windows, so replace the Git boundary in this fixture.
     fs.renameSync(
       path.join(f.dir, 'scripts/git-command.ts'),
       path.join(f.dir, 'scripts/git-command.real.ts')
@@ -979,7 +962,6 @@ process.exit(result.status);
     globalConfig,
     hooksDir: path.join(commonDir, 'hooks'),
     install(options: InstallOptions = {}): SpawnSyncReturns<string> {
-      // spawnSync replaces the environment instead of reintroducing scrubbed vars.
       return spawnSync(just, ['--color', 'never', 'hooks-install'], {
         cwd: options.cwd ?? f.dir,
         encoding: 'utf8',

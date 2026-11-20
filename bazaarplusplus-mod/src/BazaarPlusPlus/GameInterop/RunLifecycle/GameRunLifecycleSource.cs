@@ -5,7 +5,6 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.GameInterop.RunLifecycle;
 
-/// <summary>The desktop's run lifecycle signals: the Mono game's <c>TheBazaar.Events</c>.</summary>
 internal sealed class GameRunLifecycleSource : IRunLifecycleSource
 {
     public IDisposable Subscribe(Action runStarted, Action runEnded, Action runInterrupted)

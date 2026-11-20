@@ -12,16 +12,7 @@ using Il2CppBazaarGameShared.Domain.Effect.Trigger;
 
 namespace BazaarPlusPlus.Android.Collection;
 
-/// <summary>
-/// The Android host's projection of a live IL2CPP card template into the Core
-/// <see cref="CollectionCardVm"/>, the counterpart of the desktop's
-/// <c>CollectionCardVmProjection</c>: the same eligibility (<see cref="CollectionCardEligibility"/>),
-/// the same derived Quest and Lifesteal keywords, the same Multicast and Destroy mechanics walk,
-/// and the game's own localized title, description and tooltips. One difference: the
-/// <c>{ability.*}</c> placeholders drop instead of resolving, because the ability value reader is
-/// desktop-only; they only feed search, the card itself is the game's.
-/// <para>Proxies never satisfy <c>is</c>; every type test goes through <c>TryCast</c>.</para>
-/// </summary>
+// IL2CPP interface proxies require TryCast. Managed type tests with is miss them.
 internal static class AndroidCollectionCardProjection
 {
     // Bump when eligibility, facets, derived keywords/mechanics, enchantments, localized text,
@@ -37,7 +28,6 @@ internal static class AndroidCollectionCardProjection
         ETier.Legendary,
     ];
 
-    /// <summary>Null when the template is not a catalog card or has a member BPP has no facet for.</summary>
     public static CollectionCardVm? From(TCardBase template, out bool eligible)
     {
         var nativeType = template.Type;
@@ -125,8 +115,6 @@ internal static class AndroidCollectionCardProjection
         CollectionCardEnchantmentFacets
     > Empty = new Dictionary<CardEnchantment, CollectionCardEnchantmentFacets>();
 
-    // The desktop's CollectionDerivedKeywordFacts: a quest item is Quest, and an item that heals
-    // through Lifesteal at any tier is Lifesteal even without the hidden tag.
     private static void AddDerivedKeywords(HashSet<EHiddenTag> hiddenTags, TCardItem? item)
     {
         if (item == null)
@@ -145,7 +133,6 @@ internal static class AndroidCollectionCardProjection
         }
     }
 
-    // The desktop's CollectionMechanicFacts over the interop proxies.
     private static CollectionMechanic ProjectMechanics(
         TCardBase template,
         HashSet<EHiddenTag> nativeHiddenTags,
@@ -225,8 +212,7 @@ internal static class AndroidCollectionCardProjection
             return modifier.AttributeType == ECardAttributeType.Multicast
                 ? CollectionMechanic.Multicast
                 : CollectionMechanic.None;
-        // The destroy cluster; abilities nested in TActionCardTransformDestroyed belong to the
-        // replacement card and are never walked, as on desktop.
+        // Abilities nested under TActionCardTransformDestroyed belong to the replacement card.
         if (
             action.TryCast<TActionCardDestroy>() != null
             || action.TryCast<TActionCardRepair>() != null
@@ -314,7 +300,6 @@ internal static class AndroidCollectionCardProjection
         return values;
     }
 
-    // The current language's text first, then the authored English, each once.
     private static void AddTexts(List<string> values, TLocalizableText? text)
     {
         if (text == null)

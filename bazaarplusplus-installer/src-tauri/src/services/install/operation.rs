@@ -102,11 +102,7 @@ impl InstallEffects for ProductionInstallEffects {
     }
 }
 
-/// `refresh` learns whether this operation verified the bundle signature with
-/// nothing written inside the bundle since: the trampoline effect seals and
-/// verifies it, and the effects after it touch only the game directory root
-/// and Steam's configuration. An empty plan means the detection that produced
-/// `facts` verified it a moment ago.
+/// Reuse signature verification only while no later effect has modified files inside the app bundle.
 fn execute_and_refresh<T>(
     facts: &InstallEnvironmentSnapshot,
     effects: &mut impl InstallEffects,
@@ -181,19 +177,13 @@ mod tests {
         );
     }
 
-    /// Failure mode: the detection after an install either verifies the
-    /// signature the trampoline effect has just verified, or skips a
-    /// verification no effect of this operation performed.
     #[test]
     fn the_refresh_reuses_only_a_verification_this_operation_performed() {
         let refreshed_with = |facts: InstallEnvironmentSnapshot| {
             execute_and_refresh(&facts, &mut Recorder::default(), Ok).unwrap()
         };
 
-        // Nothing to do: the detection that found it ready verified it.
         assert!(refreshed_with(facts(true, true)));
-        // On macOS every non-empty plan ends with the trampoline effect, which
-        // seals and verifies the bundle; elsewhere nothing verifies it.
         assert_eq!(
             refreshed_with(facts(false, false)),
             cfg!(target_os = "macos")
@@ -383,8 +373,7 @@ mod fresh_install_acceptance {
         .unwrap();
         let (codesign_verified, uuid_matches) = verified;
 
-        // Signatures change on every signing, so the committed golden holds the
-        // installed path set; the per-run manifest holds the hashes.
+        // Signing changes hashes on each run, so the committed golden compares paths.
         let manifest = crate::goldens::tree_manifest(&game);
         crate::goldens::write_run_manifest(
             "fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam",

@@ -4,12 +4,7 @@ import process from 'node:process';
 
 const ROOT_DOCS = ['AGENTS.md', 'GLOSSARY.md', 'README.md'];
 
-// Docs cite code by symbol (`DefaultStreamWorkflow.deriveSnapshot`,
-// `app.windows`) and prose names files this repo does not own
-// (`steamapps/libraryfolders.vdf`, `TheBazaar.exe`). Both are shaped like a
-// dotted path, so a span counts as a repo path only with one of these real
-// source/config extensions plus a directory component — the second signal that
-// separates `src/api/commandClient.ts` from bare `commands.ts` shorthand.
+// Require a directory and a known extension to distinguish repo paths from symbol names and external files.
 const CITABLE_EXTENSIONS = new Set(
   'rs ts tsx js mjs cjs json toml sh md css yml yaml lock plist c h'.split(' ')
 );
@@ -17,7 +12,6 @@ const CITABLE_EXTENSIONS = new Set(
 const BACKTICK_PATH_PATTERN = /`([\w./-]+\.[A-Za-z][\w-]*)`/g;
 const MARKDOWN_LINK_PATTERN = /\]\(([^)]+)\)/g;
 
-// A path or link a doc names, with the 1-based line it appears on.
 export interface DocReference {
   target: string;
   line: number;
@@ -47,8 +41,6 @@ const isFile = (filePath: string) =>
 const lineAt = (content: string, index: number) =>
   content.slice(0, index).split('\n').length;
 
-// A missing directory lists nothing: a tree, such as a test fixture, need not
-// have docs/ or docs/adr/.
 function listDocs(rootDir: string, relDir: string): string[] {
   const dirPath = absolute(rootDir, relDir);
   if (!fs.statSync(dirPath, { throwIfNoEntry: false })?.isDirectory())
@@ -84,10 +76,7 @@ export function extractMarkdownLinks(content: string): DocReference[] {
   return links;
 }
 
-// Documents that must describe the tree as it is now. docs/adr/ is absent on
-// purpose: a decision record must be free to name code that has since been
-// deleted — ADR-0003 documents the removed Tempo launch flow, and that
-// historical mention is the record's value.
+// ADRs may reference retired code, so only current docs are subject to path checks.
 const currentDocs = (rootDir: string) => [
   ...ROOT_DOCS,
   ...listDocs(rootDir, 'docs')

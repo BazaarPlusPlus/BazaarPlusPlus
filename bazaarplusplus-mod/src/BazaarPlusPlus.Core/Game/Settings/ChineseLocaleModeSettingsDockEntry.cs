@@ -5,7 +5,6 @@ namespace BazaarPlusPlus.Game.Settings;
 
 public static class ChineseLocaleModeSettingsDockEntry
 {
-    /// <param name="onChanged">Tells the host's surfaces to draw their text again.</param>
     public static CyclingSettingsDockEntry<BppChineseLocaleMode> Create(Action onChanged)
     {
         if (onChanged == null)

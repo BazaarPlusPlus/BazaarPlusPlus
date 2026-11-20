@@ -2,10 +2,8 @@
 using System.Reflection;
 using System.Runtime.Versioning;
 
-// The golden-producing suites run Core, Storage, and ModApi as a host ships them. The desktop
-// binding is the netstandard2.1 output (tests/Directory.Build.targets, ADR-0013 §3); the
-// *.Net10.Tests bindings name the net10.0 output the Android host ships. A reference that slips
-// past either would quietly move the goldens onto the other output, so the suite checks what loaded.
+// Pin each suite to its host's target framework so regenerating goldens cannot silently switch
+// between the game-supplied libraries and the pinned NuGet packages.
 internal static class SharedTargetPin
 {
     internal const string Desktop = ".NETStandard,Version=v2.1";

@@ -69,7 +69,6 @@ export interface CompileMacOSIconOptions {
   allowFlatFallback?: boolean;
 }
 
-// What compileMacOSIcon did on this host.
 export type CompileMacOSIconResult =
   | { platform: 'skipped'; compiled: false }
   | { platform: 'macos'; compiled: false; fallback: true }

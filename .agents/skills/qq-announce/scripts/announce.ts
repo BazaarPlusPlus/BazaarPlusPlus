@@ -1,17 +1,4 @@
 #!/usr/bin/env node
-// Posts a published BazaarPlusPlus release to QQ groups through the QQ official Bot:
-// the Markdown notes, then one file message per installer (Win, Mac, Android).
-//
-//   bun scripts/workspace.ts run qqbot -- bun .agents/skills/qq-announce/scripts/announce.ts \
-//     --target test|release [--notes notes.md]
-//     [--platforms win,mac,android] [--groups "name,name"] [--send]
-//
-// --target test sends to the test group in scripts/qqbot/groups.json; --target release to every release group.
-// Without --send it prints the plan and sends nothing.
-// Installers come from the published manifests on the CDN, so only promoted builds go out.
-// Each platform carries its own published version (desktop and Android can differ),
-// and the dry run prints it for the user to check.
-// Credentials: QQ_BOT_APP_ID and QQ_BOT_APP_SECRET from config.toml [qqbot].
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { parseArgs } from 'node:util';
@@ -31,8 +18,6 @@ import {
 const CDN = 'https://cdn.bazaarplusplus.com/installer';
 const MAX_FILE_BYTES = 200 * 1024 * 1024; // QQ group file hard limit
 
-// The published latest.json or latest/android-aarch64.json. Each platform's
-// pick reads the installer entry of the one manifest its spec names.
 type PublishedManifest = ReleaseManifest | AndroidPlatformManifest;
 
 type PlatformName = 'win' | 'mac' | 'android';
@@ -52,7 +37,7 @@ interface PlannedFile {
   sha256: string | undefined;
 }
 
-// Send order. Group display names are the QQ upload file_name, not the R2 key.
+// QQ displays file_name, which can differ from the published object key.
 const PLATFORMS: Record<PlatformName, PlatformSpec> = {
   win: {
     manifest: `${CDN}/latest.json`,
@@ -115,7 +100,6 @@ async function getJson(url: string): Promise<PublishedManifest> {
   return res.json() as Promise<PublishedManifest>;
 }
 
-// Plan: each selected platform's latest published installer, named with its version.
 const manifests: Record<string, PublishedManifest> = {};
 const files: PlannedFile[] = [];
 for (const p of selected) {
@@ -165,7 +149,7 @@ const qq = createClient();
 // Download and verify each installer once; every group gets its own upload,
 // because a file uploaded through one group's interface is bound to group sends.
 const buffers: Record<string, Buffer> = {};
-const done: string[] = []; // "group: item" lines for the resume hint
+const done: string[] = [];
 let current: { group: Group; sent: string[] } | null = null;
 try {
   for (const f of files) {

@@ -7,7 +7,6 @@ import { tauriSourceEnvironment } from '../tauri-source-env.ts';
 
 export type VerificationMode = 'source' | 'release';
 
-// The subset a caller asks for.
 export type VerificationSubset = 'all' | 'frontend' | 'native';
 
 // The subset a step belongs to: shared steps run in every subset, scripts in
@@ -35,13 +34,11 @@ export interface VerificationStepsOptions {
   platform?: NodeJS.Platform;
 }
 
-// The part of a spawnSync result the runner reads.
 export interface StepRunResult {
   status?: number | null;
   error?: Error;
 }
 
-// Runs one step; spawnSync fits it.
 export type StepRunner = (
   command: string,
   args: string[],
@@ -111,9 +108,7 @@ export function verificationSteps({
 
   return (
     [
-      // Cheap static gates run first so the most common failures (formatting,
-      // lint, a stale Cargo lock) are reported before the Rust test build starts.
-      // Clippy only type-checks, so it also runs ahead of the test build.
+      // Run static checks first to catch quick failures before the Rust test build.
       bunStep('frontend', 'Check formatting', 'format:check'),
       bunStep('frontend', 'Lint TypeScript and scripts', 'lint'),
       {
@@ -161,8 +156,7 @@ export function verificationSteps({
       bunStep('native', 'Check generated binding freshness', 'check:bindings'),
       bunStep('frontend', 'Type-check TypeScript', 'check:ts'),
       bunStep('frontend', 'Run frontend tests', 'test:unit', ['src']),
-      // Linux covers script behavior too; Windows repeats this boundary because
-      // process shims, paths and packaging scripts have Windows-specific code.
+      // Windows also runs script tests because native shims, paths, and packaging differ by platform.
       bunStep('scripts', 'Run script tests', 'test:unit', ['scripts']),
       bunStep('frontend', 'Check documentation', 'docs:check'),
       {

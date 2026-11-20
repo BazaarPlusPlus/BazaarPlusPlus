@@ -8,23 +8,14 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Writes the BPP version and the self-update status, or else whether the release adapts the
-/// running game (root ADR 0016), into the main-menu version label, the
-/// visible proof that the host loaded and its hooks fire. Observe mode counts the call and leaves
-/// the label alone. The label is kept so that a status the release check publishes later
-/// rewrites it (<see cref="RefreshCurrent"/>).
-/// </summary>
 [HarmonyPatch(typeof(VersionShow), nameof(VersionShow.BuildVersionLabel))]
 internal static class VersionLabelPatch
 {
     private const long LoggedHits = 5;
     private static TextMeshProUGUI? _label;
 
-    /// <summary>The live label's font, which the touch UI borrows; null before the menu loads.</summary>
     public static TMP_FontAsset? Font => IsAlive(_label) ? _label!.font : null;
 
-    /// <summary>Main thread: rewrites the kept label with the current status, if it still lives.</summary>
     public static void RefreshCurrent()
     {
         if (AndroidPatchHost.Mode == AndroidPatchMode.Enabled && IsAlive(_label))
@@ -79,7 +70,6 @@ internal static class VersionLabelPatch
         var hits = AndroidPatchHost.CountVersionLabel();
         try
         {
-            // The interop proxy exposes the private field as a property; no publicizing.
             var label = __instance.versionLabel;
             if (label == null)
             {

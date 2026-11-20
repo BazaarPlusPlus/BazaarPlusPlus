@@ -6,17 +6,7 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Sibling ScreenSpaceOverlay canvas where native CardPreviewBase instances are parented
-// and clipped above the UITK panel. The UITK panel publishes a
-// pixel-space rect each time its grid viewport's geometry changes; this overlay reapplies
-// that rect to its clip RectTransform so the grid scrolls underneath the same hole that
-// the UITK viewport opens.
-//
-// Mirrors item-board preview overlay scaffolding (sortingOrder, RectMask2D, ApplyTransform
-// math). A GraphicRaycaster is added only when the raycaster-hover dispatch path is
-// selected via CollectionGridHostConstants.UsePolledHover = false; under the default
-// (polled hover) the overlay is purely visual and the lower UITK panel receives every
-// click / wheel uninterrupted.
+// Native CardPreviewBase instances need a sibling ScreenSpaceOverlay canvas above the UITK viewport.
 internal sealed class CollectionGridOverlay
 {
     public const int DefaultLayer = 30;
@@ -69,16 +59,9 @@ internal sealed class CollectionGridOverlay
         _canvas.sortingOrder = CollectionGridHostConstants.OverlaySortingOrder;
         _canvas.pixelPerfect = false;
 
-        // CanvasGroup at the overlay root lets the panel cross-fade the entire card layer
-        // in sync with the UITK panel's opacity transition. Starts at 0 because the panel
-        // is created hidden; CollectionPanel.SetAlpha pushes the live value each frame.
         _canvasGroup = _root.AddComponent<CanvasGroup>();
         _canvasGroup.alpha = 0f;
 
-        // Only attach a GraphicRaycaster when the raycaster-hover path is selected. Under
-        // the default (polled hover) the overlay is purely visual: the card prefab's
-        // RawImage has raycastTarget=true, so a raycaster here would silently swallow
-        // every wheel event landing on a card and freeze ScrollView scrolling.
         if (!CollectionGridHostConstants.UsePolledHover)
             _root.AddComponent<GraphicRaycaster>();
 
@@ -98,10 +81,7 @@ internal sealed class CollectionGridOverlay
         boardObject.transform.SetParent(_clipRect, worldPositionStays: false);
         _boardRect = boardObject.GetComponent<RectTransform>();
 
-        // Native item art and tier frames use game shaders that do not consume Unity UI's
-        // RectMask2D clip rectangle. Keep the real mask for standard Images (slot chrome), then
-        // cover only the vertical overflow with foreground panels. The grid has no horizontal
-        // scrolling, so left/right occluders would only risk covering the operation rail.
+        // Native card shaders ignore RectMask2D, so foreground panels cover vertical overflow while the mask clips standard UI Images.
         _bottomOccluder = CreateVerticalOccluder("CollectionPanelOverlayBottomOccluder");
         _topOccluder = CreateVerticalOccluder("CollectionPanelOverlayTopOccluder");
 
@@ -185,8 +165,7 @@ internal sealed class CollectionGridOverlay
         _clipRect.sizeDelta = _clipSize;
         _clipRect.localScale = Vector3.one;
 
-        // Board: pinned to clip top-left with pivot at top-left, so anchoredPosition (x, y)
-        // for cells uses (right of origin, down from origin). y values are negative.
+        // The board's top-left pivot makes downward cell offsets negative in Unity.
         _boardRect.anchorMin = new Vector2(0f, 1f);
         _boardRect.anchorMax = new Vector2(0f, 1f);
         _boardRect.pivot = new Vector2(0f, 1f);

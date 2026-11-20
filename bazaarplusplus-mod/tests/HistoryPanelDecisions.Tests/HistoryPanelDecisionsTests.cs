@@ -5,8 +5,6 @@ using Xunit;
 
 public sealed class HistoryPanelDecisionsTests
 {
-    // The capsule ran these checks first, under the module initializer's neutral English source;
-    // the other classes install their own.
     public HistoryPanelDecisionsTests() => LocalizationTestBootstrap.Install();
 
     private static readonly Assembly coreAssembly =
@@ -193,7 +191,6 @@ public sealed class HistoryPanelDecisionsTests
         );
         AssertButtons(
             BuildButtons(false, false, label, false, true, false, false),
-            // An unavailable replay keeps naming its action; the press explains why.
             replayText: label,
             replayEnabled: false,
             recordText: "Record",
@@ -366,7 +363,6 @@ public sealed class HistoryPanelDecisionsTests
         );
     }
 
-    // History's decisions live in Core; its records and pages in Storage.
     private static Type RequireType(string fullName)
     {
         return coreAssembly.GetType(fullName)

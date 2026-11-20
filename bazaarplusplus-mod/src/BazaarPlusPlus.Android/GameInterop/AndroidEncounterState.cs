@@ -3,12 +3,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The encounter state the touch Collection opens on, the desktop's <c>EncounterStateProbe</c> on
-/// IL2CPP: the run's current encounter and selection set, so both hosts pre-select the same
-/// source for the same game state. Main thread only; Core's services keep
-/// <see cref="AndroidComposition.NoEncounterState"/>, which is safe from any thread.
-/// </summary>
 internal sealed class AndroidEncounterState : IEncounterStateProbe
 {
     public EncounterIdsProbeOutcome GetEncounterIdsOutcome()

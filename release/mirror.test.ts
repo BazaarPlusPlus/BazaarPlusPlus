@@ -19,7 +19,6 @@ const windowsInstaller = (version: string) =>
   `${baseUrl}/${version}/windows-x86_64/installer/BazaarPlusPlus_${version}_x64-setup.exe`;
 const macInstaller = (version: string) =>
   `${baseUrl}/${version}/darwin-aarch64/installer/BazaarPlusPlus_${version}_aarch64.dmg`;
-// Trimmed from the live share pages probed on 2026-09-23.
 const presentPage = (fileName: string) =>
   `<!DOCTYPE html><html><head><title>${fileName} - 蓝奏云</title><meta name="description" content="文件大小：8.6 M"></head><body><div class="n_box_3fn">${fileName}</div></body></html>`;
 const missingPage =
@@ -126,8 +125,6 @@ test('the page probe identifies itself as a desktop browser and reports transpor
   });
 });
 
-// The self-update facts every desktop fragment and Platform Release Manifest
-// carries (manifest.ts); the mirror check reads none of them.
 const selfUpdate = (version: string, platform: string) => ({
   managedPayload: {
     url: `${baseUrl}/${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`,
@@ -179,7 +176,6 @@ function mirrorRecord(version: string, platform: string, url: string) {
   };
 }
 
-// The public release origin plus the share pages, keyed by URL.
 function publicOrigin(
   objects: Record<string, unknown>,
   shares: Record<string, string | null>
@@ -225,8 +221,6 @@ const ANDROID = 'android-aarch64';
 const androidApk = (version: string) =>
   `BazaarPlusPlus_${version}_${ANDROID}.apk`;
 
-// An uploaded Android App fragment, and its Platform Release Manifest with
-// or without a mainland mirror.
 async function androidRelease(version: string) {
   const { fragment } = await uploadAndroid(new MemoryStore(), {
     version,
@@ -406,8 +400,6 @@ test('after promotion the check reads each published platform manifest, which ma
       )
     })
   ).rejects.toThrow(/has no platform manifest yet/);
-  // A platform promoted without a mirror is reported as waived, and the
-  // other platform is still checked.
   const log = vi.fn();
   const waived = await verifyMainlandMirrors({
     baseUrl,

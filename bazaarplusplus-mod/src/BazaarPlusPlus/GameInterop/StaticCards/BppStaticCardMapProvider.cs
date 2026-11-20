@@ -3,11 +3,8 @@ using BazaarGameShared.Domain.Cards;
 
 namespace BazaarPlusPlus.GameInterop.StaticCards;
 
-/// <summary>
-/// Shares the expensive full-card-map load across consumers. A static-data manager gets exactly
-/// one load task for its lifetime, and loads for replacement managers are serialized so two
-/// <c>GetCardMap()</c> calls never read the same SQLite file concurrently.
-/// </summary>
+// Serialize loads across replacement managers because both GetCardMap calls can read the
+// same SQLite file.
 internal sealed class BppStaticCardMapProvider
 {
     private readonly object _syncRoot = new();
@@ -15,20 +12,13 @@ internal sealed class BppStaticCardMapProvider
     private Task<Dictionary<Guid, ITCard>?>? _currentLoad;
     private Task _loadTail = Task.CompletedTask;
 
-    /// <summary>
-    /// Starts or returns the shared load for the currently ready static-data manager. Returns
-    /// <c>null</c> without blocking when static data is not ready yet.
-    /// </summary>
     public Task<Dictionary<Guid, ITCard>?>? BeginLoad(out object? source)
     {
         source = BppStaticDataAccess.TryGetReadyManagerObject();
         return source == null ? null : BeginLoad(source);
     }
 
-    /// <summary>
-    /// Starts or returns the shared load for <paramref name="source"/>. Source identity is by
-    /// reference because each game-data refresh creates a replacement manager instance.
-    /// </summary>
+    // A game-data refresh replaces the manager, so cache loads by reference.
     public Task<Dictionary<Guid, ITCard>?> BeginLoad(object source)
     {
         if (source == null)

@@ -103,8 +103,6 @@ function ShellHeaderActions({
   );
 }
 
-/** App-wide update check; the updater opens its own dialog when a release is
- *  available and reports "already current" through a toast. */
 function ShellUpdateCheck() {
   const { t } = useI18n();
   const updater = useUpdater();
@@ -122,10 +120,7 @@ function ShellUpdateCheck() {
   );
 }
 
-/**
- * The macOS overlay title bar hides its traffic lights in native fullscreen;
- * mirror that state so the header drops the inset reserved for them.
- */
+/** Native macOS fullscreen hides the traffic lights, freeing their header inset. */
 function MacFullscreenWatcher() {
   const [overlayTitlebar] = useState(
     () => document.documentElement.dataset.bppTitlebar === 'overlay'
@@ -167,11 +162,7 @@ function isWindowsTauriRuntime() {
   return hasTauriRuntime() && isWindowsPlatform();
 }
 
-/**
- * Gate, not a wrapper: the hooks that poll native state live in the inner
- * component so they are never scheduled off Windows, where the controls render
- * nothing at all.
- */
+/** Keep native polling hooks unmounted off Windows. */
 function WindowsWindowControls() {
   const [isWindowsRuntime] = useState(isWindowsTauriRuntime);
   if (!isWindowsRuntime) return null;

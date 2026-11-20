@@ -9,7 +9,6 @@ public static class BppSettingsDockOrder
     public const int BilingualItemNames = 2;
     public const int DetailedPreview = 3;
 
-    // The Android host's text size for the Detailed Preview, right under its switch.
     public const int PreviewTextSize = 4;
     public const int EndOfRunScreenshot = 5;
     public const int BazaarDbUpload = 6;
@@ -27,8 +26,6 @@ public static class BppSettingsDockOrder
     public const int GraphicsUpscaling = 18;
     public const int GraphicsUpscalingSharpness = 19;
 
-    // The Android host's own rows: the upgrade preview switch that stands in for the desktop's
-    // hotkey, and the game-update row (a newer game, or a new Android App).
     public const int UpgradePreviewSwitch = 20;
     public const int GameUpdate = 21;
 
@@ -36,7 +33,6 @@ public static class BppSettingsDockOrder
     public const int ShowTenWinBuildsButton = 23;
     public const int AnimatedHeroPortraits = 24;
 
-    // The Android host's switch that keeps the game's frame-rate setting under load.
     public const int FrameRatePriority = 25;
     public const int ChineseTranslationImprovements = 26;
     public const int ClassicHeroSelection = 27;

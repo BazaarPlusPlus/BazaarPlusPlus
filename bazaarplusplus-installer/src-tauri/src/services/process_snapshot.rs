@@ -1,22 +1,13 @@
-//! "Is a process named X running?" without spawning `tasklist`.
-//!
-//! On Windows this walks an in-process toolhelp snapshot instead of launching
-//! the `tasklist` subprocess. That removes the per-call `CreateProcess` +
-//! console-window flash + Defender scan of `tasklist.exe` from the flows that
-//! close Steam (launch-option writes) and guard destructive resets.
+//! Use an in-process snapshot to avoid `tasklist.exe` startup, console flashes, and Defender scans.
 
 #[cfg(target_os = "windows")]
 use anyhow::Context as _;
 
-/// Case-insensitive comparison of a process image name (e.g. `"Steam.exe"`)
-/// against a target (e.g. `"steam.exe"`).
 #[cfg(target_os = "windows")]
 pub(crate) fn image_name_matches(candidate: &str, target: &str) -> bool {
     candidate.eq_ignore_ascii_case(target)
 }
 
-/// Return whether any running process has the given image name. Windows-only;
-/// callers on other platforms use their own probe (e.g. `pgrep`).
 #[cfg(target_os = "windows")]
 pub(crate) fn process_is_running(target: &str) -> anyhow::Result<bool> {
     Ok(running_processes()?
@@ -24,10 +15,7 @@ pub(crate) fn process_is_running(target: &str) -> anyhow::Result<bool> {
         .any(|process| image_name_matches(&process.image_name, target)))
 }
 
-/// Terminate every running process with the given image name and return how
-/// many were killed. Windows-only. Used to clear a game process that outlived
-/// its window and still holds the mod database open; a process that exits on
-/// its own between the snapshot and the kill is not an error.
+/// The Bazaar can outlive its window and keep the mod database open.
 #[cfg(target_os = "windows")]
 pub(crate) fn terminate_processes(target: &str) -> anyhow::Result<u32> {
     use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
@@ -52,14 +40,12 @@ pub(crate) fn terminate_processes(target: &str) -> anyhow::Result<u32> {
     Ok(terminated)
 }
 
-/// One row of a toolhelp process snapshot.
 #[cfg(target_os = "windows")]
 struct ProcessEntry {
     id: u32,
     image_name: String,
 }
 
-/// Owns a Win32 handle and closes it on drop, so no return path leaks it.
 #[cfg(target_os = "windows")]
 struct OwnedHandle(windows::Win32::Foundation::HANDLE);
 
@@ -73,7 +59,6 @@ impl Drop for OwnedHandle {
     }
 }
 
-/// List every running process from one toolhelp snapshot.
 #[cfg(target_os = "windows")]
 fn running_processes() -> anyhow::Result<Vec<ProcessEntry>> {
     use windows::Win32::System::Diagnostics::ToolHelp::{
@@ -106,7 +91,6 @@ fn running_processes() -> anyhow::Result<Vec<ProcessEntry>> {
     Ok(processes)
 }
 
-/// Decode the NUL-terminated UTF-16 `szExeFile` field into a Rust string.
 #[cfg(target_os = "windows")]
 fn image_name_from_entry(
     entry: &windows::Win32::System::Diagnostics::ToolHelp::PROCESSENTRY32W,

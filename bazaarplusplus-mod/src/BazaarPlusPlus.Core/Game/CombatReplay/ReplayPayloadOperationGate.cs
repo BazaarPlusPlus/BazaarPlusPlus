@@ -1,10 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// One exclusive lease over a host's Replay Payload files: saving a battle, the maintenance sweep,
-/// and playback never overlap, so the sweep never sees a payload whose battle row is not saved yet.
-/// </summary>
+/// <summary>The maintenance sweep must wait for persistence to finish writing the payload and its battle row.</summary>
 public sealed class ReplayPayloadOperationGate : IDisposable
 {
     private readonly SemaphoreSlim _exclusive = new(1, 1);
@@ -22,10 +19,6 @@ public sealed class ReplayPayloadOperationGate : IDisposable
         return _exclusive.Wait(0) ? new Lease(_exclusive) : null;
     }
 
-    /// <summary>
-    /// The persistence lease for a caller that must not block, such as a game's main thread:
-    /// null when the gate stays held for <paramref name="timeout"/>.
-    /// </summary>
     public IDisposable? TryAcquirePersistence(TimeSpan timeout)
     {
         ThrowIfDisposed();

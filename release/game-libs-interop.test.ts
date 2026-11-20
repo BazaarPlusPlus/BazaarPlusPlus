@@ -47,14 +47,6 @@ import { WORKSPACE_ROOT } from './product.ts';
 import type { PutFileOptions, PutOptions } from './r2-store.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
 
-// The Android half of the Snapshot Lock (ADR 0008). Failure modes: an APK
-// whose versionName is not an android production build, a first capture that
-// names no toolchain, interop generated for another Unity version, a capture
-// on a host that cannot run the Patcher without --interop, a stored input
-// whose bytes differ from the lock, a local interop directory that drifted
-// from its entry, and a stored interop archive that a Linux fetch would
-// extract to other files than the lock records.
-
 const ANDROID_VERSION = '1.0.12825-production-android-d9601ded';
 const UNITY_VERSION = '6000.3.11f1';
 const NOW = new Date('2026-10-22T12:00:00.000Z');
@@ -78,8 +70,6 @@ function write(file: string, bytes: string | Buffer): void {
   fs.writeFileSync(file, bytes);
 }
 
-// A compiled AndroidManifest.xml: XML chunk, UTF-16 string pool, and one
-// <manifest> start element carrying versionCode (int) and versionName.
 function binaryManifest({ versionName, versionCode }: AndroidManifestVersion) {
   const strings = ['versionCode', 'versionName', 'manifest', versionName];
   const encoded = strings.map((value) => {
@@ -394,7 +384,6 @@ test('a first capture records the APK, the interop digest and the named toolchai
     },
     capturedAt: NOW.toISOString()
   });
-  // The digest covers the generator's databases and manifest, not only DLLs.
   expect(fs.readdirSync(interop).sort()).toEqual([
     'Assembly-CSharp.dll',
     'Il2CppBazaarGameShared.dll',
@@ -409,7 +398,6 @@ test('a first capture records the APK, the interop digest and the named toolchai
       )
     )
   ).toBe(true);
-  // A desktop build never compiles against the Android entry.
   expect(managedEntries(readGameLibsLock(ws.workspaceRoot))).toEqual([]);
   expect(
     checkGameLibsLock({ workspaceRoot: ws.workspaceRoot, now: NOW }).interop
@@ -494,7 +482,6 @@ test('publish stores every pinned input by content; fetch restores interop and l
   expect(
     store.objects.get(androidInputKey('loader', entry.loader.sha256))
   ).toEqual(fs.readFileSync(tools.loader));
-  // Republishing reads nothing it already stored.
   logs.length = 0;
   await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
@@ -510,7 +497,6 @@ test('publish stores every pinned input by content; fetch restores interop and l
     `Already stored and verified: ${interopBlobKey(entry.interopSha256)}`
   );
 
-  // A fresh clone: nothing under game-libs/ but the lock.
   fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
   const fetched = await fetchInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
@@ -523,7 +509,6 @@ test('publish stores every pinned input by content; fetch restores interop and l
   expect(fetched.loaderPath).toBe(
     path.join(ws.modRoot, 'game-libs', 'loader-v0.7.4-android.4')
   );
-  // Satisfied locally, a second fetch needs no store.
   expect(
     (
       await fetchInteropSnapshot({
@@ -545,7 +530,6 @@ test('publish stores every pinned input by content; fetch restores interop and l
   });
   expect(sha(fs.readFileSync(apk))).toBe(entry.apkSha256);
 
-  // A stored input whose bytes differ from the lock is refused.
   store.objects.set(
     androidInputKey('cpp2il', entry.cpp2ilSha256),
     Buffer.from('swapped')
@@ -567,9 +551,7 @@ test('publish replaces a stored interop archive that would extract to other file
   await firstCapture(ws, root);
   const entry = ws.entry()!;
   const key = interopBlobKey(entry.interopSha256);
-  // What macOS tar packs without COPYFILE_DISABLE: an AppleDouble sidecar
-  // per file, which macOS tar hides on listing and extraction but GNU tar
-  // extracts beside the proxies. A regular file by that name stands in.
+  // macOS tar hides AppleDouble sidecars that GNU tar extracts. A regular file simulates one.
   const stale = tempRoot('bpp-interop-stale-');
   const copy = path.join(stale, 'interop');
   fs.cpSync(path.join(root, 'interop'), copy, { recursive: true });
@@ -607,7 +589,6 @@ test('publish replaces a stored interop archive that would extract to other file
     'interop/interop-manifest.json'
   ]);
 
-  // A second publish reads the archive back and keeps it.
   logs.length = 0;
   await publishInteropSnapshot({
     workspaceRoot: ws.workspaceRoot,
@@ -619,7 +600,6 @@ test('publish replaces a stored interop archive that would extract to other file
   expect(logs).toContain(`Already stored and verified: ${key}`);
   expect(fs.readFileSync(replaced).equals(store.objects.get(key)!)).toBe(true);
 
-  // A fetch never extracts such an archive, whatever the host's tar does.
   store.objects.set(key, fs.readFileSync(archive));
   fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
   await expect(
@@ -785,7 +765,6 @@ test('the official APK reads as changed when its length or its recorded ETag dif
     `The locked APK ${apkKey} is not in the store`
   );
   store.objects.set(apkKey, Buffer.alloc(10));
-  // A manual capture recorded no ETag: sizes alone decide.
   expect(await check(head(10, '"v2"'))).toMatchObject({
     changed: false,
     officialSize: 10,
@@ -794,7 +773,6 @@ test('the official APK reads as changed when its length or its recorded ETag dif
   });
   expect((await check(head(11))).changed).toBe(true);
 
-  // Recording needs the locked bytes, so another file never takes its place.
   await expect(
     recordApkEtag({
       workspaceRoot: ws.workspaceRoot,
@@ -806,19 +784,12 @@ test('the official APK reads as changed when its length or its recorded ETag dif
   expect(ws.entry()!.apkEtag).toBe('v1');
   expect((await check(head(10, '"v1"'))).changed).toBe(false);
   expect((await check(head(10, '"v2"'))).changed).toBe(true);
-  // A weak or missing ETag names no bytes, so it never matches a recorded one.
   expect((await check(head(10, 'W/"v1"'))).changed).toBe(true);
   expect((await check(head(10, null))).changed).toBe(true);
 
-  // A publisher that cannot answer never reads as unchanged.
   await expect(check(head(10, '"v1"', false))).rejects.toThrow(/answered 503/);
   await expect(check(head(null))).rejects.toThrow(/no Content-Length/);
 });
-
-// ---------------------------------------------------------------------------
-// The CLI as bazaarplusplus-mod/scripts/game.sh and android-apk-watch.yml call
-// it: the exact stdout (results only), the exit code (0 or 1), logs and errors
-// on stderr, and what the verb wrote to the lock and the private store.
 
 interface CliRun {
   code: number;
@@ -846,8 +817,7 @@ const noStore = () => {
   throw new Error('this step must not need the private store');
 };
 
-// A first capture through the CLI, every toolchain file named, from a compact
-// lock so that the writer, not the test, gives the file its format.
+// Give the writer a compact lock so this fixture cannot supply the expected formatting.
 async function cliFirstCapture(ws: ReturnType<typeof workspace>, root: string) {
   write(
     path.join(ws.workspaceRoot, GAME_LIBS_LOCK_PATH),
@@ -1013,7 +983,6 @@ test('snapshot-android as the APK watch runs it: only the APK and its ETag, the 
       )
     ).code
   ).toBe(0);
-  // The runner starts with nothing under game-libs/.
   fs.rmSync(path.join(ws.modRoot, 'game-libs'), { recursive: true });
   const nextVersion = '1.0.12900-production-android-0badc0de';
   const apk = fakeApk(path.join(root, 'next.apk'), {
@@ -1050,9 +1019,7 @@ test('snapshot-android as the APK watch runs it: only the APK and its ETag, the 
   });
 }, 60000);
 
-// A Google Play install as `pm path` lists it: the base APK holds the manifest,
-// the metadata and data.unity3d; the ABI split holds libil2cpp.so and a
-// manifest of its own, which the capture must not read.
+// Play's ABI split has a second manifest. Only the base APK supplies the version.
 function fakePlayApks(root: string, il2cpp = 'il2cpp play') {
   const base = path.join(root, 'base.apk');
   const split = path.join(root, 'split_config.arm64_v8a.apk');
@@ -1135,10 +1102,8 @@ test("snapshot-android records a Google Play base APK and its split as android-p
     cpp2ilSha256: publisher.cpp2ilSha256,
     nativeLibs: publisher.nativeLibs
   });
-  // The publisher entry is untouched.
   expect(ws.entry()).toEqual(publisher);
 
-  // Publish stores both APKs; a device fetches them base first.
   expect(
     (
       await runCli(['publish', '--platform', 'android', '--channel', 'play'], {
@@ -1175,7 +1140,6 @@ test('a split set must hold each generation input in exactly one APK', async () 
   const root = tempRoot('bpp-interop-play-');
   await firstCapture(ws, root);
   const { base } = fakePlayApks(root);
-  // A second base: data.unity3d and the metadata are in both APKs.
   const twice = path.join(root, 'twice.apk');
   fs.copyFileSync(base, twice);
   await expect(
@@ -1265,12 +1229,9 @@ test('a downloaded APK is captured when its bytes differ and has its ETag record
   const other = 'b'.repeat(64);
   expect(downloadedApkKind(locked, locked.apkSha256, 'v1')).toBe('none');
   expect(downloadedApkKind(locked, locked.apkSha256, 'v2')).toBe('etag');
-  // Without a strong ETag there is nothing to record.
   expect(downloadedApkKind(locked, locked.apkSha256, null)).toBe('none');
-  // Other bytes are a capture whatever the ETag says.
   expect(downloadedApkKind(locked, other, 'v1')).toBe('capture');
   expect(downloadedApkKind(locked, other, null)).toBe('capture');
-  // A manual capture recorded no ETag: the first strong one is recorded.
   const manual = { ...locked, apkEtag: null };
   expect(downloadedApkKind(manual, locked.apkSha256, 'v1')).toBe('etag');
   expect(downloadedApkKind(manual, locked.apkSha256, null)).toBe('none');
@@ -1332,7 +1293,6 @@ test('downloaded-apk prints what the watch does with the download', async () => 
     etag: 'abcdefghij',
     etagBranch: null
   });
-  // The branch names the game's versionCode and the first 8 ETag characters.
   expect(await downloaded(apk, '"0123456789abcdef"')).toEqual({
     ...locked,
     kind: 'etag',

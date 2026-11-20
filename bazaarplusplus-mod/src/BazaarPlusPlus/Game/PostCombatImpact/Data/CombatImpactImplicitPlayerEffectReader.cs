@@ -40,9 +40,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
             )
                 continue;
 
-            // Combat-only PlayerEffects carry no template id in replay payloads. Reconstruct
-            // one only when the complete observed effect signature selects exactly one static
-            // PlayerEffect template; ambiguity or a partial signature safely stays unresolved.
+            // Replay payloads omit the template ID for combat-only PlayerEffects, so only a unique, complete effect signature identifies one.
             var matches = candidates
                 .Where(candidate => candidate.Matches(observation))
                 .Take(2)
@@ -178,10 +176,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
             if (template is IHasTierData tiered)
                 return tiered.GetAbilityTemplatesByTier(tier).ToArray();
         }
-        catch
-        {
-            // Fall through to the complete template graph when tier data is incomplete.
-        }
+        catch { }
         return template.Abilities.Values.ToArray();
     }
 
@@ -192,10 +187,7 @@ internal static class CombatImpactImplicitPlayerEffectReader
             if (template is IHasTierData tiered)
                 return tiered.GetAuraTemplatesByTier(tier).ToArray();
         }
-        catch
-        {
-            // Fall through to the complete template graph when tier data is incomplete.
-        }
+        catch { }
         return template.Auras.Values.ToArray();
     }
 

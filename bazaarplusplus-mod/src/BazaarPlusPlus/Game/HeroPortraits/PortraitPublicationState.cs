@@ -2,8 +2,7 @@
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-// Keep the native sprite through the frame that activates masks and native renderers.
-// A real frame boundary, rather than a second callback in the same frame, publishes them.
+// Keep the native sprite through an actual frame boundary while masks and native renderers activate.
 internal sealed class PortraitPublicationState
 {
     private int? _stagedFrame;

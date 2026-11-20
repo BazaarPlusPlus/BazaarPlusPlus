@@ -62,11 +62,6 @@ public sealed record CombatImpactUseAttributionRule(
     int FixedTempoAmount
 );
 
-/// <summary>
-/// The producer's ledger entity (ADR-0019): the facts that attribution reads (attributes, tags,
-/// modifiers, rules) and the native card preview renders (hero, tier, enchantment), in BPP
-/// vocabulary. A host adapter builds it from its game build's card templates.
-/// </summary>
 public sealed record CombatImpactEntity(
     string Id,
     string Name,

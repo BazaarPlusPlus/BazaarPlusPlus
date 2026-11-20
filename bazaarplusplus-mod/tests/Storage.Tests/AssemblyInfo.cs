@@ -1,5 +1,4 @@
 using Xunit;
 
-// Every test ends with SqliteConnection.ClearAllPools(), which clears the process-wide pool
-// another test may be using, so the tests run one at a time as the console runner did.
+// Run serially because SqliteConnection.ClearAllPools() can clear another test's connection pool.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

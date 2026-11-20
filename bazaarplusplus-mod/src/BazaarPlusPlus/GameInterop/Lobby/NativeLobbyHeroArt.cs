@@ -19,7 +19,7 @@ internal sealed record NativeLobbyHeroArt(
     private const string PortraitPath = "Assets/TheBazaar/Art/MainMenu/HeroSelect/Hero/Button/";
     private const string SelectionPath = "Assets/TheBazaar/Art/UI/Buttons/Heroes/";
 
-    // Tints serialized on the old lobby's gradient, name label and random toggle label.
+    // These values come from the game's lobby gradient, name label and random toggle label.
     internal static readonly Color32 BackdropTint = new(20, 5, 45, 178);
     internal static readonly Color32 SelectedNameInk = new(254, 213, 172, 255);
     internal static readonly Color32 RandomLabelInk = new(235, 158, 80, 255);

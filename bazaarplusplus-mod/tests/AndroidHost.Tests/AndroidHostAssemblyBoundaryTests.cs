@@ -7,13 +7,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android host compiles against the Loader Release, the Interop Snapshot, and the shared
-/// assemblies (ADR-0012). A reference to BepInEx or to the desktop host assembly would load
-/// nothing on a device, and a linked desktop source would fork shared code, so both are caught
-/// here, over the compiled artifact, rather than by a failed launch. The one linked source is the
-/// Mobile UI tree (ADR-0025), which reaches the host only through its Mobile Platform Port.
-/// </summary>
+// The host's loader cannot resolve desktop dependencies on device. Inspect compiled references here.
 public sealed class AndroidHostAssemblyBoundaryTests
 {
     private static readonly string[] SharedAssemblies =
@@ -46,18 +40,13 @@ public sealed class AndroidHostAssemblyBoundaryTests
 
     private const string MobileTree = "BazaarPlusPlus.Mobile";
 
-    // The port, its holder, art records and panel handle, the theme, the kit and leaves #701
-    // steps 2 and 3 moved, Ten-Win Builds, Collection, History, the HUD, the preview switches and
-    // enchant preview, and Screen Fill; a dropped <Compile Include> of the tree leaves fewer, so
-    // the rules over the tree cannot pass on nothing.
+    // Require the Mobile UI types so a dropped compile include cannot make the boundary rules pass.
     private const int MinimumMobileTreeTypes = 62;
 
     [Fact]
     public void Android_host_defines_only_its_own_types()
     {
-        // A Compile-Include of a Core or desktop file keeps that file's namespace, so any BPP type
-        // outside BazaarPlusPlus.Android is a linked source that should come from Core; the Mobile
-        // UI tree is the one linked source (ADR-0025).
+        // Linked source retains its original namespace, so namespace checks expose stray compile includes.
         using var reader = OpenHost();
         var metadata = reader.GetMetadataReader();
         var namespaces = metadata
@@ -88,9 +77,6 @@ public sealed class AndroidHostAssemblyBoundaryTests
     [Fact]
     public void Mobile_tree_reaches_the_android_host_only_through_its_port()
     {
-        // ADR-0025 decision 3: the Mobile UI reaches the host through IMobilePlatformPort, whose
-        // implementation the host installs, so the tree stays one seam away from the host's
-        // IL2CPP adapters.
         var host = CompiledAssembly.Load(HostPath());
         var tree = host.Types.Where(type => IsIn(type.Namespace, MobileTree)).ToArray();
         Assert.True(
@@ -117,9 +103,6 @@ public sealed class AndroidHostAssemblyBoundaryTests
     [Fact]
     public void Tooltip_preview_adapters_leave_the_play_rules_to_the_mobile_ui()
     {
-        // The Mobile UI decides from the port's play state (Core's TouchPlayState) when the
-        // switches, the enchant preview and the upgrade preview apply; the adapters only read the
-        // tooltip. The port itself reads all three facts, so the rule's targets resolve.
         var host = CompiledAssembly.Load(HostPath());
         CompiledType Type(string name) =>
             host.Types.SingleOrDefault(type => type.FullName == name)
@@ -167,8 +150,6 @@ public sealed class AndroidHostAssemblyBoundaryTests
     [Fact]
     public void Android_updater_references_only_melonloader_and_the_bcl()
     {
-        // ADR-0014: the Updater runs before the Mods it replaces load, and a changed Updater
-        // reaches users only through a new APK.
         using var reader = Open("BppUpdaterAssembly");
         var metadata = reader.GetMetadataReader();
         var foreign = metadata

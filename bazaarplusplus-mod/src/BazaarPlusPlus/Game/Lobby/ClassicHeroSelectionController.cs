@@ -19,7 +19,6 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
     private const float GlowTransitionSeconds = .14f;
     private const float GlowHiddenScale = .95f;
 
-    // Slot centers in the lobby canvas. The second row sits between the outer rows' columns.
     private static readonly (EHero Hero, float X, float Y)[] Slots =
     [
         (EHero.Pygmalien, 164f, -120f),

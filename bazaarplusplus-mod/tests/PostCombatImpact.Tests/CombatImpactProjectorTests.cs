@@ -3526,8 +3526,7 @@ public sealed partial class CombatImpactProjectorTests
     [Fact]
     public void Trigger_sources_count_only_executed_effects()
     {
-        // The timeline carries no condition observations: the host adapters drop the game's
-        // triggered-without-executed events (CombatImpactAdapter.Tests pins that).
+        // The host adapters drop triggered-without-executed events, leaving no condition observations in the timeline.
         var simulation = new CombatTimeline();
         simulation
             .Frames[0]

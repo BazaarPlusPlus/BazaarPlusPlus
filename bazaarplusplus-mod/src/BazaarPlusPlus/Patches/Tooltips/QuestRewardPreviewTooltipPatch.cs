@@ -29,7 +29,6 @@ internal static class QuestRewardPreviewTooltipPatch
     > DescriptionLayoutBaselines = new();
     private static readonly List<ActivePreviewPresentation> ActivePreviewPresentations = new();
 
-    // An entry's text or layout was restored or rewritten since its group last laid out.
     private static bool LayoutDirty;
 
     [HarmonyPostfix]
@@ -101,11 +100,6 @@ internal static class QuestRewardPreviewTooltipPatch
         }
     }
 
-    /// <summary>
-    /// Whether a quest entry's height may have changed since the last call: only then does its
-    /// group need the forced layout rebuild. A restore counts, or a pooled entry keeps the
-    /// previous card's height.
-    /// </summary>
     internal static bool ConsumeLayoutDirty()
     {
         var dirty = LayoutDirty;
@@ -133,7 +127,6 @@ internal static class QuestRewardPreviewTooltipPatch
 
     private static void RestoreNativeTextLayout(TMP_Text descriptionText)
     {
-        // Either one: the entry showed the preview, or its layout was the preview's.
         if (
             RestoreNativeTextLayoutCore(descriptionText)
             | ForgetPreviewPresentation(descriptionText)
@@ -141,7 +134,6 @@ internal static class QuestRewardPreviewTooltipPatch
             LayoutDirty = true;
     }
 
-    // True when it wrote the margin or the line spacing back.
     private static bool RestoreNativeTextLayoutCore(TMP_Text descriptionText)
     {
         var restored = false;
@@ -185,7 +177,6 @@ internal static class QuestRewardPreviewTooltipPatch
         ActivePreviewPresentations.Add(new ActivePreviewPresentation(descriptionText, nativeText));
     }
 
-    // True when it forgot a presentation of descriptionText itself.
     private static bool ForgetPreviewPresentation(TMP_Text descriptionText)
     {
         var forgot = false;
@@ -251,11 +242,8 @@ internal static class QuestRewardPreviewTooltipPatch
         );
 }
 
-// QuestDisplayService only rebuilds the outer quest-group parent after populating its rows.
-// Our entry postfix applies the preview layout or restores the native baseline after each native
-// SetData call, so pooled entries can retain the previous card's height in either transition.
-// Rebuild the group once all entries have been populated, and only when one of them made either
-// transition; the native outer-parent rebuild that follows then consumes the corrected sizes.
+// QuestDisplayService only rebuilds the outer parent. Rebuild this group after SetData
+// so the next outer pass sees corrected heights for rewritten or restored pooled entries.
 [HarmonyPatch(typeof(TooltipQuestGroup), nameof(TooltipQuestGroup.SetData))]
 internal static class QuestRewardPreviewQuestGroupLayoutPatch
 {

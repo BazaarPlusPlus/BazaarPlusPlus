@@ -6,10 +6,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The pedestal rule both hosts apply under <c>[EnchantPreview] Mode</c>: which pedestal a
-/// template id is, what a screen of them offers, and when the preview shows for which enchantments.
-/// </summary>
 public sealed class PedestalVisibilityTests
 {
     private static readonly Guid Deadly = new("48462c74-567d-4e1e-a441-f0fa62617e47");

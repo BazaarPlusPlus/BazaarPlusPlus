@@ -13,7 +13,6 @@ import android from './fixtures/latest/android-aarch64.json' with { type: 'json'
 
 type AndroidManifest = typeof android;
 type AndroidRecord = AndroidManifest['downloads']['android-aarch64'];
-// A record a case breaks: it may drop the game fields the decoder requires.
 type BrokenAndroidRecord = Omit<AndroidRecord, 'game'> & {
   game: Partial<AndroidRecord['game']>;
 };
@@ -65,7 +64,6 @@ test('consumers read the Android App, Managed Payload, Interop Package and game 
     ],
     mainlandUrl: record.mainlandUrl
   });
-  // The mainland mirror is optional: a release promoted without one has none.
   const { mainlandUrl: _mirror, ...unmirrored } = record;
   expect(
     decodeAndroidDownload({

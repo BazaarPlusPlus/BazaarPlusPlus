@@ -5,13 +5,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// A non-additive scene load unloads assets no live object references; History's badge atlases
-/// are runtime textures, so both the texture and each sprite opt out of that unload (a replay's
-/// round trip otherwise left the run rows on their "?" fallback). The atlas needs interop objects
-/// (ADR-0016), so the compiled calls are held here (ADR-0009: compiled artifacts, never source
-/// text).
-/// </summary>
+// Non-additive scene loads unload the runtime badge atlas unless both its sprites and texture opt out.
 public sealed class AndroidHistoryBadgeArtworkTests
 {
     private const string Badges = "BazaarPlusPlus.Mobile.History.TouchHistoryBadges";
@@ -36,11 +30,7 @@ public sealed class AndroidHistoryBadgeArtworkTests
         Assert.Equal(2, hideFlags);
     }
 
-    /// <summary>
-    /// History's atlases and the touch controls' artwork keep no CPU copy of their pixels: the
-    /// texture is applied as no longer readable, and only after its sprites are cut, because a
-    /// sprite's mesh is read from those pixels.
-    /// </summary>
+    // Cut sprites before dropping the CPU texture copy because their meshes read those pixels.
     [Theory]
     [InlineData(Badges, "LoadAtlas")]
     [InlineData("BazaarPlusPlus.Mobile.Hud.TouchHudIcons", "GpuOnlySprite")]

@@ -17,8 +17,7 @@ using Xunit;
 
 public sealed class HistoryPanelFilteringTests : IDisposable
 {
-    // The capsule ran every check on one UI context it installed first. Each test gets its own
-    // and installs it on its own thread, after xUnit has set its context.
+    // Install each test's UI context after xUnit installs its own.
     private readonly TestUiContext uiContext = new();
 
     public void Dispose() => uiContext.Dispose();
@@ -136,7 +135,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         }
         catch (IOException) { }
         Assert(!refresh.CanAct, "A failed render must remain dirty for retry.");
-        // Hidden hosts do not flush. A reopen requests and immediately renders the latest state.
         state.StatusMessage = "completed while hidden";
         refresh.Request();
         refresh.Flush(Render);
@@ -245,10 +243,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
-    // An accepted replay arms the return before it hides the panel; the coordinator brings the panel
-    // back once no saved replay session remains and the lobby is active (a null runtime keeps it
-    // waiting), resuming the selection and filters. A show that does not open keeps the return for
-    // the next tick; a cancel drops it, and the next open is an ordinary one.
     [Fact]
     public void TestAcceptedReplayReturnsWithSelection()
     {
@@ -298,7 +292,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         SavedReplaysStub? savedReplays = null;
         var lobbyActive = false;
         HistoryPanelCoordinator? coordinator = null;
-        // The host's side: its hide closes the panel and its show, when it opens, begins a session.
         var port = new HistoryPanelReplayReturnPort(
             () =>
             {
@@ -340,7 +333,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         void UntilDetail(string battleId) =>
             uiContext.Until(() => state.DetailBattleId == battleId && !state.DetailLoading);
 
-        // The dependencies' profile reads no account: exercise the panel as a signed-out client.
         try
         {
             Assert(!coordinator.OnPanelShown(), "An ordinary open must not resume a selection.");
@@ -395,7 +387,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             coordinator.TickHidden();
             Assert(shows == 1, "A consumed return must not show the panel again.");
 
-            // A show that does not open (a combat, a missing font) keeps the return for the next tick.
             showOpens = false;
             ReplaySelected();
             coordinator.TickHidden();
@@ -436,9 +427,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         }
     }
 
-    // The delete and favorite buttons dispatch by section inside the coordinator: Favorites removes
-    // the selected favorite or hands its note to the host's dialog, every other section deletes the
-    // selected run or favorites the active battle, and nothing selected does nothing.
     [Fact]
     public void TestDeleteAndFavoriteDispatchBySection()
     {
@@ -523,12 +511,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
-    // A confirmed run delete and a favorite removal run their SQLite and file work off the caller's
-    // thread. Until a delete publishes, its run stays listed, Delete is disabled and nothing may start
-    // loading the run's replays; then the run leaves the list through the same reload a synchronous
-    // delete used. A delete cannot be cancelled, so one that crosses a close and reopen still owns its
-    // flag and still reloads the open list. A removal that finishes after the user left Favorites
-    // does not load its page into the open section.
     [Fact]
     public void TestDeleteLeaseFailurePaths()
     {
@@ -787,7 +769,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         void SelectRun(string runId)
         {
             coordinator.SelectRun(state.Runs.ToList().FindIndex(run => run.RunId == runId));
-            // The run's battle page, its detail and its favorite check have all published.
             uiContext.Until(() =>
                 state.GetSelectedBattle() is { } battle
                 && battle.RunId == runId
@@ -873,8 +854,7 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             );
             replayResult.SetCanceled();
             uiContext.Until(() => pendingReplay.IsCompleted);
-            // Blocking, as the capsule did: an await would post its continuation to the UI
-            // context, which only Until pumps.
+            // An await would post its continuation to the UI context, which only Until pumps.
 #pragma warning disable xUnit1031
             coordinator
                 .TryReplaySelectedBattleAsync(state.GetSelectedBattle(), recordVideo: false)
@@ -910,8 +890,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
                 "The completion frame must release the delete busy state."
             );
 
-            // A delete that crosses a close and reopen keeps its flag, then reloads the open list and
-            // drops its pending line.
             SelectRun("run-late");
             coordinator.DeleteSelected();
             coordinator.DeleteSelected();
@@ -930,7 +908,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
                 "A delete finishing in the next session must reload the list and clear its line."
             );
 
-            // A removal finishing after the user left Favorites publishes nothing into Runs.
             coordinator.SetSectionMode(HistorySectionMode.Favorites);
             uiContext.Until(() => !state.PageLoading && !state.DetailLoading);
             Assert(state.Favorites.Count == 1, "The scenario's favorite must list.");
@@ -964,8 +941,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         }
     }
 
-    // A host that records no video (Android) has no MP4 to keep: its delete prompt does not promise
-    // one, and the desktop's, which records, still does.
     [Fact]
     public void TestDeletePromptMentionsMp4OnlyWhereTheHostRecords()
     {
@@ -1047,8 +1022,7 @@ public sealed class HistoryPanelFilteringTests : IDisposable
                 Invoke(coordinatorType, coordinator, "Tick", 0f);
                 Assert(syncAttempts() == 2, "An unchanged account must not sync again.");
 
-                // The tick reads the profile once a second, not every frame: a scenario that needs a
-                // second observation advances the clock by at least a second.
+                // Advance the clock because the tick polls the profile once a second.
                 FakeClientCache.SetAccountId("account-switched");
                 Invoke(coordinatorType, coordinator, "Tick", 0.5f);
                 Assert(
@@ -1122,8 +1096,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             "Ghost",
             (state, coordinator, syncAttempts) =>
             {
-                // The signed-out Ghost read is still in flight when the account-link row reads the
-                // profile; that read must not strand the list in its loading state.
                 Invoke(coordinatorType, coordinator, "OnPanelShown");
                 Assert(
                     syncAttempts() == 1,
@@ -1182,8 +1154,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
-    // A sync cancelled by its session returns without touching state, so each session boundary must
-    // reset the phase; otherwise the next entry reports "already running" and never syncs again.
     [Fact]
     public void TestSessionBoundariesRestartACancelledSync()
     {
@@ -1212,8 +1182,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
-    // ObserveAccount cancels the old account's sync and starts the new one before the cancelled request
-    // has unwound; the new sync must wait for it instead of failing as already running.
     [Fact]
     public void TestAccountChangeMidSyncSyncsTheNewAccount()
     {
@@ -1237,8 +1205,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
-    // The cancelled request is still unwinding when the new session starts its sync, so that sync first
-    // waits in place; once the UI context lets the old request finish, the new one reaches the server.
     private void AssertSyncRestarted(object state, Func<int> syncAttempts, string when)
     {
         Assert(
@@ -1279,9 +1245,7 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         return GetString(status, "EmptyMessage")!;
     }
 
-    // A History capsule whose game profile is a settable fake and whose Ghost sync service counts
-    // attempts: the account resolver runs once per sync. By default it reports no identity, so the sync
-    // fails before any request; holdSync supplies one and holds the request until its session ends.
+    // holdSync supplies an identity so the request reaches the transport and can wait for cancellation.
     private void WithProfileCapsule(
         string section,
         Action<object, IDisposable, Func<int>> body,
@@ -1326,7 +1290,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             (Func<Guid, bool>)(_ => true)
         );
         var dataService = Construct(dataServiceType, repository, syncService);
-        // The profile account is the settable fake; the BazaarDB link hints stay in memory.
         var linkHints = new HashSet<string>();
         var dependencies = Dependencies(
             dataService,
@@ -1367,9 +1330,7 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         }
     }
 
-    // Closing a panel discards publication, but a Task.Run database read may still own its SQLite
-    // handle. Teardown must pump the UI context until those reads return before deleting the file.
-    // Reflection is confined to fixture cleanup; the scenarios exercise the coordinator's API.
+    // Pump the UI context before deleting the database file so pending reads can release SQLite.
     private void DisposeAndDrainReads(IDisposable coordinator)
     {
         coordinator.Dispose();
@@ -1418,7 +1379,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             ) ?? throw new InvalidOperationException("HistoryRunRecord should construct.");
     }
 
-    // Rows come from Core, so the desktop and Android rows read the same.
     [Fact]
     public void TestGhostRowMarksOnlyTheFinalBattle()
     {
@@ -1448,8 +1408,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         );
     }
 
-    // The Ghost page reads the player's favorites with it: the Ghost whose challenger fought the
-    // favorited build leads its meta with the mark, a Ghost one victory off does not.
     [Fact]
     public void TestGhostPageMarksTheFavoriteBuildItsChallengerFought()
     {
@@ -1798,14 +1756,11 @@ public sealed class HistoryPanelFilteringTests : IDisposable
         return (string?)property.GetValue(instance);
     }
 
-    // History's services live in Core and its SQL, records and pages in Storage.
     private static Type RequireType(string fullName) =>
         coreAssembly.GetType(fullName)
         ?? storageAssembly.GetType(fullName)
         ?? throw new InvalidOperationException($"{fullName} should exist.");
 
-    // The coordinator's dependencies with the host ports a test supplies: the profile account (none
-    // by default), a clock, in-memory BazaarDB link hints, and a replay service where a test replays.
     private static HistoryPanelDependencies Dependencies(
         object dataService,
         Func<string?>? profileAccountId = null,
@@ -1824,7 +1779,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
             profileAccountId ?? (() => null)
         );
 
-    // A replay return the scenario never arms.
     private static HistoryPanelReplayReturnPort NoReplayReturn() =>
         new(() => { }, () => { }, () => null, () => false);
 
@@ -1846,7 +1800,6 @@ public sealed class HistoryPanelFilteringTests : IDisposable
     }
 }
 
-// Stands in for the game's client-cache profile the host's account port reads.
 internal static class FakeClientCache
 {
     public static FakeObservable Profile { get; } = new();
@@ -1880,9 +1833,7 @@ internal sealed class HoldingHandler : HttpMessageHandler
     )
     {
         var pending = new TaskCompletionSource<HttpResponseMessage>();
-        // Like a real transport, a cancelled request unwinds after the session boundary returns: the
-        // cancellation completes only when the test next pumps the UI context, so History starts the
-        // next sync while the cancelled one still holds the Ghost sync service.
+        // Delay cancellation until the next UI pump so the old request still owns the sync service.
         cancellationToken.Register(() =>
         {
             if (SynchronizationContext.Current is { } context)
@@ -1894,7 +1845,6 @@ internal sealed class HoldingHandler : HttpMessageHandler
     }
 }
 
-// The Ghost sync service's game-typed reads; these tests never download a replay.
 internal sealed class UnusedPvpBattleEvidence : IPvpBattleEvidenceBinding
 {
     public static UnusedPvpBattleEvidence Instance { get; } = new();
@@ -1909,7 +1859,6 @@ internal sealed class UnusedPvpBattleEvidence : IPvpBattleEvidenceBinding
         throw new InvalidOperationException("History filtering tests verify no replay.");
 }
 
-// Every replay is accepted; the scenarios never reach a recorder or a payload.
 internal sealed class AcceptingReplay : IHistoryPanelReplay
 {
     public bool RecordingSupported { get; init; }
@@ -1969,7 +1918,6 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
             ?? Task.FromResult(HistoryPanelReplayAttemptResult.Success("replay started"));
     }
 
-    // The battles whose payloads a delete asked to clean, in order.
     public List<string> CleanedBattleIds { get; } = [];
 
     public ReplayPayloadCleanupResult CleanupReplayPayloads(IReadOnlyList<string> battleIds)
@@ -1981,7 +1929,6 @@ internal sealed class AcceptingReplay : IHistoryPanelReplay
     public string GetReplayActionLabel(HistoryBattleRecord? battle) => "Replay";
 }
 
-// The host's saved-replay runtime as the return reads it: only whether a session is running.
 internal sealed class SavedReplaysStub : ISavedReplayRuntime
 {
     public bool HasSavedReplaySession { get; set; }

@@ -4,17 +4,6 @@ using BazaarPlusPlus.Mobile.Previews;
 
 namespace BazaarPlusPlus.Mobile.Hud;
 
-/// <summary>What a host hands the HUD.</summary>
-/// <param name="OpenCollection">Opens Collection with the open's source.</param>
-/// <param name="OpenLiveBuild">Opens Ten-Win Builds, or null when the host has none.</param>
-/// <param name="Clock">The combat clock's state, or null for no clock.</param>
-/// <param name="Previews">
-/// The item tooltip's preview switches, which the HUD ticks, clears on a scene change and
-/// disposes; null for none.
-/// </param>
-/// <param name="ScreenFill">
-/// Screen Fill, which the HUD ticks and whose board top the clock follows; null for none.
-/// </param>
 internal sealed record TouchHudData(
     Func<string, OverlayRequestOutcome> OpenCollection,
     Func<string, OverlayRequestOutcome>? OpenLiveBuild,
@@ -23,20 +12,8 @@ internal sealed record TouchHudData(
     TouchScreenFill? ScreenFill
 );
 
-/// <summary>
-/// The Mobile UI's HUD beside the game's own: the panel shortcuts by the settings button
-/// (<see cref="TouchShortcuts"/>), the combat clock by the vault
-/// (<see cref="TouchCombatClock"/>) and the preview switches in the item tooltip
-/// (<see cref="TouchPreviewSwitches"/>), with Screen Fill (<see cref="TouchScreenFill"/>), which
-/// needs the same per-frame tick. It is no Main Overlay Panel, but it registers with the
-/// host's Overlay Panel Host through the Mobile Platform Port as the panels do, under
-/// <see cref="Id"/> and with a registration that never opens, so the host ticks it every frame
-/// and tells it of a scene change, which drops the clock's plaque and the switches (ADR-0025
-/// decision 3). Nothing calls <c>RequestOpen</c> on it.
-/// </summary>
 internal sealed class TouchHud : IDisposable
 {
-    /// <summary>The HUD's registration id on the Overlay Panel Host.</summary>
     public const string Id = "hud";
 
     private readonly TouchCombatClock? _clock;
@@ -55,8 +32,7 @@ internal sealed class TouchHud : IDisposable
             ? new TouchCombatClock(clock, () => screenFill?.BoardTop)
             : null;
         _previews = data.Previews;
-        // Never RequestOpen this handle: the host would close the open panel as superseded, and
-        // then the HUD's open fails, so the player loses the panel for nothing (ADR-0022).
+        // RequestOpen would close the current overlay before the HUD's own open fails (ADR-0022).
         _handle = MobilePanelHandle.Register(_ => new OverlayPanelRegistration(
             Id,
             onOpen: static () => false,
@@ -72,8 +48,7 @@ internal sealed class TouchHud : IDisposable
 
     private void Tick()
     {
-        // First, and catching their own failure: Screen Fill and the switches never skip or are
-        // skipped by the shortcuts and the clock.
+        // Screen Fill and preview switches isolate failures so one HUD adjustment cannot skip another.
         _screenFill?.Tick();
         _previews?.Tick();
         var panelOpen = MobilePlatform.Port.OpenPanelId != null;
@@ -87,7 +62,6 @@ internal sealed class TouchHud : IDisposable
         _previews?.Clear("scene_changed");
     }
 
-    /// <summary>The host stops: the HUD leaves the Overlay Panel Host, then its views go.</summary>
     public void Dispose()
     {
         _handle.Dispose();

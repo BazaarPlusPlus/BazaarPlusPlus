@@ -7,7 +7,6 @@ const emptyDetail = document.getElementById('overlay-empty-detail');
 const list = document.getElementById('overlay-list');
 
 let lastRecordKey = null;
-/** The title and detail of the empty state on screen, or null when it is not shown. */
 let renderedEmptyKey = null;
 let rowResizeObserver = null;
 let currentDisplayMode = 'current';
@@ -234,14 +233,13 @@ function buildRowMarkup(record) {
   `;
 }
 
-/** The body of a record route's 404 when the service has no record installation. */
+/** Keep in sync with the stream service's missing-installation 404 body. */
 const NO_RECORD_INSTALLATION = 'no_record_installation';
 
 function renderEmpty(message, title = 'No records yet') {
   const detail =
     message ?? 'Start a match and the overlay will update automatically.';
   const key = `${title}\n${detail}`;
-  // Each poll without records lands here; an unchanged empty state keeps its DOM.
   if (renderedEmptyKey === key && root?.classList.contains('empty')) {
     return;
   }

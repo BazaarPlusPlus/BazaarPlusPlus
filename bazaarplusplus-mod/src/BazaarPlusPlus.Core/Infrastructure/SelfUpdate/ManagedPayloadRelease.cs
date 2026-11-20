@@ -1,10 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure.SelfUpdate;
 
-/// <summary>
-/// One platform's published Managed Payload (root GLOSSARY.md) and the release facts self-update
-/// compares against the running copy, as a Platform Release Manifest publishes them.
-/// </summary>
 public sealed record ManagedPayloadRelease(
     string Version,
     Uri Url,

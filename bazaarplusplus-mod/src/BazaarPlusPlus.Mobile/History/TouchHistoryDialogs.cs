@@ -9,14 +9,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// History's More dialog on a mobile platform, the desktop's <c>HistoryPanelView</c> More dialog on the
-/// touch layout: the database status with the server health probe, the status line (the rows
-/// below rise into it while it is empty), and the BazaarDB account row with its link form. The
-/// dialog is as tall as its rows and drag-scrolls only when the form outgrows a short screen.
-/// Supporter attribution stays on the main header. The code is read from
-/// the input when the user submits it, so the input needs no change listener.
-/// </summary>
 internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
 {
     private readonly GameObject _root;
@@ -109,7 +101,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             TextAlignmentOptions.TopLeft,
             wrap: true
         );
-        // The rows under the status line, moved as one while that line is empty.
         _below = UiKit.Rect(
             "Below",
             content,
@@ -222,7 +213,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         BppLog.InfoEvent(new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.more_opened"));
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (!IsOpen)
@@ -296,8 +286,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         _accountLinked.Set(m.AccountAlreadyLinkedButtonText);
     }
 
-    // The dialog is as tall as its rows, centred where the full-height dialog would stand; only a
-    // form taller than the sheet scrolls.
     private void Fit(float content)
     {
         var full = _layout.Dialog;
@@ -329,7 +317,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     private static TouchRect Local(TouchRect rect, TouchRect origin) =>
         new(rect.Left - origin.Left, rect.Top - origin.Top, rect.Width, rect.Height);
 
-    /// <summary>What the dialog's controls call; each runs inside the main-thread scope.</summary>
     public sealed record Actions(
         Action CheckHealth,
         Action ToggleAccountForm,
@@ -338,13 +325,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     );
 }
 
-/// <summary>
-/// The favorite note editor on a mobile platform, the desktop's note dialog on the touch layout: the note
-/// opens on the selected favorite and saves to the favorite it opened on, even if a reload
-/// reselects another row meanwhile. A failed save keeps the draft; the status line says why. The
-/// character count follows the field's change listener (<see cref="UiActions.OnChanged"/>);
-/// nothing polls the field each frame.
-/// </summary>
+// Pin the favorite ID at open so a reload cannot redirect the draft to another favorite.
 internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
 {
     private readonly GameObject _root;
@@ -409,7 +390,6 @@ internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
             layout.BodyFont,
             color: TouchHistoryUi.Muted
         );
-        // The count follows each edit; nothing reads the field's text while it sits unchanged.
         UiActions.OnChanged(_input, "history.note_input", text => ShowCount(text.Length));
         TouchHistoryUi
             .Button(
@@ -435,7 +415,6 @@ internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
 
     public bool IsOpen => _root.activeSelf;
 
-    /// <summary>The favorite and the unsaved text of an open dialog, which a relayout carries over.</summary>
     public (string BattleId, string Text)? Draft =>
         IsOpen && _battleId is { } battleId ? (battleId, _input.text ?? string.Empty) : null;
 
@@ -456,7 +435,6 @@ internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
         );
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (!IsOpen)
@@ -473,7 +451,6 @@ internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
         return true;
     }
 
-    /// <summary>The favorite the dialog edits is gone (removed, or the section changed): drop the draft.</summary>
     public void Refresh(HistoryPanelViewModel m)
     {
         if (
@@ -488,7 +465,6 @@ internal sealed class TouchHistoryNoteDialog : IHistoryOverlay
             Close("favorite_gone");
     }
 
-    // The count under the draft; the label is written only when the length changed.
     private void ShowCount(int length)
     {
         if (_disposed || length == _shownLength)

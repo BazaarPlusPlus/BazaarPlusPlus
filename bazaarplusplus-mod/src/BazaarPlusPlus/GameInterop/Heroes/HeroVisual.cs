@@ -4,11 +4,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.Heroes;
 
-/// <summary>
-/// Shared hero identity badge resolver: maps a hero name (<c>EHero.ToString()</c>) to a short
-/// code, brand background color, and a luminance-picked text color. HistoryPanel and
-/// LiveBuildPanel consume one source of truth instead of hand-rolling the mapping.
-/// </summary>
 internal static class HeroVisual
 {
     internal readonly struct HeroBadgeStyle
@@ -53,8 +48,7 @@ internal static class HeroVisual
         };
     }
 
-    // Dooley sits on a knife-edge: luminance 0.622 (just over the 0.62 cutoff) -> dark text. Keep
-    // the channel weights and the > 0.62f threshold byte-for-byte or his badge text color flips.
+    // Dooley's luminance is 0.622, just above the 0.62 cutoff. Small changes can flip his text color.
     private static HeroBadgeStyle Build(string shortCode, Color background)
     {
         var luminance = (0.299f * background.r) + (0.587f * background.g) + (0.114f * background.b);

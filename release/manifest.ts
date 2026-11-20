@@ -31,22 +31,18 @@ import type { AndroidSource, LoaderPin } from './snapshot-lock.ts';
 
 export { RELEASE_MANIFEST_PATH, modManifestPath, platformManifestPath };
 
-/** A release artifact on the release origin: its URL, size and sha256. */
 export interface ReleaseArtifact {
   url: string;
   size: number;
   sha256: string;
 }
 
-/** A Tauri updater package and its signature text. */
 export interface UpdaterArtifact extends ReleaseArtifact {
   signature: string;
 }
 
-/** A Loader Release as the Snapshot Lock pins it. */
 export type AndroidLoader = Pick<LoaderPin, 'tag' | 'sha256'>;
 
-/** The self-update facts of a desktop release (DESKTOP_SELF_UPDATE_FIELDS). */
 export type DesktopSelfUpdateFacts = {
   managedPayload: ManagedPayloadDownload;
   selfUpdatable: boolean;
@@ -54,16 +50,9 @@ export type DesktopSelfUpdateFacts = {
   nonManagedPayloadDigest: string;
 };
 
-/** The Game Adaptations of an Android release, one per Android source. */
 export type AndroidAdaptations = Record<AndroidSource, AndroidAdaptation>;
 
-/**
- * The release facts of an Android release (ANDROID_RELEASE_FIELDS). The
- * top-level `managedPayload`, `interop` and `game` are the publisher's
- * adaptation, for the Apps and mods that read nothing else (ADR 0019). A
- * manifest promoted before ADR 0019 has no `adaptations`; a fragment always
- * has them.
- */
+// Older Apps and mods read the publisher's adaptation from the top-level fields (ADR 0019).
 export type AndroidReleaseFacts = {
   app: AndroidAppDownload;
   managedPayload: ManagedPayloadDownload;
@@ -76,11 +65,7 @@ export type AndroidReleaseFacts = {
   adaptations?: AndroidAdaptations;
 };
 
-/**
- * The fragment `upload` writes beside a desktop release. The fields only an
- * Android fragment has are absent. `game` is the lock entry the build record
- * names; fragments uploaded before it existed lack it.
- */
+/** Fragments uploaded before desktop game compatibility was tracked may omit `game`. */
 export interface DesktopPlatformFragment extends DesktopSelfUpdateFacts {
   schemaVersion: 1;
   kind?: undefined;
@@ -96,10 +81,6 @@ export interface DesktopPlatformFragment extends DesktopSelfUpdateFacts {
   loader?: undefined;
 }
 
-/**
- * The fragment `upload --platform android` writes (kind `android-app`). The
- * fields only a desktop fragment has are absent.
- */
 export interface AndroidPlatformFragment extends AndroidReleaseFacts {
   schemaVersion: 1;
   kind: 'android-app';
@@ -112,12 +93,10 @@ export interface AndroidPlatformFragment extends AndroidReleaseFacts {
   signatureFile?: undefined;
 }
 
-/** A platform fragment; its platform decides which of the two it is. */
 export type PlatformFragment =
   | DesktopPlatformFragment
   | AndroidPlatformFragment;
 
-/** The Mainland Mirror record stored beside an uploaded release. */
 export interface MirrorRecord {
   schemaVersion: 1;
   version: ProductVersion;
@@ -127,13 +106,11 @@ export interface MirrorRecord {
   verified: boolean;
 }
 
-/** The Tauri updater entry of one platform. */
 export interface UpdaterEntry {
   url: string;
   signature: string;
 }
 
-/** `downloads[platform]` of a desktop manifest: the installer and its facts. */
 export interface DesktopDownload
   extends ReleaseArtifact, DesktopSelfUpdateFacts {
   mainlandUrl?: string;
@@ -142,11 +119,6 @@ export interface DesktopDownload
   app?: undefined;
 }
 
-/**
- * A Tauri static manifest: a desktop Platform Release Manifest, which holds
- * one platform's key, or the Release Manifest, which holds every Lockstep
- * Platform's.
- */
 export interface DesktopPlatformManifest {
   version: ProductVersion;
   gitCommit: string;
@@ -156,16 +128,13 @@ export interface DesktopPlatformManifest {
   downloads: Record<string, DesktopDownload>;
 }
 
-/** The Release Manifest (`latest.json`). */
 export type ReleaseManifest = DesktopPlatformManifest;
 
-/** `downloads[platform]` of an Android Platform Release Manifest. */
 export interface AndroidDownloadRelease extends AndroidReleaseFacts {
   mainlandUrl?: string;
   apk?: undefined;
 }
 
-/** An Android Platform Release Manifest: it has no Tauri `platforms` key. */
 export interface AndroidPlatformManifest {
   version: ProductVersion;
   gitCommit: string;
@@ -175,33 +144,27 @@ export interface AndroidPlatformManifest {
   downloads: Record<string, AndroidDownloadRelease>;
 }
 
-/** A Platform Release Manifest; its platform decides which shape it has. */
 export type PlatformManifest =
   | DesktopPlatformManifest
   | AndroidPlatformManifest;
 
-/** The release an Android App APK carries (androidCarriedRelease). */
 export interface AndroidCarriedRelease {
   version: ProductVersion;
   gitCommit: string;
   downloads: Record<string, Omit<AndroidReleaseFacts, 'app'>>;
 }
 
-// The artifact manifest `build` writes, as far as buildPlatformFragment
-// reads it.
 type ArtifactManifestFacts = Omit<
   ArtifactManifest,
   'schemaVersion' | 'payloadBuild' | 'builtAt'
 >;
 
-/** The inputs of androidNonManagedPayloadDigest. */
 export interface AndroidNonManagedPayloadDigestOptions {
   loader: AndroidLoader;
   nativeLibs?: Record<string, { sha256: string }>;
   updaterSha256: string;
 }
 
-/** The inputs of buildMirrorRecord. */
 export interface BuildMirrorRecordOptions {
   version: ProductVersion;
   platform: string;
@@ -210,23 +173,19 @@ export interface BuildMirrorRecordOptions {
   verified: boolean;
 }
 
-/** The inputs of buildPlatformFragment. */
 export interface BuildPlatformFragmentOptions {
   manifest: ArtifactManifestFacts;
   baseUrl: string;
   selfUpdatable: boolean;
-  /** The game the build compiled against: its build record's lock entry. */
   game: DesktopGameRelease;
 }
 
-/** One Game Adaptation of an Android build, before its URLs are known. */
 export interface AndroidAdaptationFacts {
   game: AndroidGameRelease;
   interop: Omit<InteropPackageDownload, 'url'>;
   managedPayload: Omit<ManagedPayloadDownload, 'url'>;
 }
 
-/** The inputs of buildAndroidFragment: the facts of one Android build. */
 export interface BuildAndroidFragmentOptions {
   version: ProductVersion;
   gitCommit: string;
@@ -239,13 +198,11 @@ export interface BuildAndroidFragmentOptions {
   nonManagedPayloadDigest: string;
 }
 
-/** The inputs of androidCarriedRelease: an Android build without its App. */
 export type AndroidCarriedReleaseOptions = Omit<
   BuildAndroidFragmentOptions,
   'app' | 'selfUpdatable'
 >;
 
-/** The inputs of buildPlatformManifest. */
 export interface BuildPlatformManifestOptions {
   version: ProductVersion;
   fragment: PlatformFragment;
@@ -254,13 +211,11 @@ export interface BuildPlatformManifestOptions {
   now?: Date;
 }
 
-/** The inputs of mergeReleaseManifest. */
 export interface MergeReleaseManifestOptions {
   platformManifests: readonly PlatformManifest[] | null | undefined;
   existingLatest: ReleaseManifest | null | undefined;
 }
 
-/** The inputs of buildLatestManifest. */
 export interface BuildLatestManifestOptions {
   version: ProductVersion;
   fragments: readonly PlatformFragment[];
@@ -269,7 +224,6 @@ export interface BuildLatestManifestOptions {
   now?: Date;
 }
 
-// Artifact paths sit below the release origin's path (/installer).
 const RELEASE_BASE_PATH = new URL(RELEASE_BASE_URL).pathname.replace(/\/$/, '');
 
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -306,16 +260,12 @@ export function installerFileName(installerUrl: string): string {
   return fileName;
 }
 
-// The file a platform's Mainland Mirror serves: the installer of a desktop
-// platform, the Android App APK of Android.
 export function mirrorFileName(fragment: PlatformFragment): string {
   return installerFileName(
     fragment.kind === 'android-app' ? fragment.app.url : fragment.installer.url
   );
 }
 
-// The Mainland Mirror address is an explicit operator input recorded next to
-// the platform fragment; it is never derived from the version.
 export function assertMirrorUrl(value: string): string {
   let url: URL;
   try {
@@ -340,19 +290,11 @@ export function fragmentKey(version: ProductVersion, platform: string): string {
   return `${version}/${platform}/updater/platform-manifest.json`;
 }
 
-// The certificate of the BPP Android release key (ADR 0009, 2026-11-01 note):
-// the one signer of every Android App APK and of every interop statement.
-// upload and promote --platform android refuse an APK signed by any other
-// certificate; the Android App embeds this certificate, and a test there pins
-// it to the same digest.
+// The Android App embeds this certificate and uses it to verify Interop Packages (ADR 0009).
 export const ANDROID_RELEASE_SIGNER_SHA256 =
   '0d53bd4d2011c3e3181eb291c2154a0162f5dd9f4c4330b7bbc3728840851ce9';
 
-// The certificate each Android source signs the official game with (ADR
-// 0019), as apksigner reports the current signer of the locked APKs: Tempo's
-// key for the publisher's APK, the Play App Signing key for Google Play. The
-// Android App picks the Game Adaptation whose signer signed the installed
-// game. They change only when a source rotates its key.
+// The Android App selects an adaptation by the installed game's signer (ADR 0019).
 export const ANDROID_GAME_SIGNERS: Readonly<Record<AndroidSource, string>> =
   Object.freeze({
     publisher:
@@ -360,13 +302,7 @@ export const ANDROID_GAME_SIGNERS: Readonly<Record<AndroidSource, string>> =
     play: 'f093884efa76e15b6375faa0c1ef195f4f5c411719e568e043fd82103c399b72'
   });
 
-// What the Android App carries besides the Mods (ADR 0012): the Loader
-// Release and the native libraries of the Snapshot Lock's android-publisher
-// entry, and the Updater plugin. The Interop Package downloads on its own and
-// is not part of it. A fragment's `nonManagedPayloadDigest` is this digest of
-// the App it names: release::build writes the same value into the App
-// (assets/bpp-runtime.json) and reads it back, and an App that records
-// another digest cannot take the release as a Managed Payload.
+// The fragment and the App's assets/bpp-runtime.json must carry the same digest for self-update.
 export function androidNonManagedPayloadDigest({
   loader,
   nativeLibs = {},
@@ -389,15 +325,13 @@ export function androidNonManagedPayloadDigest({
     .digest('hex');
 }
 
-// The Android App's versionCode for a product version (ADR 0012): Android
-// installs an App only over a lower versionCode, so it follows the product
-// version. Gradle receives it as -Pbpp.versionCode.
+// Android uses versionCode to enforce upgrade ordering.
 export function androidAppVersionCode(version: ProductVersion): number {
   const [major, minor, patch] = assertProductVersion(version)
     .split('.')
     .map(Number);
   const code = major * 1_000_000 + minor * 1_000 + patch;
-  // Google Play's ceiling; Android itself accepts up to 2^31 - 1.
+  // Use Google Play's versionCode ceiling.
   if (minor > 999 || patch > 999 || code < 1 || code > 2_100_000_000)
     throw new Error(
       `${version} has no Android versionCode (major * 1000000 + minor * 1000 + patch, minor and patch below 1000)`
@@ -407,14 +341,13 @@ export function androidAppVersionCode(version: ProductVersion): number {
 
 const ANDROID_PLATFORM = DOWNLOAD_PLATFORM_KEYS.android;
 
-// The Android App APK of one product version. The key is immutable once used.
+// Published APK keys are immutable.
 export function androidAppKey(version: ProductVersion): string {
   assertProductVersion(version);
   return `${version}/${ANDROID_PLATFORM}/app/BazaarPlusPlus_${version}_${ANDROID_PLATFORM}.apk`;
 }
 
-// The Interop Package, addressed by the sha256 of the zip itself: releases
-// of one Interop Snapshot share one object.
+// Content addressing lets releases share the same Interop Package.
 export function interopPackageKey(zipSha256: string): string {
   if (!SHA256.test(zipSha256 ?? ''))
     throw new Error(`Invalid Interop Package digest: ${zipSha256}`);
@@ -424,10 +357,6 @@ export function interopPackageKey(zipSha256: string): string {
 const BASE64 =
   /^(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
-// The `interop` record of an Android fragment or Platform Release Manifest:
-// the content-addressed zip, the Interop Snapshot digest it packs, and the
-// base64 SHA256withRSA signature of its interop statement
-// (release/android-interop.ts).
 function assertInteropRecord(
   record: InteropPackageDownload,
   description: string
@@ -447,8 +376,6 @@ function assertInteropRecord(
   return record;
 }
 
-// The game a release is adapted to: the Snapshot Lock's android-publisher
-// identity and its Game Code Hash.
 function assertAndroidGame(
   game: AndroidGameRelease,
   description: string
@@ -464,8 +391,6 @@ function assertAndroidGame(
   return game;
 }
 
-// The game a desktop release was built against: a Snapshot Lock entry's game
-// version and `Managed/` digest. Only the download page reads it.
 function assertDesktopGame(
   game: DesktopGameRelease,
   description: string
@@ -479,9 +404,7 @@ function assertDesktopGame(
   return game;
 }
 
-// A Loader Release as the Snapshot Lock pins it. The tag names a directory
-// under game-libs/ (loaderDirectory in release/interop-snapshot.ts), so it
-// is a plain token.
+// The tag must be a plain token because loaderDirectory uses it in a path.
 function assertAndroidLoader(
   loader: AndroidLoader,
   description: string
@@ -495,7 +418,6 @@ function assertAndroidLoader(
   return loader;
 }
 
-// The Managed Payload zip of one product version on one desktop platform.
 export function managedPayloadKey(
   version: ProductVersion,
   platform: string
@@ -503,9 +425,7 @@ export function managedPayloadKey(
   return `${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`;
 }
 
-// The Managed Payload zip of one Game Adaptation of an Android release. The
-// Android App requires this exact key; App 6.2.5 checks only the version's
-// managed/ prefix, which the key stays under.
+// App 6.2.5 checks only the version's managed/ prefix. Newer Apps require the exact key.
 export function androidManagedPayloadKey(
   version: ProductVersion,
   source: AndroidSource
@@ -571,10 +491,6 @@ export function validateMirrorRecord(
   return record;
 }
 
-// The self-update facts a desktop fragment and its Platform Release Manifest
-// carry beside the installer, in this order (mod ADR-0014): the Managed
-// Payload zip, the publisher's hint whether the previous release's installs
-// can take it, and the two facts the mod compares against its running copy.
 const DESKTOP_SELF_UPDATE_FIELDS: readonly (keyof DesktopSelfUpdateFacts)[] =
   Object.freeze([
     'managedPayload',
@@ -663,13 +579,6 @@ export function buildPlatformFragment({
   return fragment;
 }
 
-// The fragment `upload --platform android` writes beside the Android release
-// (kind `android-app`, ADR 0012): the Android App APK, one Game Adaptation per
-// Android source (ADR 0019: its game, Interop Package and Managed Payload
-// zip), and the facts the mod's self-update compares against the copy it
-// runs. The top-level game, Interop Package and Managed Payload repeat the
-// publisher's adaptation. The caller supplies the facts; the object keys and
-// the App's versionCode follow from them.
 export function buildAndroidFragment({
   version,
   gitCommit,
@@ -697,8 +606,6 @@ export function buildAndroidFragment({
         metadataSha256: game?.metadataSha256
       },
       interop: {
-        // Without a digest the URL is absent; validation refuses the record
-        // on its digest before it reads the URL.
         url: (SHA256.test(interopSha256)
           ? `${origin}/${interopPackageKey(interopSha256)}`
           : undefined) as string,
@@ -744,10 +651,7 @@ export function buildAndroidFragment({
   return validatePlatformFragment(fragment, version, ANDROID_PLATFORM);
 }
 
-// The release an Android App APK carries (assets/bpp-release/release.json, ADR
-// 0012): the shape of its Platform Release Manifest without `app`, because the
-// APK cannot name its own digest. The App reads it when no manifest can be
-// fetched, so a new install with a bad network still runs what it downloaded.
+// The App uses its carried manifest when offline. The APK cannot include its own digest.
 export function androidCarriedRelease({
   baseUrl,
   ...release
@@ -766,7 +670,6 @@ export function androidCarriedRelease({
     version: fragment.version,
     gitCommit: fragment.gitCommit,
     downloads: {
-      // fromEntries keeps every field it is given but not their names.
       [ANDROID_PLATFORM]: Object.fromEntries(
         ANDROID_RELEASE_FIELDS.filter((field) => field !== 'app').map(
           (field) => [field, fragment[field]]
@@ -776,11 +679,6 @@ export function androidCarriedRelease({
   };
 }
 
-// What an Android Platform Release Manifest publishes from its fragment, in
-// this order: the three artifacts a new install downloads (App, then the
-// Managed Payload and Interop Package it stages), the game they are adapted
-// to and the Loader Release the App carries, then the self-update facts in
-// the desktop order, then every Game Adaptation (ADR 0019).
 const ANDROID_RELEASE_FIELDS: readonly (keyof AndroidReleaseFacts)[] =
   Object.freeze([
     'app',
@@ -814,8 +712,6 @@ function assertManagedPayload(
     throw new Error(`Artifact URL is outside its release: ${record.url}`);
 }
 
-// The release facts an Android fragment and its Platform Release Manifest
-// share, at product version `version`.
 function validateAndroidRelease(
   release: AndroidReleaseFacts,
   version: ProductVersion,
@@ -885,8 +781,6 @@ function validateAndroidRelease(
     );
 }
 
-// ADR 0010's `kind: 'android'` fragments are refused by their kind, not by
-// the fields they lack.
 function validateAndroidFragment<F extends PlatformFragment>(
   fragment: F,
   version: ProductVersion,
@@ -911,12 +805,9 @@ function validateAndroidFragment<F extends PlatformFragment>(
   return fragment;
 }
 
-// Every remote object a fragment names, each once; promotion checks each is
-// in place. Two adaptations of the same game share their Interop Package.
 export function fragmentArtifacts(
   fragment: PlatformFragment
 ): ReleaseArtifact[] {
-  // A validated fragment has the shape its platform names.
   if (releasePlatformByKey(fragment.platform).kind === 'android') {
     const android = fragment as AndroidPlatformFragment;
     const artifacts = [
@@ -938,7 +829,6 @@ export function fragmentArtifacts(
   ];
 }
 
-// Returns the fragment it was given, as the shape its platform names.
 export function validatePlatformFragment<F extends PlatformFragment>(
   fragment: F,
   version: ProductVersion,
@@ -954,7 +844,6 @@ export function validatePlatformFragment<F extends PlatformFragment>(
   )
     throw new Error(`Invalid ${platform} platform fragment for ${version}`);
   assertSelfUpdateFacts(fragment, version, platform);
-  // A desktop platform's fragment is a desktop fragment.
   const { game } = fragment as DesktopPlatformFragment;
   if (game !== undefined) assertDesktopGame(game, `${platform} ${version}`);
   assertRecord(fragment.installer, 'installer');
@@ -988,8 +877,6 @@ function assertSafeHttps(value: string, description: string): string {
   return value;
 }
 
-// An Android Platform Release Manifest: the shared top-level shape without
-// the Tauri `platforms` key; `downloads[platform]` holds the release facts.
 function validateAndroidPlatformManifest<M extends PlatformManifest>(
   manifest: M,
   platform: string
@@ -1005,7 +892,6 @@ function validateAndroidPlatformManifest<M extends PlatformManifest>(
   )
     throw new Error(`Invalid ${platform} platform manifest`);
   assertProductVersion(manifest.version);
-  // Without a `platforms` key it is an Android App release.
   const { mainlandUrl, ...release } = (manifest as AndroidPlatformManifest)
     .downloads[platform];
   validateAndroidRelease(release, manifest.version, platform);
@@ -1013,7 +899,6 @@ function validateAndroidPlatformManifest<M extends PlatformManifest>(
   return manifest;
 }
 
-// Returns the manifest it was given, as the shape its platform names.
 export function validatePlatformManifest<M extends PlatformManifest>(
   manifest: M,
   platform: string
@@ -1031,7 +916,6 @@ export function validatePlatformManifest<M extends PlatformManifest>(
   )
     throw new Error(`Invalid ${platform} platform manifest`);
   assertProductVersion(manifest.version);
-  // A desktop platform's manifest has the Tauri `platforms` key.
   const desktop = manifest as DesktopPlatformManifest;
   const updater = desktop.platforms[platform];
   if (
@@ -1054,8 +938,7 @@ export function validatePlatformManifest<M extends PlatformManifest>(
   return manifest;
 }
 
-// One platform's promoted release: the Platform Release Manifest. It is a
-// valid Tauri static manifest holding only that platform's key.
+// Tauri accepts a static manifest with just the current platform's key.
 export function buildPlatformManifest({
   version,
   fragment,
@@ -1079,13 +962,11 @@ export function buildPlatformManifest({
   if (releasePlatformByKey(platform).kind === 'android')
     return buildAndroidPlatformManifest({
       version,
-      // The Android platform's fragment is an Android App fragment.
       fragment: fragment as AndroidPlatformFragment,
       mirror,
       existing: reuse ? existing : null,
       now
     });
-  // The fragment and manifest of a desktop platform are desktop ones.
   const desktop = fragment as DesktopPlatformFragment;
   // Once published, the manifest's own mirror address is authoritative; a
   // record can only confirm it, never replace it.
@@ -1112,7 +993,6 @@ export function buildPlatformManifest({
         ...desktop.installer,
         ...(mainlandUrl === undefined ? {} : { mainlandUrl }),
         ...(desktop.game === undefined ? {} : { game: desktop.game }),
-        // fromEntries keeps every field it is given but not their names.
         ...(Object.fromEntries(
           DESKTOP_SELF_UPDATE_FIELDS.map((field) => [field, desktop[field]])
         ) as DesktopSelfUpdateFacts)
@@ -1130,10 +1010,7 @@ export function buildPlatformManifest({
   return manifest;
 }
 
-// The Mainland Mirror serves the Android App APK. The mirror address is never
-// a fact of the fragment, so the release the APK carries cannot name it.
-// `existing` is the published manifest of this same version, or null; once
-// published, its own mirror address is authoritative.
+// The APK is built before a Mainland Mirror exists. The first promoted manifest fixes that URL.
 function buildAndroidPlatformManifest({
   version,
   fragment,
@@ -1148,7 +1025,6 @@ function buildAndroidPlatformManifest({
   now: Date;
 }): AndroidPlatformManifest {
   const platform = fragment.platform;
-  // fromEntries keeps every field it is given but not their names.
   const release = Object.fromEntries(
     ANDROID_RELEASE_FIELDS.map((field) => [field, fragment[field]])
   ) as AndroidReleaseFacts;
@@ -1179,10 +1055,7 @@ function buildAndroidPlatformManifest({
   return manifest;
 }
 
-// The Release Manifest: the newest release every Lockstep Platform promoted
-// at the same version and commit. Installers whose platform manifest fails to
-// load read only this file, so it never runs ahead of any Lockstep Platform
-// (ADR 0003). Android is not one (ADR 0012).
+// Installers fall back to latest.json, so it cannot advance ahead of any Lockstep Platform (ADR 0003).
 export function mergeReleaseManifest({
   platformManifests,
   existingLatest
@@ -1199,7 +1072,6 @@ export function mergeReleaseManifest({
       throw new Error(
         `Release requires every lockstep platform; missing ${key}`
       );
-    // Only a desktop manifest has a Tauri `platforms` key to be found by.
     return validatePlatformManifest(manifest as DesktopPlatformManifest, key);
   });
   if (new Set(ordered.map((manifest) => manifest.version)).size !== 1)
@@ -1215,7 +1087,6 @@ export function mergeReleaseManifest({
       `Refusing release rollback from ${existingLatest.version} to ${version}`
     );
   const reuse = existingLatest?.version === version;
-  // Every Lockstep Platform has a manifest here, so one date is the newest.
   const newestPubDate = ordered
     .map((manifest) => manifest.pub_date)
     .sort()
@@ -1246,8 +1117,6 @@ export function mergeReleaseManifest({
   return latest;
 }
 
-// Lockstep convenience: every Lockstep Platform's fragment at one version and
-// commit.
 export function buildLatestManifest({
   version,
   fragments,

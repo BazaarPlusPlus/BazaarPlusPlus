@@ -6,13 +6,8 @@ using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
-/// <summary>
-/// The touch geometry the Android host's Live Build panel is built on: physical sizes, the safe
-/// area, and a layout that neither overflows nor overlaps at the screens the device runs check.
-/// </summary>
 public sealed class LiveBuildTouchLayoutTests
 {
-    // The capsule installed English before these checks.
     public LiveBuildTouchLayoutTests() =>
         L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
@@ -25,12 +20,9 @@ public sealed class LiveBuildTouchLayoutTests
         yield return ("1920x1080@420", Screen(1920f, 1080f, 420f));
         yield return ("2400x1080@420 cutout", Screen(2400f, 1080f, 420f, cutoutLeft: 110f));
         yield return ("2340x1080@440", Screen(2340f, 1080f, 440f));
-        // Dense phones: the same pixels at fewer dp, where side by side would leave a socket
-        // under 48dp or the sidebar too short for the metric cells, and the panel stacks.
         yield return ("2400x1080@480", Screen(2400f, 1080f, 480f));
         yield return ("2400x1080@560", Screen(2400f, 1080f, 560f));
         yield return ("2400x1080@640", Screen(2400f, 1080f, 640f));
-        // A foldable's inner display, nearly square: the panel stacks for room, not density.
         yield return ("2480x2248@420", Screen(2480f, 2248f, 420f));
     }
 
@@ -119,7 +111,6 @@ public sealed class LiveBuildTouchLayoutTests
         Near(metrics.Dp(48f), metrics.Target(20f), "A target clamps to 48dp.");
     }
 
-    // One row per screen of Screens(), keyed by its name.
     public static TheoryData<string> ScreenNames => new(Screens().Select(screen => screen.Name));
 
     [Theory]
@@ -139,8 +130,6 @@ public sealed class LiveBuildTouchLayoutTests
             $"{name}: ten sockets overflow the board column."
         );
 
-        // Stacked, only the header stays in sheet coordinates; the boards and the overview are
-        // list content.
         var content = new TouchRect(0f, 0f, layout.Scroll.Width, layout.ScrollContentHeight);
         (string Name, TouchRect Rect)[] overview =
         [
@@ -328,7 +317,6 @@ public sealed class LiveBuildTouchLayoutTests
         );
     }
 
-    // Every region inside `space`, with room, and no two overlapping.
     private static void Fits(
         string name,
         string spaceName,

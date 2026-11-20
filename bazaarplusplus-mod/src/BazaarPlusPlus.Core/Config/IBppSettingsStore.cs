@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Config;
 
-/// <summary>
-/// The host's settings file. A store binds each <c>section.key</c> once, reads the persisted value
-/// or falls back to the default, and persists writes to <see cref="ISetting{T}.Value"/>. An
-/// acceptable range, when given, is inclusive and the store clamps writes to it.
-/// </summary>
+// Bind each section and key once. Ranges are inclusive and the store clamps persisted writes.
 public interface IBppSettingsStore
 {
     ISetting<T> Bind<T>(

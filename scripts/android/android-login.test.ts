@@ -35,7 +35,6 @@ interface DeviceOptions {
   die?: boolean;
 }
 
-// One recorded adb call.
 interface Call {
   command: string;
   args: string[];
@@ -44,7 +43,6 @@ interface Call {
   label: string;
 }
 
-// The ADB boundary supplies a receipt, not a simulation of Unity, coordinates or authentication.
 function device({
   status = 'signed_in',
   receiptId = id,
@@ -54,7 +52,6 @@ function device({
   die = false
 }: DeviceOptions = {}) {
   const calls: Call[] = [];
-  // The request the device received over stdin.
   let request: LoginRequest | undefined;
   let clock = 0;
   let reads = 0;

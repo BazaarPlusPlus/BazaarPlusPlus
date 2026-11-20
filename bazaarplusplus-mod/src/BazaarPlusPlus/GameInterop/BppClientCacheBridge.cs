@@ -101,10 +101,6 @@ internal static class BppClientCacheBridge
         }
     }
 
-    /// <summary>
-    /// Calls <paramref name="onRefreshed"/> each time the game replaces the cached rank, as the
-    /// end-of-run screen does once the server has applied the Run's rating change.
-    /// </summary>
     public static IDisposable SubscribeRankRefreshed(Action<string?, int?> onRefreshed)
     {
         Action<PlayerRankResponse> listener = response =>

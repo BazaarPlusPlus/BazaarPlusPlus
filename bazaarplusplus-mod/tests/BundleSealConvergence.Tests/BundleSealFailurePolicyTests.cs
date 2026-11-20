@@ -6,8 +6,6 @@ using Xunit;
 // Not BundleSealConvergence.Tests: that namespace would hide the Core type of the same name.
 namespace BundleSeal.Tests;
 
-// Each case table row of the capsule is one Theory row, keyed by the row's name so every row
-// reports on its own; the row itself stays in the table below.
 public sealed class BundleSealFailurePolicyTests
 {
     private const string NewtonsoftIdentity =
@@ -606,7 +604,6 @@ public sealed class BundleSealFailurePolicyTests
     public void Schedules_due_jobs(string name)
     {
         var (code, attempts, sinceAttempt, sinceLaunch, due, until) = DueCases[name];
-        // The wake schedule reads the same backoff: due exactly when nothing is left of it.
         var left = BundleSealFailurePolicy.SecondsUntilDue(
             code,
             attempts,

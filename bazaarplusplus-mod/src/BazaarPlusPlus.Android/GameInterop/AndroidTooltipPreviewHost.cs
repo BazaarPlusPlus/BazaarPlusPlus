@@ -8,25 +8,17 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The Android host's item tooltip for the Mobile UI's preview switches. <c>CardTooltipRenderPatch</c>
-/// hands it each primary tooltip that renders (<see cref="Observe"/>); it reports that tooltip as
-/// shown while the game still shows its card, outside the native settings section.
-/// The upgrade preview is <see cref="AndroidUpgradePreview"/>'s, the enchantments the Mobile UI's
-/// enchant preview's section.
-/// </summary>
 internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
 {
     private CardTooltipController? _controller;
     private CardTooltipData? _tooltip;
     private IReadOnlyList<string> _candidates = [];
 
-    // A new object for each new card and each render: the switches compare them, and nothing
-    // allocates per frame.
+    // The switches compare these objects by identity, and each must stay stable until the card or
+    // render changes.
     private object _card = new();
     private object _render = new();
 
-    /// <summary>A primary tooltip renders its contents.</summary>
     public void Observe(CardTooltipController controller, CardTooltipData tooltip)
     {
         if (_tooltip?.CardInstance.Pointer != tooltip.CardInstance.Pointer)
@@ -71,8 +63,8 @@ internal sealed class AndroidTooltipPreviewHost : ITooltipPreviewHost
         if (!_controller.isLocked)
         {
             _controller._legendRenderer?.OnTooltipShown();
-            // Only a locked preview rebuilds its layout. A stale rect leaves the switch over the
-            // text and tells the game's deselection check that a touch on the tooltip is outside.
+            // Only locked previews rebuild their layout. A stale touch rect makes the game treat
+            // taps inside the tooltip as outside.
             Canvas.ForceUpdateCanvases();
             TempoUIUtility.ForceRebuildRecursive(_controller.PositioningRectTransform);
             _controller.KeepTooltipWithinBounds();

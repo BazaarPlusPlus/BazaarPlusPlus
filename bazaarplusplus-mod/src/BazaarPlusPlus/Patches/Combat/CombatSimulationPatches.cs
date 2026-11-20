@@ -9,7 +9,6 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Patches.Combat;
 
-// Combat sim: capture win/loss result
 [HarmonyPatch(typeof(CombatSimHandler), "Simulate")]
 internal class CombatSimPatch
 {

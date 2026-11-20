@@ -11,10 +11,7 @@ interface SigningSecretsContext {
 
 type SigningSecretFiles = Record<string, string>;
 
-// Runs the callback against an ISOLATED, throwaway BPP_SIGNING_SECRETS_DIR so
-// tests never read or write real signing material. `files` may be an object or
-// a `(ctx) => object` builder that needs the paths; `fn` receives the same ctx
-// { dir, dirBash }.
+// Use a throwaway signing directory so tests never touch real signing material.
 function withSigningSecretFiles(
   files:
     | SigningSecretFiles

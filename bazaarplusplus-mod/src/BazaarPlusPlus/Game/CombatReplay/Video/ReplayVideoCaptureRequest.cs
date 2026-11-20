@@ -21,9 +21,7 @@ internal sealed class ReplayVideoCaptureRequest
 
     public int Fps { get; init; }
 
-    // No default: the sole construction site always supplies both, and the previous placeholder
-    // initializers ran a platform probe (which throws on unsupported platforms) only to be
-    // overwritten by the object initializer.
+    // A default backend probe can throw on unsupported platforms before the caller sets the request fields.
     public ReplayVideoEncoderProfile EncoderProfile { get; init; } = null!;
 
     public ReplayVideoBufferPlan BufferPlan { get; init; } = null!;

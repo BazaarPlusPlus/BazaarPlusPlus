@@ -45,10 +45,7 @@ public static partial class LiveBuildPanelText
     public static string CandidateTag() =>
         L.Resolve(new LocalizedTextSet("Candidate", "候选", "候選"));
 
-    /// <summary>
-    /// The candidate tag under a card on a touch screen, short enough to sit whole under a
-    /// one-socket card at 12sp, where "Candidate" would be cut.
-    /// </summary>
+    // A one-socket card clips the full word "Candidate" at the 12sp text floor.
     public static string CandidateTouchTag() =>
         L.Resolve(new LocalizedTextSet("Pick", "候选", "候選"));
 

@@ -65,8 +65,6 @@ internal static class AggregateItemTypeSourceResolver
             }
         }
 
-        // Forklift, Laurel's Fortress, enchanted Rowboat, and future equivalents
-        // aggregate distinct types directly from inventory without copying them.
         foreach (var aura in auras)
         {
             if (

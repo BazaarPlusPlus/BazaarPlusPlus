@@ -6,18 +6,12 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.HeroPortraits;
 
-/// <summary>
-/// Where each hero's face is in the default portrait, for the Desktop UI kit's portrait wells.
-/// The busts differ: a chef's hat, a hair ornament or a round body moves the face away from
-/// where a rule finds it, so each hero has a square chosen by eye. A hero without one (a new
-/// hero) gets the kit's rule.
-/// </summary>
+// Costumes, ornaments and silhouettes can fool automatic face crops, so these squares are
+// chosen by eye.
 internal static class HeroPortraitFocus
 {
-    /// <summary>The hero's colour, for the glow behind the figure in a portrait well.</summary>
     internal static Color Glow(EHero hero) => HeroVisual.Resolve(hero.ToString()).Background;
 
-    /// <summary>The hero's face square, or null to let the kit find the head.</summary>
     internal static KitPortraitFocus? For(EHero hero) =>
         hero.ToString() switch
         {

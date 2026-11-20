@@ -4,10 +4,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>
-/// The replay runtime History's coordinator drives: whether a battle can replay or record, and
-/// the replay itself. Each host implements it over its own combat replay runtime.
-/// </summary>
 public interface IHistoryPanelReplay
 {
     bool CanReplayBattle(HistoryBattleRecord? battle, out string reason);
@@ -18,13 +14,10 @@ public interface IHistoryPanelReplay
         out HistoryPanelReplayReasonCode reasonCode
     );
 
-    // The recording half of CanRecordReplay, for a replay whose availability the caller checked
-    // (a favorite replays from its own copy, not from the battle's saved payload).
     bool CanRecordLoadedReplay(out string reason);
 
     bool CanRecordLoadedReplay(out string reason, out HistoryPanelReplayReasonCode reasonCode);
 
-    // Whether the host records replay video at all; false hides the record action.
     bool RecordingSupported { get; }
 
     // Runs on the UI thread, where the host can read its video settings.
@@ -79,8 +72,6 @@ public readonly struct HistoryPanelReplayAttemptResult
     ) => new(false, statusMessage, reasonCode, exception);
 }
 
-// A Ghost replay loaded for playback or a favorite copy. Payload is null exactly when Failure
-// says why.
 public readonly record struct GhostReplayLoad(
     GhostBattlePayload? Payload,
     HistoryPanelReplayAttemptResult Failure

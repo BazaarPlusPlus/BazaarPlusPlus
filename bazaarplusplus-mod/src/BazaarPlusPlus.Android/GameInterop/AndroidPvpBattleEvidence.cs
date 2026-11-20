@@ -4,13 +4,7 @@ using Il2CppBazaarGameShared.Domain.Core.Types;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The Android host's game-typed reads for the Bundle composer, which runs on the seal worker
-/// thread and so never calls into the IL2CPP runtime: card enum values come from the interop
-/// enums (managed copies of the game's, same names and values), and a Replay Payload is checked
-/// for well-formed MessagePack. Only playback decodes a message with the game's serializer
-/// (<see cref="AndroidReplayMessages.Deserialize{T}"/>).
-/// </summary>
+// The seal worker cannot enter IL2CPP, so only playback can use the game serializer.
 internal sealed class AndroidPvpBattleEvidence : IPvpBattleEvidenceBinding
 {
     public static AndroidPvpBattleEvidence Instance { get; } = new();
@@ -51,7 +45,6 @@ internal sealed class AndroidPvpBattleEvidence : IPvpBattleEvidenceBinding
         AndroidReplayMessages.VerifyWellFormed(payload.DespawnMessageBytes, "despawn");
     }
 
-    // A capture stores an enum by name, or by number for a value the game had no name for.
     private static int Parse<TEnum>(string name)
         where TEnum : struct, Enum =>
         Enum.TryParse<TEnum>(name, ignoreCase: false, out var value)

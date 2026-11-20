@@ -1,22 +1,10 @@
-// Writes the Chinese name the game shows for each hero, item, skill and
-// enchantment, keyed by its English name, for the daily report, which reads it
-// from https://cdn.bazaarplusplus.com/mod-data/zh-names/zh-names.json.
-// The game's translation table keys every string by the MD5 of its English
-// text, so the map comes from a local game cache: GameData.db holds the English
-// names, translations/zh-CN.bytes the Chinese ones. Rerun after a game update
-// adds cards; a name the map lacks stays English in the report.
-//
-//   bun scripts/qqbot/zh-names.ts <out.json> [cache dir]
-//   just release::mod-data zh-names <out.json>
-//
-// The default cache dir is the macOS production cache of the official game.
+// The translation table indexes Chinese strings by the MD5 of their English text.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 
-// Canonical hero ids and the English name the game translates.
 const HEROES: Record<string, string> = {
   Dooley: 'Dooley',
   Jules: 'Jules',

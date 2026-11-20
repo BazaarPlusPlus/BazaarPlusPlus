@@ -22,7 +22,6 @@ public static partial class HistoryPanelText
 
     public static string Unknown() => Resolve(UnknownText);
 
-    // "34 min", "1 h 20 min", "2 d 10 h": a run left open overnight stays readable.
     public static string Duration(TimeSpan span)
     {
         var minutes = Math.Max(0, (int)span.TotalMinutes);
@@ -68,7 +67,6 @@ public static partial class HistoryPanelText
             "這一局沒有記錄到戰鬥。"
         );
 
-    /// <summary>A stored rank under its localized name; an unknown rank stays as stored.</summary>
     public static string RankName(string rank) =>
         rank.Trim().ToLowerInvariant() switch
         {
@@ -80,7 +78,6 @@ public static partial class HistoryPanelText
             _ => rank.Trim(),
         };
 
-    // The word a row shows where its badge art is missing.
     public static string RunActive() => FormatSimple("Active", "进行中", "進行中");
 
     public static string RunAbandoned() => FormatSimple("Abandoned", "已放弃", "已放棄");
@@ -115,8 +112,6 @@ public static partial class HistoryPanelText
         return FormatSimple("Run log repository is unavailable.", "Run log 仓库不可用。");
     }
 
-    // A host that records no video (IReplayRecordingAvailability.Supported false, Android) has no
-    // MP4 to keep, so its delete lines do not mention one.
     public static string DeleteRunConfirm(bool recordingSupported)
     {
         return recordingSupported

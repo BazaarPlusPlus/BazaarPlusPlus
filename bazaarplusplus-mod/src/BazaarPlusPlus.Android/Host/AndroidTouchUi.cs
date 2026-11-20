@@ -17,11 +17,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>The touch panels' entries on the Android host: the Mobile UI's HUD, whose shortcuts open
-/// Collection and Ten-Win Builds by the settings button, and History in the game's own menus, a
-/// tile in the lobby's MENU grid and a row in the in-run menu. The panels' lifecycle stays with the
-/// Overlay Panel Host, which also ticks the HUD. Views and catalog data are still built on first
-/// open.</summary>
 internal sealed class AndroidTouchUi
 {
     private const string MenuSource = "native_menu";
@@ -55,8 +50,6 @@ internal sealed class AndroidTouchUi
             collectionCatalog ?? throw new ArgumentNullException(nameof(collectionCatalog));
         _openHistory = openHistory;
         _liveBuildData = liveBuildData;
-        // Collection and Ten-Win Builds are the Mobile UI's (ADR-0025): each registers itself
-        // through the port and builds under the touch root on its first open.
         var run = new AndroidCollectionRunReads();
         _collection = new TouchCollectionEntry(
             new TouchCollectionData(
@@ -84,7 +77,6 @@ internal sealed class AndroidTouchUi
         );
     }
 
-    /// <summary>Panel lifecycle and shortcut layout counters for device validation.</summary>
     public BppLogField[] Summary() =>
         [
             ("touch_icon_relayouts", _hud.Shortcuts.Relayouts),
@@ -98,11 +90,9 @@ internal sealed class AndroidTouchUi
             .. _panels.BackSummary(),
         ];
 
-    /// <summary>Main thread, when the app leaves the foreground: persists staged preferences.</summary>
     public void OnAppPaused() =>
         Guarded("touch_ui:pause_collection", _collection.FlushHeroPreference);
 
-    /// <summary>Main thread: mounts the UI once the game's font is available.</summary>
     public void EnsureMounted()
     {
         if (_root != null || _mountFailed)
@@ -124,10 +114,6 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    /// <summary>
-    /// The host stops: the panels and the HUD leave the Overlay Panel Host, then give their leases
-    /// back and their views go. One step that throws never skips the next.
-    /// </summary>
     public void Dispose()
     {
         Guarded("touch_ui:dispose_collection", _collection.Dispose);
@@ -174,11 +160,6 @@ internal sealed class AndroidTouchUi
         }
     }
 
-    /// <summary>
-    /// Main thread, every frame once mounted: Ten-Win Builds' and Collection's data warm ahead of
-    /// their first open, History's menu entries follow the game's menus, and a hardware Escape is
-    /// a back press.
-    /// </summary>
     public void Tick()
     {
         if (_root == null)
@@ -186,7 +167,6 @@ internal sealed class AndroidTouchUi
         var playing = MobilePlatform.Port.PlayState().IsPlaying;
         if (_liveBuild != null && !_liveBuildData!.Warmed)
             _liveBuildData.Warm("touch_ui");
-        // Built ahead of the first open, outside fights and replays; an open panel paces it.
         if (
             !playing
             && _panels.OpenPanelId != TouchCollectionEntry.PanelId

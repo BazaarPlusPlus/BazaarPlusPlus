@@ -7,7 +7,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatStatusBar;
 
-/// <summary>Combat playback progress, speed, and pause as the combat status bar shows them.</summary>
 public sealed class CombatStatusBarState
 {
     private static readonly float[] SpeedSteps = { 0.5f, 0.67f, 1f };
@@ -30,10 +29,6 @@ public sealed class CombatStatusBarState
     public TimeSpan LastCombatLogicalElapsed { get; private set; }
     public bool HasCompletedCombatPlayback { get; private set; }
 
-    /// <summary>
-    /// Loads the preferred speed from <paramref name="speedSetting"/> and persists later speed
-    /// changes to it. Only the first call binds; later calls are no-ops.
-    /// </summary>
     public void BindSpeedSetting(ISetting<float> speedSetting)
     {
         if (_speedSetting != null)
@@ -62,7 +57,6 @@ public sealed class CombatStatusBarState
         IsCombatPlaybackActive = false;
     }
 
-    /// <summary>A scene left playback; no previous battle time belongs to the new scene.</summary>
     public void ResetPlayback()
     {
         if (IsCombatPaused)
@@ -158,11 +152,7 @@ public sealed class CombatStatusBarState
         if (!enabled)
             return false;
 
-        // Fast path: during a live run the cached flag is already true, so the per-frame probe
-        // never runs. The cache is only false in lobby/menu and during replay playback — replay
-        // enters ReplayState via AppState.TryPushState without firing RunStarted, so nothing ever
-        // flips the cache true. Consult the live probe in that case; ComputeIsInGameRun() reports
-        // ReplayState as in-game-run, which keeps the bar (and its playback controls) visible.
+        // Entering ReplayState skips RunStarted, so the cached run flag stays false. The live probe keeps playback controls visible.
         if (runContext.IsInGameRun)
             return true;
 
@@ -172,7 +162,7 @@ public sealed class CombatStatusBarState
         }
         catch
         {
-            // Probe touches game statics; never log here (per-frame call would spam). Hide if unsure.
+            // A failed per-frame probe would flood the log.
             return false;
         }
     }
@@ -215,11 +205,7 @@ public sealed class CombatStatusBarState
     [ThreadStatic]
     private static System.Text.StringBuilder? _tabularBuffer;
 
-    /// <summary>
-    /// <paramref name="time"/> with each run of ASCII digits in a TMP <c>mspace</c> tag, so the
-    /// digits share one advance and the time never shifts while the separators keep their own
-    /// width. The time text above writes no other digits.
-    /// </summary>
+    /// <summary>TMP's shared digit width keeps the clock from shifting while separators retain their natural widths.</summary>
     public static string WithTabularDigits(string time)
     {
         var buffer = _tabularBuffer ??= new System.Text.StringBuilder(64);

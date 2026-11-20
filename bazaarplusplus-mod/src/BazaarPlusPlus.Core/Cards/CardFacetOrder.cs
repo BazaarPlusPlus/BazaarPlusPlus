@@ -1,12 +1,9 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Cards;
 
-/// <summary>The visible orders of card facets, independent of any enum's integer values.</summary>
+// Use explicit orders for UI and board layout because facet integers are independent of display order.
 public static class CardFacetOrder
 {
-    // Canonical ordering for card tags that are meaningful to players. Feature-specific
-    // consumers may filter this list further (aggregate item effects drop Merchant, which item
-    // templates never carry).
     public static IReadOnlyList<CardTag> PlayerFacingTags { get; } =
         Array.AsReadOnly(
             new[]
@@ -56,7 +53,6 @@ public static class CardFacetOrder
             _ => 99,
         };
 
-    // Board order, left to right: Socket_0 first.
     public static int SocketRank(CardSocket socket) =>
         socket switch
         {
@@ -73,7 +69,6 @@ public static class CardFacetOrder
             _ => 99,
         };
 
-    // The inverse of SocketRank: the socket at a board index 0..9, otherwise none.
     public static CardSocket? SocketAt(int index) =>
         index switch
         {

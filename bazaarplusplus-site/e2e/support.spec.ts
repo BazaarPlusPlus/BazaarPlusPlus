@@ -111,7 +111,6 @@ test.describe('supporters', () => {
     await expect(
       page.getByText('暂时无法加载支持者名单，请稍后再试。')
     ).toBeVisible();
-    // The page asks the supporters source once and React Query retries once.
     expect(routes.hits.supporters).toBe(2);
   });
 

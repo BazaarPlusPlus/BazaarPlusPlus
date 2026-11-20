@@ -6,10 +6,8 @@ public sealed class HistoryTimelineScroll
     private string? _selectedBattleId;
     private double? _slotsBeforeLoading;
 
-    // One chip's pitch when the caller names none.
     private const float DefaultPitch = 64;
 
-    // step: one chip's pitch.
     public float Bind(
         string? selectedBattleId,
         int selectedSlot,
@@ -20,8 +18,7 @@ public sealed class HistoryTimelineScroll
     )
     {
         var pitch = step ?? DefaultPitch;
-        // Empty pages also occur between asynchronous loads. Keep the last position and
-        // selection so the returning page cannot turn a refresh into another navigation.
+        // An in-flight page can be temporarily empty. Keep the previous position and selection so refresh does not become navigation.
         if (rowCount == 0 || viewportHeight <= 0)
         {
             _slotsBeforeLoading ??= (double)offset / pitch;
@@ -37,8 +34,7 @@ public sealed class HistoryTimelineScroll
         {
             var top = selectedSlot * pitch;
             var bottom = top + pitch - 5;
-            // A clickable chip, even a partly clipped one, stays under the pointer.
-            // Reveal a new selection only when it is entirely outside the viewport.
+            // Keep partly visible chips in place so they remain clickable under the pointer.
             if (bottom <= offset)
                 offset = top;
             else if (top >= offset + viewportHeight)

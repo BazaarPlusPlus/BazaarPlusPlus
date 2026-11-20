@@ -46,7 +46,6 @@ import type { BuildPlatform, TauriBuildPlatform } from './release-platforms.ts';
 import type { ObjectStore } from './r2-store.ts';
 import type { PayloadBuildRecord } from './payload.ts';
 
-/** A release command; `help` prints the usage. */
 export type ReleaseCommand =
   | 'sync'
   | 'check'
@@ -59,7 +58,6 @@ export type ReleaseCommand =
   | 'promote'
   | 'assert-build-owner';
 
-/** A release command line after validation. */
 export interface ReleaseInvocation {
   command: ReleaseCommand;
   platform: BuildPlatform | undefined;
@@ -71,7 +69,6 @@ export interface ReleaseInvocation {
   withoutMainlandMirror: boolean;
 }
 
-/** A request for the usage; it carries none of the invocation fields. */
 export interface ReleaseHelp {
   command: 'help';
   platform?: undefined;
@@ -83,10 +80,8 @@ export interface ReleaseHelp {
   withoutMainlandMirror?: undefined;
 }
 
-/** What parseReleaseArgs returns. */
 export type ReleaseArgs = ReleaseHelp | ReleaseInvocation;
 
-/** The effects main reaches the release environment through. */
 export interface ReleaseMainOptions {
   workspaceRoot?: string;
   hostPlatform?: string;
@@ -198,7 +193,6 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
     )
   )
     throw new Error('MSBuild properties must follow --');
-  // A command-line value; the checks below reject any other platform name.
   const platform = values.platform as BuildPlatform | undefined;
   const releasePlatforms = RELEASE_PLATFORMS.map(
     ({ buildPlatform }) => buildPlatform
@@ -268,8 +262,7 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
   };
 }
 
-// The Snapshot Lock entry a sealed build record names: the product ships to
-// online users, so another channel is reported, not hidden (ADR 0004).
+// Report non-online builds because the release ships to online users (ADR 0004).
 function describeLockEntry({
   key,
   gameVersion,
@@ -390,7 +383,6 @@ export async function main(
     return;
   }
   if (command === 'prepare') {
-    // parseReleaseArgs requires a platform here, and android returned above.
     if (platform === undefined || platform === 'android')
       throw new Error(`prepare needs a desktop platform, got ${platform}`);
     const record = preparePayload({ workspaceRoot, platform, msbuildArgs });
@@ -400,7 +392,6 @@ export async function main(
     return;
   }
   if (command === 'build') {
-    // parseReleaseArgs requires a platform here, and android returned above.
     if (platform === undefined || platform === 'android')
       throw new Error(`build needs a desktop platform, got ${platform}`);
     buildProduct({
@@ -409,7 +400,6 @@ export async function main(
       msbuildArgs,
       bundle: ({ token }) => bundleInstaller(rootDir, token)
     });
-    // buildProduct verified and sealed the record; read it back for the log.
     const record = JSON.parse(
       fs.readFileSync(payloadPaths(rootDir, platform).buildRecord, 'utf8')
     ) as PayloadBuildRecord;
@@ -430,7 +420,6 @@ export async function main(
       `Uploaded android ${version}. Upload the App APK to the mainland mirror and run mirror --platform android, then promote --platform android.`
     );
   } else if (command === 'upload') {
-    // parseReleaseArgs requires a platform here, and android uploaded above.
     if (platform === undefined || platform === 'android')
       throw new Error(`upload needs a desktop platform, got ${platform}`);
     await uploadPlatform({
@@ -443,7 +432,6 @@ export async function main(
       `Uploaded ${platform} ${version}. Once both platforms are uploaded, run mirror-all, then promote. For a single-platform release, run mirror, then promote --platform ${platform}.`
     );
   } else if (command === 'mirror') {
-    // parseReleaseArgs requires a Tauri platform and a share address here.
     if (platform === undefined || url === undefined)
       throw new Error('mirror needs --platform and --url');
     await recordMainlandMirror({
@@ -457,7 +445,6 @@ export async function main(
     });
     log(`Recorded ${platform} mainland mirror for ${version}`);
   } else if (command === 'mirror-all') {
-    // parseReleaseArgs requires both share addresses here.
     if (urls === undefined)
       throw new Error('mirror-all needs --windows-url and --macos-url');
     await recordMainlandMirrors({

@@ -4,10 +4,6 @@ using MelonLoader;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// Android log exit: forwards finished <see cref="BppLog"/> lines to MelonLogger, which writes
-/// them into <c>MelonLoader/Latest.log</c> and logcat.
-/// </summary>
 internal sealed class MelonLogSink : IBppLogSink
 {
     private readonly MelonLogger.Instance _logger;

@@ -5,28 +5,14 @@ using BazaarPlusPlus.Game.CollectionPanel.Grid;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-/// <summary>
-/// The Collection panel's geometry on a landscape touch screen, in canvas units, top-down from
-/// the canvas's top-left corner: a full sheet inside the safe area (<see cref="TouchChrome"/>).
-/// The header row carries the title, the Items and Skills tabs, the search field, and Close; under
-/// it the filter rail (a drag-scrolled column of chips) stands left of the card grid. The grid's
-/// column count follows its width (<see cref="GridColumns"/>), so a card keeps a recognisable
-/// size on a phone instead of the desktop's fixed ten-column display case. Every target is at
-/// least <see cref="TouchMetrics.MinTargetDp"/> and every text at least
-/// <see cref="TouchMetrics.MinBodySp"/>. The inspection is the shared tap-to-inspect sheet; its
-/// detail is one drag-scrolled column of tags, preview values and effects,
-/// and an expandable enchantment effect list. The desktop's Collection geometry stays on
-/// <see cref="CollectionGridConstants"/> and is not derived from this one.
-/// </summary>
+/// <summary>Canvas coordinates start at the top left and increase downward.
+/// Size grid columns by the viewport to keep cards recognizable on phones.</summary>
 public sealed class CollectionTouchLayout
 {
-    /// <summary>The narrowest a small item's column gets, with room for its name beneath the art.</summary>
     public const float MinItemColumnDp = 88f;
 
-    /// <summary>The narrowest a skill's square gets.</summary>
     public const float MinSkillDp = 88f;
 
-    /// <summary>The rail's chip grid; a chip spans two, three, or all six columns.</summary>
     public const int RailColumns = 6;
 
     private const float RailShare = 0.3f;
@@ -80,12 +66,10 @@ public sealed class CollectionTouchLayout
 
     public TouchMetrics Metrics { get; }
 
-    /// <summary>The frame, type scale, and close button every touch panel shares.</summary>
     public TouchChrome Chrome { get; }
 
     public float Gap { get; }
 
-    /// <summary>The whole panel: the safe area less the shared margin.</summary>
     public TouchRect Sheet { get; }
 
     public TouchRect Title { get; }
@@ -94,32 +78,20 @@ public sealed class CollectionTouchLayout
 
     public TouchRect SkillsTab { get; }
 
-    /// <summary>The search field, between the tabs and Close.</summary>
     public TouchRect Search { get; }
 
     public TouchRect Close { get; }
 
-    /// <summary>The filter rail's drag-scrolled viewport.</summary>
     public TouchRect Rail { get; }
 
-    /// <summary>The card grid's drag-scrolled viewport.</summary>
     public TouchRect Grid { get; }
 
-    /// <summary>A filter or inspection chip's height: one touch target.</summary>
     public float ChipHeight { get; }
 
-    /// <summary>A rail section header's height (hero, tier, keyword, tag, source).</summary>
     public float RailHeaderHeight { get; }
 
-    /// <summary>The tap-to-inspect sheet.</summary>
     public TouchInspectLayout Inspect { get; }
 
-    /// <summary>
-    /// The grid's column count for a viewport <paramref name="viewportWidth"/> canvas units wide:
-    /// as many as keep a small item's column at least <see cref="MinItemColumnDp"/>, or a skill at
-    /// least <see cref="MinSkillDp"/>, up to the desktop's count, and never fewer than a large
-    /// item needs.
-    /// </summary>
     public int GridColumns(CardType type, float viewportWidth)
     {
         var available = viewportWidth - 2f * CollectionGridConstants.GridOuterPadding;
@@ -141,10 +113,6 @@ public sealed class CollectionTouchLayout
         );
     }
 
-    /// <summary>
-    /// The scale that fits a card <paramref name="naturalWidth"/> by <paramref name="naturalHeight"/>
-    /// canvas units, as its prefab renders unscaled, into the inspection's card area.
-    /// </summary>
     public float InspectScale(float naturalWidth, float naturalHeight) =>
         Inspect.Scale(naturalWidth, naturalHeight);
 }

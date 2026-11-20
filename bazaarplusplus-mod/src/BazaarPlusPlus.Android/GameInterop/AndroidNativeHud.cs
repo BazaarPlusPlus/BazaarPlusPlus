@@ -5,7 +5,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>Current native HUD anchors, projected into the height-scaled touch canvas.</summary>
 internal static class AndroidNativeHud
 {
     private static Il2CppTheBazaar.PopupManager? _popup;
@@ -13,7 +12,6 @@ internal static class AndroidNativeHud
     // One buffer for every read: main thread only, and GetWorldCorners overwrites all four.
     private static Il2CppStructArray<Vector3>? _corners;
 
-    /// <summary>The game's popup manager, once its scene has made one.</summary>
     public static Il2CppTheBazaar.PopupManager? Popups
     {
         get
@@ -27,20 +25,11 @@ internal static class AndroidNativeHud
     public static bool HasPopup =>
         Popups is { } popup && (popup.IsAnyPopupOpen || popup.IsSettingsOpen);
 
-    /// <summary>Whether the native card drawer is showing an inspected card.</summary>
     public static bool IsInspectingCard =>
         Il2CppTheBazaar.Data.TooltipParentComponent?.CardTooltipController?.CurrentCard != null;
 
-    /// <summary>
-    /// Whether the game is changing scenes: <c>SceneLoader</c> is transitioning, or the gameplay
-    /// loading screen (the cityscape a run's start shows) has not faded out. This is the game's
-    /// own test for hiding its focus indicator (<c>MenuNavigator.ShowArrow</c>). The loading screen
-    /// covers the run's settings button, which is already active underneath it:
-    /// <c>StartRunAppState.LoadScenes</c> loads <c>GameScene</c> together with
-    /// <c>GameplayLoading</c>, and the transition ends long before
-    /// <c>StartRunAppState.FinalizeRunInitialization</c> fades the loading screen out. A failed
-    /// read is no scene change, so the HUD keeps its other rules.
-    /// </summary>
+    // SceneLoader can finish transitioning while the gameplay loading screen still covers the live
+    // settings button.
     public static bool IsChangingScene
     {
         get
@@ -60,10 +49,8 @@ internal static class AndroidNativeHud
         }
     }
 
-    /// <summary>The active settings button; <paramref name="inRun"/> when it is the run's.</summary>
     public static Button? FindSettingsButton(out bool inRun)
     {
-        // Scene objects only, inactive ones included: an asset is never active in a hierarchy.
         inRun = true;
         foreach (
             var fight in UnityEngine.Object.FindObjectsByType<Il2Cpp.FightMenuDialog>(
@@ -97,10 +84,6 @@ internal static class AndroidNativeHud
     private static bool Active(Button? button) =>
         button != null && button.gameObject.activeInHierarchy;
 
-    /// <summary>
-    /// <paramref name="rect"/>'s screen rect, scaled to <paramref name="referenceHeight"/>; the
-    /// caller resolves the rect's <paramref name="rootCanvas"/> once and keeps it.
-    /// </summary>
     public static TouchRect ScreenBounds(
         RectTransform rect,
         Canvas rootCanvas,

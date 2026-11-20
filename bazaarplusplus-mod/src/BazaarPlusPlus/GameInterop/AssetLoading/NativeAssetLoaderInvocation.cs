@@ -15,8 +15,6 @@ internal static class NativeAssetLoaderInvocation
     private const string AssetScopeTypeName = "AssetScope";
     private const string GlobalScopeName = "Global";
 
-    // A loader method's signature is fixed for the process, so its shape is read once per
-    // MethodInfo; only the argument array differs per call (the first argument varies).
     private static readonly ConcurrentDictionary<MethodInfo, SignatureShape> Shapes = new();
 
     internal static bool TryBuildArguments(

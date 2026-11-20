@@ -18,8 +18,7 @@ internal sealed partial class HistoryPanelView
     private TMP_InputField? _noteInput;
     private TextMeshProUGUI _noteCount = null!;
 
-    // The favorite owns the note the dialog edits, so a reload that reselects another row while
-    // the dialog is open still saves to the favorite it opened on.
+    // A reload can change row selection while the note dialog is open, so save against the original favorite.
     private string? _noteBattleId;
     private bool _noteSaving;
 
@@ -96,7 +95,6 @@ internal sealed partial class HistoryPanelView
         _note?.Root.SetActive(false);
     }
 
-    // A failed save keeps the dialog and the draft; the status line says why.
     private async Task SaveNoteAsync()
     {
         if (_noteSaving || _noteBattleId == null || _noteInput == null || _saveNote == null)
@@ -139,7 +137,6 @@ internal sealed partial class HistoryPanelView
         _favoriteButton.gameObject.SetActive(m.FavoriteButtonVisible && hasBattle);
         _favoriteButton.Label = m.FavoriteButtonText;
         _favoriteButton.interactable = m.FavoriteButtonEnabled && !m.PageLoading;
-        // The favorite the dialog edits is gone (removed, or the section changed): drop the draft.
         if (
             _noteBattleId != null
             && !_noteSaving

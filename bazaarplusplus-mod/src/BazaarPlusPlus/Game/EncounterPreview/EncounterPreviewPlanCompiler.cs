@@ -277,8 +277,6 @@ internal sealed class EncounterPreviewPlanCompiler
         return plans;
     }
 
-    // Reads the template's plan off its game-serialized JSON, once, and returns that JSON; null
-    // when it does not serialize or read.
     private static JObject? TryAddTemplate(
         TCardBase template,
         Dictionary<Guid, EncounterPreviewTemplatePlan> templates
@@ -300,8 +298,7 @@ internal sealed class EncounterPreviewPlanCompiler
         return token;
     }
 
-    // Game order, then by name onto the facet (ADR-0015): the legacy and current Dragons ids
-    // fold into one facet, and an unmapped hero drops out.
+    // The legacy and current Dragons IDs map to the same hero facet.
     private static IReadOnlyList<CardHero> ToHeroFacets(IEnumerable<EHero>? heroes)
     {
         if (heroes == null)

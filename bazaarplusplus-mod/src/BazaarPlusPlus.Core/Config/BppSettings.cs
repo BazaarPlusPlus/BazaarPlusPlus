@@ -249,7 +249,6 @@ public sealed class BppSettings
             "FSR 1 RCAS sharpening strength. 0 is softest and 1 is sharpest.",
             new SettingRange<float>(0f, 1f)
         );
-        // BazaarDB
         BazaarDbUploadEnabled = config.Bind(
             "BazaarDB",
             "UploadScreenshots",

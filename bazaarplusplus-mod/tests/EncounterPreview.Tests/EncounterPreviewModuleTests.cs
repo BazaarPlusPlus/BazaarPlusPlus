@@ -6,10 +6,6 @@ using Xunit;
 
 namespace EncounterPreview.Tests;
 
-/// <summary>
-/// Core's Encounter Preview Module over a host's reads: the switch and combat gates, the routing
-/// by card type, and that each host read reaches the text.
-/// </summary>
 public sealed class EncounterPreviewModuleTests : IDisposable
 {
     private static readonly Guid EventId = Guid.Parse("82000000-0000-0000-0000-000000000001");

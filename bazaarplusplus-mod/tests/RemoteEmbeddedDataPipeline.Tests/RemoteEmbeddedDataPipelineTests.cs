@@ -9,7 +9,6 @@ using Xunit;
 
 namespace RemoteEmbeddedDataPipeline.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages.
 public sealed class RemoteEmbeddedDataPipelineTests
 {
     [Fact]
@@ -416,8 +415,7 @@ public sealed class RemoteEmbeddedDataPipelineTests
                     result.ExitCode != 0,
                     "A real feature parser must reject a bad staged schema."
                 );
-                // A shell/MSBuild startup failure is not the schema rejection under test.
-                // The child has exited, so no future request can complete this server.
+                // The child has exited, so no later request can complete this server.
                 Equal(
                     2,
                     server.Requests.Count,
@@ -543,8 +541,7 @@ public sealed class RemoteEmbeddedDataPipelineTests
         if (!OperatingSystem.IsWindows())
             return "bash";
 
-        // Windows can resolve bare "bash" to the WSL launcher before searching PATH.
-        // Resolve Git's own Bash, as the installer shell-test harness does.
+        // Resolve Git Bash explicitly because Windows can pick the WSL launcher for bare "bash".
         var git = await RunProcess(workingDirectory, "git", "--exec-path");
         Equal(0, git.ExitCode, "Could not locate Git for Windows. " + git.Output);
         for (

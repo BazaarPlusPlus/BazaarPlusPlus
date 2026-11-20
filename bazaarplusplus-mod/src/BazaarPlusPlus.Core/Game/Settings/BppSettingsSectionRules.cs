@@ -1,15 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Settings;
 
-/// <summary>
-/// What one row of the BazaarPlusPlus section shows, resolved once per refresh: the host writes
-/// it onto its cloned control. <see cref="Resolved"/> is false only for a choice whose state
-/// did not resolve; the host then leaves that dropdown as it is.
-/// </summary>
-/// <remarks>
-/// Compare two states with <see cref="BppSettingsSectionRules.SameState"/>: the record's own
-/// equality compares <see cref="Options"/> by reference.
-/// </remarks>
+// Use SameState when comparing refreshes because record equality compares Options by reference.
 public sealed record BppSettingsRowState(
     string Key,
     BppSettingsControlKind Kind,
@@ -22,7 +14,6 @@ public sealed record BppSettingsRowState(
     bool Resolved
 );
 
-/// <summary>What a tap on an action row does.</summary>
 public enum BppSettingsActionStep
 {
     Ignore,
@@ -30,12 +21,6 @@ public enum BppSettingsActionStep
     CloseThenRun,
 }
 
-/// <summary>
-/// The decisions of the BazaarPlusPlus section in the game's settings dialog, shared by both
-/// hosts: the row order, each row's state, change detection, the dropdown index and the action
-/// tap. The hosts read the language code, clone the native rows, and write these states onto
-/// them. No catch here: an exception from a definition's delegate reaches the host.
-/// </summary>
 public static class BppSettingsSectionRules
 {
     private static readonly BppSettingsControlKind[] KindOrder =
@@ -45,7 +30,6 @@ public static class BppSettingsSectionRules
         BppSettingsControlKind.Action,
     };
 
-    /// <summary>Toggles, then choices, then actions; catalog order inside each kind.</summary>
     public static IReadOnlyList<BppSettingsDockDefinition> BuildOrder(
         IReadOnlyList<BppSettingsDockDefinition> rows
     )
@@ -62,14 +46,9 @@ public static class BppSettingsSectionRules
         return ordered;
     }
 
-    /// <summary>
-    /// Calls each of the row's delegates once, the invisible row's too, so that a change to it
-    /// still counts in <see cref="SameState"/>.
-    /// </summary>
     public static BppSettingsRowState Resolve(BppSettingsDockDefinition row, string languageCode)
     {
-        // The order the hosts' presentation hash read them in: visibility, the active read
-        // (a toggle's IsActive is its ReadToggle, so it is read once), the label, the rest.
+        // A toggle's IsActive calls ReadToggle, so reading both would invoke the same delegate twice.
         var visible = row.IsVisible(languageCode);
         var active = row.ControlKind switch
         {
@@ -106,7 +85,6 @@ public static class BppSettingsSectionRules
         }
     }
 
-    /// <summary>Whether two refreshes show the same rows; options compare item by item.</summary>
     public static bool SameState(
         IReadOnlyList<BppSettingsRowState> previous,
         IReadOnlyList<BppSettingsRowState> current
@@ -134,12 +112,7 @@ public static class BppSettingsSectionRules
         return true;
     }
 
-    /// <summary>
-    /// The standard choice behind a dropdown pick, or null when the pick changes nothing: the
-    /// choice did not resolve, or the pick is the synthetic current option. No range check: the
-    /// row's own <see cref="BppSettingsDockDefinition.SelectStandardChoice"/> ignores an index
-    /// outside its values.
-    /// </summary>
+    // The row's SelectStandardChoice already rejects indices outside its standard choices.
     public static int? StandardIndex(BppSettingsChoiceState? state, int shownIndex)
     {
         if (state == null)
@@ -149,7 +122,6 @@ public static class BppSettingsSectionRules
         return shownIndex == 0 ? null : shownIndex - 1;
     }
 
-    /// <summary>An inactive row ignores the tap; an active one may close the dialog first.</summary>
     public static BppSettingsActionStep OnActionTap(BppSettingsDockDefinition row)
     {
         if (!row.IsActive())

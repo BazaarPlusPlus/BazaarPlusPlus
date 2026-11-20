@@ -43,12 +43,9 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
     private ReplayVideoCaptureSettings _availabilitySettings;
     private string? _availabilityVideoDirectory;
 
-    // The History path writes its start row off the main thread; finalization joins this task
-    // before its SaveFinish, which only updates an existing row.
+    // SaveFinish updates an existing row, so finalization waits for the asynchronous History insert.
     private Task<MetadataWriteOutcome>? _activeStartMetadata;
 
-    // The last recording's tap stop, which runs off the main thread. On macOS the next recording
-    // waits for it before building its session: the aggregate device has a fixed UID.
     private Task<ReplayAudioStopOutcome>? _pendingAudioStop;
     private ReplayVideoRecordingReasonCode? _activeDegradationReason;
     private Exception? _activeDegradationException;
@@ -85,9 +82,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             }
         }
 
-        // ComponentMount.Mount calls AddComponent (which fires OnEnable synchronously on an
-        // active host) BEFORE this initializer runs, so the first OnEnable saw a null _services
-        // and could not subscribe. Now that services are available, ensure we are subscribed.
+        // AddComponent fires OnEnable synchronously on an active host, before this initializer supplies the services.
         if (isActiveAndEnabled)
             EnsureEventSubscriptions();
     }
@@ -228,8 +223,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 );
             }
 
-            // The arm's contract is a reserved row, so this write stays synchronous, bounded to
-            // about a second on a locked database; a timeout is the reservation failure below.
             try
             {
                 _metadataStore.ReserveStartOnMainThread(CreateStartedMetadata(request, services));
@@ -319,10 +312,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         _videoMaintenanceFlight = null;
         AbortActiveSession("recorder-destroyed");
 
-        // Best-effort drain of any in-flight background finalize/mux tasks so a recording
-        // that just ended gets a chance to produce its final file before the app
-        // tears down. This is the only viable shutdown seam (no Application.quitting
-        // hook); un-drained temps are acceptable and reclaimed on the next launch.
+        // This lifecycle hook gives pending finalizers a bounded shutdown window. The next launch reclaims unfinished temp files.
         try
         {
             if (!ReplayVideoAudioMuxer.TryDrainPendingForShutdown(TimeSpan.FromMilliseconds(4000)))
@@ -476,8 +466,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         catch (Exception ex)
         {
             _activeDegradationException = ex;
-            // The abort's finalizer writes this row's real outcome (a usable MP4 included), so
-            // the FAILED mark goes first and the finalizer waits for it before its SaveFinish.
+            // The provisional FAILED write must precede the finalizer, which can still find a usable MP4.
             var failedMark = TryMarkPreparedMetadataFailed(prepared, ex.Message);
             var aborted = AbortActiveSession("begin-exception", metadataWriteBefore: failedMark);
             CompleteBeginException(_operations, prepared.Operation, aborted, ex);
@@ -500,8 +489,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         {
             StopCaptureCoroutine();
             drain = session.Finalize(reason);
-            // The taps stop off the main thread: their WAVs are closed and judged before the
-            // continuation muxes them (CompleteEndedRecording waits for this task).
             audioStop = StopAudioTapsOffMainThread(operation.RecordingId);
 
             // Freeze every continuation input before clearing the active recording. A superseding
@@ -648,8 +635,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         _activeDegradationException = null;
     }
 
-    // MAIN thread: everything the start contributed to the terminal outcome, frozen before
-    // ClearActiveState so a superseding recording cannot overwrite it.
+    // Capture on the main thread before a superseding recording can replace the active state.
     private RecordingStartInputs FreezeStartInputs() =>
         new(
             _activeStartMetadata ?? Task.FromResult(MetadataWriteOutcome.Unavailable),
@@ -657,8 +643,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             _activeDegradationException
         );
 
-    // MAIN thread: hands the taps to a tracked background stop, which the shutdown drain also
-    // waits for, and remembers it so the next tap start waits until this one has torn down.
     private Task<ReplayAudioStopOutcome> StopAudioTapsOffMainThread(string recordingId)
     {
         var taps = ReplayAudioTapStopper.Detach(_audioTaps);
@@ -672,13 +656,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         return stop;
     }
 
-    // Only the macOS process tap needs this: its aggregate device has a fixed UID, so a new one
-    // cannot be created while the last recording's teardown still holds it. A WASAPI loopback
-    // start has nothing to collide with. It runs before the capture session is built, so the
-    // wait never counts toward the recording. A tap stop joins its capture thread for at most
-    // StopTimeoutMs before handing cleanup to a deferred thread, which bounds the wait; past
-    // it the new tap starts anyway and, if the device still exists, the recording continues as
-    // silent video with AudioCaptureFailed.
+    // The macOS aggregate device has a fixed UID, so the next tap must wait for the previous teardown. WASAPI has no shared device to release.
     private void WaitForPreviousAudioStop()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -696,10 +674,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             {
                 pending.Wait(ReplayAudioCaptureThreadJoiner.StopTimeoutMs + 500);
             }
-            catch
-            {
-                // The stop's own failure is reported with its recording.
-            }
+            catch { }
         }
         if (pending.IsCompleted)
             _pendingAudioStop = null;
@@ -749,7 +724,6 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
         _uiSuppressionScope = BeginUiSuppression(operation.RecordingId);
 
-        // The current replay's row was reserved when it was armed.
         _activeStartMetadata =
             operation.Source == CombatReplayPlaybackSource.CurrentNative
                 ? Task.FromResult(MetadataWriteOutcome.Complete)
@@ -774,9 +748,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
 
     private void StartAudioTaps(ReplayVideoRecordingOperation operation, string tempVideoPath)
     {
-        // Audio is additive: capture failure must never abort the video recording. Capture the device
-        // output (loopback) so we record exactly what the player hears — music, settlement, and the
-        // spatialised combat/board SFX that no FMOD channel group exposes.
+        // Spatialized combat and board effects bypass the FMOD channel groups, so audio comes from the rendered output.
         var wavPath = ReplayVideoAudioTapPlan.DeriveAudioWavPath(tempVideoPath);
         _activeAudioWavPaths = new List<string> { wavPath };
         TryStartAudioTap(operation, wavPath);
@@ -830,9 +802,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         }
     }
 
-    // A History recording does not depend on its row to start, so the insert runs off the main
-    // thread instead of waiting there on a locked database. Finalization joins it before
-    // SaveFinish, and the shutdown drain waits for it like any tracked task.
+    // The History row is optional at start, so a locked database need not block Unity.
     private Task<MetadataWriteOutcome> SaveStartMetadataOffMainThread(
         ReplayVideoCaptureRequest request,
         IBppServices services
@@ -847,8 +817,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 )
             );
 
-        // Built on the main thread (it reads the services' paths); a throw here, like one from
-        // the insert, only marks the metadata failed.
+        // The services' paths are read on the main thread before dispatching the insert.
         VideoRecordingStarted started;
         try
         {
@@ -915,15 +884,11 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             {
                 StopCoroutine(_captureCoroutine);
             }
-            catch
-            {
-                // ignore
-            }
+            catch { }
             _captureCoroutine = null;
         }
     }
 
-    // Returns the operation whose terminal outcome the abort's finalizer now owns, if any.
     private ReplayVideoRecordingOperation? AbortActiveSession(
         string reason,
         Task? metadataWriteBefore = null
@@ -940,12 +905,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
         var terminalException = _activeDegradationException;
 
         StopCaptureCoroutine();
-        // Unlike a playback end, an abort tears the taps down synchronously: stop + join before
-        // any new recording's capture thread starts (superseded) or the process exits (OnDisable,
-        // OnDestroy, the scene-change-driven OnDisable). Those callers would wait for the stop on
-        // the main thread anyway, and waiting there on a background CoreAudio teardown would only
-        // add a thread hop; the playback-end path stops off the main thread because nothing waits
-        // for it. Abort never muxes — it deletes temps.
+        // Abort callers are about to start another capture or shut down, so they need the tap joined before returning.
         var wavPaths = _activeAudioWavPaths;
         var audioStop = Task.FromResult(
             operation == null
@@ -987,10 +947,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
                 {
                     session.Dispose();
                 }
-                catch
-                {
-                    // ignore
-                }
+                catch { }
             }
         }
 
@@ -1047,10 +1004,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
     {
         try
         {
-            // The combat status bar is intentionally NOT suppressed here: during a recorded replay
-            // it stays visible just like in a normal replay, so it is captured into the MP4 (the
-            // recorder uses full-screen ScreenCapture). The remaining BPP overlays stay suppressed
-            // to keep them out of the recording.
+            // Full-screen capture keeps the combat status bar in the MP4.
             return UiSuppressionScope.Begin(
                 () => BppUiChromeSuppression.Begin(BppUiChromeSuppressionMode.ReplayRecording),
                 () =>
@@ -1086,10 +1040,7 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             {
                 _uiSuppressionScope.Dispose();
             }
-            catch
-            {
-                // ignore
-            }
+            catch { }
             _uiSuppressionScope = null;
         }
     }
@@ -1245,18 +1196,14 @@ internal sealed class CombatReplayVideoRecorder : MonoBehaviour
             Status = "FAILED",
             Error = error,
         };
-        // Off the main thread: the arm reserved the row synchronously, so this update always
-        // follows it, and the shutdown drain in OnDestroy waits for it after OnDisable's cancel.
+        // The arm already reserved the row. OnDestroy's shutdown drain waits for the queued write after OnDisable cancels.
         return ReplayVideoAudioMuxer.DispatchTracked(() =>
         {
             try
             {
                 store.SaveFinish(finished);
             }
-            catch
-            {
-                // Best effort: the terminal observer still reports the reservation failure.
-            }
+            catch { }
         });
     }
 

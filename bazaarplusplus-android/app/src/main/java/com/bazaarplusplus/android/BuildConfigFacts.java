@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 
-/** The App's own version, read from its package so the manifest stays the one owner. */
+/** Read package metadata so the Android manifest remains the source of the App version. */
 public final class BuildConfigFacts {
     private BuildConfigFacts() {}
 

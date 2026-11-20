@@ -7,12 +7,7 @@ using BazaarPlusPlus.Storage.Paths;
 
 namespace BazaarPlusPlus.Core.Runtime;
 
-/// <summary>
-/// The host-independent half of the composition root: the event bus, settings, run context, the
-/// services every feature receives, and the feature lifecycle. A host composition supplies the
-/// ports (settings store, paths, game-state probes, game build), then registers its features in
-/// start order; <see cref="Stop"/> runs them in reverse.
-/// </summary>
+// Stop features in reverse startup order so dependencies stay available during teardown.
 public sealed class CoreComposition
 {
     private readonly BppFeatureRegistry _features = new();

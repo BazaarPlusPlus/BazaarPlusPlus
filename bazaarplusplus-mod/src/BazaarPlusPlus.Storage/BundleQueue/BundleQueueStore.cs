@@ -19,17 +19,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.ExecuteNonQuery();
     }
 
-    /// <summary>
-    /// The one rule for a Seal-Eligible Run, as a SQL condition over the runs row aliased
-    /// <paramref name="runAlias"/>: not a History-Only Run, completed, Ranked, not PTR, not an
-    /// Empty Run (zero wins and zero losses), and with neither a seal job nor any outbox row. The upload policy is checked first: imported history
-    /// is never sealed, whatever its other columns say. Any outbox row ends eligibility: a reseal
-    /// after an invalid file is scheduled explicitly, and a server rejection or retention expiry is
-    /// final. <see cref="EnsureEligibleJobs"/>
-    /// gives each such Run a job, and replay maintenance keeps its replays until then. The shared
-    /// cases in <c>tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json</c>
-    /// pin this rule together with installer History cleanup.
-    /// </summary>
+    // Installer History cleanup shares this rule via tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json.
+    // Once an outbox row exists, reseal requires explicit scheduling.
     public static string SealEligibleRunCondition(string runAlias) =>
         $"""
             (
@@ -45,15 +36,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
             )
             """;
 
-    /// <summary>
-    /// A Run whose Bundle is still owed, as a SQL condition over the runs row aliased
-    /// <paramref name="runAlias"/>: a Seal-Eligible Run (<see cref="SealEligibleRunCondition"/>),
-    /// or a Run of the same shape whose seal job has not failed for good and that has no outbox
-    /// row pending or uploaded. It is the <c>protectedFromCleanup</c> column of the shared cases
-    /// in <c>tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json</c>, the
-    /// rule installer History cleanup also applies; History refuses to delete such a Run, since
-    /// deleting it would lose the Bundle before it is sealed.
-    /// </summary>
+    // The shared bundle-seal-eligibility fixture pins this predicate for installer History cleanup.
+    // Deleting a protected Run would lose its owed Bundle.
     public static string ProtectedRunCondition(string runAlias) =>
         $"""
             (
@@ -74,8 +58,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
             )
             """;
 
-    // Not a History-Only Run, completed, Ranked, not PTR: the Runs a Bundle is sealed for. The
-    // upload policy is checked first: imported history is never sealed.
     private static string SealableRunShape(string runAlias) =>
         $"""
             {runAlias}.upload_policy = 'bundle'
@@ -85,11 +67,7 @@ public sealed class BundleQueueStore : SqliteStoreBase
                 AND NOT ({runAlias}.victories IS 0 AND {runAlias}.losses IS 0)
             """;
 
-    /// <summary>
-    /// Deletes the Run Message Stream rows (ADR-0028) of every Run that can no longer upload them:
-    /// not active, its Bundle not owed (<see cref="ProtectedRunCondition"/>), and no pending outbox
-    /// row whose invalid file a reseal would rebuild from them.
-    /// </summary>
+    // A pending outbox row still needs these stream rows if an invalid artifact triggers resealing.
     public void DeleteSpentMessageStreams() =>
         Execute(
             $"""
@@ -131,8 +109,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
         command.ExecuteNonQuery();
     }
 
-    // Every waiting job in one read, earliest input deadline first: the seal worker decides from
-    // these rows which jobs are due and when it next needs to wake.
     public IReadOnlyList<BundleSealJobRecord> ListWaitingJobs(
         out IReadOnlyList<BundleSealJobReadFailure> invalidRows
     )
@@ -210,9 +186,8 @@ public sealed class BundleQueueStore : SqliteStoreBase
     public void FreezePlayerAccountId(string runId, string accountId)
     {
         using var connection = OpenConnection();
-        // An UPDATE of an unchanged row still needs SQLite's writer lock. Check with a read
-        // first, but require both rows to exist: a concurrent writer may still be creating one.
-        // The conditional writes below recheck after acquiring the transaction.
+        // Even an unchanged UPDATE needs the SQLite writer lock. Skip it only when both rows
+        // already exist. The conditional writes recheck once the transaction holds the lock.
         using (var probe = CreateCommand(connection))
         {
             probe.CommandText = $"""
@@ -250,8 +225,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
             ("$state", ToStorage(state))
         );
 
-    // The one writer of a seal failure: state, consecutive-attempt count, time, and diagnostic
-    // change together so backoff and parking read one consistent row.
     public void RecordSealFailure(
         string runId,
         BundleSealJobState state,
@@ -384,7 +357,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
             ("$detail", detail)
         );
 
-    /// <summary>Invalidates a pending artifact and returns whether a new seal job was committed.</summary>
     public bool FailOutboxAndScheduleReseal(
         string bundleId,
         string runId,

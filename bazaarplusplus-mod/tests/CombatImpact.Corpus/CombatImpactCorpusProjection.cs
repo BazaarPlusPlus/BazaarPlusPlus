@@ -251,10 +251,7 @@ internal static class CombatImpactCorpusProjection
         );
     }
 
-    // The evidence names a modifier's value by the game's value type, as it did before the
-    // producer moved to Core's combat vocabulary (ADR-0019). The names are fixed here because the
-    // Core lane has no game types to read them from; the host adapter's DesktopCombatTimeline.ToValue
-    // owns which game type becomes which Core value.
+    // The evidence uses game type names, but the Core lane has no game assemblies to resolve them.
     private static string? GameValueTypeName(CombatValue? value) =>
         value switch
         {

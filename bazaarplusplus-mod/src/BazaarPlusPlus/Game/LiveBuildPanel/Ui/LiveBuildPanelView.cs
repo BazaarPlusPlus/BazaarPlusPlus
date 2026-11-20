@@ -23,10 +23,8 @@ internal sealed class LiveBuildPanelView : IDisposable
     private static readonly Color Ink = InGameTheme.Ink;
     private static readonly Color Muted = InGameTheme.InkMuted;
 
-    // The match figures of the shown build: two rows of two.
     private const int MetricCells = 4;
 
-    // Copy build at the right end of the recommendation's title row.
     private const float CopyButtonWidth = 96;
 
     private sealed class Row
@@ -157,8 +155,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         shade.raycastTarget = false;
         _kit = new DesktopKit(_font!);
         BuildSidebar();
-        // Four peers always share the same board dimensions. Native carpet aspect and
-        // ten sockets determine card scale; sparse sources never grow individual cards.
         var ids = new[]
         {
             BppItemBoardId.FinalBuild,
@@ -187,7 +183,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         var recommendationHeader = _rows[BppItemBoardId.FinalBuild].Header;
         _portrait = _kit.Portrait(recommendationHeader, null, 24);
         _portraitWell = (RectTransform)_portrait.transform.parent;
-        // The shown build as text, for a player to paste into a chat with an AI.
         _copyButton = _kit.Button(
             recommendationHeader,
             string.Empty,
@@ -216,8 +211,6 @@ internal sealed class LiveBuildPanelView : IDisposable
             Refresh(_snapshot);
     }
 
-    // The overview rail: the kit's ground, laid out top to bottom. The view places only the
-    // rail itself beside the boards.
     private void BuildSidebar()
     {
         var kit = _kit!;
@@ -237,7 +230,6 @@ internal sealed class LiveBuildPanelView : IDisposable
 
         _supporters = new BPPSupporterNativeAttributionRow(_sidebar, kit);
 
-        // The library the builds come from: read once and updated rarely, so it is at the top.
         var library = kit.SectionHeader(_sidebar, " ", " ");
         _corpusTitle = library.GetComponentsInChildren<TextMeshProUGUI>(true)[0];
         library.GetComponentsInChildren<TextMeshProUGUI>(true)[1].text = string.Empty;
@@ -258,14 +250,11 @@ internal sealed class LiveBuildPanelView : IDisposable
             .gameObject.AddComponent<LayoutElement>()
             .flexibleHeight = 1;
 
-        // The build on show: which one, how it did, and what narrows the choice. Paging is used
-        // most, so it is at the foot of the rail, where the hand rests.
         var browse = kit.SectionHeader(_sidebar, " ", "0 / 0");
         var browseTexts = browse.GetComponentsInChildren<TextMeshProUGUI>(true);
         _navigationLabel = browseTexts[0];
         _pager = browseTexts[1];
         var arrows = Line(_sidebar, "Arrows", InGameSizes.Space8);
-        // Paging is this panel's main action: the two arrows share the rail's width.
         _previousButton = kit.PageArrow(arrows, false, _previous, wide: true);
         _nextButton = kit.PageArrow(arrows, true, _next, wide: true);
         _metrics = DesktopKit.Rect(_sidebar, "MatchMetrics");
@@ -390,7 +379,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         }
     }
 
-    /// <summary>Shows that the build is on the clipboard until the panel next refreshes.</summary>
     internal void ShowCopied()
     {
         _copied = true;
@@ -497,7 +485,6 @@ internal sealed class LiveBuildPanelView : IDisposable
         _corpusDetailCard!.gameObject.SetActive(hovered);
         if (hovered)
         {
-            // Under the line it explains, its right edge on the line's right edge.
             _corpus!.rectTransform.GetWorldCorners(_corners);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 _markerRoot!,
@@ -587,7 +574,6 @@ internal sealed class LiveBuildPanelView : IDisposable
             LiveBuildPanelLayout.RowTitleHeight
         );
         var statusLeft = titleLeft + titleWidth + 10;
-        // The recommendation's status ends where Copy build begins.
         var statusRight = row.Index == 0 ? CopyButtonWidth + 10 : 0;
         Place(
             row.Status.rectTransform,

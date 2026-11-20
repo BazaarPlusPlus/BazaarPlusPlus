@@ -31,11 +31,6 @@ public static partial class LiveBuildPanelText
     );
     private static readonly LocalizedTextSet MissingValueText = new("—", "—", "—");
 
-    /// <summary>
-    /// The evidence cells both hosts show for the browsed recommendation, in display order: the
-    /// ten-win rate, the ten-win and completed run counts, the final day, and the candidates it
-    /// holds. No recommendation leaves the cells with missing values.
-    /// </summary>
     public static IReadOnlyList<LiveBuildMetric> MatchMetrics(
         BuildRecommendation? match,
         int candidateCount
@@ -53,7 +48,6 @@ public static partial class LiveBuildPanelText
             ),
         ];
 
-    // Ten-win rate from basis points (2667 -> 26.67%); em dash when the analyzer omitted it.
     private static string MatchRateValue(int? tenWinRateBps) =>
         tenWinRateBps.HasValue
             ? $"{(tenWinRateBps.Value / 100.0).ToString("0.##", CultureInfo.InvariantCulture)}%"

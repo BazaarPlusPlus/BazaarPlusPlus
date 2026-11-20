@@ -7,9 +7,7 @@ import { WORKSPACE_ROOT } from './product.ts';
 import { RELEASE_PLATFORMS } from './release-platforms.ts';
 import type { BuildPlatform } from './release-platforms.ts';
 
-/** The mod loader whose install roots a Payload Inventory entry lives under. */
 export type PayloadHost = 'bepinex' | 'melonloader';
-/** Who produces a Payload Inventory entry. */
 export type PayloadProducer =
   | 'managed'
   | 'history-contract'
@@ -22,12 +20,9 @@ export type PayloadProducer =
   | 'runtime'
   | 'retired'
   | 'android-app';
-/** Who owns an installed Payload Inventory path. */
 export type PayloadOwnership = 'private' | 'dependency' | 'bootstrap';
-/** A Payload Inventory entry names one file, or one directory it owns whole. */
 export type PayloadEntryKind = 'file' | 'directory';
 
-/** One entry of `release/payload.json`. */
 export interface PayloadInventoryEntry {
   path: string;
   host: PayloadHost;
@@ -40,18 +35,15 @@ export interface PayloadInventoryEntry {
   assembly?: boolean;
 }
 
-/** The Payload Inventory, `release/payload.json`. */
 export interface PayloadInventory {
   schemaVersion: 1;
   files: PayloadInventoryEntry[];
 }
 
-/** The options of synchronizePayloadProjection. */
 export interface SynchronizePayloadProjectionOptions {
   check?: boolean;
 }
 
-// The install roots of one mod loader host.
 interface PayloadHostRoots {
   rootFiles: Set<string>;
   allowedOwnership(entry: PayloadInventoryEntry): boolean;
@@ -72,13 +64,8 @@ const producers = new Set([
 ]);
 const ownerships = new Set(['private', 'dependency', 'bootstrap']);
 
-// Each mod loader host has its own install roots. A BepInEx path is relative
-// to the game directory. A MelonLoader path is relative to the Android app's
-// external files directory (`Android/data/<package>/files/`), except the
-// `android-app` entries under `lib/` and `assets/`, which are paths inside the
-// Android App APK. The Android App produces every `android-app` entry, those
-// and the Launch Record it writes before each launch, never the mod build
-// (ADR 0012).
+// MelonLoader install paths are relative to the Android App's external files directory.
+// The android-app entries are relative to the APK root.
 const hostRoots: Record<PayloadHost, PayloadHostRoots> = {
   bepinex: (() => {
     const rootFiles = new Set([
@@ -164,7 +151,6 @@ export function assertRelativePayloadPath(value: unknown): string {
   return value;
 }
 
-// Checks an inventory read from JSON against the shape its type claims.
 export function validateInventory(
   inventory: PayloadInventory
 ): PayloadInventory {
@@ -228,8 +214,6 @@ export function readInventory(
   );
 }
 
-// The entries one release platform installs: its host's entries, narrowed
-// by `platforms` where an entry names them.
 export function platformInventory(
   platform: BuildPlatform,
   inventory: PayloadInventory = readInventory()
@@ -321,8 +305,6 @@ export function renderManagedPayloadTargets(
       conditions.push(`'$(BppPayloadPlatform)' == '${entry.platforms[0]}'`);
     return `      <BppPayloadFile Include="${xml(source)}"${conditions.length ? ` Condition="${xml(conditions.join(' and '))}"` : ''}><PayloadPath>${entry.path}</PayloadPath><ProductAssembly>${entry.assembly === true}</ProductAssembly></BppPayloadFile>`;
   };
-  // One item group per host; a project selects its host with BppPayloadHost,
-  // which defaults to the BepInEx host the desktop plugin builds for.
   const hosts = [
     ...new Set(RELEASE_PLATFORMS.map((platform) => platform.payloadHost))
   ];
@@ -345,7 +327,6 @@ export function renderManagedPayloadTargets(
       return `    <ItemGroup Condition="'$(BppPayloadHost)' == '${host}'">\n${items}\n    </ItemGroup>`;
     })
     .join('\n');
-  // A host with a single platform needs no host-OS default.
   const singlePlatformDefaults = hosts
     .map((host): [PayloadHost, BuildPlatform[]] => [host, hostPlatforms(host)])
     .filter(([, platforms]) => platforms.length === 1)

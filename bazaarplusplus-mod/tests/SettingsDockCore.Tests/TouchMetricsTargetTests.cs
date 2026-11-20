@@ -4,10 +4,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The 48dp check for controls on the game's own canvases, such as the settings dialog's rows
-/// and the options of its dropdowns.
-/// </summary>
 public sealed class TouchMetricsTargetTests
 {
     [Theory]
@@ -20,7 +16,6 @@ public sealed class TouchMetricsTargetTests
         Assert.Equal(expected, TouchMetrics.EffectiveDpi(dpi));
 
     [Theory]
-    // The emulator: 420dpi, so 48dp is 126 pixels.
     [InlineData(0f, 420f, 126f)]
     [InlineData(58f, 420f, 68f)]
     [InlineData(126f, 420f, 0f)]

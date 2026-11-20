@@ -13,7 +13,6 @@ export function useHistoryPage() {
     createHistoryListWorkflow(commandClient, {
       initialPage: route.page,
       initialFilter: route.filter,
-      // A corrected page keeps the filter the URL holds.
       replacePage: (page) =>
         setSearchParams(
           (current) =>
@@ -51,11 +50,9 @@ export function useHistoryPage() {
     ...snapshot,
     ...workflow.intents,
     refresh,
-    /** The URL search of the current selection, for links that return to it. */
     search: searchParams.toString(),
     goToPage: (page: number) =>
       setSearchParams(historySearchParams({ page, filter: routeFilter })),
-    // A new filter starts at its first page.
     setFilter: (filter: HistoryRunFilter) =>
       setSearchParams(historySearchParams({ page: 1, filter }))
   };

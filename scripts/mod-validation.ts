@@ -4,14 +4,12 @@ import { spawn } from 'node:child_process';
 import type { SpawnOptions } from 'node:child_process';
 import { runGit } from './git-command.ts';
 
-/** The spawn options validate passes for each gate: its log as stdout and stderr. */
 export interface GateSpawnOptions {
   cwd: string;
   env: NodeJS.ProcessEnv;
   stdio: ['ignore', number, number];
 }
 
-/** Runs one gate and resolves its exit code; run is the default. */
 export type GateRunner = (
   command: string,
   args: readonly string[],
@@ -25,7 +23,6 @@ export interface ValidationStep {
   exitCode: number | null;
 }
 
-/** The result.json receipt validate writes into its output directory. */
 export interface ValidationReceipt {
   head: string;
   dirty: boolean;

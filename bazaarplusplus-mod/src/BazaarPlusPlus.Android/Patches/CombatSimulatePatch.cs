@@ -8,12 +8,7 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Observes entry into combat simulation and publishes <see cref="CombatSimObserved"/> with the
-/// snapshot copied here, on the game thread, as the desktop's <c>CombatSimPatch</c> does.
-/// <c>Simulate</c> is async and returns an <c>Il2CppSystem.Threading.Tasks.Task</c>, so a postfix
-/// here would not mean the combat ended; this hook only records that it started.
-/// </summary>
+// A Harmony postfix on Simulate runs at its first async suspension, before combat has finished.
 [HarmonyPatch(
     typeof(CombatSimHandler),
     nameof(CombatSimHandler.Simulate),

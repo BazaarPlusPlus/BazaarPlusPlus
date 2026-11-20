@@ -13,7 +13,6 @@ pub(crate) use trampoline::{
 };
 pub(crate) use zip_archive::read_bundled_bpp_version;
 
-/// Repairs developer deployments without extracting the installer's bundled Payload.
 pub(crate) fn repair_deployed_game(game_path: &Path, stub: &Path) -> anyhow::Result<()> {
     #[cfg(target_os = "macos")]
     {
@@ -94,12 +93,7 @@ fn reset_bpp_data_blocking_with(
     Ok(had_resettable_data)
 }
 
-/// Blunt "wipe the whole BepInEx folder" repair. Deletes only `<game>/BepInEx`
-/// (including any third-party mod under it) and leaves the doorstop/trampoline
-/// bootstrap untouched, so the game stays launchable and the user reinstalls
-/// manually afterward. It holds the data maintenance lock; unlike
-/// [`reset_bpp_data`] it touches no SQLite database, so the overlay keeps
-/// running.
+/// Reset touches no history database, so the OBS overlay can keep running.
 pub async fn reset_bepinex_folder(
     maintenance: &DataMaintenanceLock,
     game_path: String,
@@ -147,9 +141,6 @@ pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> anyhow::Result<
         .context("Cannot read bundled BepInEx.zip")?;
     let mut incoming_relative_paths = zip_archive::zip_entry_paths(&zip_bytes)?;
 
-    // Repair never writes an older Managed Payload over a newer one the mod's
-    // self-update installed (ADR-0009); the bundled zip still supplies every
-    // non-managed file.
     let manifest_path = payload::installed_managed_manifest_path();
     let bundled_manifest = zip_archive::zip_entry_bytes(&zip_bytes, manifest_path)?;
     let skip = match managed_payload::choose_managed_payload_source(
@@ -228,17 +219,9 @@ pub fn uninstall_bpp(
     // Payload removal can fail after restoring the executable or deleting a
     // native plugin. Always seal the resulting bundle before returning an error.
     trampoline::with_finalized_bundle(game_path, || {
-        // Restore the vanilla bundle only when BPP is the last installed mod. If
-        // another mod remains — a plugin in BepInEx/plugins or a patcher-only mod
-        // under BepInEx/patchers — the trampoline / launch options are shared
-        // BepInEx bootstrap state and removing them would disable that mod.
+        // Third-party plugins or patchers still need the shared BepInEx bootstrap.
         if !keep_shared_bootstrap {
-            // Call uninstall_trampoline UNCONDITIONALLY (not gated on is_trampolined):
-            // it self-classifies — a no-op when already vanilla, a restore when a real
-            // `.orig` backs the stub, keeping a Steam-updated executable over a stale
-            // `.orig`, and a hard error when the stub has no real backup.
-            // If this fails, abort so we never strand a stubbed bundle whose `.orig`
-            // we then can't recover. No-op off macOS.
+            // Let uninstall classify even a seemingly uninstalled bundle so a stub without a valid backup fails closed.
             trampoline::uninstall_trampoline(game_path)?;
         }
 
@@ -246,8 +229,6 @@ pub fn uninstall_bpp(
             payload::uninstall_payload_preserving_shared_dependencies(game_path)?;
         } else {
             payload::uninstall_payload(game_path)?;
-            // Last plugin standing: also tear down the BepInEx bootstrap so the
-            // Windows doorstop stops injecting and detection reports uninstalled.
             payload::remove_bootstrap_files(game_path)?;
         }
 
@@ -333,7 +314,6 @@ mod tests {
         let bepinex = tmp.path().join("BepInEx");
         std::fs::create_dir_all(bepinex.join("plugins")).unwrap();
         std::fs::write(bepinex.join("plugins/BazaarPlusPlus.dll"), b"bpp").unwrap();
-        // A third-party mod under BepInEx is deliberately wiped too (blunt reset).
         std::fs::write(bepinex.join("plugins/OtherMod.dll"), b"foreign").unwrap();
 
         let removed = reset_bepinex_folder_blocking_with(tmp.path(), &stopped).unwrap();
@@ -346,8 +326,6 @@ mod tests {
     fn test_reset_bepinex_folder_leaves_bootstrap_and_game_intact() {
         let tmp = make_valid_game_dir();
         std::fs::create_dir_all(tmp.path().join("BepInEx/core")).unwrap();
-        // Doorstop/trampoline bootstrap lives OUTSIDE BepInEx and must survive so
-        // the bundle stays launchable; only BepInEx itself is removed.
         std::fs::write(tmp.path().join("winhttp.dll"), b"doorstop").unwrap();
         std::fs::write(tmp.path().join("libdoorstop.dylib"), b"doorstop").unwrap();
 
@@ -438,8 +416,6 @@ mod tests {
         assert!(tmp.path().join("BepInEx").is_dir());
     }
 
-    /// A bundled resource directory whose zip carries `files` plus their
-    /// Managed Payload Manifest at version `version`.
     fn bundled_resources(
         version: &str,
         managed: &[(&str, &[u8])],

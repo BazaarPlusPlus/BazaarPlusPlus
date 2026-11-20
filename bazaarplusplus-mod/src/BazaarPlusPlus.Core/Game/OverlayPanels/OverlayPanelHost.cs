@@ -2,10 +2,6 @@
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The Overlay Panel Host (GLOSSARY.md §Overlay panels): it holds the registered Main Overlay
-// Panels, reads each evaluation's facts from them, asks the pure OverlayLifecycleCore for
-// directives, and runs those directives with every callback guarded on its own. One adapter
-// per Host feeds it frames: DesktopOverlayPanels and AndroidOverlayPanels.
 public sealed class OverlayPanelHost
 {
     private const string HostDirectiveTarget = "host";
@@ -18,7 +14,6 @@ public sealed class OverlayPanelHost
     private Entry[] _tickOrder = Array.Empty<Entry>();
     private int _lifecycleCallbackDepth;
 
-    // isInCombat is read lazily: only when a panel is open, or a toggle or open is evaluated.
     public OverlayPanelHost(
         Func<bool> isInCombat,
         Action<OverlayReleaseReason>? releaseHostResources = null
@@ -44,7 +39,6 @@ public sealed class OverlayPanelHost
         return new PanelHandle(this, entry);
     }
 
-    // Once per frame: the lifecycle rules, then every registrant's tick.
     public void Frame(OverlayPanelFrame frame)
     {
         if (frame.SceneToken == null)
@@ -90,8 +84,6 @@ public sealed class OverlayPanelHost
         }
     }
 
-    // Synchronous scene observation: the scene, switch-off and release rules, no ticks. The
-    // same token is a no-op; the first token ever seen is adopted silently.
     public void ObserveScene(string sceneToken)
     {
         if (sceneToken == null)
@@ -107,8 +99,6 @@ public sealed class OverlayPanelHost
         ExecuteDirectives(_core.Evaluate(snapshot));
     }
 
-    // Synchronous Escape (the Android back key, answered inside Harmony prefixes): the modal
-    // rule, then the escape close. Consumed when a panel was open.
     public OverlayEscapeOutcome Escape()
     {
         var openEntry = FindEntry(_core.OpenPanelId);
@@ -200,8 +190,6 @@ public sealed class OverlayPanelHost
         _tickOrder = _entries.ToArray();
     }
 
-    // Reads every switchable panel's Enabled predicate and returns the panels whose value went
-    // from true to false since the last read; Register adopted each panel's first value.
     private List<string>? ReadSwitchOffEdges()
     {
         List<string>? switchedOff = null;
@@ -237,7 +225,6 @@ public sealed class OverlayPanelHost
 
     private bool ReadIsInCombat() => _logState.ReadIsInCombat(_isInCombat);
 
-    // Returns false when an Open directive did not open its panel.
     private bool ExecuteDirectives(IReadOnlyList<OverlayDirective> directives)
     {
         var opened = true;
@@ -306,8 +293,7 @@ public sealed class OverlayPanelHost
             return true;
 
         _core.RollbackOpen(registration.PanelId);
-        // A throw may have left partial state (rented cards, a half-built view): the panel
-        // gets a close so it can return it. A clean false opened nothing, so no close follows.
+        // A throwing open can leave rented cards or a partial view, so close it to release those resources.
         if (!completed)
         {
             RunLifecycleCallback(
@@ -356,7 +342,6 @@ public sealed class OverlayPanelHost
 
         public OverlayPanelRegistration Registration { get; }
 
-        // Null until the first read: the first value is adopted silently.
         public bool? LastEnabled { get; set; }
 
         public bool Unregistered { get; set; }
@@ -379,7 +364,7 @@ public sealed class OverlayPanelHost
 
         public OverlayRequestOutcome RequestClose() => _host.RequestClose(_entry);
 
-        // Unregisters without a close: the panel's own Dispose returns its leases.
+        // The panel's own Dispose returns its leases, so unregistering needs no additional close.
         public void Dispose() => _host.Unregister(_entry);
     }
 }

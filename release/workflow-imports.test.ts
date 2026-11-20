@@ -3,20 +3,13 @@ import path from 'node:path';
 import { expect, test } from 'vite-plus/test';
 import { WORKSPACE_ROOT } from './product.ts';
 
-// The workflows run inline `bun -e` scripts that import release modules by
-// path and name. A move or rename that misses one fails only when that
-// workflow runs, which for a scheduled watch is long after the change merged.
-// scripts/script-references.test.ts checks that the path is tracked; this
-// checks that the module still exports each imported name.
+// Scheduled workflows may run long after a release export was renamed. Check their inline imports here.
 
 const WORKFLOWS = path.join(WORKSPACE_ROOT, '.github', 'workflows');
-// The quoted script after `bun -e` or `bun --eval`; it may span lines.
 const BUN_EVAL = /\bbun\s+(?:-e|--eval)\s+(["'])([\s\S]*?)\1/g;
-// A value import from a release module: named bindings, a default, or both.
 const RELEASE_IMPORT =
   /\bimport\s+(?!type\b)(?:(\w+)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s+['"](\.\/release\/[^'"]+)['"]/g;
 
-/** One name a workflow's `bun -e` script imports from a release module. */
 interface WorkflowImport {
   workflow: string;
   module: string;

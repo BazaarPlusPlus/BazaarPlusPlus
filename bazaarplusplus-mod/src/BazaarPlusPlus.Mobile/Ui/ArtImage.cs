@@ -3,11 +3,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// A row's image bound to a sprite that may still be loading. A reused row drops a load it no
-/// longer shows; <c>fallback</c> hears whether its text stand-in should show, which it does only
-/// once a load ends without a sprite, so a first load does not flash the text.
-/// </summary>
+// Wait for the load to finish before showing the text fallback so it cannot flash mid-load.
 internal sealed class ArtImage(Image image, Action<bool>? fallback = null)
 {
     private int _binding;

@@ -11,25 +11,21 @@ import type {
 import type { ProductVersion } from './product.ts';
 import type { PayloadBuildRecord } from './payload.ts';
 
-/** The commit a release is built from, and whether its inputs are dirty. */
 export interface GitState {
   commit: string;
   dirty: boolean;
 }
 
-/** GitState plus the digest of every release source input. */
 export interface ReleaseSourceIdentity extends GitState {
   digest: string;
 }
 
-/** One artifact file, relative to the installer directory. */
 export interface ArtifactRecord {
   path: string;
   size: number;
   sha256: string;
 }
 
-/** The signed Managed Payload zip a desktop build wrote (mod ADR-0014). */
 export interface ManagedPayloadArtifact {
   path: string;
   signature: string;
@@ -37,7 +33,6 @@ export interface ManagedPayloadArtifact {
   nonManagedPayloadDigest: string;
 }
 
-/** The artifact manifest, src-tauri/target/release-artifacts/<platform>.json. */
 export interface ArtifactManifest {
   schemaVersion: 1;
   appVersion: ProductVersion;
@@ -55,7 +50,6 @@ export interface ArtifactManifest {
   builtAt: string;
 }
 
-/** The options of createArtifactManifest. */
 export interface CreateArtifactManifestOptions {
   rootDir: string;
   platform: TauriBuildPlatform;
@@ -65,13 +59,11 @@ export interface CreateArtifactManifestOptions {
   builtAt?: Date;
 }
 
-/** The artifact manifest createArtifactManifest wrote, and where. */
 export interface CreatedArtifactManifest {
   manifest: ArtifactManifest;
   manifestPath: string;
 }
 
-/** The options of validateArtifactManifest. */
 export interface ValidateArtifactManifestOptions {
   rootDir: string;
   manifestPath: string;
@@ -80,10 +72,8 @@ export interface ValidateArtifactManifestOptions {
   gitState?: GitState;
 }
 
-/** A validated artifact manifest and the absolute paths of its artifacts. */
 export interface ValidatedArtifactManifest {
   manifest: ArtifactManifest;
-  /** The Snapshot Lock entry the sealed Payload build record names. */
   lockEntry: PayloadBuildRecord['lockEntry'];
   installer: string;
   updater: string;
@@ -91,7 +81,6 @@ export interface ValidatedArtifactManifest {
   managedPayload: string;
 }
 
-// The artifacts one native build left for a platform.
 interface DiscoveredArtifacts {
   installer: string;
   updater: string;
@@ -108,10 +97,7 @@ export const RELEASE_SOURCE_PATHS = [
   '../bazaarplusplus-mod'
 ];
 
-// The sealed Payload build record payload.ts writes and this manifest seals:
-// schema 3 names the Snapshot Lock entry the Payload compiled against, so
-// every artifact answers which platform, channel and game version it was built
-// for (ADR 0004). An older record is re-prepared, never accepted.
+// Re-prepare older records so every artifact can be traced to the Snapshot Lock entry used to build it.
 export const PAYLOAD_BUILD_RECORD_SCHEMA_VERSION = 1;
 
 function sha256(buffer: string | NodeJS.ArrayBufferView): string {
@@ -120,8 +106,6 @@ function sha256(buffer: string | NodeJS.ArrayBufferView): string {
 
 export function gitStateForRoot(rootDir: string): GitState {
   const commit = runGit(['rev-parse', 'HEAD'], { cwd: rootDir }).trim();
-  // Include the product's producer and shared release inputs, but not unrelated
-  // website/analyzer work or local root tooling.
   const status = runGit(
     [
       'status',
@@ -292,8 +276,6 @@ export function artifactManifestPath(
   );
 }
 
-// `managedPayload` is the signed Managed Payload zip build wrote (mod
-// ADR-0014): its file, its signature, and the facts its manifest records.
 export function createArtifactManifest({
   rootDir,
   platform,

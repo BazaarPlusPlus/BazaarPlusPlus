@@ -12,9 +12,6 @@ using Xunit;
 
 namespace CollectionSourceFilters.Tests;
 
-// Collection source catalog parsing and offer-pool filtering, against the desktop host. Each test
-// is one paragraph of checks the console capsule ran; a paragraph that reads a catalog, an entry
-// or a hero an earlier paragraph built runs in the same test, after it.
 public sealed class CollectionSourceFilteringTests
 {
     [Fact]
@@ -984,9 +981,7 @@ public sealed class CollectionSourceFilteringTests
             "An existing hero's source rail should insert The Dragons after the seven legacy hero merchants and before Stickybeans."
         );
 
-        // The catalog folds the merchants by what they filter on (all items, tier, size, hero), so on the
-        // desktop every hero's merchant row fits three lines of eight cells (measured with no column scroll
-        // at 3456x2168).
+        // Folding keeps the desktop merchant rail within three rows of eight cells at 3456×2168.
         AssertValues(
             CollectionSourceRoster
                 .Build(currentCatalog.Where(entry => entry.Fold == "tier"))
@@ -1656,11 +1651,6 @@ public sealed class CollectionSourceFilteringTests
         );
     }
 
-    // NeutralOnly ignores the selected UI hero entirely: it returns Common/neutral cards
-    // regardless of which concrete hero (or none) is selected. This is an INTENTIONAL,
-    // documented divergence from the pre-migration description switch, which ANDed the UI
-    // hero filter and returned an empty pool when a concrete hero was selected (the sole
-    // NeutralOnly source, Curio). See the design doc "NeutralOnly migration note (Curio)".
     [Fact]
     public void NeutralOnly_output_must_be_invariant_to_the_effective_and_selected_hero()
     {

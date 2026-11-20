@@ -33,8 +33,6 @@ public static class LanguageCodeMatcher
 
     public static bool IsItalian(string languageCode) => Matches(languageCode, ItalianCodes);
 
-    // A code matches a candidate when it equals it, or extends it with a `-` or `_`
-    // subtag separator (`zh_CN` matches `zh`). Compares in place, without allocating.
     private static bool Matches(string languageCode, string[] candidates)
     {
         if (string.IsNullOrWhiteSpace(languageCode))

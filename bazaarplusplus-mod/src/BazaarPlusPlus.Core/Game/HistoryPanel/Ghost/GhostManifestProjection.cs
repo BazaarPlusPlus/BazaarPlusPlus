@@ -18,11 +18,7 @@ public static class GhostManifestProjection
         IPvpBattleEvidenceBinding evidence
     ) => BuildUploaderManifest(reference.LocalBattleId, runId, battle, evidence);
 
-    /// <summary>
-    /// One Bundle battle as its uploader saw it, under <paramref name="battleId"/>: the Ghost import
-    /// and the History Sampler both read a Bundle from the uploader's side. A card set the battle
-    /// lacks reads as missing.
-    /// </summary>
+    /// <summary>Ghost import and History Sampler both read the Bundle in the recorder's perspective.</summary>
     public static PvpBattleManifest BuildUploaderManifest(
         string battleId,
         string runId,
@@ -96,9 +92,7 @@ public static class GhostManifestProjection
         };
     }
 
-    // A Bundle card carries the game's integers. A type, or a non-zero size, the facets lack drops
-    // the card; size 0 is a card the game gave no size; a section or socket the facets lack reads
-    // as none.
+    // Bundle cards carry native enum integers. Size zero means the game supplied no size.
     private static PvpBattleCardSnapshot? MapCard(
         BattleCardV6 item,
         IPvpBattleEvidenceBinding evidence

@@ -6,11 +6,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-/// <summary>
-/// The macOS replay video encoder (ReplayVideoBackend.MacNative): Unity copies each captured frame directly into an IOSurface-backed
-/// Metal texture. VideoToolbox consumes that pixel buffer in-process, so no full-frame GPU
-/// readback or raw-video pipe is involved.
-/// </summary>
+// An IOSurface-backed texture lets VideoToolbox consume Unity's frames without a full GPU readback.
 internal sealed class MacMetalVideoEncoder : IReplayVideoEncoder
 {
     internal const string NativeLibrary = "GfxPluginBppReplayVideoToolbox";

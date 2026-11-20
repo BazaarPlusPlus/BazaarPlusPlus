@@ -6,41 +6,29 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Infrastructure.DesktopKit;
 
-/// <summary>What a kit control looks like at rest; its states follow from it.</summary>
 internal enum KitButtonKind
 {
-    /// <summary>The one leading action of a view: the gold plate.</summary>
     Primary,
 
-    /// <summary>The default button: the brown plate.</summary>
     Secondary,
 
-    /// <summary>A text button with a wash only under the pointer.</summary>
     Quiet,
 
-    /// <summary>A secondary button with ingame-failure text.</summary>
     Danger,
 
-    /// <summary>A dialog's destructive confirm: the red plate.</summary>
     DangerConfirm,
 
-    /// <summary>One option of a segmented control.</summary>
     Segment,
 
-    /// <summary>A filter chip.</summary>
     Chip,
 
-    /// <summary>A checkbox's box.</summary>
     Check,
 
-    /// <summary>A list row or a sunk field: no plate at rest.</summary>
     Row,
 
-    /// <summary>A day of the day strip: no plate at rest, its day in ingame-accent when selected.</summary>
     Day,
 }
 
-/// <summary>A state the Kit Gallery holds a control in; Live follows the pointer.</summary>
 internal enum KitPreviewState
 {
     Live,
@@ -48,10 +36,6 @@ internal enum KitPreviewState
     Pressed,
 }
 
-/// <summary>
-/// What a plate shows: a sprite under a tint, an optional frame sprite over it, and the
-/// token colour the plate takes on the solid shape while its sprite is missing.
-/// </summary>
 internal readonly struct KitLook
 {
     internal readonly DesktopKitArt Art;
@@ -75,21 +59,13 @@ internal readonly struct KitLook
         EdgeTint = edgeTint;
     }
 
-    /// <summary>No plate.</summary>
     internal static KitLook None => Wash(Color.clear);
 
-    /// <summary>The solid shape in one colour: a hover wash.</summary>
     internal static KitLook Wash(Color color) => new(DesktopKitArt.Shape, color, color);
 
-    /// <summary>The same look with its sprite, frame and fallback multiplied by a tint.</summary>
     internal KitLook Times(Color tint) => new(Art, Tint * tint, Flat * tint, Edge, EdgeTint * tint);
 }
 
-/// <summary>
-/// A plate of the kit: an image that shows a <see cref="KitLook"/>, and its frame image, made
-/// when a look first asks for one. <see cref="Refresh"/> draws the look again after a sprite
-/// arrives.
-/// </summary>
 internal sealed class KitPlate
 {
     // uGUI's default canvas reference, which every kit canvas keeps.
@@ -138,8 +114,7 @@ internal sealed class KitPlate
         Draw(_edge, _look.Edge!.Value, _look.EdgeTint);
     }
 
-    // A sliced sprite at the kit's scale, so a corner or an edge line is the same size on every
-    // plate. Without the sprite, a plain rectangle.
+    // The slice scale keeps corners and edge lines the same size on every plate.
     internal static void Draw(Image image, DesktopKitArt art, Color color)
     {
         var sprite = DesktopNativeSkin.KitArt(art);
@@ -161,12 +136,7 @@ internal sealed class KitPlate
     }
 }
 
-/// <summary>
-/// A uGUI button that paints its own plate and ink from the kit's states
-/// (design/components/InGameKit/README.md). A state is its own sprite where the kit has one.
-/// "On" is the kit's selected state (a selected segment, chip, row or toggle), not Unity's
-/// keyboard selection, which a click leaves behind and the kit ignores.
-/// </summary>
+// Unity leaves a clicked button Selected. The kit uses its own On state for selections.
 internal sealed class KitButton : Button
 {
     private KitPlate? _plate;
@@ -182,7 +152,6 @@ internal sealed class KitButton : Button
 
     internal KitButtonKind Kind => _kind;
 
-    /// <summary>The kit's selected state.</summary>
     internal bool On
     {
         get => _on;
@@ -208,7 +177,6 @@ internal sealed class KitButton : Button
         }
     }
 
-    /// <summary>A label colour that replaces the kind's ink at rest, such as a card tier.</summary>
     internal Color? InkOverride
     {
         get => _inkOverride;
@@ -219,7 +187,6 @@ internal sealed class KitButton : Button
         }
     }
 
-    /// <summary>The button's text, for a consumer that binds it again on every refresh.</summary>
     internal string Label
     {
         set
@@ -230,7 +197,6 @@ internal sealed class KitButton : Button
         }
     }
 
-    /// <summary>Holds a state for the Kit Gallery, which shows every state side by side.</summary>
     internal KitPreviewState Preview
     {
         get => _preview;
@@ -283,15 +249,12 @@ internal sealed class KitButton : Button
     }
 }
 
-/// <summary>The kit's state looks, one place for every kind (InGameKit README, Components).</summary>
 internal static class KitPalette
 {
     private static readonly Color White = Color.white;
 
-    /// <summary>A control's plate at rest, with the token it falls back to.</summary>
     internal static KitLook Brown(Color flat) => new(DesktopKitArt.Plate, White, flat);
 
-    /// <summary>A selected control or row: the plate inside the soft gold line.</summary>
     internal static KitLook Selected =>
         new(DesktopKitArt.Plate, White, InGameTheme.ButtonSelected, DesktopKitArt.Edge, White);
 
@@ -305,7 +268,7 @@ internal static class KitPalette
     )
     {
         var (rest, hoverLook, pressedLook, selected, ink, selectedInk, hoverInk) = Looks(kind);
-        // A disabled control keeps its plate, darker, so the row it is in keeps its shape.
+        // Keeping the disabled plate preserves the row's shape.
         if (disabled)
             return (rest.Times(InGameTheme.TintPressed), Faded(ink));
         if (dimmed)
@@ -443,7 +406,6 @@ internal static class KitPalette
                 InGameTheme.Ink,
                 InGameTheme.Ink
             ),
-            // Quiet, Segment and Day: no plate at rest, a wash under the pointer.
             _ => (
                 KitLook.None,
                 wash,

@@ -8,10 +8,6 @@ internal enum ReplayVideoBackend
     Unsupported,
 }
 
-/// <summary>
-/// Central platform split for capture, availability and finalize. Keeping this decision in one
-/// place keeps capture, availability and mux behavior aligned.
-/// </summary>
 internal static class ReplayVideoBackendPolicy
 {
     internal static ReplayVideoBackend Current =>

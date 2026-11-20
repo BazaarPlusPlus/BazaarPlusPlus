@@ -90,7 +90,6 @@ public class ReleaseCacheTest {
 
     @Test
     public void aCacheWithoutAdaptationsGivesWayToTheCarriedRelease() throws Exception {
-        // What an App before ADR 0019 cached: decoding it fails, as if there were no cache.
         JSONObject older = new JSONObject(PlatformManifestTest.fixture());
         PlatformManifestTest.record(older).remove("adaptations");
         com.bazaarplusplus.android.io.AtomicFiles.writeUtf8(new java.io.File(tmp.getRoot(), "manifest.json"),

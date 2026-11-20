@@ -4,10 +4,6 @@ using static Architecture.Tests.ArchitectureRules;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Every event id the desktop and shared assemblies compile renders (<see cref="LogEventIdRule"/>);
-/// AndroidHost.Tests holds the Android host to the same rule.
-/// </summary>
 public sealed class LogEventIdArchitectureTests
 {
     [Fact]

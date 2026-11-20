@@ -9,20 +9,10 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-/// <summary>
-/// The Live Build Panel's state for one panel lifetime (ADR-0005): the live snapshot the panel
-/// opened on, the candidate selection, the matched recommendations and the one being browsed, and
-/// the manual refresh. A host feeds it inputs and renders <see cref="BuildSnapshot"/>.
-/// </summary>
-/// <remarks>
-/// Not thread-safe. Call every member, <see cref="CompleteRefresh"/> included, on the host's main
-/// thread. <see cref="FetchRefreshAsync"/> may finish on a pool thread, because the catalog
-/// refresh resumes without a context: a host that has no main-thread synchronization context
-/// must post the result back to its main thread before completing it.
-/// </remarks>
+// CompleteRefresh must run on the host's main thread. Hosts without a synchronization context
+// must dispatch it there because FetchRefreshAsync can resume on a pool thread.
 public sealed class LiveBuildPanelState
 {
-    /// <summary>How many supporters the panel's attribution rail shows.</summary>
     public const int SupporterAttributionCount = 4;
 
     private readonly BuildRecommendationRepository _recommendations;
@@ -36,9 +26,6 @@ public sealed class LiveBuildPanelState
     private int _recommendationIndex;
     private bool _includeTiny = true;
 
-    /// <param name="recommendations">The shared repository, owned by the composition root.</param>
-    /// <param name="utcNow">The clock the corpus freshness reads.</param>
-    /// <param name="theDragonsDisplayName">The game's localized name for The Dragons.</param>
     public LiveBuildPanelState(
         BuildRecommendationRepository recommendations,
         Func<DateTimeOffset> utcNow,
@@ -54,10 +41,8 @@ public sealed class LiveBuildPanelState
 
     public bool IsVisible => _refresh.IsVisible;
 
-    /// <summary>Starts loading the corpus so the first open has recommendations to query.</summary>
     public void BeginCorpusLoad() => _recommendations.BeginCorpusLoad();
 
-    /// <summary>Shows the panel on a fresh live snapshot, with no candidates selected.</summary>
     public void Open(LiveCardSnapshotSet live, IReadOnlyList<BPPSupporterSample> supporters)
     {
         _refresh.SetVisible(true);
@@ -68,7 +53,6 @@ public sealed class LiveBuildPanelState
         RefreshRecommendations();
     }
 
-    /// <summary>Hides the panel; false when it was not visible.</summary>
     public bool Close()
     {
         if (!_refresh.IsVisible)
@@ -81,13 +65,8 @@ public sealed class LiveBuildPanelState
         return true;
     }
 
-    /// <summary>Ends the panel lifetime: no later refresh completion has a view effect.</summary>
     public void Destroy() => _refresh.Destroy();
 
-    /// <summary>
-    /// Toggles a candidate template and re-queries from the first recommendation; false when
-    /// nothing changed.
-    /// </summary>
     public bool ToggleCandidate(Guid templateId)
     {
         if (!_refresh.IsVisible || templateId == Guid.Empty)
@@ -100,7 +79,6 @@ public sealed class LiveBuildPanelState
         return true;
     }
 
-    /// <summary>Changes build eligibility, keeping candidates and returning to the first match.</summary>
     public bool ToggleIncludeTiny()
     {
         if (!_refresh.IsVisible)
@@ -112,18 +90,12 @@ public sealed class LiveBuildPanelState
         return true;
     }
 
-    /// <summary>Browses to the previous recommendation, wrapping; false with one match or none.</summary>
     public bool Previous() => Browse(-1);
 
-    /// <summary>Browses to the next recommendation, wrapping; false with one match or none.</summary>
     public bool Next() => Browse(+1);
 
     public LiveBuildRefreshRequest BeginRefresh() => _refresh.BeginRefresh();
 
-    /// <summary>
-    /// Runs the refresh <see cref="BeginRefresh"/> asked for. Never throws: an exception becomes
-    /// a <see cref="LiveBuildRefreshFailureReasonCode.RefreshException"/> failure.
-    /// </summary>
     public async Task<BuildRecommendationRefreshResult> FetchRefreshAsync(
         LiveBuildRefreshRequest request
     )
@@ -144,10 +116,6 @@ public sealed class LiveBuildPanelState
         }
     }
 
-    /// <summary>
-    /// Records a refresh outcome, logs it, and re-queries recommendations after a success. The
-    /// effect says what the host must redraw.
-    /// </summary>
     public LiveBuildRefreshEffect CompleteRefresh(
         BuildRecommendationRefreshResult result,
         Guid requestId
@@ -248,7 +216,6 @@ public sealed class LiveBuildPanelState
         _recommendationIndex = Math.Clamp(_recommendationIndex, 0, Math.Max(0, _matches.Count - 1));
     }
 
-    // Live board/stash/shop only rank matched builds (board weighs most); they never drive recall.
     private BuildLiveState ResolveLiveState() =>
         BuildLiveState.From(
             TemplateIdsOf(_live.BoardItems),
@@ -259,8 +226,6 @@ public sealed class LiveBuildPanelState
     private static IReadOnlyCollection<Guid> TemplateIdsOf(IReadOnlyList<LiveCardSnapshot> cards) =>
         cards.Select(card => card.TemplateId).Where(id => id != Guid.Empty).Distinct().ToArray();
 
-    // The header prioritizes pending, failure, empty, then the corpus summary.
-    // Detailed timestamps and per-hero counts stay available in its hover details.
     private (
         LiveBuildCorpusState State,
         TenWinCorpusSummary? Summary,
@@ -314,8 +279,6 @@ public sealed class LiveBuildPanelState
         );
     }
 
-    // Freshness tint for the corpus header: a just-pulled
-    // or <=24h corpus reads green (Success), <=7d blue (Pending), older/unknown warm (Failure).
     private LiveBuildRefreshSeverity ResolveFreshnessSeverity(
         TenWinCorpusSummary? summary,
         DateTimeOffset nowUtc

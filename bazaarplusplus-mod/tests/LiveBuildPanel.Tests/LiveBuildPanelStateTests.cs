@@ -13,12 +13,10 @@ namespace LiveBuildPanel.Tests;
 
 public sealed class LiveBuildPanelStateTests
 {
-    // The capsule installed English before these checks.
     public LiveBuildPanelStateTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     private const string DragonsName = "Native Dragons";
 
-    // A matches builds 0 and 1, C matches build 1 only, B is a live card no build holds.
     private static readonly Guid CardA = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid CardB = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static readonly Guid CardC = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
@@ -459,7 +457,6 @@ public sealed class LiveBuildPanelStateTests
             stashItems: []
         );
 
-    // Two Vanessa builds hold A (C only in the second) and one Dragons build holds A.
     private static TenWinBuildCorpus Corpus() =>
         TenWinBuildCorpus.Parse(
             $$"""

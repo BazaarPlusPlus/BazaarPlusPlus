@@ -8,8 +8,6 @@ public sealed class HistoryPagingArchitectureTests
 {
     private const string Storage = "BazaarPlusPlus.Game.HistoryPanel.Storage";
 
-    // HistoryPanelRepository's list and paging paths; LoadSnapshots is the one detail read
-    // allowed to open snapshot documents.
     private static readonly string[] RepositoryListMethods =
     {
         "ListRuns",

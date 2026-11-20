@@ -1,10 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Config;
 
-/// <summary>
-/// One persisted setting. It carries no change event: consumers that cache derived state compare
-/// the raw <see cref="Value"/> against the value they last saw.
-/// </summary>
+// BepInEx's publicized SettingChanged is ambiguous, so poll Value to invalidate derived caches.
 public interface ISetting<T>
 {
     T Value { get; set; }

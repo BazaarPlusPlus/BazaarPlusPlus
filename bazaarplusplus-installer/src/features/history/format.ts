@@ -10,8 +10,7 @@ export function formatGameMode(mode: string, t: Translate): string {
   return mode;
 }
 
-// Keyed by the hero id with spaces removed and lowercased, so the canonical id
-// (`TheDragons`) and its display name (`The Dragons`) both resolve.
+// Normalize spaces and case so canonical ids and display names resolve to the same key.
 const heroKeys: Record<string, MessageKey> = {
   vanessa: 'heroVanessa',
   pygmalien: 'heroPygmalien',
@@ -23,7 +22,6 @@ const heroKeys: Record<string, MessageKey> = {
   thedragons: 'heroTheDragons'
 };
 
-// Unknown heroes (a newly released one) fall back to the stored English name.
 export function formatHero(hero: string, t: Translate): string {
   const key = heroKeys[hero.replace(/\s+/g, '').toLowerCase()];
   return key ? t(key) : hero;
@@ -39,16 +37,12 @@ const rankKeys: Record<string, MessageKey> = {
   legendary: 'rankLegendary'
 };
 
-// Ranks arrive as the game's tier name with an optional division
-// (`Gold 1`, `Diamond III`, `Legendary`); only the tier word is translated.
 export function formatRank(rank: string, t: Translate): string {
   const match = /^\s*([A-Za-z]+)(.*)$/.exec(rank);
   const key = match ? rankKeys[match[1].toLowerCase()] : undefined;
   return key && match ? `${t(key)}${match[2].trimEnd()}` : rank;
 }
 
-// A Run's rating change as a signed number; null when the change is unknown, so the
-// caller shows nothing instead of a misleading +0.
 export function formatRatingDelta(delta: number | null): string | null {
   if (delta === null) return null;
   if (delta > 0) return `+${delta}`;
@@ -168,7 +162,6 @@ export function formatBattleResult(result: string): {
   }
 }
 
-// Unresolved battle results use a neutral tone.
 export function toneColorClass(tone: 'ok' | 'bad' | undefined): string {
   if (tone === 'ok') return 'text-success';
   if (tone === 'bad') return 'text-danger';

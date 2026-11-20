@@ -69,10 +69,6 @@ function PlatformHeader({
   );
 }
 
-/**
- * The game a release is adapted to and, while the Game Status is readable, the online game with
- * the conclusion (ADR 0016). `same` compares their game code identity.
- */
 function GameFacts({
   copy,
   adapted,
@@ -192,7 +188,6 @@ function DownloadCard({
   );
 }
 
-/** One key-value row of a card's facts. */
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
@@ -202,11 +197,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** Where Android players report problems while the build is experimental. */
 const ANDROID_FEEDBACK_QQ_GROUP = '1083470305';
 const COPIED_RESET_MS = 2000;
 
-/** The Android feedback QQ group as a button that copies its number. */
 function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
   const [copied, setCopied] = useState(false);
 
@@ -240,7 +233,6 @@ function FeedbackGroupButton({ copy }: { copy: DownloadPageCopy['android'] }) {
   );
 }
 
-/** The complete checksum stays selectable and copyable without dominating the download card. */
 function AndroidChecksum({
   hash,
   copy
@@ -291,10 +283,6 @@ function AndroidChecksum({
   );
 }
 
-/**
- * Android's own release may be unavailable independently of desktop. Keep installation guidance
- * and feedback available in that state, while disabling the APK download.
- */
 function AndroidCard({
   copy,
   locale,
@@ -416,7 +404,6 @@ function AndroidCard({
   );
 }
 
-/** A warning banner: icon and message share the first line (design/components/StatusBanner). */
 function Banner({ children }: { children: ReactNode }) {
   return (
     <p className="flex items-start gap-2 rounded-panel border border-warning-line bg-warning-subtle px-3 py-2.5 text-body leading-6 text-text-1">
@@ -462,13 +449,10 @@ export default function DownloadPage({
     : isError
       ? 'error'
       : 'ready';
-  // Android is not in the lockstep release: its card reads its own manifest, and a missing or
-  // invalid one degrades only that card, never the page-level GitHub fallback.
   const { data: android, isLoading: androidLoading } = useQuery({
     queryKey: ['android-release'],
     queryFn: ({ signal }) => loadAndroidRelease(signal)
   });
-  // Extra information: a missing Game Status costs only the online game and the conclusion.
   const { data: gameStatus } = useQuery({
     queryKey: ['game-status'],
     queryFn: ({ signal }) => loadGameStatus(signal)

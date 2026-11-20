@@ -4,7 +4,6 @@ import { afterEach, describe, expect, test, vi } from 'vite-plus/test';
 
 import { createSpaLocation } from '../src/app/router';
 
-/** Moves jsdom to `href`, then records the history calls the location makes from there. */
 function setup(href: string) {
   window.history.replaceState(null, '', href);
   const location = createSpaLocation();

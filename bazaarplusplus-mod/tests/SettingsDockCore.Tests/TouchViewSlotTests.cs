@@ -3,11 +3,6 @@ using Xunit;
 
 namespace SettingsDockCore.Tests;
 
-/// <summary>
-/// The rule every touch panel's view goes through on a new screen (Collection, Ten-Win Builds,
-/// History): the old view is gone before the new one builds, and a build that throws leaves the
-/// panel with no view, so it reads closed and the next open builds again.
-/// </summary>
 public sealed class TouchViewSlotTests
 {
     private readonly List<FakeView> _dropped = new();
@@ -147,7 +142,6 @@ public sealed class TouchViewSlotTests
     private static void Unexpected(Exception exception) =>
         Assert.Fail($"unexpected build failure: {exception}");
 
-    // A reference type without value equality: each build is a distinct view.
     private sealed class FakeView(string key)
     {
         public string Key { get; } = key;

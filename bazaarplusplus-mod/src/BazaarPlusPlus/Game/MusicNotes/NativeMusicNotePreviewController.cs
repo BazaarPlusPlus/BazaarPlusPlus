@@ -9,8 +9,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.MusicNotes;
 
-// The game already renders placed notes above items outside combat. Shift adds only the
-// implied sockets, including occupied ones, using native assets, animation and async cleanup.
 internal sealed class NativeMusicNotePreviewController : MonoBehaviour
 {
     private static readonly System.Reflection.FieldInfo? CatalogField = AccessTools.Field(
@@ -93,8 +91,6 @@ internal sealed class NativeMusicNotePreviewController : MonoBehaviour
         var letters = MusicNoteSocketInference.Resolve(placed);
         for (var i = 0; i < letters.Length; i++)
         {
-            // Placed notes already have native visuals. Item/non-note-effect occupancy does
-            // not suppress an inferred letter; only locked sockets are excluded.
             if (placed[i].HasValue || letters[i] is not int letter || container.IsSocketLocked(i))
                 continue;
             var target = board.GetItemSocketController((EContainerSocketId)i, ECombatantId.Player);

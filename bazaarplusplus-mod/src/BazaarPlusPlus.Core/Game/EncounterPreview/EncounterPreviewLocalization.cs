@@ -15,9 +15,6 @@ public static class EncounterPreviewLocalization
 {
     public static Func<string, string?>? AttributeUnitLocalizer { get; set; }
 
-    // Host port: the game's localization of a template's title or description key. Unset (in
-    // tests and before the host installs it) or failing, a text falls back to its English text,
-    // then its key.
     public static Func<EncounterPreviewLocalizedText, string?>? TextLocalizer { get; set; }
 
     public static string? ResolveTitle(EncounterPreviewTemplatePlan template) =>

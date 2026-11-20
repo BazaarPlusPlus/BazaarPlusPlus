@@ -3,13 +3,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// Clones a native menu control for a BPP entry: the copy keeps Unity's and third-party
-/// rendering and layout (images, text, shadows, layout groups) and loses every game behaviour
-/// (scene selection, pooling, button controllers, sound, localization) and its selectable, so
-/// nothing of the game's own wiring reacts to it. The copy is made under an inactive holder, so
-/// none of those behaviours wakes before it goes. Main thread only.
-/// </summary>
+// Clone under an inactive holder so the game behaviours cannot wake before they are stripped.
 internal static class AndroidNativeMenuClone
 {
     private static readonly HashSet<string> GameAssemblies = new(StringComparer.Ordinal)
@@ -36,7 +30,6 @@ internal static class AndroidNativeMenuClone
         }
     }
 
-    /// <summary>A Unity button on <paramref name="target"/> that tints <paramref name="graphic"/>.</summary>
     public static Button AddButton(GameObject target, Graphic? graphic, Action tap)
     {
         var button = target.AddComponent<Button>();

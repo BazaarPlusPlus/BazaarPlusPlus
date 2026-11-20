@@ -2,8 +2,7 @@
 
 namespace BazaarPlusPlus.Game.Input;
 
-// Pure binding-path algebra. This file must stay free of Unity/game-runtime references:
-// it is compile-linked into HotkeyBindingPath.Tests together with BppHotkeyActionId.
+// HotkeyBindingPath.Tests compile-links this file without Unity or game assemblies.
 internal static class HotkeyBindingPathCore
 {
     internal const string KeyboardPrefix = "<Keyboard>/";
@@ -156,8 +155,6 @@ internal static class HotkeyBindingPathCore
         return DefaultBindingPaths[actionId];
     }
 
-    /// <summary>The path a configured value binds: its normalized form, or the action's default
-    /// when it does not normalize.</summary>
     internal static string ResolveConfigured(
         BppHotkeyActionId actionId,
         string? configuredPath,
@@ -169,9 +166,6 @@ internal static class HotkeyBindingPathCore
         return invalid ? GetDefault(actionId) : normalized;
     }
 
-    /// <summary>Whether any hotkey's current configuration still resolves to
-    /// <paramref name="normalizedPath"/>. A path replaced by a rebind keeps its input action while
-    /// this holds (another action shares it, or the bindings were swapped).</summary>
     internal static bool IsBoundToAnyAction(
         string normalizedPath,
         Func<BppHotkeyActionId, string?> configuredPath

@@ -5,12 +5,6 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Core owns each Remote Embedded Catalog's seed resource name, and each host embeds the seed
-/// under it. The name is read from Core's compiled constant and looked up in the main assembly's
-/// manifest, so a renamed constant or a dropped <c>LogicalName</c> fails here instead of falling
-/// back to an empty catalog at runtime.
-/// </summary>
 public sealed class EmbeddedCatalogSeedArchitectureTests
 {
     public static TheoryData<string> SeedOwners =>

@@ -5,13 +5,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// The game's card text names its keyword icons as <c>&lt;sprite name=…&gt;</c>, which resolve
-/// only against the sprite asset its own tooltip text carries; a BPP label with TMP's default
-/// asset draws TMP's missing-sprite box instead. <see cref="Apply"/> gives a label that shows card
-/// text the loaded sprite asset that holds its first keyword icon, found the way the desktop's
-/// <c>KeywordIconSpriteProvider</c> finds it. Main thread only.
-/// </summary>
+// Game keyword tags need the native tooltip's sprite asset. TMP's default asset
+// renders a missing-sprite box instead.
 internal static class KeywordSprites
 {
     private static readonly Regex SpriteName = new(
@@ -21,9 +16,7 @@ internal static class KeywordSprites
     private static readonly HashSet<string> Reported = new(StringComparer.Ordinal);
     private static TMP_SpriteAsset[] _assets = [];
 
-    // The frame of the last scan: labels built in one frame share it, so an icon no loaded asset
-    // holds costs one scan per frame, not one per label. A later frame scans again, since an
-    // asset loaded since then may hold it.
+    // Share the scan across labels in one frame. A later scan can find newly loaded assets.
     private static int _scanFrame = -1;
 
     /// <summary>Call after setting <paramref name="label"/>'s text.</summary>
@@ -69,7 +62,6 @@ internal static class KeywordSprites
     private static bool Holds(TMP_SpriteAsset? asset, string name) =>
         Il2CppUi.IsAlive(asset) && asset.GetSpriteIndexFromName(name) >= 0;
 
-    // The game's own text components first, then any sprite asset loaded at all.
     private static TMP_SpriteAsset[] Scan()
     {
         var seen = new HashSet<int>();

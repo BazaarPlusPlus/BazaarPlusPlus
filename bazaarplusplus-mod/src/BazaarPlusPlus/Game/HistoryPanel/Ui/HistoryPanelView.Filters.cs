@@ -11,7 +11,6 @@ internal sealed partial class HistoryPanelView
     private readonly List<(string Hero, KitButton Option)> _heroOptions = new();
     private KitModal? _heroMenu;
 
-    // The hero filter's menu: a floating card under the select, one row for each hero.
     private void CreateHeroMenu(DesktopKit kit)
     {
         _heroMenu = kit.Modal(

@@ -6,20 +6,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
-/// <summary>
-/// Parsed, in-memory view of the analyzer ten-win build corpus
-/// (<c>builds/latest.json</c> on the V6 metrics origin).
-///
-/// The payload is a compact, schema-driven format: top-level string tables (<c>cards</c>,
-/// <c>enchantments</c>) plus per-hero builds encoded as positional array rows whose column order
-/// comes from <c>schemas</c>. Build IDs are implicit zero-based indices into a hero's
-/// <c>builds</c> array; <c>card_index</c> maps a card ref to the build IDs that contain it.
-/// The wire format is whole-tree snake_case at <c>schema_version</c> 2.
-///
-/// This type owns parsing, recall, and scoring, and touches no game type: queries canonicalize
-/// through <see cref="TheDragonsHeroId"/>; corpus keys are taken as published. Projection of a
-/// matched build onto an item board lives in <see cref="BuildRecommendationRepository"/>.
-/// </summary>
+// The analyzer's schema declares positional columns. Build IDs are implicit per-hero row indices.
 public sealed class TenWinBuildCorpus
 {
     private const int ExpectedSchemaVersion = 2;
@@ -72,21 +59,14 @@ public sealed class TenWinBuildCorpus
 
     public int HeroCount => _heroes.Count;
 
-    /// <summary>Analyzer emission time from top-level <c>generated_at</c>.</summary>
     public DateTimeOffset GeneratedAtUtc { get; }
 
-    /// <summary>Last included data day from <c>window.end</c>, used for corpus freshness.</summary>
     public DateTimeOffset WindowEndUtc { get; }
 
     public int BuildCount { get; }
 
     public IReadOnlyList<TenWinHeroBuildCount> HeroBuildCounts { get; }
 
-    /// <summary>
-    /// Parses the compact payload. Returns <c>null</c> on any structural problem (unparseable JSON,
-    /// missing <c>schemas</c>, missing required columns). The analyzer always emits <c>schemas</c>,
-    /// so an absent schema signals a malformed/stale payload and is rejected rather than guessed.
-    /// </summary>
     public static TenWinBuildCorpus? Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -108,8 +88,7 @@ public sealed class TenWinBuildCorpus
             return null;
         }
 
-        // Gate on the wire schema version so a future format change fails loudly
-        // instead of silently mis-decoding. Greenfield: only v2 is accepted.
+        // Reject unknown versions to avoid silently decoding a changed positional format.
         if (
             !TryReadInt(root["schema_version"], out var schemaVersion)
             || schemaVersion != ExpectedSchemaVersion
@@ -222,8 +201,7 @@ public sealed class TenWinBuildCorpus
             );
     }
 
-    // Json.NET eagerly converts ISO-8601 strings to Date tokens during JObject.Parse, so both
-    // token shapes must be accepted; anything else degrades to null rather than failing the parse.
+    // Json.NET may parse an ISO-8601 string as a Date token, so accept both token shapes.
     private static DateTimeOffset? ParseGeneratedAt(JObject root)
     {
         var token = root["generated_at"];
@@ -248,14 +226,7 @@ public sealed class TenWinBuildCorpus
         }
     }
 
-    /// <summary>
-    /// Recall + ranking. Recall is keyed on the selected candidate cards only: the literal
-    /// intersection of their indexed build IDs, falling back to the union when the intersection is
-    /// empty (an uncovered selected card empties the intersection but must not empty the result
-    /// while another selected card has coverage). Ranking is by matched-selected-card count, then
-    /// live-state weight, then the analyzer score, then build ID for stability. An empty selection
-    /// returns nothing — live state never drives recall, only ranking.
-    /// </summary>
+    // An uncovered selected card can empty the intersection even when another selected card has indexed builds.
     public IReadOnlyList<TenWinBuildMatch> FindBuilds(
         string? hero,
         IReadOnlyCollection<Guid> selectedTemplateIds,
@@ -717,7 +688,6 @@ public sealed class TenWinBuild
 
     public int BuildId { get; }
 
-    /// <summary>Deduped template IDs from the build's <c>cardRefs</c> multiset (recall/scoring key).</summary>
     public IReadOnlyCollection<Guid> TemplateIdSet { get; }
 
     public IReadOnlyList<TenWinLayoutItem> Layout { get; }
@@ -740,13 +710,11 @@ public sealed class TenWinLayoutItem
 
     public int? Slot { get; }
 
-    /// <summary>Mod tier value 1..5 (Bronze..Legendary), or null when absent/unknown.</summary>
     public int? Tier { get; }
 
-    /// <summary>Display-only enchantment name, or null. Never participates in recall or scoring.</summary>
+    // Enchantments are display-only. Recall and ranking use template IDs.
     public string? EnchantName { get; }
 
-    /// <summary>Board slot span 1..3, or null when absent.</summary>
     public int? Size { get; }
 }
 
@@ -773,10 +741,8 @@ public readonly struct TenWinStats
 
     public int TenWinRunCount { get; }
 
-    /// <summary>Ten-win rate in basis points (2667 == 26.67%); null only when never emitted.</summary>
     public int? TenWinRateBps { get; }
 
-    /// <summary>p75 ten-win final day as a plain rounded day (not tenths); null when unavailable.</summary>
     public int? P75TenWinFinalDay { get; }
 
     public long Score { get; }

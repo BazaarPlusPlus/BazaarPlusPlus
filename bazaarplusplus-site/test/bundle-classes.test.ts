@@ -8,7 +8,6 @@ import {
   undefinedClasses
 } from '../../design/ui-classes';
 
-// Every class a component draws with exists in design/components/bundle.css.
 describe('bpp-* classes', () => {
   it('the Web component library uses only classes bundle.css defines', () => {
     expect(

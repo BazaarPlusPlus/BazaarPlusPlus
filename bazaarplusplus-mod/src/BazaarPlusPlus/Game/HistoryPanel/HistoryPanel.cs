@@ -63,8 +63,7 @@ internal sealed partial class HistoryPanel : MonoBehaviour
     {
         // Only a disable drops a pending return from a replay; an ordinary close keeps it.
         _coordinator?.CancelReplayReturn();
-        // Route through the host so its open-panel state cannot desync; the unconditional
-        // hide below also covers the not-open case (matching the historical force-hide).
+        // Closing through the host keeps its open-panel state in sync.
         _overlayHandle?.RequestClose();
         IsVisible = false;
         DisposeNativeHistoryBoards();
@@ -84,9 +83,6 @@ internal sealed partial class HistoryPanel : MonoBehaviour
         DisposeUi();
     }
 
-    // Lifecycle (scene change, combat gate, hotkey, escape) is owned by the Overlay Panel Host;
-    // this tick lets the coordinator return from an accepted replay and carries per-frame content
-    // work.
     private void Tick(float dt, bool isVisible)
     {
         if (!isVisible)
@@ -245,14 +241,12 @@ internal sealed partial class HistoryPanel : MonoBehaviour
                 tick: Tick
             )
             {
-                // Historical behavior: the panel stays open across non-combat scene changes.
                 SceneChangeClose = SceneChangeClosePolicy.OnlyWhenInCombat,
                 OnSceneChanged = OnOverlaySceneChanged,
                 IsModalInputActive = () => _uiView?.HasOpenModal == true,
                 DismissModal = () => _uiView?.DismissModal(),
             },
             BppHotkeyActionId.ToggleHistoryPanel,
-            // Swallow the toggle entirely (open AND close) while the search box has focus.
             hotkeyGuard: () => !IsVisible || !IsTextInputFocused()
         );
     }

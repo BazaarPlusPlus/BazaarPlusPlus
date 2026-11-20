@@ -2,7 +2,6 @@
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-// The desktop-only codes; the playback codes both hosts log are Core's ReplayPlaybackCodes.
 internal enum ReplayCaptureReasonCode
 {
     CaptureOrEnqueueException,

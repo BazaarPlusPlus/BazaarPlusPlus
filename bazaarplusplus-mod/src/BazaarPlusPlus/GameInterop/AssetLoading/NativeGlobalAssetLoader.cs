@@ -25,9 +25,7 @@ internal static class NativeGlobalAssetLoader
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
     );
 
-    // Global by default, for process-static caches that must outlive the lobby <-> run scope
-    // release. A load that serves only the present scene passes Current, so the game releases
-    // it with that scope.
+    // Use Global for process caches because scene-scope handles are released between lobby and run.
     internal static Task<T?> LoadByAddressAsync<T>(
         AssetLoader assetLoader,
         string address,
@@ -111,7 +109,6 @@ internal static class NativeGlobalAssetLoader
         }
     }
 
-    // One closed generic per (open method, T); a failed close throws per call, as before.
     private static class ClosedMethods<T>
     {
         private static readonly ConcurrentDictionary<MethodInfo, MethodInfo> Methods = new();

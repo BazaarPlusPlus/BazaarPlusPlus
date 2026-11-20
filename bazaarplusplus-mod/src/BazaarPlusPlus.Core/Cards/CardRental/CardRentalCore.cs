@@ -3,14 +3,8 @@ using BazaarPlusPlus.Core.Cards.ItemBoards;
 
 namespace BazaarPlusPlus.Core.Cards.CardRental;
 
-/// <summary>
-/// What a lease shows: a card template at a tier, with an optional enchantment and, for a saved
-/// card, its attribute values keyed by the game's member name (ADR-0017). The values win over
-/// the template's; without them the card shows its template's own values. A saved size is the
-/// size the card held on its board, one step below its template's when it was Tiny; without one
-/// the card shows at its template's size. A card on an item board (<see cref="OnBoard"/>) shows
-/// an item's ammo bar under it, as the game's board does; a catalog card does not.
-/// </summary>
+// Saved attribute keys are game member names. The saved size may be smaller than the
+// template size because of Tiny, and board cards use the native ammo bar.
 public readonly record struct CardRentalSubject(
     Guid TemplateId,
     CardTier Tier,
@@ -20,10 +14,6 @@ public readonly record struct CardRentalSubject(
     bool OnBoard = false
 )
 {
-    /// <summary>
-    /// A board card as it was saved: its tier, enchantment, attribute values and size, on its
-    /// board.
-    /// </summary>
     public static CardRentalSubject Of(BppItemBoardCard card) =>
         new(
             card.TemplateId,
@@ -34,16 +24,11 @@ public readonly record struct CardRentalSubject(
             OnBoard: true
         );
 
-    /// <summary>The size an item shows at, which is the size the board gave it a slot for.</summary>
     public CardSize ShownSize(CardSize templateSize) => Size ?? templateSize;
 
-    /// <summary>Whether an item was saved below its template's size: the game's Tiny.</summary>
     public bool IsTinyOn(CardSize templateSize) => Size is { } size && size < templateSize;
 
-    /// <summary>
-    /// The values as one ordinal key, empty when there are none, so a panel that keeps a card
-    /// across renders re-rents it when only a value changed.
-    /// </summary>
+    // Panels use this key to re-rent a card when only its attribute values change.
     public static string AttributesKey(IReadOnlyDictionary<string, int>? attributes) =>
         attributes is not { Count: > 0 }
             ? string.Empty
@@ -59,23 +44,16 @@ public readonly record struct CardRentalSubject(
 
 public enum CardRentalLeaseState
 {
-    /// <summary>Instantiating or setting up; <see cref="CardRentalLease{TCard}.Card"/> may be null.</summary>
     Pending,
 
-    /// <summary>Set up and shown under the lease's parent.</summary>
     Ready,
 
-    /// <summary>The card could not be rented or set up; it holds no instance.</summary>
     Failed,
 
-    /// <summary>Returned by its owner or released on a scene load; it holds no instance.</summary>
     Released,
 }
 
-/// <summary>
-/// One rented native card. The owner reads <see cref="State"/> each frame; a lease never changes
-/// owner, and a released lease stays released.
-/// </summary>
+// A lease stays with its original owner and cannot be revived after release.
 public sealed class CardRentalLease<TCard>
     where TCard : class
 {
@@ -93,17 +71,16 @@ public sealed class CardRentalLease<TCard>
 
     public TCard? Card { get; internal set; }
 
-    /// <summary>Bumped each time the lease becomes Ready, so an owner can tell a re-setup apart.</summary>
+    // Owners use the revision to detect another setup on the same lease.
     public int Revision { get; internal set; }
 
     public string? FailureReason { get; internal set; }
 
     internal string? Kind { get; set; }
 
-    /// <summary>Set by a release-all: the instance in flight is destroyed, never pooled.</summary>
+    // Release-all must destroy any instance that arrives after the scene changes.
     internal bool DestroyOnArrival { get; set; }
 
-    /// <summary>A retarget arrived while a setup was in flight; it runs when that setup ends.</summary>
     internal bool RetargetPending { get; set; }
 
     internal object? InstantiateOperation { get; set; }
@@ -113,28 +90,21 @@ public sealed class CardRentalLease<TCard>
     internal object? Parent { get; set; }
 }
 
-/// <summary>
-/// The game-facing half of the rental: everything that touches a native card. Each host
-/// implements it over its runtime (<c>AndroidCardRentalBackend</c>, <c>MonoCardRentalBackend</c>); tests implement it over fakes.
-/// Every method runs on the main thread; an operation handle is polled until it completes.
-/// </summary>
+// The native backend is main-thread-only. Poll asynchronous operations on that same thread.
 public interface ICardRentalBackend<TCard, TParent>
     where TCard : class
     where TParent : class
 {
-    /// <summary>The pool kind the subject's template rents from, or null with a reason.</summary>
     string? ResolveKind(CardRentalSubject subject, out string? failureReason);
 
     object BeginInstantiate(CardRentalSubject subject, string kind);
 
-    /// <summary>True once the operation finished; <paramref name="card"/> is null when it failed.</summary>
     bool TryCompleteInstantiate(object operation, out TCard? card, out string? failureReason);
 
     object BeginSetUp(TCard card, CardRentalSubject subject, TParent parent);
 
     bool TryCompleteSetUp(object operation, TCard card, out string? failureReason);
 
-    /// <summary>Deactivates the card and moves it under the pool root.</summary>
     void Park(TCard card);
 
     /// <summary>
@@ -145,20 +115,12 @@ public interface ICardRentalBackend<TCard, TParent>
 
     void Destroy(TCard card);
 
-    /// <summary>False once the native object is gone (destroyed by the game or a scene unload).</summary>
+    // Scene unload can destroy a native object while its managed wrapper still exists.
     bool IsAlive(TCard card);
 }
 
-/// <summary>
-/// The native card rental every touch panel of the Android host shares: per-kind pooling of the
-/// game's card UI prefabs, leases polled to readiness, and the counts that prove every instance
-/// is accounted for.
-/// No game or engine call happens here, so tests drive it over a fake backend (ADR-0016).
-/// <para>
-/// Invariant (<see cref="IsBalanced"/>): every instance ever instantiated is destroyed, lost (the
-/// game destroyed it), held by a lease, or parked in the pool.
-/// </para>
-/// </summary>
+// Call Tick once per frame on the main thread.
+// Account for every instantiated card as destroyed, lost, leased or pooled.
 public sealed class CardRentalCore<TCard, TParent>
     where TCard : class
     where TParent : class
@@ -194,12 +156,10 @@ public sealed class CardRentalCore<TCard, TParent>
 
     public long Lost { get; private set; }
 
-    /// <summary>Leases not yet returned: pending and ready ones.</summary>
     public int ActiveLeases => _active.Count;
 
     public int Pooled => _pool.Values.Sum(queue => queue.Count);
 
-    /// <summary>Instances held by an active lease, whether set up yet or not.</summary>
     public int Held => _active.Count(lease => lease.Card != null);
 
     public bool IsBalanced => Instantiated - Destroyed - Lost == Held + Pooled;
@@ -215,7 +175,6 @@ public sealed class CardRentalCore<TCard, TParent>
         return lease;
     }
 
-    /// <summary>Sets a held lease up again for another subject of the same kind, or re-rents it.</summary>
     public void Retarget(CardRentalLease<TCard> lease, CardRentalSubject subject)
     {
         if (lease == null)
@@ -225,8 +184,7 @@ public sealed class CardRentalCore<TCard, TParent>
         lease.Subject = subject;
         lease.FailureReason = null;
         lease.State = CardRentalLeaseState.Pending;
-        // The instance in flight picks up the new subject when it arrives; a setup in flight
-        // finishes first, so the native card never runs two setups at once.
+        // The native card cannot run two setups at once.
         if (lease.InstantiateOperation != null)
             return;
         if (lease.SetUpOperation != null)
@@ -261,7 +219,6 @@ public sealed class CardRentalCore<TCard, TParent>
         Acquire(lease, kind);
     }
 
-    /// <summary>Ends a lease: its instance goes back to the pool once any setup in flight ends.</summary>
     public void Return(CardRentalLease<TCard>? lease)
     {
         if (lease == null || lease.State == CardRentalLeaseState.Released)
@@ -271,8 +228,7 @@ public sealed class CardRentalCore<TCard, TParent>
         lease.State = CardRentalLeaseState.Released;
         if (lease.InstantiateOperation != null || lease.SetUpOperation != null)
         {
-            // Tick settles it when the native operation completes; a card already set up in
-            // flight leaves the returning panel now, so a view rebuilt meanwhile cannot take it.
+            // Detach before the native setup settles so a rebuilt panel cannot destroy the card.
             if (lease.Card != null)
                 SafeDetach(lease.Card);
             return;
@@ -286,11 +242,6 @@ public sealed class CardRentalCore<TCard, TParent>
         }
     }
 
-    /// <summary>
-    /// A scene load or the feature switching off: every lease is released, and every instance,
-    /// held or pooled, is destroyed; one still instantiating or setting up is destroyed when it
-    /// arrives. Returns how many leases were released.
-    /// </summary>
     public int ReleaseAll()
     {
         var released = 0;
@@ -321,7 +272,6 @@ public sealed class CardRentalCore<TCard, TParent>
         return released;
     }
 
-    /// <summary>Polls every native operation in flight; call once per frame on the main thread.</summary>
     public void Tick()
     {
         // Advance can remove the lease it settles, so it walks a copy; the copy is reused
@@ -427,7 +377,6 @@ public sealed class CardRentalCore<TCard, TParent>
                 return;
             }
             lease.Card = card;
-            // A retarget while instantiating may have changed the kind.
             var kind = SafeResolveKind(lease.Subject, out _);
             if (kind != null && !string.Equals(kind, lease.Kind, StringComparison.Ordinal))
             {
@@ -603,7 +552,7 @@ public sealed class CardRentalCore<TCard, TParent>
         }
         catch
         {
-            // The native object is gone either way once Destroy has been asked for.
+            // Count a requested destroy as settled even if the backend reports an error.
         }
         Destroyed++;
     }

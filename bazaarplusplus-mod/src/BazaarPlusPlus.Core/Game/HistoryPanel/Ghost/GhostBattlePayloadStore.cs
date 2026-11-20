@@ -9,9 +9,6 @@ public sealed class GhostBattlePayloadStore
     private const string DirectoryName = "GhostBattlePayloads";
     private readonly FileBackedPayloadStore<GhostBattlePayload> _store;
 
-    // Resolves the ghost-payload directory as a sibling of the combat replay directory, falling
-    // back to a child directory when the replay path has no parent. Single source of truth for
-    // every call site that needs to construct a GhostBattlePayloadStore from the replay root.
     public static string ResolveDirectory(string replayDirectoryPath)
     {
         var parentDirectory = Path.GetDirectoryName(replayDirectoryPath);

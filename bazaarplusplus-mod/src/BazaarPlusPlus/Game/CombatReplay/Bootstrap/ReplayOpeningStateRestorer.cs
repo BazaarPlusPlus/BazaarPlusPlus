@@ -10,11 +10,7 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Bootstrap;
 
-/// <summary>
-/// Restores the small part of the native PVP opening presentation that saved replay bootstrap
-/// intentionally bypasses. Recorded spawn events take precedence, with captured hand snapshots
-/// supplying socket effects that were absent from the message; no state is inferred from the hero.
-/// </summary>
+// Saved replay bootstrap bypasses native PvP opening presentation. Use captured hand sockets when spawn messages omit them.
 internal static class ReplayOpeningStateRestorer
 {
     private const string OpeningStateRestoreContext = "opening_state_restore";
@@ -462,10 +458,7 @@ internal static class ReplayOpeningStateRestorer
             {
                 boardManager.RemoveCardsInstantly(new List<Card> { card });
             }
-            catch
-            {
-                // Continue cleaning the remaining cards if a lookup died during scene teardown.
-            }
+            catch { }
         }
     }
 

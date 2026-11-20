@@ -1,5 +1,3 @@
-"""Build, validate, save, and independently publish consumer snapshots."""
-
 import hashlib
 import json
 import time
@@ -104,8 +102,6 @@ class LatestPublisher:
 
 
 class SnapshotRunner:
-    """One product's execution and progress, without knowing the product registry."""
-
     def __init__(
         self,
         store: FactStore,
@@ -122,7 +118,6 @@ class SnapshotRunner:
         self.ownership_check = ownership_check
 
     def build(self, product: ConsumerProduct, window: AnalysisWindow) -> BuiltSnapshot:
-        """Compute validated canonical bytes without replacing any consumer snapshot."""
         with open_analysis(self.store, window, product.tables, self.resources) as connection:
             data = product.build(connection, window, self.clock())
         validate_snapshot(product, data.payload)
@@ -165,10 +160,8 @@ class SnapshotRunner:
         on_progress: Callable[[SnapshotResult], None] = lambda _result: None,
         on_message: Callable[[str], None] = lambda _message: None,
     ) -> SnapshotResult:
-        """Keep product failures local; ownership and observer failures stop the Run.
-
-        Observations follow successful durable stages, so later failure preserves
-        completed local saves and remote publication in Operational Evidence.
+        """Record each durable stage so later failures preserve progress in Operational Evidence.
+        Ownership and observer failures propagate to the driver.
         """
         result = SnapshotResult(product.name, product.empty_counts())
         observer_error: BaseException | None = None

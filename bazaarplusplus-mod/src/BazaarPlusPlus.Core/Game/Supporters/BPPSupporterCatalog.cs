@@ -56,10 +56,7 @@ public static class BPPSupporterCatalog
         }
     }
 
-    /// <summary>
-    /// The entries are real: the fixed list is on, or a catalog snapshot was published. False
-    /// while only the placeholder fallback would be returned.
-    /// </summary>
+    // A placeholder cannot count as a loaded supporter catalog.
     public static bool HasEntries
     {
         get

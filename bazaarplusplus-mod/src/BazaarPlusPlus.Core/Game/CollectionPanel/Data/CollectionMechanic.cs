@@ -24,8 +24,7 @@ public static class CollectionMechanics
 
     public static bool TryFromHiddenTag(CardHiddenTag hiddenTag, out CollectionMechanic mechanic)
     {
-        // AbsorbDestroy is not on the keyword whitelist, so mapping it here only feeds the
-        // Destroy mechanic fact — it never surfaces as its own keyword chip.
+        // AbsorbDestroy belongs to the Destroy mechanic and stays off the keyword whitelist (ADR-0004).
         mechanic = hiddenTag switch
         {
             CardHiddenTag.Multicast => CollectionMechanic.Multicast,

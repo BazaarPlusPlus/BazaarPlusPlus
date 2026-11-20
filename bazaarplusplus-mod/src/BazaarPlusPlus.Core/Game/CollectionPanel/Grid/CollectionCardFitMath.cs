@@ -1,9 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Pure card-fit math for the Collection grid. UnityEngine-free so scale/position rules are
-// unit-tested in tests/CollectionGridLayout.Tests without booting the game client. Measurement
-// and RectTransform writes live in NativeCardCellFitter; this type only computes numbers.
 public readonly struct CardVisualBounds
 {
     public CardVisualBounds(float width, float height, float centerX, float centerY)
@@ -22,11 +19,7 @@ public readonly struct CardVisualBounds
 
 public static class CollectionCardFitMath
 {
-    // Scale to the cell HEIGHT so every card in a shelf renders the same height. Clamp item
-    // cards by body width, not frame width: Large frame art has native side flourishes that
-    // overhang the 3:2 body and should not make only Large cards shorter. When aspectRatio is
-    // usable, body width is derived from body height * aspect; otherwise fall back to measured
-    // visual width (which may include frame flourishes).
+    // Clamp to the card body's width so Large cards keep the shelf height even when their native frames overhang.
     public static float ComputeScale(
         CardVisualBounds bounds,
         float? aspectRatio,
@@ -55,10 +48,7 @@ public static class CollectionCardFitMath
         return scale;
     }
 
-    // Board pivot is top-left (y increases downward in content space, anchored Y goes negative).
-    // Place the measured native visual center on the cell center; item-card root RectTransforms
-    // can report a zero rect, so the measured bounds — not root.rect — drive placement.
-    // scaleX/scaleY match RectTransform.localScale so a non-uniform write stays call-equivalent.
+    // The grid is top-left and downward-positive. Use measured visual bounds because item-card root RectTransforms can report a zero rect.
     public static (float X, float Y) ComputeAnchoredPosition(
         CardVisualBounds bounds,
         float scaleX,

@@ -28,8 +28,6 @@ export function useUpdaterState(): UpdaterController {
     void machine.checkNow({ silent: true });
   }, [machine]);
 
-  // Successful manual check results briefly replace the header action. A check
-  // failure remains until retry so its localized recovery guidance is not lost.
   const { phase } = snapshot;
   useEffect(() => {
     const isHeaderResult = phase === 'current' || phase === 'preview';

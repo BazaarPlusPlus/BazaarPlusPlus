@@ -1,15 +1,5 @@
 #!/usr/bin/env node
-// Derives the Desktop Kit's plate sprites from one material image, and cuts its state marks
-// from one sheet of painted icons
-// (design/components/InGameKit/README.md, "The plate art").
-//
-//   bun design/kit-art.ts          write the plate PNGs into the mod's Resources/DesktopKit/
-//   bun design/kit-art.ts --check  fail if a plate PNG differs from what this script draws
-//                                  (`bun design/build.ts --check` runs the same comparison)
-//
-// Every plate shares one rounded silhouette with a soft painted rim. A state is the same
-// material graded toward a colour. Sprites are drawn at 4x and reduced, and colour is bled
-// under the transparent pixels so bilinear filtering leaves no dark fringe.
+// Bleed color into transparent pixels to prevent dark fringes under bilinear filtering.
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -27,20 +17,16 @@ const outDir = path.join(
   'bazaarplusplus-mod/src/BazaarPlusPlus/Resources/DesktopKit'
 );
 
-/** Supersampling: sprites are drawn at this multiple and reduced. */
 const SS = 4;
 /** Sprite pixels per canvas unit; DesktopNativeSkin.KitPixelsPerUnit. */
 const PIXELS_PER_UNIT = 3;
 /** The silhouette's corner radius in canvas units; DesktopNativeSkin.KitBorderPixels is (radius + 4) x 3. */
 const RADIUS = 6;
-/** Transparent room around the silhouette for its soft edge, in canvas units. */
 const PAD = 0.5;
-/** One canvas unit in supersampled pixels. */
 const UNIT = PIXELS_PER_UNIT * SS;
 
 type Rgb = readonly [number, number, number];
 
-/** A sample of a typed array; out of range reads 0. */
 const at = (samples: ArrayLike<number>, index: number) => samples[index] ?? 0;
 
 /** The Mobile UI's art, beside the desktop kit's: linked into the Android host by name. */
@@ -57,9 +43,7 @@ interface PlateSpec {
   fill: string;
   rim: string;
   rimAlpha: number;
-  /** Light from above: the top is lifted and the bottom weighted by this fraction. */
   lift?: number;
-  /** How strongly the material's grain shows. */
   contrast?: number;
   radius?: number;
   widthUnits?: number;
@@ -133,7 +117,6 @@ function size(widthUnits = 64, heightUnits = 36) {
   return { width: widthUnits * UNIT, height: heightUnits * UNIT };
 }
 
-/** The material's grain over a sprite, as deviations from its mean in standard deviations. */
 function grain(material: Gray, width: number, height: number): Float32Array {
   const out = new Float32Array(width * height);
   let sum = 0;
@@ -166,10 +149,8 @@ function plate(material: Gray, spec: PlateSpec): Raster {
     const ramp = 1 + lift - 2 * lift * down;
     for (let x = 0; x < width; x++) {
       const d = distance(x, y, width, height, radius);
-      // The painted rim: a soft band just inside the edge, strongest at the top.
       const band =
         bell(d, -1.6 * UNIT, 0.9 * UNIT) * (1 - 0.45 * down) * spec.rimAlpha;
-      // A faint dark seat at the very edge, so the plate sits on any ground.
       const seat = 1 - bell(d, -0.3 * UNIT, 0.5 * UNIT) * 0.35;
       const to = (y * width + x) * 4;
       const lit = 1 + contrast * at(texture, y * width + x);
@@ -184,7 +165,6 @@ function plate(material: Gray, spec: PlateSpec): Raster {
   return reduce({ width, height, data });
 }
 
-/** A line with no centre that follows the plates' silhouette: a core and a wider, fainter halo. */
 function edge(colour: string, peak: number, widthUnits: number): Raster {
   const { width, height } = size();
   const tint = rgb(colour);
@@ -204,7 +184,6 @@ function edge(colour: string, peak: number, widthUnits: number): Raster {
   return reduce({ width, height, data });
 }
 
-/** The silhouette in solid white. */
 function shape(): Raster {
   const { width, height } = size();
   const data = new Float32Array(width * height * 4).fill(1);
@@ -218,7 +197,6 @@ function shape(): Raster {
   return reduce({ width, height, data });
 }
 
-/** Reduces a supersampled raster with premultiplied alpha, then bleeds colour outwards. */
 function reduce(source: Raster, factor = SS): Raster {
   const width = source.width / factor;
   const height = source.height / factor;
@@ -253,7 +231,6 @@ function reduce(source: Raster, factor = SS): Raster {
   return { width, height, data };
 }
 
-/** Gives each transparent pixel the mean colour of its coloured neighbours, a ring at a time. */
 function bleed(
   data: Float32Array,
   known: Uint8Array,
@@ -297,8 +274,6 @@ function bleed(
   }
 }
 
-// ---- PNG: 8-bit, non-interlaced; grey in, RGBA out ----
-
 interface Gray {
   width: number;
   height: number;
@@ -323,7 +298,6 @@ function chunks(file: Buffer): Map<string, Buffer[]> {
   return found;
 }
 
-/** Decodes an 8-bit non-interlaced PNG to its raw samples. */
 function decode(file: Buffer): {
   width: number;
   height: number;
@@ -454,19 +428,10 @@ function encode(raster: Raster): Buffer {
   ]);
 }
 
-// ---- entry ----
-
-/**
- * The state marks, cut from the sheet of painted icons: one square cell per mark, in this order.
- * A mark is half its cell's size, dense enough for a phone.
- */
 const markNames = ['completed', 'abandoned', 'active', 'won', 'lost'];
 const MARK_REDUCTION = 2;
 
-/**
- * Grades a mark to dull iron. The completed mark is a cup, and in a bright metal it reads
- * as one of the game's trophies beside it in a list; a run below the first tier has no metal.
- */
+// A bright cup looks like a tier trophy, even when a run has earned no metal.
 function iron(data: Float32Array): void {
   for (let i = 0; i < data.length; i += 4) {
     const luma =
@@ -500,10 +465,7 @@ function marks(): Map<string, Raster> {
   return cut;
 }
 
-/**
- * The supporter heart in solid white, tinted where it is drawn: two round lobes over a
- * point, from the implicit heart curve (x^2 + y^2 - 1)^3 = x^2 y^3.
- */
+/** Uses the implicit heart curve (x^2 + y^2 - 1)^3 = x^2 y^3. */
 function heart(): Raster {
   const side = 16 * UNIT;
   const data = new Float32Array(side * side * 4).fill(1);
@@ -526,11 +488,7 @@ function heart(): Raster {
   return reduce({ width: side, height: side, data });
 }
 
-/**
- * The touch controls' plates (the Mobile UI's `control-normal.png` and `control-selected.png`,
- * sliced 40 px, which is 6 dp on a device): the same material and rim as the desktop plates,
- * on a larger silhouette with a rounder corner, so one plate serves a 48 dp touch target.
- */
+/** The Mobile UI slices 40 px borders for the 48 dp touch targets. */
 const touchPlates: Record<string, PlateSpec> = {
   'control-normal': {
     fill: '#3a2815',
@@ -551,7 +509,7 @@ const touchPlates: Record<string, PlateSpec> = {
   }
 };
 
-/** The touch History's badge atlases: the kit's marks side by side, in the order the host cuts them. */
+/** Atlas order must match the host's badge slices. */
 const touchAtlases: Record<string, string[]> = {
   'run-state-badges': ['completed', 'abandoned', 'active'],
   'battle-result-badges': ['won', 'lost']
@@ -593,7 +551,6 @@ function draw(): Map<string, Raster> {
   return sprites;
 }
 
-/** A committed plate, or undefined when it is missing or not a PNG this script can read. */
 function readPlate(file: string) {
   try {
     return decode(fs.readFileSync(file));
@@ -602,7 +559,6 @@ function readPlate(file: string) {
   }
 }
 
-/** The plate PNGs that differ from what this script draws; compared by pixel, not by file bytes. */
 export function stalePlates(): string[] {
   const stale: string[] = [];
   for (const [name, raster] of draw()) {

@@ -19,18 +19,6 @@ import {
 } from './r2-store.ts';
 import type { FetchImpl, StoredObjectHead } from './r2-store.ts';
 
-// Credential derivation fails closed, before any R2 request, when:
-//   the token is empty or whitespace          -> "CLOUDFLARE_API_TOKEN is empty"
-//   the account id is not 32 hex characters   -> "CLOUDFLARE_ACCOUNT_ID must be"
-//   the bucket name is not a valid R2 bucket  -> "Invalid R2 bucket"
-// and on the first request when:
-//   /accounts/{account}/tokens/verify is not 2xx or success
-//                                             -> "Cloudflare rejected ... HTTP"
-//   the verify result has no 32-hex token id  -> "returned no token id"
-//   the token is not active                   -> "not active"
-// A verified id is reused for the process and account; a failed verification
-// is not.
-
 const credentials = {
   accountId: 'a'.repeat(32),
   accessKeyId: 'test-access',
@@ -68,15 +56,12 @@ test('the S3 pair is the verified token id and the SHA-256 of the token value', 
   );
   expect(request.headers.authorization).toBe(`Bearer ${token}`);
   expect(request.redirect).toBe('error');
-  // The id is cached per process: a second derivation makes no request.
   await credentialsFromApiToken({
     token,
     accountId: 'a'.repeat(32),
     fetchImpl
   });
   expect(fetchImpl).toHaveBeenCalledTimes(1);
-  // An Account API Token belongs to one account, so another account verifies
-  // the same token again.
   await credentialsFromApiToken({
     token,
     accountId: 'b'.repeat(32),
@@ -404,10 +389,6 @@ test('only the release bucket defaults to the installer/ prefix', async () => {
   ).toThrow('Invalid R2 key prefix');
 });
 
-// Streamed transfers for multi-gigabyte inputs (the official Android APK):
-// the body is a file stream whose precomputed sha256 is the signed payload
-// hash, so R2 rejects bytes that differ; a write only creates; a missing
-// object reads as null.
 test('putFile streams a file under its sha256 and getFile streams an object to disk', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-r2-file-'));
   try {
@@ -451,7 +432,6 @@ test('putFile streams a file under its sha256 and getFile streams an object to d
     await expect(
       store.putFile('game-libs/apk/a.apk', file, { sha256: 'nope' })
     ).rejects.toThrow(/needs the file sha256/);
-    // Replacing streams under if-match instead, never both preconditions.
     expect(
       await store.putFile('game-libs/apk/a.apk', file, {
         sha256: digest,
@@ -481,10 +461,6 @@ test('putFile streams a file under its sha256 and getFile streams an object to d
   }
 });
 
-// A 2.8 GB transfer can fail outright or lose its response after R2 stored
-// the object. putImmutableFile settles each outcome with a HEAD, never a
-// download: the same size and sha256 is this upload, a different object fails
-// at once, and an absent one is retried until the attempts run out.
 test('putImmutableFile retries a failed stream and settles lost responses by HEAD', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-r2-immutable-'));
   try {

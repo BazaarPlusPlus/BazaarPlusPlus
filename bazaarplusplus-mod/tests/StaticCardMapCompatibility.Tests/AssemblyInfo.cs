@@ -1,5 +1,4 @@
 using Xunit;
 
-// The game's serializer type registry is process-global, and the Pantry test checks that the
-// adapter leaves it alone. Run the tests one at a time, as the capsule did.
+// Run serially because the Pantry test inspects the game's process-global serializer type registry.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

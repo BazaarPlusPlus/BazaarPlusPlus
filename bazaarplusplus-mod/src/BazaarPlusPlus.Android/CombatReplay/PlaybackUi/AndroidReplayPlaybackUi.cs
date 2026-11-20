@@ -12,32 +12,17 @@ using GamePlayer = Il2CppBazaarGameClient.Domain.Models.Player;
 
 namespace BazaarPlusPlus.Android.CombatReplay.PlaybackUi;
 
-/// <summary>
-/// The playback presentation a saved replay repairs around the injected battle, the Android
-/// forms of the desktop's <c>HealthBarBinder</c>, <c>PlayerAttributeRepairer</c> and
-/// <c>ReplayPresentationRestorer</c>: hide the encounter picker, keep the opponent portrait
-/// visible, bind both boards' health bars to the replay's players, fill missing player
-/// attributes and the recorded ones, and refresh the clock and board UI to the opening state.
-/// The desktop reaches the board UI's private members by reflection; IL2CPP exposes them as
-/// interop members. Main thread only; each step is a degradation when it fails.
-/// </summary>
 internal static class AndroidReplayPlaybackUi
 {
     private const string EncounterPickerMapName = "EncounterPicker_Map(Clone)";
 
     private static readonly HashSet<int> InitializedBoardUi = new();
 
-    /// <summary>The replay's temporary opponent portrait, while one is shown.</summary>
     public static EncounterController? ActiveOpponentPortrait { get; set; }
 
     public static void ClearBoardUi() => InitializedBoardUi.Clear();
 
-    /// <summary>
-    /// Hides the scene's encounter picker controllers, inactive ones included, and the
-    /// <c>EncounterPicker_Map(Clone)</c> root above one. Scene objects only: prefab assets stay
-    /// untouched, and names cross the IL2CPP bridge only for the ancestors of the found
-    /// controllers, not for every loaded Transform.
-    /// </summary>
+    // Limit the search to scene objects so the replay cannot hide prefab assets.
     public static void HideEncounterPickerOverlays()
     {
         foreach (
@@ -156,7 +141,6 @@ internal static class AndroidReplayPlaybackUi
         }
     }
 
-    /// <summary>Rewinds the run's day, hour and levels and the clock and board UI to the opening.</summary>
     public static void RefreshPresentation(
         PvpBattleManifest manifest,
         CombatSequenceMessages sequence,
@@ -397,7 +381,6 @@ internal static class AndroidReplayPlaybackUi
         );
     }
 
-    // Every player attribute present, level 1 and the rest 0, and HealthMax from Health.
     private static void EnsureAttributes(
         Il2CppSystem.Collections.Generic.Dictionary<EPlayerAttributeType, int>? attributes,
         IReplayPlaybackOutcomeSink outcome

@@ -5,9 +5,6 @@ using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// The History Run row both hosts list: HistoryRunColumns.Select read through
-// HistoryPanelRowMapper.ReadRun. The desktop pages it with HistoryPageQuery; the Android reader
-// selects the same columns, so these rules hold on both.
 public sealed class HistoryRunRowTests : IDisposable
 {
     private readonly string root = TestRoot.Create();

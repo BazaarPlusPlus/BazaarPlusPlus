@@ -5,12 +5,7 @@ using Xunit;
 
 namespace OverlayPanelLifecycle.Tests;
 
-// Checks for the Overlay Panel Host. Every test drives only the public OverlayPanelHost through
-// fake registrations and reads what the panels were told; the last drives the Walkthrough Control
-// through its command file. Each test is one check the capsule ran, with the same name.
-//
-// BppLog is process-global. As in the capsule, one sink is installed once and cleared before each
-// test; every test is in this class, so xUnit runs them one at a time.
+// BppLog is process-global. xUnit runs the tests in this class serially so they can share one sink.
 public sealed class OverlayPanelHostTests
 {
     private static readonly List<string> LogLines = InstallLogSink();

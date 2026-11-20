@@ -4,7 +4,6 @@ using System.Text;
 
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>One file of a Managed Payload: its install path, size, and SHA-256.</summary>
 internal sealed class ManagedPayloadFile
 {
     public ManagedPayloadFile(string path, long size, string sha256)
@@ -19,35 +18,16 @@ internal sealed class ManagedPayloadFile
     public string Sha256 { get; }
 }
 
-/// <summary>
-/// The Managed Payload Manifest (GLOSSARY.md): the release build's signed list of every managed
-/// and history-contract file one product version installs on one platform, with the two facts
-/// self-update compares against the running copy. The release coordinator writes it
-/// (release/managed-payload.ts); the installed copy sits beside the mod as
-/// <see cref="ManagedPayloadHost.InstalledManifestPath"/>, the Managed Payload zip carries it
-/// with its signature at the root. Every reader, the installer's Repair among them, is a
-/// consumer in the root AGENTS.md Contracts table. A line format, so the dependency-free
-/// Updater parses it without a JSON library:
-/// <code>
-/// bpp-managed-payload-manifest 1
-/// version 6.1.0
-/// platform darwin-aarch64
-/// history-database-user-version 1
-/// non-managed-payload-digest &lt;sha256&gt;
-/// file &lt;sha256&gt; &lt;size&gt; &lt;install path&gt;
-/// </code>
-/// </summary>
+// release/managed-payload.ts owns this signed line format so the Updater needs no JSON dependency.
+// release/fixtures/managed-payload/manifest.txt pins it for consumers, including installer Repair.
 internal sealed class ManagedPayloadManifest
 {
     public const string Header = "bpp-managed-payload-manifest 1";
 
-    /// <summary>The manifest inside a Managed Payload zip and a staged update directory.</summary>
     public const string FileName = "manifest.txt";
 
-    /// <summary>The manifest's minisign signature beside it.</summary>
     public const string SignatureFileName = "manifest.txt.minisig";
 
-    /// <summary>The directory that holds the payload files under their install paths.</summary>
     public const string FilesDirectory = "files";
 
     private ManagedPayloadManifest(
@@ -148,7 +128,7 @@ internal sealed class ManagedPayloadManifest
         value.Length == 64 && value.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'));
 }
 
-/// <summary>Product versions as the payload compares them: the leading major.minor.patch.</summary>
+// Payload version ordering uses only the leading major.minor.patch.
 internal static class ManagedPayloadVersion
 {
     public static bool TryParse(string? value, out Version version)
@@ -179,7 +159,6 @@ internal static class ManagedPayloadVersion
     }
 }
 
-/// <summary>Install-path rules shared by the Updater and Core's staging.</summary>
 internal static class ManagedPayloadPaths
 {
     public static bool IsSafeRelative(string path) =>
@@ -188,11 +167,7 @@ internal static class ManagedPayloadPaths
         && path.Split('/').All(part => part.Length > 0 && part != "." && part != "..");
 }
 
-/// <summary>
-/// Where a host keeps the Managed Payload: the install-relative directories self-update may
-/// write (release/payload.json producers managed and history-contract) and the installed
-/// manifest beside the mod.
-/// </summary>
+// The managed and history-contract entries in release/payload.json own these writable directories.
 internal sealed class ManagedPayloadHost
 {
     public const string InstalledManifestFileName = "BazaarPlusPlus.managed-manifest.txt";
@@ -213,7 +188,6 @@ internal sealed class ManagedPayloadHost
         WritableDirectories = writableDirectories;
     }
 
-    /// <summary>The install-relative directory of the mod's own assemblies.</summary>
     public string ModDirectory { get; }
 
     public IReadOnlyList<string> WritableDirectories { get; }
@@ -222,7 +196,6 @@ internal sealed class ManagedPayloadHost
 
     public string VersionFilePath => ModDirectory + "BazaarPlusPlus.version";
 
-    /// <summary>A path directly inside one of the writable directories.</summary>
     public bool MayWrite(string path) =>
         ManagedPayloadPaths.IsSafeRelative(path)
         && WritableDirectories.Any(directory =>

@@ -1,14 +1,4 @@
-//! IPC JSON goldens: the DTOs `get_install_state`, `get_legacy_data_state`,
-//! `get_legacy_data_presence`, `delete_legacy_root`, `list_history_runs`,
-//! `get_history_run_detail` and `preview_storage_cleanup` return to the frontend, produced by the service layer each command wraps from a fixture
-//! game directory and database. The commands themselves are not driven through
-//! the IPC bridge: through IPC, `get_install_state` and history path resolution
-//! read the host's Steam installation and bundled resources (see #154), so the
-//! output would not be repeatable.
-//!
-//! Every input is platform neutral, so macOS and Windows produce the same
-//! bytes. Writes `tests/goldens/ipc/<command>.<state>.json`; regenerate with
-//! `BPP_UPDATE_GOLDENS=1 bun run generate:bindings:test` (see the installer `AGENTS.md`).
+//! Exercise the service layer directly because IPC would make these goldens depend on the host's Steam installation.
 
 use std::path::{Path, PathBuf};
 
@@ -59,9 +49,6 @@ fn write(path: &Path, bytes: &[u8]) {
     std::fs::write(path, bytes).unwrap();
 }
 
-/// Detection facts for the fixture installation. The macOS bootstrap inputs
-/// are the ready ones (empty launch options, current trampoline), so the
-/// platform-specific warnings stay out of every state.
 fn snapshot(fixture: &Fixture, installed_version: Option<&str>) -> InstallEnvironmentSnapshot {
     InstallEnvironmentSnapshot {
         steam_path: Some(fixture.steam.to_string_lossy().into_owned()),
@@ -121,8 +108,6 @@ fn get_install_state() {
     );
 }
 
-/// Every Legacy Root with a few bytes, the current Data Root, and a 6.x mod
-/// contract, as an upgraded 5.x user's game directory looks.
 fn seed_legacy_roots(fixture: &Fixture) {
     let game = &fixture.game;
     #[cfg(target_os = "macos")]
@@ -194,10 +179,6 @@ fn delete_legacy_root() {
     );
 }
 
-/// Three runs: a Ranked win with a primary screenshot and two battles (one
-/// recorded) that is not yet sealed into a Bundle, so cleanup must skip it; a
-/// Normal loss under the legacy `Hero8` name whose Bundle is already in the
-/// outbox; and a run still in progress.
 fn seed_history(fixture: &Fixture) {
     let game = &fixture.game;
     write(
@@ -336,7 +317,6 @@ fn list_history_runs() {
             )
             .unwrap()
     };
-    // The legacy `Hero8` spelling of run-2 matches the canonical id.
     assert_golden(
         "ipc/list_history_runs.hero-the-dragons.json",
         &fixture.json(&filtered(HistoryRunFilter {
@@ -396,7 +376,6 @@ fn list_history_runs() {
         "ipc/list_history_runs.key-card-marlon.json",
         &fixture.json(&keyed(Some(MARLON), &names)),
     );
-    // Without the game's cache, cards keep the names the snapshots carry.
     let without_cache = keyed(None, &GameCardNames::at(cache.join("missing")));
     assert_eq!(
         without_cache
@@ -425,8 +404,6 @@ fn board(status: &str, cards: &[(&str, &str, &str)]) -> String {
     format!(r#"{{"items":[{items}],"status":"{status}","source":"OpeningMessage"}}"#)
 }
 
-/// Snapshots for `seed_history`'s battles, plus a later run-2 battle whose
-/// board read failed.
 fn seed_final_boards(fixture: &Fixture) {
     let conn = rusqlite::Connection::open(paths::database_path(&fixture.game)).unwrap();
     conn.execute(
@@ -472,7 +449,6 @@ fn seed_final_boards(fixture: &Fixture) {
     }
 }
 
-/// The game's data cache: Marlon has a Simplified Chinese title, Pufferfish none.
 fn seed_game_cache(fixture: &Fixture) -> PathBuf {
     let cache = fixture.steam.join("GameCache");
     std::fs::create_dir_all(cache.join("translations")).unwrap();

@@ -9,10 +9,7 @@ fn main() {
     expose_windows_resources_to_test_harnesses();
 }
 
-/// `tauri-build` links `resource.lib` (including the Common Controls v6
-/// manifest) into application binaries only. The library test harness links
-/// Tauri's Windows dialog code too, so it needs the same manifest before the
-/// Windows loader can resolve `TaskDialogIndirect`.
+/// Tauri only links the Common Controls v6 resource into binaries. The test harness needs it to resolve `TaskDialogIndirect`.
 fn expose_windows_resources_to_test_harnesses() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
@@ -25,12 +22,7 @@ fn expose_windows_resources_to_test_harnesses() {
     );
 }
 
-/// Compile the sole macOS launch trampoline stub (arm64) from its committed C source so
-/// the bundled resource declared in `tauri.macos.conf.json` exists before
-/// `tauri_build` validates resource paths. The generated binary is gitignored and
-/// is replaced when it is missing, older than its source, or built against a
-/// deployment target other than the supported baseline. No-op when not targeting
-/// macOS.
+/// The stub must exist before `tauri_build` validates the configured resources.
 fn compile_macos_trampoline_stub() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
@@ -38,9 +30,7 @@ fn compile_macos_trampoline_stub() {
 
     let source = "trampoline/bpp_launcher.c";
     let output = "resources/Trampoline/macos/bpp_launcher";
-    // Re-run when the source changes or the generated output disappears. Merely
-    // running the build script must not rewrite the watched output: doing so makes
-    // the next Cargo command consider this package dirty again.
+    // Rewriting an unchanged watched output makes Cargo mark the package dirty on the next command.
     println!("cargo:rerun-if-changed={source}");
     println!("cargo:rerun-if-changed={output}");
 

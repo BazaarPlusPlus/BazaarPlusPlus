@@ -1,14 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.Tooltips;
 
-/// <summary>
-/// Tracks the controllers whose upgrade preview BPP itself entered so the fusion visual can
-/// be released once the cursor leaves the card. The native exit path
-/// (TooltipParentComponent.HideCardTooltipController) early-returns while a card-to-card
-/// tooltip transition is active and afterwards resolves the already-retargeted CurrentCard,
-/// so hover moving directly between cards never exits the previous card; with toggle
-/// activation keeping upgrade mode on, every card swept over would latch its glare.
-/// </summary>
+// The game's tooltip transition skips exit for the previous CurrentCard, leaving its fusion visual latched in toggle mode.
 internal static class UpgradePreviewCardLatch
 {
     private static readonly HashSet<CardController> Entered = new();

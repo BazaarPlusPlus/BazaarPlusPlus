@@ -3,10 +3,7 @@ using SteamKit2;
 
 namespace BazaarPlusPlus.SteamSnapshot;
 
-/// <summary>
-/// The saved Steam login: one line of JSON, the value of STEAM_SNAPSHOT_LOGIN. Messages never
-/// repeat its content.
-/// </summary>
+// STEAM_SNAPSHOT_LOGIN is a single JSON line. Keep its contents out of diagnostics.
 public sealed record SteamLogin(string Account, string RefreshToken)
 {
     public const string EnvironmentVariable = "STEAM_SNAPSHOT_LOGIN";
@@ -16,7 +13,6 @@ public sealed record SteamLogin(string Account, string RefreshToken)
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    /// <summary>Only a rejected login needs the operator; anything else passes by the next run.</summary>
     public static string DescribeFailure(EResult result) =>
         result
             is EResult.InvalidPassword

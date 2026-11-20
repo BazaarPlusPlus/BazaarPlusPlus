@@ -33,7 +33,7 @@ type RouteReport = {
   icons: Record<string, number>;
 };
 
-/** `assets/index-AbC12xyz.js` → `index.js`, so the golden survives content hashes. */
+/** Strip content hashes so asset names remain stable in the golden. */
 function chunkName(pathname: string): string {
   return pathname.replace(/^.*\//, '').replace(/-[\w-]{8}\.js$/, '.js');
 }
@@ -90,7 +90,6 @@ for (const [route, href] of Object.entries(ROUTES)) {
     entry.icons = Object.fromEntries(Object.entries(entry.icons).sort(byKey));
     report[route] = entry;
 
-    // Which icons a route loads is pinned by the committed report; each one stays within budget.
     for (const [icon, bytes] of Object.entries(entry.icons)) {
       expect(bytes, `${icon} transfer bytes on ${href}`).toBeLessThanOrEqual(
         ICON_BUDGETS[icon]
@@ -115,7 +114,7 @@ test('chunk names and external sources match the committed report', () => {
   const committed = JSON.parse(
     readOrWriteGolden(test.info(), 'route-chunks.json', actual)
   ) as Record<string, RouteReport>;
-  // Names and sources compare exactly; byte counts only ride along so size changes show in diffs.
+  // Only names and sources are asserted so byte-count changes can be reviewed in diffs.
   const shape = (value: Record<string, RouteReport>) =>
     Object.fromEntries(
       Object.entries(value).map(([route, entry]) => [

@@ -15,21 +15,13 @@ public enum LiveCardSnapshotFailureReason
     InvalidPlacement,
 }
 
-/// <summary>
-/// How a degraded line renders <c>socket_id</c> and <c>item_size</c>: snake case
-/// (<c>socket_3</c>, <c>large</c>) on the desktop, the member name (<c>Socket_3</c>,
-/// <c>Large</c>) on Android, each host's existing monitoring format.
-/// </summary>
+// Preserve existing log consumers' formats: Desktop uses snake_case, Android uses game member names.
 public enum LiveCardSnapshotLogValues
 {
     SnakeCase,
     MemberName,
 }
 
-/// <summary>
-/// A card <see cref="LiveCardSnapshotRead"/> left out, or a read that failed. The size is the one
-/// the fit check used, after the Small fallback.
-/// </summary>
 public sealed record LiveCardSnapshotIssue(
     LiveCardSnapshotSection Section,
     LiveCardSnapshotFailureReason Reason,

@@ -3,27 +3,18 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// The saved-replay playback a host's combat replay runtime offers History: whether a saved
-/// battle can replay, the replay of a saved or an already loaded battle, and the read of a saved
-/// battle under the playback payload lease. Each host implements it over its own runtime; a
-/// replay leaves only through the exits ADR-0002 names.
-/// </summary>
 public interface ISavedReplayRuntime
 {
-    // A replay is starting, playing, or returning to the menu.
     bool HasSavedReplaySession { get; }
 
-    // Worker-only: waits for the shared payload gate without touching host/game objects.
-    // Null means the runtime is unavailable; the caller must not delete rows or payloads.
+    // Call on a worker because this can block on the payload gate. A null lease forbids deletion.
     IDisposable? AcquirePayloadMaintenance();
 
     bool CanReplaySavedCombats(out string reason);
 
     bool CanReplaySavedBattle(string battleId, out string reason);
 
-    // Called on the host thread. Reads managed storage on a worker, then checks cancellation
-    // and the caller's current selection before handing off to the host's existing start.
+    // Call on the Host thread. The worker read must recheck the selection on that thread before starting playback.
     Task<bool> ReplaySavedAsync(
         string battleId,
         bool recordVideo,
@@ -31,8 +22,7 @@ public interface ISavedReplayRuntime
         Func<bool>? canCommit = null
     );
 
-    // Plays a manifest and payload the caller already holds; source names where they came from.
-    // Player is the recorder in both a local manifest and a Ghost payload's manifest.
+    // Player identifies the recorder in both local and Ghost Battle manifests.
     bool ReplayLoadedBattle(
         PvpBattleManifest manifest,
         PvpReplayPayload payload,
@@ -47,12 +37,6 @@ public interface ISavedReplayRuntime
     );
 }
 
-/// <summary>
-/// Whether the host can record a replay's video. <see cref="Supported"/> says whether the host
-/// records video at all (a host that ships no encoder hides the record action);
-/// <see cref="CanRecord"/> says whether it can record now. <see cref="Prewarm"/> runs on the UI
-/// thread, where a host can read its video settings and load its encoder.
-/// </summary>
 public interface IReplayRecordingAvailability
 {
     bool Supported { get; }

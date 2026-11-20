@@ -3,7 +3,6 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.GameInterop.CombatReplay;
 
-/// <summary>Reads the live native replay interaction inputs for the pure restart gate.</summary>
 internal static class NativeReplayRestartProbe
 {
     internal static NativeReplayRestartReadiness Observe(ReplayState? replay)

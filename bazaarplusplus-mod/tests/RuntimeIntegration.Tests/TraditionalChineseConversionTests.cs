@@ -9,9 +9,8 @@ namespace RuntimeIntegration.Tests;
 
 public sealed class TraditionalChineseConversionTests
 {
-    // Every Chinese literal compiled into the mod, run through the Taiwan-mode fallback, must come
-    // out free of Simplified-only characters. Literals that already carry Traditional text pass
-    // through unchanged, so the sweep also catches a stray Simplified character in authored zh-Hant.
+    // The fallback leaves authored Traditional text intact, so this sweep also checks
+    // authored zh-Hant for stray Simplified characters.
     [Fact]
     public void Taiwan_mode_leaves_no_simplified_only_character_in_compiled_mod_text()
     {

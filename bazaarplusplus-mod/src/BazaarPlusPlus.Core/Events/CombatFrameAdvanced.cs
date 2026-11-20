@@ -1,8 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Events;
 
-// No-payload signal published once per combat frame. A single shared instance is reused so the
-// hot per-frame publish path allocates nothing.
+// Reuse one instance to avoid allocating on the per-frame publish path.
 public sealed class CombatFrameAdvanced
 {
     public static readonly CombatFrameAdvanced Instance = new();

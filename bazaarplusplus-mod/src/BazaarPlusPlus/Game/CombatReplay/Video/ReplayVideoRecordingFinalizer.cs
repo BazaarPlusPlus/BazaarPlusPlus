@@ -5,11 +5,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-/// <summary>
-/// The off-main-thread half of a recording: every input arrives frozen in a context, and each
-/// finalizer closes its operation exactly once. It has no Unity dependencies, so the recorder's
-/// terminal outcomes are testable without a running game.
-/// </summary>
 internal static class ReplayVideoRecordingFinalizer
 {
     internal static void CompleteEndedRecording(EndedRecordingFinalizeContext context)
@@ -93,7 +88,6 @@ internal static class ReplayVideoRecordingFinalizer
         Exception exception
     )
     {
-        // A WAV is still open until its tap has stopped.
         WaitForAudioStop(recording.AudioStop);
         DeleteTempFile(recording.TempVideoPath, recording.Operation.RecordingId);
         DeleteWavBestEffort(recording.WavPaths);
@@ -119,9 +113,7 @@ internal static class ReplayVideoRecordingFinalizer
         );
     }
 
-    // Off the main thread only: the start-metadata write and the tap stop are short, bounded
-    // background tasks; the precedence below is the order the main thread used to apply them in
-    // (audio start, then start metadata, then audio stop).
+    // Join these bounded tasks off the main thread. Issues take precedence in audio-start, metadata-write, then audio-stop order.
     private static EndedRecordingInputs ResolveEndedInputs(
         RecordingStartInputs start,
         ReplayAudioStopOutcome audio
@@ -182,10 +174,7 @@ internal static class ReplayVideoRecordingFinalizer
         {
             audioStop?.Wait();
         }
-        catch
-        {
-            // The stop already reported its own failure; cleanup only needs the WAVs closed.
-        }
+        catch { }
     }
 
     internal static void DeleteWavBestEffort(string? wavPath)
@@ -198,10 +187,7 @@ internal static class ReplayVideoRecordingFinalizer
             if (File.Exists(wavPath))
                 File.Delete(wavPath);
         }
-        catch
-        {
-            // best-effort
-        }
+        catch { }
     }
 
     internal static void DeleteWavBestEffort(IReadOnlyList<string>? wavPaths)
@@ -213,8 +199,7 @@ internal static class ReplayVideoRecordingFinalizer
             DeleteWavBestEffort(wavPath);
     }
 
-    // The tap stop and the start-metadata write finished independently of the encoder, so they
-    // are read first: a drain that throws must not erase their real outcomes.
+    // Read the independent tap and metadata outcomes before a drain failure can obscure them.
     internal static void CompleteAbortedRecording(AbortedRecordingFinalizeContext context)
     {
         var recording = context.Recording;
@@ -294,8 +279,6 @@ internal static class ReplayVideoRecordingFinalizer
         );
     }
 
-    // An abort whose session never produced a drain has no video, but its tap stop and start
-    // metadata still report their own outcomes.
     internal static void CompleteAbortedWithoutDrain(
         ReplayVideoRecordingLifecycle operations,
         ReplayVideoRecordingOperation operation,
@@ -331,9 +314,7 @@ internal static class ReplayVideoRecordingFinalizer
         );
     }
 
-    // A start that throws after its operation became active hands that operation to the abort's
-    // finalizer, which owns its terminal outcome; only an operation the abort never took closes
-    // here.
+    // Once the operation became active, the abort finalizer owns the terminal outcome.
     internal static void CompleteBeginException(
         ReplayVideoRecordingLifecycle operations,
         ReplayVideoRecordingOperation operation,
@@ -356,10 +337,7 @@ internal static class ReplayVideoRecordingFinalizer
         );
     }
 
-    // Parameterized so it is race-free under the async mux: every input is a value
-    // captured on the main thread before instance fields are nulled. Safe to call on
-    // a background thread because the store opens a fresh SQLite connection per call.
-    // FileSizeBytes always comes from the resolved final path, never the first-pass temp.
+    // The store opens a fresh SQLite connection per call, so this write can run on the mux thread.
     private static MetadataWriteOutcome TrySaveFinishMetadataFor(
         CombatReplayVideoMetadataStore? store,
         string? videoDir,

@@ -48,8 +48,6 @@ describe('GET /ghost-battles', () => {
     };
 
     expect(battles).toHaveLength(2);
-    // Rows stored before the progress and object key columns existed carry no
-    // local progress and sign their parent Bundle's key.
     expect(battles[0].opponent).toMatchObject({
       level: null,
       prestige: null,
@@ -132,8 +130,6 @@ describe('GET /ghost-battles', () => {
       );
       expect(uploaded.status).toBe(201);
     }
-    // Each stored projection carries its Bundle's object key, so discovery
-    // signs it without reading bundles.
     expect(
       await env.DB.prepare(
         `SELECT g.object_key, g.object_key = b.object_key AS matches

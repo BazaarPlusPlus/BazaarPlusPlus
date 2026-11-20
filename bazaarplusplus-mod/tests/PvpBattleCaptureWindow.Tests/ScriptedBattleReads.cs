@@ -8,10 +8,7 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests.PvpBattles;
 
-/// <summary>
-/// A net message as the scripted port sees it. It expires once the observe call that delivered it
-/// returns, as an IL2CPP proxy does; a read of an expired message is recorded and fails the test.
-/// </summary>
+// Expire the message after the observe call returns to model an IL2CPP proxy's lifetime.
 internal sealed class FakeMessage
 {
     private FakeMessage(string name, PvpBattleSignal signal)
@@ -73,10 +70,6 @@ internal sealed class FakeMessage
     public override string ToString() => Name;
 }
 
-/// <summary>
-/// The battle-reading port over scripted values: each read returns its value, null, or throws,
-/// as its function says. Records the replay parts asked for and any read of an expired message.
-/// </summary>
 internal sealed class ScriptedBattleReads : IPvpBattleReads<FakeMessage>
 {
     public Func<FakeMessage, PvpBattleSignal> Classifier { get; set; } = message => message.Signal;
@@ -115,7 +108,6 @@ internal sealed class ScriptedBattleReads : IPvpBattleReads<FakeMessage>
     public Func<IReadOnlyList<PvpBattleCardSnapshot>?> PlayerStashCards { get; set; } =
         () => [Card("stash-1")];
 
-    /// <summary>The part for each stage; by default the stage's message name, serialized.</summary>
     public Func<PvpReplayStage, FakeMessage, string, PvpReplayPart> Part { get; set; } =
         (_, message, _) => PvpReplayPart.Serialized(Bytes(message.Name));
 
@@ -233,7 +225,6 @@ internal sealed class ScriptedRunSnapshot : IRunSnapshotProbe
     }
 }
 
-/// <summary>One window over the scripted port, a run context, a rank probe and a fixed clock.</summary>
 internal sealed class WindowHarness : IDisposable
 {
     public static readonly DateTimeOffset Now = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
@@ -269,7 +260,6 @@ internal sealed class WindowHarness : IDisposable
         }
     }
 
-    /// <summary>Feeds each message in turn and returns the one capture they close.</summary>
     public PvpBattleCapture Battle(
         FakeMessage? opening = null,
         FakeMessage? combat = null,

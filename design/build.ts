@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Builds the CSS custom properties the products read from design/tokens.json,
-// and checks that the design system and its consumers agree.
-//
-//   bun design/build.ts          write the generated tokens.css and Tailwind bridge, and copy the brand mark and the covers
-//   bun design/build.ts --check  fail if any output is stale (the Desktop Kit plates of kit-art.ts too) or a consumer disagrees
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,29 +7,24 @@ import { fileURLToPath } from 'node:url';
 
 import { stalePlates } from './kit-art.ts';
 
-/** A per-theme value ({ dark: "#fff" }) or a plain string; "{name}" is an alias. */
 type TokenValue = string | Record<string, string>;
 
-/** One token of design/tokens.json. */
 interface DesignToken {
   name: string;
   value: TokenValue;
   usage: string;
 }
 
-/** A token family of design/tokens.json: color, spacing, radius, size, shadow or motion. */
 interface DesignTokenGroup {
   note?: string;
   tokens: DesignToken[];
 }
 
-/** A colour theme; the first one is the theme the products ship. */
 interface ColorTheme {
   id: string;
   name: string;
 }
 
-/** One text style of a type group. */
 interface TypeStyle {
   name: string;
   fontSize: string;
@@ -45,14 +35,12 @@ interface TypeStyle {
   letterSpacing?: string;
 }
 
-/** A group of text styles that share one font family. */
 interface TypeGroup {
   name: string;
   family: string;
   styles: TypeStyle[];
 }
 
-/** design/tokens.json, as far as this script reads it. */
 interface DesignTokens {
   name: string;
   version: number;
@@ -65,7 +53,6 @@ interface DesignTokens {
   motion: DesignTokenGroup;
 }
 
-/** A token family emitted as custom properties. */
 type TokenFamily =
   | 'color'
   | 'spacing'
@@ -74,7 +61,6 @@ type TokenFamily =
   | 'shadow'
   | 'motion';
 
-/** A text style as the Android resources read it. */
 interface AppTypeStyle {
   name: string;
   size: number;
@@ -94,11 +80,8 @@ const tokensCssPath = path.join(
   'styles',
   'tokens.css'
 );
-// The Tailwind bridge the installer and the site both import.
 const TAILWIND_THEME = 'design/tailwind-theme.css';
-// The cover art the Android App launcher bundles (design/components/Launcher, Cover art).
 const COVERS = path.join(designDir, 'assets', 'Covers', 'the-bazaar');
-// The installer consumes the brand mark; the site header uses its existing app icon.
 const COPIES = [
   {
     from: path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg'),
@@ -110,9 +93,6 @@ const COPIES = [
     to: `bazaarplusplus-android/app/src/main/res/drawable-nodpi/${name}`
   }))
 ];
-// The mod's in-game theme: every `ingame-*` colour token, generated as C# for
-// the Desktop UI (the Desktop Host) and the Mobile UI tree the Android host compiles.
-// Both read one palette; only their layouts differ.
 const INGAME_PREFIX = 'ingame-';
 const INGAME_TARGETS = [
   {
@@ -124,23 +104,17 @@ const INGAME_TARGETS = [
     namespace: 'BazaarPlusPlus.Mobile.Ui'
   }
 ];
-// The Desktop UI's kit sizes: the shared control heights and spacing scale and
-// the `ingame-text-*` type sizes, as C# constants (design/components/InGameKit/).
-// The Mobile UI sizes itself from TouchMetrics instead (ADR-0018 in the mod).
+// Mobile UI uses TouchMetrics for sizing (mod ADR-0018).
 const INGAME_SIZES = {
   file: 'bazaarplusplus-mod/src/BazaarPlusPlus/Infrastructure/UiTokens/InGameSizes.g.cs',
   namespace: 'BazaarPlusPlus.Infrastructure.UiTokens'
 };
 const INGAME_SHARED_SIZES = ['control-md', 'control-sm', 'badge-height'];
-// The Android App reads the product palette and scales as Android resources and
-// the brand mark as a vector drawable; both are generated, never edited.
 const ANDROID_RES = 'bazaarplusplus-android/app/src/main/res';
 const ANDROID_TOKENS = `${ANDROID_RES}/values/bpp_tokens.xml`;
 const ANDROID_MARK = `${ANDROID_RES}/drawable/bpp_mark.xml`;
 const markPath = path.join(designDir, 'assets', 'Logos', 'bpp-mark.svg');
-// The desktop app icon is also the Android App's launcher icon. The adaptive
-// icon is exported by a script and records the icon's sha256, so a changed icon
-// without a re-export fails the check.
+// The exported adaptive icon records the desktop icon's digest so this check can detect a stale export.
 const APP_ICON = 'bazaarplusplus-installer/src-tauri/icons/app-icon.png';
 const ANDROID_LAUNCHER_ICON = `${ANDROID_RES}/mipmap-anydpi/ic_launcher.xml`;
 const heroesPath = path.join(
@@ -151,8 +125,7 @@ const heroesPath = path.join(
   'lib',
   'heroes.ts'
 );
-// Core's supporter attribution writes the in-game supporter colours into rich
-// text as hex, for the touch host's single label; it cannot read InGameTheme.
+// Core cannot read InGameTheme. Its touch label needs the supporter colors as inline hex.
 const supporterAttributionPath = path.join(
   repoRoot,
   'bazaarplusplus-mod',
@@ -163,8 +136,6 @@ const supporterAttributionPath = path.join(
   'BPPSupporterAttribution.cs'
 );
 
-// Families emitted as custom properties, in output order. `type` contributes
-// its font stacks and one `--type-<style>` font size per text style.
 const FAMILIES: readonly TokenFamily[] = [
   'color',
   'spacing',
@@ -186,8 +157,6 @@ function readTokens(): DesignTokens {
   return JSON.parse(fs.readFileSync(tokensPath, 'utf8')) as DesignTokens;
 }
 
-// Values are per theme objects ({ dark: "#fff" }) or plain strings; an alias
-// "{name}" becomes a var() reference so a change to the target follows.
 function cssValue(token: DesignToken, theme: string): string {
   const raw =
     typeof token.value === 'string' ? token.value : token.value[theme];
@@ -223,16 +192,12 @@ function buildTokensCss(tokens: DesignTokens): string {
   return lines.join('\n');
 }
 
-// The Tailwind utility name of a product colour token: `bg-canvas` is
-// `canvas` (so `bg-canvas`, not `bg-bg-canvas`); every other name stays.
+// Strip bg- so Tailwind exposes bg-canvas.
 function tailwindColorName(token: string): string {
   return token.startsWith('bg-') ? token.slice('bg-'.length) : token;
 }
 
-// The Tailwind bridge both Web products import after tokens.css: utilities
-// read the :root tokens (`inline`), so there is no second palette. The colour
-// and font namespaces start empty; `--text-*` keeps Tailwind's default sizes,
-// and each type style adds a size-only utility (`text-body`).
+// Tailwind inline utilities resolve :root tokens. Keep Tailwind's default text sizes alongside the generated styles.
 function buildTailwindTheme(tokens: DesignTokens): string {
   const lines = [
     '/* BazaarPlusPlus Tailwind bridge, generated from design/tokens.json by',
@@ -281,8 +246,6 @@ function tokenNames(tokens: DesignTokens): Set<string> {
   return names;
 }
 
-// Every var() in the shared stylesheet must be a token, or a custom property
-// the stylesheet declares itself (such as --tier on outcome pills).
 function undefinedBundleVars(tokens: DesignTokens): string[] {
   const css = fs.readFileSync(bundlePath, 'utf8');
   const declared = new Set(
@@ -294,8 +257,6 @@ function undefinedBundleVars(tokens: DesignTokens): string[] {
     .sort();
 }
 
-// A font size in the shared stylesheet is a `--type-*` token, never a px
-// literal; a relative size (`0.94em`) follows its parent and stays.
 export function pxFontSizes(css: string): string[] {
   const problems: string[] = [];
   const text = css.replace(/\/\*[\s\S]*?\*\//g, (comment) =>
@@ -332,22 +293,17 @@ function pascalCase(name: string): string {
     .join('');
 }
 
-// "#rrggbb" or "#rrggbbaa" as the four 0..1 channels Unity's Color takes.
-// An unresolvable token arrives as undefined and fails here as "got undefined".
 function hexChannels(hex: string | undefined): string[] {
   const match = /^#([0-9a-f]{6})([0-9a-f]{2})?$/.exec(String(hex));
   if (!match)
     throw new Error(`in-game colours must be #rrggbb[aa], got ${hex}`);
   const bytes = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16));
   bytes.push(match[2] ? parseInt(match[2], 16) : 255);
-  // Exact byte fractions, so a token matches the 8-bit colour it came from.
   return bytes.map((byte) =>
     byte === 0 ? '0f' : byte === 255 ? '1f' : `${byte}f / 255f`
   );
 }
 
-// A CSS colour as Android's #AARRGGBB.
-// An unresolvable token arrives as undefined and fails here as "got undefined".
 function androidColor(value: string | undefined): string {
   const hex = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(value));
   if (hex) return `#${(hex[2] ?? 'ff') + hex[1]}`.toUpperCase();
@@ -364,15 +320,12 @@ function androidColor(value: string | undefined): string {
 
 const androidName = (name: string): string => `bpp_${name.replace(/-/g, '_')}`;
 
-// The colours the App launchers use: every product colour, without the
-// in-game palette and the hero series.
 const appColors = (tokens: DesignTokens): DesignToken[] =>
   tokens.color.tokens.filter(
     (token) =>
       !token.name.startsWith(INGAME_PREFIX) && !token.name.startsWith('hero-')
   );
 
-// The text styles of every type group, as { name, size (px), lineHeight, weight, family }.
 function typeStyles(tokens: DesignTokens): AppTypeStyle[] {
   return tokens.type.groups.flatMap((group) =>
     group.styles.map((style) => {
@@ -389,8 +342,6 @@ function typeStyles(tokens: DesignTokens): AppTypeStyle[] {
   );
 }
 
-// The product colours (not ingame-* or hero-*) and the spacing, radius and
-// size scales, with CSS px as Android dp.
 function buildAndroidTokens(tokens: DesignTokens): string {
   const lines = [
     '<?xml version="1.0" encoding="utf-8"?>',
@@ -423,7 +374,6 @@ function buildAndroidTokens(tokens: DesignTokens): string {
   return lines.join('\n');
 }
 
-// The brand mark's filled paths as an Android vector drawable.
 function buildAndroidMark(svg: string): string {
   const box = /viewBox="0 0 (\d+) (\d+)"/.exec(svg);
   const paths = [
@@ -526,8 +476,6 @@ function buildInGameSizes(tokens: DesignTokens, namespace: string): string {
   return lines.join('\n');
 }
 
-// The site's hero table owns hero identity; its colours must match the
-// hero-* tokens the design system documents.
 function heroMismatches(tokens: DesignTokens): string[] {
   const source = fs.readFileSync(heroesPath, 'utf8');
   const problems: string[] = [];
@@ -553,8 +501,6 @@ function heroMismatches(tokens: DesignTokens): string[] {
   return problems;
 }
 
-// BPPSupporterAttribution's MutedHex and TierHex repeat ingame-ink-muted and
-// ingame-supporter-1..4 as RRGGBB; each must match its token.
 function supporterMismatches(tokens: DesignTokens): string[] {
   const source = fs.readFileSync(supporterAttributionPath, 'utf8');
   const file = 'BPPSupporterAttribution.cs';

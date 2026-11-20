@@ -16,8 +16,7 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CosmeticNames;
 
-// Lives on the native item, so list rebuilds and scene changes destroy the overlay with it.
-// CosmeticNameOverlayObserver invalidates it on a switch or locale change and drives retries.
+// Attaching to the native item lets list rebuilds and scene changes destroy the overlay with it.
 internal sealed class CosmeticNameOverlay : MonoBehaviour
 {
     private const float NameFontSize = 32f;
@@ -41,7 +40,6 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     private bool _dirty = true;
     private float _nextAttempt;
 
-    // Owned by CosmeticNameOverlayObserver's registry.
     internal bool IsRegistered { get; set; }
 
     internal void Initialize(
@@ -92,7 +90,6 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
     {
         _dirty = true;
         _nextAttempt = 0f;
-        // Never leave the previous locale's name visible during a language switch.
         if (_overlay != null)
             _overlay.SetActive(false);
     }
@@ -281,7 +278,6 @@ internal sealed class CosmeticNameOverlay : MonoBehaviour
                 );
         }
 
-        // Move the strip with the text, preserving glyph centering inside its shadow.
         var lift = characterHeight * 0.5f;
         var rect = (RectTransform)_overlay!.transform;
         rect.offsetMin = new Vector2(6f, 6f + lift);

@@ -3,23 +3,6 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests;
 
-/// <summary>
-/// The ways the call-site logging API can fail its readers. Each failure mode has one fact below.
-/// <list type="number">
-/// <item>A <c>Short</c> field leaks: it renders more than 8 characters, or the full value
-/// appears anywhere in the line.</item>
-/// <item>A <c>Hash</c> field leaks: it renders anything but 12 lowercase hex digits, or the
-/// value appears anywhere in the line.</item>
-/// <item>The default policy is wrong: a field without a policy is silently redacted, or a field
-/// declared <c>Hash</c> is silently passed through.</item>
-/// <item>One event spans lines: a newline, a quote, or U+2028 in a value breaks the
-/// one-record-per-line shape that readers of <c>LogOutput.log</c> rely on.</item>
-/// <item>A storm key merges on a redacted field: records keyed by a <c>Short</c> or
-/// <c>Hash</c> value collapse distinct correlation ids. Such a key must not suppress.</item>
-/// <item>Storm suppression floods or loses counts: the same event and key inside the window
-/// writes more than one line, or the shutdown flush omits the suppressed count.</item>
-/// </list>
-/// </summary>
 public sealed class BppLogFailureModeTests
 {
     private const string SecretId = "0123456789abcdef-secret-correlation";

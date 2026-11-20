@@ -12,9 +12,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Custom mountable for CollectionPanel: ComponentMount<T> would attach the MonoBehaviour but
-// could not subscribe to ChineseLocaleModeChanged, which the catalog cache + UI labels need
-// in order to regenerate when the user cycles BPP's Chinese variant.
+// The standard component mount cannot subscribe to the locale changes that invalidate the catalog and labels.
 internal sealed class CollectionPanelMount : IBppMountable
 {
     private readonly Func<DesktopOverlayPanels?> _overlayHost;

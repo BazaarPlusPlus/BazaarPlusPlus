@@ -7,9 +7,7 @@ internal sealed class ReplayPresentationTaskTracker
     private readonly object _sync = new();
     private readonly HashSet<Task> _pending = [];
 
-    // Volatile so Track's fast path can reject the common not-tracking case without taking the
-    // lock: the ItemController.Setup postfix calls Track for every item in every combat, replay
-    // or not.
+    // ItemController.Setup calls Track for every combat item, so the volatile fast path avoids locking outside replay warmup.
     private volatile bool _tracking;
 
     internal IDisposable BeginTracking()

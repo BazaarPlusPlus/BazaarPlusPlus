@@ -7,20 +7,8 @@ using Xunit.Abstractions;
 
 namespace ScenarioRunner.Tests;
 
-/// <summary>
-/// The host-lane half of the Combat Impact Corpus golden (ADR-0019): runs
-/// <c>CombatImpact.CorpusExport export</c> over the committed game payloads
-/// (<c>tests/CombatImpact.CorpusExport/corpus/</c>) and requires the BPP timeline it writes to
-/// match the committed corpus <c>tests/CombatImpact.Corpus/corpus/pinned-corpus.json.gz</c>,
-/// which the Core-lane runner <c>CombatImpact.Corpus</c> projects. Regenerate with
-/// <c>BPP_UPDATE_GOLDENS=1</c>; <c>tests/CombatImpact.Corpus/evidence/README.md</c> owns the
-/// procedure.
-///
-/// The decompressed JSON must match except the hashes and versions of the <c>game_types</c> and
-/// <c>json_runtime</c> verification inputs: both come from the Managed snapshot the exporter ran
-/// against and change with every game update. A difference there is printed; every battle must
-/// still match.
-/// </summary>
+// Game-managed exporter inputs are tied to the Managed snapshot, so their hashes and versions vary
+// across game updates even when the battle corpus is identical.
 public sealed partial class ScenarioRunnerTests(ITestOutputHelper output)
 {
     private const string CorpusExporter = "CombatImpact.CorpusExport";

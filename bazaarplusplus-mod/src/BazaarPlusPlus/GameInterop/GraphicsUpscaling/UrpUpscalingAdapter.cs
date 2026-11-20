@@ -15,8 +15,6 @@ internal sealed class UrpUpscalingAdapter : IDisposable
     private RenderPipelineAsset? _surfaceSource;
     private UrpAssetSurface? _surface;
 
-    // Runs on every controller refresh: reuse the reflected surface while the same pipeline
-    // asset stays current, and write a property only when the game changed it back.
     internal UrpUpscalingState Apply(bool enabled, float renderScale, float fsrSharpness)
     {
         var currentAsset = ResolveSurface(GraphicsSettings.currentRenderPipeline);
@@ -28,7 +26,6 @@ internal sealed class UrpUpscalingAdapter : IDisposable
 
         if (!enabled)
         {
-            // Restore never changes which asset is current, so the surface stays valid.
             Restore();
             return Observe(currentAsset);
         }
@@ -55,9 +52,8 @@ internal sealed class UrpUpscalingAdapter : IDisposable
         if (currentAsset.FsrSharpness != targetSharpness)
             currentAsset.FsrSharpness = targetSharpness;
 
-        // The game's separate dynamic-resolution scaler is disabled in the current quality
-        // assets. Keep its multiplier neutral so a future quality preset cannot
-        // accidentally apply a second scale on top of the explicit URP render scale.
+        // Keep dynamic-resolution scaling neutral so future quality presets cannot scale a
+        // second time on top of the explicit URP scale.
         if (
             !Mathf.Approximately(ScalableBufferManager.widthScaleFactor, 1f)
             || !Mathf.Approximately(ScalableBufferManager.heightScaleFactor, 1f)
@@ -69,8 +65,6 @@ internal sealed class UrpUpscalingAdapter : IDisposable
         return Observe(currentAsset);
     }
 
-    // A quality preset switch replaces GraphicsSettings.currentRenderPipeline; until then the
-    // surface reflected for the current asset is reused.
     private UrpAssetSurface? ResolveSurface(RenderPipelineAsset? asset)
     {
         if (asset != null && ReferenceEquals(asset, _surfaceSource))
@@ -182,8 +176,6 @@ internal sealed class UrpUpscalingAdapter : IDisposable
             _asset = asset;
             _filter = filter;
             _fsrFilterValue = Enum.ToObject(filter.PropertyType, (int)UrpUpscalingFilter.Fsr);
-            // Delegates bound to this asset read and write the float and bool properties
-            // without boxing; the enum-typed filter keeps reflection.
             _getRenderScale = Getter<float>(asset, renderScale);
             _setRenderScale = Setter<float>(asset, renderScale);
             _getFsrOverrideSharpness = Getter<bool>(asset, fsrOverrideSharpness);

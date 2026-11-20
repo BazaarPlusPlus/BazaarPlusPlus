@@ -21,8 +21,7 @@ public sealed class RunLogCreateRequest
 
     public string Status { get; set; } = "active";
 
-    // Game build channel the run was recorded on ("Online" / "Ptr" / "Unknown");
-    // rows tagged "Ptr" are permanently excluded from server uploads.
+    // A Run recorded on PTR remains ineligible for upload after switching channels.
     public string? BuildChannel { get; set; }
 
     public string? PlayerAccountId { get; set; }

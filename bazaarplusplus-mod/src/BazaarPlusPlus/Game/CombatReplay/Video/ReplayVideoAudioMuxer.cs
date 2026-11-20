@@ -4,12 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Video;
 
-/// <summary>
-/// Second-pass muxer: combines the silent first-pass video with the captured audio WAV into the
-/// final MP4. macOS uses AVFoundation and Windows uses Media Foundation. It runs entirely off the
-/// main thread. Any mux failure falls
-/// back to promoting the silent video so the first-pass product is never lost.
-/// </summary>
 internal sealed class ReplayVideoAudioMuxer
 {
     private const int MuxTimeoutMs = 60_000;
@@ -68,10 +62,7 @@ internal sealed class ReplayVideoAudioMuxer
         }
     }
 
-    /// <summary>
-    /// Resolves the mux inline on an existing background task. This method never dispatches nested
-    /// work, so an encoder drain and its mux remain one shutdown-tracked task.
-    /// </summary>
+    // Inline muxing keeps encoder drain and mux in one task tracked at shutdown.
     internal MuxResult Resolve(
         string recordingId,
         ReplayVideoCaptureStatus status,
@@ -154,10 +145,6 @@ internal sealed class ReplayVideoAudioMuxer
         return false;
     }
 
-    /// <summary>
-    /// Runs the platform-native mux pass. H.264 samples are copied and only audio is encoded,
-    /// preserving the silent-video fallback contract.
-    /// </summary>
     private MuxResult MuxNative(
         ReplayVideoBackend backend,
         string recordingId,
@@ -373,15 +360,7 @@ internal sealed class ReplayVideoAudioMuxer
         }
     }
 
-    /// <summary>
-    /// Heuristic guard against a zero-duration mux output. A valid native mux output always carries
-    /// the full first-pass video payload and is
-    /// least as large as the silent input; a real but tiny recording is still bounded below by that
-    /// silent size. So the output is considered zero-duration when it is empty, or when the silent
-    /// input size is known and the output is less than half of it (generous slack for container /
-    /// faststart differences, yet orders of magnitude above an empty stub). When the silent size is
-    /// unknown (0), only a truly empty output is rejected.
-    /// </summary>
+    // A valid mux includes the first-pass H.264 payload. Half its size allows container overhead differences while rejecting empty stubs.
     internal static bool IsLikelyZeroDurationOutput(long muxedSize, long silentSize)
     {
         if (muxedSize <= 0)
@@ -393,12 +372,6 @@ internal sealed class ReplayVideoAudioMuxer
         return muxedSize < silentSize / 2;
     }
 
-    /// <summary>
-    /// Promotes the silent first-pass video to the final path. Lifts the exact File.Move sequence
-    /// previously inlined in <c>CombatReplayVideoRecorder.FinalizeOutputFile</c> so the logic lives
-    /// once. Throws on hard IO failure (callers catch). If the temp is already gone, reports the
-    /// current size of the final path (idempotent re-finalize).
-    /// </summary>
     internal static long PromoteSilentToFinal(string tempPath, string finalPath)
     {
         if (!File.Exists(tempPath))
@@ -414,12 +387,6 @@ internal sealed class ReplayVideoAudioMuxer
         return ReplayVideoFileHelpers.TryGetFileSize(finalPath);
     }
 
-    /// <summary>
-    /// Best-effort waits for all outstanding tracked finalize/mux tasks to complete, up to
-    /// <paramref name="timeout"/>. Intended for app shutdown so in-flight recordings get a chance to
-    /// finish; any tasks still running continue in the background and their operation is closed by
-    /// the recorder's shutdown sweep. Returns true if all pending tasks completed within the timeout.
-    /// </summary>
     public static bool TryDrainPendingForShutdown(TimeSpan timeout)
     {
         Task[] pending;
@@ -494,7 +461,6 @@ internal sealed class ReplayVideoAudioMuxer
             s_pendingTasks.Add(task);
         }
 
-        // Untrack on completion regardless of outcome. ContinueWith runs on a pool thread.
         task.ContinueWith(
             static t =>
             {

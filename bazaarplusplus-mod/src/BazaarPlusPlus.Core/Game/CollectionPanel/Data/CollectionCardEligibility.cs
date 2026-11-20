@@ -14,9 +14,6 @@ public enum CollectionCardEligibilityReason
     TemplateInternalName,
 }
 
-// Which game templates the catalog lists, decided from the facts every host reads off a template:
-// whether it is an Item or a Skill, whether it may never spawn, its art key and internal name.
-// Each host's classifier reads those facts from its own game types and asks here.
 public static class CollectionCardEligibility
 {
     public static CollectionCardEligibilityReason Classify(

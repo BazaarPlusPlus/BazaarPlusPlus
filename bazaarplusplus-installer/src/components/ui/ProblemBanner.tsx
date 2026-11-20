@@ -6,11 +6,6 @@ import {
 import { useI18n } from '../../i18n/LocaleProvider';
 import { Button, StatusBanner } from '@bpp/ui';
 
-/**
- * The one way a page shows a semantic problem: localized message, optional
- * technical details from the problem itself, and an optional retry. Feature
- * code supplies only the message and any feature-specific extra actions.
- */
 export function ProblemBanner({
   message,
   problem,
@@ -26,7 +21,6 @@ export function ProblemBanner({
   onRetry?: () => void;
   retryBusy?: boolean;
   retryBusyLabel?: string;
-  /** Extra feature actions, rendered before Retry. */
   actions?: ReactNode;
 }) {
   const { t } = useI18n();

@@ -1,6 +1,3 @@
-// Covers what the Install page cannot show statically: deletion runs only
-// after a confirmation fixed to one listed root, a refusal keeps the root and
-// the dialog for retry, and a slower stale load never overwrites newer data.
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { SemanticProblemError } from '../../api/problems';
 import type { LegacyDataState } from '../../types/backend';
@@ -69,7 +66,6 @@ describe('legacy data workflow', () => {
     await workflow.load(GAME);
 
     expect(workflow.requestDelete('BazaarPlusPlusV5')).toBe(true);
-    // A second request cannot retarget the open confirmation.
     expect(workflow.requestDelete('BazaarPlusPlusV4')).toBe(false);
     expect(await workflow.confirmDelete()).toBe(true);
 

@@ -11,13 +11,7 @@ using BazaarPlusPlus.ModApi.Models;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ghost;
 
-/// <summary>
-/// Discovers the Ghost battles recorded against the signed-in account and downloads their
-/// replays. The host supplies what only it can answer: the profile account, which each call reads
-/// once on the caller's thread before its first await; the game-typed reads of PvP evidence; and
-/// whether the game's static data knows a card template, for the row's board counts, which runs
-/// on a worker thread after the download.
-/// </summary>
+/// <summary>The profile reader needs the caller's context. The template lookup must also work from a worker after download.</summary>
 public sealed class GhostBattleSyncService
 {
     private const int MaxSyncBattleLimit = 200;
@@ -27,12 +21,11 @@ public sealed class GhostBattleSyncService
     private readonly IPvpBattleEvidenceBinding _evidence;
     private readonly Func<Guid, bool> _hasCardTemplate;
 
-    // A discovery that succeeded for an account answers the next ones within this window as up to
-    // date without a request, so moving in and out of the Ghost section does not query each time.
+    // Avoid a discovery request every time the player returns to Ghost.
     private static readonly TimeSpan SyncTtl = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim _syncGate = new(1, 1);
 
-    // Last successful discovery per account, read and written only under _syncGate.
+    // Read and write only under _syncGate.
     private readonly Dictionary<string, long> _lastSyncedUtcTicks = new(StringComparer.Ordinal);
     private long _cooldownUntilUtcTicks;
 
@@ -57,9 +50,7 @@ public sealed class GhostBattleSyncService
         CancellationToken cancellationToken
     )
     {
-        // A session boundary cancels a sync that unwinds only later, so the next session's sync
-        // waits for it rather than failing. The wait resumes on the caller's context because the
-        // account resolver reads the game profile.
+        // A cancelled sync can still be unwinding when the next session starts. Resume on the caller's context for the game profile read.
         await _syncGate.WaitAsync(cancellationToken);
         try
         {
@@ -77,7 +68,6 @@ public sealed class GhostBattleSyncService
             )
                 return GhostBattleSyncResult.UpToDate();
 
-            // Cooldown gates requests; a fresh account snapshot above needs none.
             if (now.UtcTicks < Interlocked.Read(ref _cooldownUntilUtcTicks))
                 return GhostBattleSyncResult.Failure(
                     "ghost_sync_rate_limited",
@@ -334,7 +324,6 @@ public sealed class GhostBattleSyncService
                 CombatMessageBytes = battle.Replay.CombatMessageBytes.ToArray(),
                 DespawnMessageBytes = battle.Replay.DespawnMessageBytes.ToArray(),
                 PlayerAttributes = battle.Replay.PlayerAttributes,
-                // The stash stays in the Bundle: a Ghost Battle is played back, never sealed again.
             };
             evidence.VerifyReplay(replay);
             var manifest = GhostManifestProjection.BuildRecorderPerspectiveManifest(
@@ -356,8 +345,7 @@ public sealed class GhostBattleSyncService
         catch (Exception ex)
         {
             return GhostPayloadExtraction.Failure(
-                // Terminal: discovery keeps the payload unavailable, so a truly invalid
-                // replay is not retried on every sync.
+                // Keep an invalid replay unavailable across discovery so later syncs cannot retry it indefinitely.
                 "ghost_bundle_import_failed",
                 HistoryPanelReplayReasonCode.GhostArtifactInvalid,
                 ex
@@ -399,8 +387,7 @@ public sealed class GhostBattleSyncService
             IsFinalBattle = battle.IsFinalBattle,
         };
 
-    // The host's profile read may throw (the game's client cache is not ready); that reads as no
-    // account, as a missing profile does.
+    // The game's profile cache may throw while it is warming up. Treat that as an absent account.
     private string? ResolvePlayerAccountId()
     {
         try
@@ -427,7 +414,6 @@ public sealed class GhostBattleSyncService
         Exception? exception = null
     ) => GhostBattleReplayDownloadResult.Failure(error, reasonCode, exception);
 
-    // The error code stays a diagnostic; the panel reads Availability.
     private static GhostBattleReplayDownloadResult AvailabilityFailure(
         ReplayAvailability availability,
         Exception? exception = null
@@ -476,7 +462,6 @@ public readonly struct GhostBattleSyncResult
             discoveryLimitReached
         );
 
-    // A successful discovery for the same account is recent enough: nothing was requested.
     public static GhostBattleSyncResult UpToDate() =>
         new(true, 0, null, HistoryPanelGhostSyncReasonCode.UpToDate, null);
 
@@ -506,14 +491,11 @@ public readonly struct GhostBattleReplayDownloadResult
 
     public bool Succeeded => Payload != null;
 
-    // The payload the download confirmed: the identity-checked cached file, or the one it just
-    // extracted and saved. Playback uses it rather than reading the file again.
     public GhostBattlePayload? Payload { get; }
     public string? Error { get; }
     public HistoryPanelReplayReasonCode ReasonCode { get; }
     public Exception? Exception { get; }
 
-    // Set when the failure is the battle's persisted Expired or Unavailable state.
     public ReplayAvailability? Availability { get; }
 
     public static GhostBattleReplayDownloadResult Success(GhostBattlePayload payload) =>

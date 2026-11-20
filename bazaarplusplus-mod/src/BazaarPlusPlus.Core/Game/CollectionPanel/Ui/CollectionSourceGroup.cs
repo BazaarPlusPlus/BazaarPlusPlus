@@ -1,9 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// One source cell on the desktop Collection: the merchants of one folding catalog group
-// (CollectionSourceFold). The group only draws; the selection, the stored selection and the
-// encountered set still name a member's own source key.
+// Folding only affects presentation. Selection and encounter tracking still use the individual source keys.
 public sealed class CollectionSourceGroup
 {
     public CollectionSourceGroup(IReadOnlyList<CollectionSourceOptionViewModel> members)
@@ -13,7 +11,6 @@ public sealed class CollectionSourceGroup
         Members = members;
     }
 
-    // Roster order.
     public IReadOnlyList<CollectionSourceOptionViewModel> Members { get; }
 
     public CollectionSourceOptionViewModel Lead => Members[0];
@@ -35,8 +32,6 @@ public sealed class CollectionSourceGroup
     public bool IsEncountered(IReadOnlyCollection<string> encounteredSourceKeys) =>
         FirstEncountered(encounteredSourceKeys) != null;
 
-    // The member whose portrait draws the cell: the selected member, else the first member the
-    // run met, else the first member.
     public CollectionSourceOptionViewModel Face(
         string? selectedSourceKey,
         IReadOnlyCollection<string> encounteredSourceKeys

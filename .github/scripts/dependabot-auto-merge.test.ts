@@ -90,8 +90,6 @@ function apiFixture(): { state: FixtureState; args: GithubScriptArgs } {
 }
 
 test('Dependabot approval and auto-merge depend only on PR identity, not update metadata', async () => {
-  // No file, commit, lockfile or rules APIs are provided: every dependency
-  // ecosystem and version change follows the same protected merge path.
   const { state, args } = apiFixture();
   await run(args);
   assert.deepEqual(
@@ -219,9 +217,7 @@ test('a rejected merge fails the run without claiming success', async () => {
   assert.equal(state.summaries.length, 0);
 });
 
-// The workflow loads this module through actions/github-script, which runs its
-// script as CommonJS on the action's own Node and imports the .ts file by path.
-// The workflow runs from the base branch, so a pull request cannot exercise it.
+// Pull requests cannot exercise the base-branch workflow. This tests github-script's CommonJS import path.
 test('a CommonJS dynamic import loads the module, as github-script does', () => {
   const file = fileURLToPath(
     new URL('./dependabot-auto-merge.ts', import.meta.url)

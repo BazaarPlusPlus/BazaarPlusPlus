@@ -13,12 +13,8 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Patches.RunLogging;
 
-/// <summary>
-/// Records each command the client sends through <c>HttpGameClient</c> for the Run Message Stream
-/// (ADR-0028). The prefix records the command; the postfix wraps the returned task so the response
-/// is paired with it before the game handles the response. The game's message ids repeat, so the
-/// pairing is by object identity. Recording never changes the command or its outcome.
-/// </summary>
+// The game reuses message IDs, so pair by object identity. Wrap the returned task to
+// record the response before the game handles it.
 [HarmonyPatch]
 internal static class RunMessageStreamCommandPatch
 {
@@ -40,7 +36,6 @@ internal static class RunMessageStreamCommandPatch
         ReestablishSession,
     };
 
-    // A method a game build does not have is not recorded; the others still patch.
     private static IEnumerable<MethodBase> TargetMethods() =>
         Methods
             .Select(name => AccessTools.Method(typeof(HttpGameClient), name))
@@ -131,7 +126,6 @@ internal static class RunMessageStreamCommandPatch
         return result;
     }
 
-    // The game's argument types (instance ids, enums, socket lists) as plain JSON values.
     private static object? Describe(object? value) =>
         value switch
         {

@@ -1,5 +1,4 @@
 using Xunit;
 
-// Each check clears the process-wide SQLite connection pools when it drops its database. Run
-// the tests one at a time, as the capsule did.
+// Database cleanup clears SQLite connection pools across the process.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

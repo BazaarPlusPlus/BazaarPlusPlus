@@ -3,12 +3,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Infrastructure;
 
-/// <summary>
-/// An entry's ETag in one of the game's data manifests: <c>prod/cache/manifest.json</c> names the
-/// downloaded game data (<c>GameData</c>), <c>prod/cache/translations/manifest.json</c> each
-/// downloaded locale. BPP's caches key on it, since the game rewrites the files themselves on
-/// every download.
-/// </summary>
+// Use the manifest ETag as the cache key because the game rewrites its data files on every download.
 public static class DataManifestEtag
 {
     public static bool TryRead(string manifestPath, string entry, out string etag)

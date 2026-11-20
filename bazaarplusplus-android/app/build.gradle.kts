@@ -18,9 +18,6 @@ val testDependencies = lock["testDependencies"] as Map<String, String>
 val lockedBuildTools = sdk["buildTools"] as String
 val abi = lock["abi"] as String
 
-// The release pipeline (release/android-app.ts) passes the product version, the versionCode
-// it derives from it, and the staged Android App Runtime; a development build has none of them
-// and runs with native launch only until a runtime is staged (`just android::stage-runtime`).
 val productVersion = providers.gradleProperty("bpp.version").orElse("0.0.0")
 val appVersionCode = providers.gradleProperty("bpp.versionCode").map { it.toInt() }.orElse(1)
 val runtimeDir = providers.gradleProperty("bpp.runtimeDir").map { rootProject.file(it) }
@@ -47,7 +44,7 @@ android {
         }
         release {
             isMinifyEnabled = false
-            // Signed by apksigner in the release pipeline with the Android release key (ADR 0009).
+            // The release pipeline signs the APK with apksigner (ADR 0009).
             signingConfig = null
         }
     }
@@ -58,13 +55,11 @@ android {
     }
 
     packaging {
-        // Unity loads libmain.so by absolute path from nativeLibraryDir, and the App links the
-        // game to its own copies there, so native libraries must be extracted on install.
+        // Unity loads libmain.so by absolute path from nativeLibraryDir, so Android must extract it.
         jniLibs.useLegacyPackaging = true
     }
 
     androidResources {
-        // The runtime zip and the bridge dex are opened in place or copied byte for byte.
         noCompress += listOf("zip", "dex")
     }
 
@@ -79,14 +74,11 @@ android {
         abortOnError = true
         warningsAsErrors = true
         checkReleaseBuilds = true
-        // The App targets the SDK the toolchain lock pins, not the newest one lint knows.
+        // The toolchain lock pins the supported SDK and plugin versions independently of lint's update notices.
         disable += listOf("OldTargetApi", "GradleDependency", "AndroidGradlePluginVersion")
     }
 }
 
-// Tests read shared contract files outside the test sources: the Launch Record golden under
-// contracts/, the release tooling's fixtures and release/manifest.ts, and the mod's history
-// database contract (root AGENTS.md, Contracts).
 tasks.withType<Test>().configureEach {
     inputs.files(rootProject.fileTree("contracts")).withPropertyName("contracts")
     inputs.files(
@@ -104,11 +96,7 @@ dependencies {
     testImplementation("org.json:json:${testDependencies["org.json:json"]}")
 }
 
-/**
- * Compiles the bridge Activity into its own dex. It must live outside the App's classes.dex:
- * the game class loader defines it together with the game's APKs, so its superclass resolves to
- * the installed game's UnityPlayerActivity. The Unity stub is compile-only.
- */
+// D8 builds a separate dex so the bridge superclass resolves in the game class loader.
 abstract class DexBridge : DefaultTask() {
     @get:InputFiles abstract val sources: ConfigurableFileCollection
     @get:InputFiles abstract val stubSources: ConfigurableFileCollection
@@ -160,7 +148,6 @@ val dexBridge = tasks.register<DexBridge>("dexBridge") {
 }
 
 androidComponents {
-    // Exercise the release DevOverrides implementation as well as debug's private hooks.
     beforeVariants(selector().withBuildType("release")) { variant ->
         variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
     }

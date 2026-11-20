@@ -16,7 +16,6 @@ internal static class EncounterPreviewPatch
     [HarmonyPrefix]
     private static void Prefix(CardTooltipController __instance, ref string text)
     {
-        // As on the desktop, a card with no native passive text shows no preview either.
         if (string.IsNullOrEmpty(text))
             return;
 

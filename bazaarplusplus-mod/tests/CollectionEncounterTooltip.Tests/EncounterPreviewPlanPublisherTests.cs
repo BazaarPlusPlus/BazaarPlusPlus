@@ -497,7 +497,6 @@ public sealed class EncounterPreviewPlanPublisherTests : IDisposable
         EncounterPreviewPlanPublisherStatus status
     ) => SpinWait.SpinUntil(() => plans.Status == status, TimeSpan.FromSeconds(5));
 
-    // Core's module over the publisher's reads, with the Detailed Preview switch on.
     private static EncounterPreviewModule Previews(EncounterPreviewPlanPublisher plans) =>
         new(new BppSettings(new MemorySettings()), plans.Reads);
 

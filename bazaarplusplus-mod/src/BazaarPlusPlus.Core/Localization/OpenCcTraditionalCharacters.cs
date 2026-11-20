@@ -7,7 +7,6 @@ namespace BazaarPlusPlus.Localization;
 // https://github.com/BYVoid/OpenCC/tree/2939943bd6f4d459b46d7fdcf07a885ab3f01761/data/dictionary
 public static class OpenCcTraditionalCharacters
 {
-    // Space-separated pairs: the Simplified character, then its Traditional form.
     private const string Pairs = """
         㐷傌 㐹㑶 㐽偑 㑇㑳 㑈倲 㑔㑯 㑩儸 㓆𠗣 㓥劏 㓰劃 㔉劚 㖊噚 㖞喎 㘎㘚 㚯㜄 㛀媰 㛟𡞵 㛠𡢃 㛣㜏 㛤孋
         㛿𡠹 㟆㠏 㟜𡾱 㟥嵾 㡎幓 㤘㥮 㤽懤 㥪慺 㧏掆 㧐㩳 㧑撝 㧟擓 㧰擽 㨫㩜 㭎棡 㭏椲 㭣𣙎 㭤樢 㭴樫 㱩殰

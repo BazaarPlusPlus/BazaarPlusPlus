@@ -5,7 +5,6 @@ using BepInEx.Configuration;
 
 namespace BazaarPlusPlus;
 
-/// <summary>The desktop host: BepInEx loads this plugin and it runs <see cref="DesktopHostRuntime"/>.</summary>
 [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
 public class Plugin : BaseUnityPlugin
 {

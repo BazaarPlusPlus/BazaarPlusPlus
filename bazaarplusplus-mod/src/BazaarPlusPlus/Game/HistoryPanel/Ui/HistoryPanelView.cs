@@ -12,12 +12,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
-/// <summary>
-/// The Desktop History panel, built from the Desktop UI kit: a rail at the left (title,
-/// supporter line, section tabs, filters, the archive list and its pager) and the selected
-/// battle at the right (the two boards between their owners' titles, the run's day strip and
-/// the actions). uGUI layout groups place everything; the view owns no rect arithmetic.
-/// </summary>
 internal sealed partial class HistoryPanelView : IDisposable
 {
     private const float RailWidth = 440f;
@@ -215,7 +209,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         if (_root == null)
             return;
         _kit!.Tick();
-        // A rank badge or a trophy that arrives late goes on the rows that wait for it.
         if (_rankBadges.Tick() | _trophies.Tick())
             UpdateContent();
         for (var i = _portraits.Count - 1; i >= 0; i--)
@@ -241,8 +234,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         }
         UpdateInputFocus();
         RevealSelectedDay();
-        // The boards are drawn by the game into these two rects; layout moves them when the
-        // section or the window changes.
         if (Bounds(_preview) is { } bounds && bounds != _lastBounds)
         {
             _lastBounds = bounds;
@@ -268,7 +259,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         return bounds.width > 1 && bounds.height > 1 ? bounds : null;
     }
 
-    // Shows a hero in a portrait well; the well is empty until the portrait is loaded.
     private void ShowHero(Image portrait, string? heroId)
     {
         _portraits.RemoveAll(request => request.Target == portrait);
@@ -317,7 +307,6 @@ internal sealed partial class HistoryPanelView : IDisposable
         return target;
     }
 
-    // A text of more than one line: it takes the height its width needs.
     private static TextMeshProUGUI Wrapped(TextMeshProUGUI text)
     {
         text.textWrappingMode = TextWrappingModes.Normal;

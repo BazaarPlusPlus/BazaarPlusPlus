@@ -10,10 +10,7 @@ fn is_bazaar_running() -> anyhow::Result<bool> {
     crate::services::process_snapshot::process_is_running(BAZAAR_PROCESS_NAME)
 }
 
-/// Best-effort hint for History reads, which name a still-running game as the
-/// likely cause of an unreadable database. It never gates a destructive
-/// operation; those use [`ensure_game_stopped`]. On platforms without a
-/// path-free probe (macOS today) it returns false.
+/// Best-effort History diagnostic only. Destructive operations require `ensure_game_stopped`.
 pub(crate) fn is_bazaar_running_best_effort() -> bool {
     #[cfg(target_os = "windows")]
     {
@@ -26,9 +23,7 @@ pub(crate) fn is_bazaar_running_best_effort() -> bool {
     }
 }
 
-/// Kill any leftover game process, returning whether one was actually
-/// terminated. The game can keep the mod database open after its window closes;
-/// the user's only other recourse is `taskkill` or a reboot.
+/// The game can keep the mod database open after its window closes.
 pub(crate) fn terminate_game() -> anyhow::Result<bool> {
     #[cfg(target_os = "windows")]
     {
@@ -44,15 +39,11 @@ pub(crate) fn terminate_game() -> anyhow::Result<bool> {
     }
 }
 
-/// An installer operation that writes or deletes files the game or its mod may
-/// hold open, and therefore refuses while The Bazaar runs. Each one reports its
-/// own semantic problem code so the frontend names the blocked action.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum GameStoppedOperation {
     Install,
     Reset,
     BepinexReset,
-    /// Deletion of one confirmed Legacy Root.
     LegacyDelete,
 }
 
@@ -74,8 +65,6 @@ impl GameStoppedOperation {
         }
     }
 
-    /// The serialized problem code, which a refusal's diagnostic text starts
-    /// with.
     fn token(self) -> &'static str {
         match self {
             Self::Install => "install_blocked_by_game",
@@ -116,9 +105,6 @@ impl std::fmt::Display for GameRunningRefusal {
     }
 }
 
-/// Reports whether the game installed at a path is running. Destructive flows
-/// take it as a parameter so tests can simulate a running game or a failed
-/// inspection without touching real processes.
 pub(crate) trait GameProcessProbe {
     fn is_running(&self, game_path: &Path) -> anyhow::Result<bool>;
 }
@@ -132,7 +118,6 @@ where
     }
 }
 
-/// The operating system's process list.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct SystemGameProcessProbe;
 
@@ -174,7 +159,6 @@ impl GameProcessProbe for SystemGameProcessProbe {
     }
 }
 
-/// Fail-closed check run before `operation` touches files under `game_path`.
 pub(crate) fn ensure_game_stopped(
     game_path: &Path,
     operation: GameStoppedOperation,
@@ -225,7 +209,6 @@ mod tests {
                 root
             ));
         }
-        // Surrounding blanks in `ps` output do not hide a match.
         assert!(contains_game_process(
             "/usr/sbin/cfprefsd\n  /Games/The Bazaar/TheBazaar.app/Contents/MacOS/The Bazaar  \n",
             root

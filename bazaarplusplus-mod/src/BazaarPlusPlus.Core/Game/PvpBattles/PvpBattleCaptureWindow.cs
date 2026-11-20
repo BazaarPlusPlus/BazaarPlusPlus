@@ -7,19 +7,7 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// The PvP Battle Capture Window both hosts frame a battle with: a game sim whose run state is an
-/// opening kind opens it, the combat sim carries the outcome, and the next game sim closes it.
-/// The window owns which states open it, when each field is read, the live retry of the player's
-/// boards, the per-field guards, the outcome, the run link and the Replay Payload's part order;
-/// the host reads through <see cref="IPvpBattleReads{TMessage}"/> and persists the result.
-/// </summary>
-/// <remarks>
-/// Every read runs inside the <see cref="Observe"/> call that delivered its message, and the
-/// window keeps no message itself, only the host's <see cref="PvpReplayPart"/> handles. Each read is
-/// guarded on its own: a field that throws is null and logged, a board that throws is
-/// <see cref="PvpBattleCaptureStatus.Missing"/>. Not thread-safe; a host observes from one thread.
-/// </remarks>
+// Hosts must call Observe from a single thread.
 public sealed class PvpBattleCaptureWindow<TMessage>
     where TMessage : class
 {
@@ -51,13 +39,8 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         _openingKinds = openingKinds;
     }
 
-    /// <summary>A battle has opened and not yet closed or been abandoned.</summary>
     public bool IsOpen => _open != null;
 
-    /// <summary>
-    /// Feeds one net message the host captured. Returns the capture when this message closed a
-    /// window. Never throws: a read that fails degrades its own field.
-    /// </summary>
     public PvpBattleCapture? Observe(TMessage message)
     {
         if (message == null)
@@ -110,11 +93,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         Close,
     }
 
-    /// <summary>
-    /// The window's transitions, the same on both hosts: an opening (re)opens it; another game
-    /// sim abandons it before the combat sim and closes it after; a second combat sim abandons
-    /// it; a combat sim with no window open is ignored.
-    /// </summary>
     internal static WindowStep Transition(
         bool open,
         bool combatSeen,
@@ -280,8 +258,7 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         RetryLive(battle);
         battle.Participants.PlayerName = PlayerText(PvpPlayerText.Name, battleId);
         battle.Participants.PlayerAccountId = PlayerText(PvpPlayerText.AccountId, battleId);
-        // The run id when the battle closes wins; the one held since the opening covers a close
-        // that reads none.
+        // A battle can open before the run ID is available, so read it again when closing.
         var closingRunId = Text(
             () => _run.CurrentServerRunId,
             PvpBattleReadSide.Battle,
@@ -361,7 +338,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
             battleId
         );
 
-    // A failed read leaves the replay without the map; it never fails a replay part.
     private Dictionary<string, int>? PlayerAttributes(TMessage opening, string battleId)
     {
         try
@@ -376,7 +352,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         }
     }
 
-    // Like the attributes: a failed read leaves the replay without the stash.
     private List<PvpBattleCardDocument>? PlayerStash(string battleId)
     {
         try
@@ -430,7 +405,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         }
     }
 
-    // Whitespace or empty text is no value, as the desktop has always stored it.
     internal static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
 
@@ -488,7 +462,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
     {
         if (!ShouldRetryLive(set.FromOpening, set.Live, set.Items.Count))
             return;
-        // A live read that throws leaves the set empty and not captured live.
         set.Live = TryReadBoard(
             set,
             read,
@@ -531,17 +504,9 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         }
     }
 
-    /// <summary>
-    /// A player set whose opening read failed or came back empty is read again from the live game
-    /// state, at the combat sim and at the close, until one live read succeeds.
-    /// </summary>
     internal static bool ShouldRetryLive(bool capturedFromOpening, bool capturedLive, int count) =>
         !capturedLive && (!capturedFromOpening || count == 0);
 
-    /// <summary>
-    /// A set's label: Missing when no read succeeded; otherwise Captured or CapturedEmpty, from
-    /// the opening when its read succeeded, even after a live retry, else from the live retry.
-    /// </summary>
     internal static (PvpBattleCaptureStatus Status, PvpBattleCaptureSource Source) Label(
         bool capturedFromOpening,
         bool capturedLive,
@@ -560,7 +525,7 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         );
     }
 
-    // Parts are kept in stage order; once one fails, the later ones are never asked for.
+    // Replay parts must be contiguous and ordered by stage.
     private void KeepPart(OpenBattle battle, PvpReplayStage stage, TMessage message)
     {
         if (!battle.Pvp || battle.PartFailed)
@@ -644,7 +609,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
     {
         public string BattleId { get; } = battleId;
 
-        /// <summary>Only a PvP combat keeps replay parts; a monster combat has no payload.</summary>
         public bool Pvp { get; } = pvp;
 
         public string? CombatKind { get; } = combatKind;
@@ -679,7 +643,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
         public CardSet OpponentSkills { get; } =
             new("opponent_skills", PvpSnapshotCombatant.Opponent, PvpSnapshotSection.Skills);
 
-        /// <summary>Indexed by <see cref="PvpReplayStage"/>.</summary>
         public PvpReplayPart?[] Parts { get; } = new PvpReplayPart?[3];
 
         public bool PartFailed { get; set; }
@@ -714,10 +677,6 @@ public sealed class PvpBattleCaptureWindow<TMessage>
             };
         }
 
-        /// <summary>
-        /// The label and count, how many cards the opening read gave, and whether a live retry
-        /// captured the set.
-        /// </summary>
         public BppLogField Summary()
         {
             var (status, source) = Label(FromOpening, Live, Items.Count);

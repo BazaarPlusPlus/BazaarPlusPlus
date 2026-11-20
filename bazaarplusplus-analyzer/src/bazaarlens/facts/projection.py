@@ -1,5 +1,3 @@
-"""Streaming projection from verified Bundle V6 objects to five Arrow tables."""
-
 import hashlib
 import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -40,8 +38,6 @@ class ProjectionError(RuntimeError):
 
 
 class HourProjection:
-    """One hour's metadata plus its one-shot batch stream."""
-
     __slots__ = (
         "_batch_stream",
         "_stream_consumed",
@@ -78,7 +74,6 @@ class HourProjection:
 
 
 def project_hour(index: RawHourIndex, bundles: Iterable[Bundle]) -> HourProjection:
-    """Return a one-shot, fixed-size batch stream over the ordered Bundles."""
     return HourProjection(
         index.source_hour,
         index.raw_commit_sha256,

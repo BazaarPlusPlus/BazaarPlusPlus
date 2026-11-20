@@ -96,9 +96,7 @@ export interface StreamWorkflow {
   subscribe(listener: () => void): () => void;
   start(): Promise<void>;
   dispose(): void;
-  /** Stops status polling while the window is hidden. */
   pause(): void;
-  /** Ends a pause: polls at once, then on the usual interval. */
   resume(): void;
   readonly intents: StreamWorkflowIntents;
 }
@@ -108,9 +106,7 @@ interface StreamWorkflowPorts {
   scheduler: StreamScheduler;
   clipboard: StreamClipboard;
   opener: StreamOpener;
-  // The calibration page is served from the stream service's own origin, so it
-  // cannot read the app's locale. Read it live, since the user can toggle
-  // language while the page is mounted.
+  // The calibration page has a separate origin and cannot read the current app locale.
   currentLocale: () => string;
 }
 
@@ -148,7 +144,6 @@ class DefaultStreamWorkflow implements StreamWorkflow {
   private consecutivePollFailures = 0;
   private intervalHandle: unknown = null;
   private paused = false;
-  /** The initial load has landed, so polling may run. */
   private pollingReady = false;
   private noticeTimeoutHandle: unknown = null;
 
@@ -714,16 +709,7 @@ class DefaultStreamWorkflow implements StreamWorkflow {
   }
 }
 
-/**
- * Structural equality over a whole derived snapshot. The snapshot is plain
- * JSON-shaped data — objects, arrays, strings, numbers, booleans and null — so
- * comparing it generically keeps `publish` honest when a field is added to
- * `StreamPageSnapshot` or to the Rust-generated `StreamServiceStatus`; a
- * hand-written field list would silently ignore the new field and pin the page
- * to a stale snapshot. Anything this shape does not cover (a function, Date,
- * Map or class instance) counts as unequal unless it is the same reference,
- * which errs toward publishing.
- */
+/** Compare the whole snapshot so new status fields cannot silently go stale. */
 function structurallyEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (
@@ -789,7 +775,6 @@ function withLocaleParam(url: string, locale: string): string {
     parsed.searchParams.set('lang', locale);
     return parsed.toString();
   } catch {
-    // A URL the backend did not produce is still worth opening as-is.
     return url;
   }
 }

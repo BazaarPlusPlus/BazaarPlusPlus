@@ -3,12 +3,8 @@ using BazaarPlusPlus.Game.CollectionPanel.Data;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Three-window grid contract for CollectionViewState:
-// - Publish → null when the grid is unavailable (virtualizer missing/disposed); the reducer then
-//   keeps the whole early-return semantics: skip normalization write-back.
-// - Current → Empty before the first successful Publish and while the adapter is unbound; never a
-//   contradictory VisibleCount=0 with a stale ContentHeight.
-// - Viewport-driven projection drift is owned by the panel, not this port.
+// An unavailable grid returns null from Publish to prevent normalization write-back.
+// Current must be empty before the first successful publish and while unbound so a stale height cannot survive.
 public readonly struct CollectionGridProjection
 {
     public CollectionGridProjection(int visibleCount, float contentHeight)

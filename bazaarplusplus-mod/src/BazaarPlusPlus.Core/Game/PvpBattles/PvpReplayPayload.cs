@@ -13,15 +13,9 @@ public sealed class PvpReplayPayload
 
     public byte[] DespawnMessageBytes { get; set; } = [];
 
-    /// <summary>
-    /// The recording player's attributes as the combat opened, keyed by the game's member name;
-    /// null in a payload recorded without them.
-    /// </summary>
+    // Replay attributes describe the recording player at combat open and use game member names as keys.
     public Dictionary<string, int>? PlayerAttributes { get; set; }
 
-    /// <summary>
-    /// The cards in the recording player's stash as the combat opened; null in a payload recorded
-    /// without them.
-    /// </summary>
+    // Stash cards are captured at combat open because their quests and auras can affect replay.
     public List<PvpBattleCardDocument>? PlayerStash { get; set; }
 }

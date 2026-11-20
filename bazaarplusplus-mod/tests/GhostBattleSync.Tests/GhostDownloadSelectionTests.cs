@@ -11,7 +11,6 @@ using Xunit;
 
 public sealed class GhostDownloadSelectionTests
 {
-    // One test: the three final states share the UI context the capsule installed once.
     [Fact]
     public void DownloadSelectionSettlesOnEachFinalState()
     {

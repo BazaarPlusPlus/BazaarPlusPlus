@@ -12,9 +12,7 @@ use mapper::to_overlay_record;
 pub use mapper::OverlayRecord;
 use std::path::{Path, PathBuf};
 
-/// The service started without a record installation: no game directory had a
-/// BazaarPlusPlus database when it resolved one. A database found anywhere else
-/// could not resolve its screenshots, so the repository reads none.
+/// Records from another installation cannot resolve their screenshots against this service's captured path.
 #[derive(Debug)]
 pub struct NoRecordInstallation;
 
@@ -38,7 +36,6 @@ impl OverlayRecordRepository {
         Self { game_path }
     }
 
-    /// The installation whose records and screenshots this repository reads.
     pub fn game_path(&self) -> Option<&Path> {
         self.game_path.as_deref()
     }

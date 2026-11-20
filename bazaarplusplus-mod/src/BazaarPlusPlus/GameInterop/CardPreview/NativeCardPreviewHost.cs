@@ -361,10 +361,7 @@ internal sealed partial class NativeCardPreviewHost : INativeCardPreviewHost
                 {
                     resource.Presentation.ConcealSupplementalVisuals();
                 }
-                catch
-                {
-                    // Preserve the first actionable presentation failure.
-                }
+                catch { }
 
                 var failure = new NativeCardPreviewFailure(
                     NativeCardPreviewOperation.Show,
@@ -424,10 +421,7 @@ internal sealed partial class NativeCardPreviewHost : INativeCardPreviewHost
                 {
                     NativeCardPreviewPool.Destroy(resource.Card);
                 }
-                catch
-                {
-                    // The original return failure is the actionable diagnostic.
-                }
+                catch { }
                 ReportReleaseFailure(resource, ex);
             }
         }

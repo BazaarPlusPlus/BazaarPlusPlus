@@ -1,9 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-// Owns the cancellation token + version stamp shared by the panel's long-running async actions
-// (ghost sync, replay download, final-build refresh). Bumping the version on every Begin/End
-// means async continuations can detect whether they are still serving the active session.
+// Bump the version on each session boundary so stale async continuations can drop their results.
 public sealed class HistoryPanelSessionScope : IDisposable
 {
     private CancellationTokenSource? _cts;
@@ -13,7 +11,6 @@ public sealed class HistoryPanelSessionScope : IDisposable
 
     public CancellationToken Token => _cts?.Token ?? CancellationToken.None;
 
-    // A session has begun and not ended: the panel is open.
     public bool IsActive => _cts != null;
 
     public void Begin()
@@ -33,10 +30,7 @@ public sealed class HistoryPanelSessionScope : IDisposable
         {
             _cts.Cancel();
         }
-        catch
-        {
-            // Cancellation is best-effort during teardown.
-        }
+        catch { }
 
         _cts.Dispose();
         _cts = null;

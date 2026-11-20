@@ -5,12 +5,8 @@ using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// `user_version` names the column shape the installer reads, so a version bump must change it and a
-// column change must bump it (ADR-0011).
 public sealed class RunLogSchemaColumnShapeTests
 {
-    // One fingerprint per shipped LocalDatabaseSchemaVersion of the V6 database, which starts at 1.
-    // Version 1 was last reshaped before 6.0.0 shipped (favorite_battles); from then on it is frozen.
     private static readonly IReadOnlyDictionary<int, string> ShippedColumnShapes = new Dictionary<
         int,
         string
@@ -72,7 +68,7 @@ public sealed class RunLogSchemaColumnShapeTests
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                // name, declared type, NOT NULL, default expression, primary-key position.
+                // PRAGMA table_info columns here are name, declared type, NOT NULL, default, and primary-key position.
                 shape
                     .Append(reader.GetString(1))
                     .Append(' ')

@@ -198,7 +198,6 @@ internal static class CombatImpactAttributionRuleReader
         return true;
     }
 
-    // The game's members in the game's order, duplicates kept, without the ones Core lacks.
     private static TFacet[] Facets<TGame, TFacet>(
         IEnumerable<TGame> values,
         CardFacetNameMap<TGame, TFacet> map

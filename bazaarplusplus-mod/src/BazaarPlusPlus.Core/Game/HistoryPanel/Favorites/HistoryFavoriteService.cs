@@ -26,8 +26,6 @@ public readonly record struct FavoriteAddResult(FavoriteAddOutcome Outcome, stri
                 or FavoriteAddOutcome.AlreadyFavorite;
 }
 
-// Only the game-dependent operations cross this seam. SQLite, replay copies and their
-// lifecycle remain owned by HistoryFavoriteService.
 public delegate SavedBattleLoadOutcome LoadFavoriteLocalReplay(
     string battleId,
     out PvpBattleManifest? manifest,
@@ -36,9 +34,7 @@ public delegate SavedBattleLoadOutcome LoadFavoriteLocalReplay(
 
 public delegate bool CanReplayFavorite(out string reason);
 
-// Owns History's Favorites: the favorite_battles rows and each favorite's replay copy under
-// FavoriteBattles/. A copy is written and verified before its row is inserted, and one gate
-// serializes saves with the orphan sweep so the sweep never deletes a copy whose row is pending.
+// Serialize the save with the orphan sweep so a replay copy survives until its favorite row commits.
 public sealed class HistoryFavoriteService
 {
     // A copy younger than this may belong to a save in another process; the sweep leaves it.
@@ -85,12 +81,7 @@ public sealed class HistoryFavoriteService
             );
     }
 
-    /// <summary>
-    /// Favorites over a host's saved-replay runtime, read through <paramref name="runtime"/> on
-    /// every call since the runtime can come and go: a local favorite's replay loads from the
-    /// runtime's saved battle, a Ghost favorite's through <paramref name="replay"/>, and a copy
-    /// plays through the runtime. Both hosts compose it this way.
-    /// </summary>
+    /// <summary>Resolve the runtime on each call because the Host can recreate it.</summary>
     public static HistoryFavoriteService OverRuntime(
         HistoryPanelRepository repository,
         string replayDirectoryPath,
@@ -128,7 +119,6 @@ public sealed class HistoryFavoriteService
     public HistoryCountedPage<HistoryFavoriteRecord> LoadPage(HistoryPageRequest request) =>
         _repository.ListFavorites(request);
 
-    // The builds the Ghost list marks: the newest favorites of the player's own battles.
     internal const int MarkedBuildLimit = 200;
 
     public FavoriteBuilds LoadBuilds() =>
@@ -144,7 +134,6 @@ public sealed class HistoryFavoriteService
     public bool UpdateNote(string battleId, string note) =>
         _repository.UpdateFavoriteNote(battleId, NormalizeNote(note), DateTimeOffset.UtcNow);
 
-    // Trims surrounding blank lines and caps the note at the schema limit.
     public static string NormalizeNote(string? note)
     {
         var text = (note ?? string.Empty).Replace("\r\n", "\n").Trim();
@@ -153,8 +142,7 @@ public sealed class HistoryFavoriteService
             : text[..RunLogSchema.FavoriteNoteMaxLength];
     }
 
-    // The row goes first: a copy left behind by a failed delete is an orphan the sweep removes.
-    // Both run off the caller's thread; once started they finish, whatever the token says.
+    // Delete the row first so a failed file deletion leaves an orphan for the sweep. Finish both once started, even on cancellation.
     public async Task<bool> RemoveAsync(string battleId, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -173,11 +161,7 @@ public sealed class HistoryFavoriteService
         }
     }
 
-    // Local battles load on the caller's (Unity) thread like a saved replay does: the read holds
-    // the playback payload lease, which a main-thread persistence would otherwise wait on. The
-    // one-row membership check stays in front of that load so a repeated save never reloads the
-    // original; the copy is written off the caller's thread. Ghost battles download first,
-    // checked against the account owning the row.
+    // Load local battles on the caller's Unity thread so persistence on that thread cannot wait on a worker holding the playback lease.
     public async Task<FavoriteAddResult> AddAsync(
         HistoryBattleRecord battle,
         string account,
@@ -347,8 +331,6 @@ public sealed class HistoryFavoriteService
         );
     }
 
-    // Removes copies whose favorite is gone: a crash between writing a copy and inserting its row,
-    // or a delete that could not remove the file. Returns how many copies it removed.
     public async Task<int> SweepOrphanCopiesAsync(CancellationToken cancellationToken)
     {
         if (_store == null || !_repository.DatabaseExists)

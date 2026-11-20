@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** The last Unity screen the Mod logged: size, dpi and safe area. */
 export interface UnityScreen {
   width: number;
   height: number;
@@ -9,7 +8,6 @@ export interface UnityScreen {
   safeArea: number[];
 }
 
-/** environment.json: the captured display state and its problems. */
 export interface ScreenReport {
   capturedAt: string;
   serial: string;

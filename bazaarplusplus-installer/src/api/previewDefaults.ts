@@ -1,6 +1,4 @@
-// LEAF MODULE: value-mirrors of generated types, consumed as BOTH useState seeds
-// (features/**) and preview command results. MUST NOT import from command clients
-// or features/** — that would recreate the runtime import cycle this file avoids.
+// Keep imports type-only to avoid a runtime cycle between command adapters and feature state.
 import type {
   AppBootstrap,
   HistoryRunList,
@@ -17,7 +15,6 @@ import type {
 import bootstrapResource from '../../src-tauri/resources/app-bootstrap.json';
 
 export const emptyInstallState: InstallState = {
-  // These falsy fields gate preview-unreachable install/reset commands.
   selected_game_path: null,
   game: {
     path_valid: false
@@ -52,7 +49,6 @@ export const emptyLegacyDataPresence: LegacyDataPresence = {
 };
 
 export const idleStreamStatus: StreamServiceStatus = {
-  // The loopback host and zero active-window offset are deliberate defaults.
   running: false,
   host: '127.0.0.1',
   port: null,
@@ -68,7 +64,6 @@ export const idleStreamStatus: StreamServiceStatus = {
 };
 
 export const defaultCropSettings: StreamOverlayCropSettingsPayload = {
-  // This is the real preview crop rectangle, not a normalized zero-value.
   crop: {
     left: 0.342,
     top: 0.313,

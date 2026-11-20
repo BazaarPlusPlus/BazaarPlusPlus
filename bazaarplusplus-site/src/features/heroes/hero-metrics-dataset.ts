@@ -63,7 +63,6 @@ export type HeroMetricsDataset = {
   coverage: DatasetCoverage;
 };
 
-/** A non-2xx response from the metrics origin; `status` drives the query's retry policy. */
 export class HeroMetricsHttpError extends Error {
   readonly status: number;
 

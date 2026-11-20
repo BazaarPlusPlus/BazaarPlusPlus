@@ -113,8 +113,6 @@ public sealed class PackageMerchantSummaryTextTests
         Assert.Empty(PackageMerchantSummaryText.Format(title, description));
     }
 
-    // The merchant summary cache: key scope is the static-data manager reference plus the game
-    // language, and only static-data outcomes (PackageMerchantSummary.IsCacheable) are kept.
     [Fact]
     public void Summary_cache_reuses_a_resolution_only_within_one_manager_and_language()
     {

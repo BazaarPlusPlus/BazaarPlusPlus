@@ -7,38 +7,13 @@ internal static class PeriodicEffectAttribution
 {
     internal const string ModelVersion = "periodic-impact-v7";
 
-    // The shipped model is deliberately a small accounting pass:
-    // 1. book typed Burn/Poison Health and Burn Shield adjustments as actual pool movement;
-    //    on a death-event frame, Health damage is capped at the remaining positive Health;
-    //    contiguous Burn Health/Shield adjustments are one atomic tick, so a lethal Burn Health
-    //    component does not discard its paired Shield consumption;
-    // 2. reconstruct accepted Regen through the ordered Health/MaxHealth ledger;
-    //    on a death-event frame, Regen after Health is already non-positive is not realized;
-    // 3. split each measured result by the status stack currently owned by each source.
-    // Tick formulas remain corpus diagnostics and never decide whether a typed adjustment is booked.
-    //
-    // Model invariants. These constrain what may be booked at all; they are not enforced by any
-    // test, because they are properties of the model rather than of one output:
-    // - Three ledgers stay coupled and their units stay distinct: status stock (per combatant ×
-    //   status × epoch), health impact (per combatant × damage type × frame), and shield (per
-    //   combatant × frame). Reconciling only one of them cannot establish Exact.
-    // - Poison debits Health only. Any Poison-attributed Shield consumption is an invariant
-    //   violation, not another supported pool. Burn may consume Shield, but consumed Shield points
-    //   and prevented Burn damage are not assumed numerically equal.
-    // - Only movement that changed live combat state is realized impact. Overheal, overkill, and
-    //   prevented damage are counterfactual and stay unbooked.
-    // - CombatHealthChange.Joy mirrors the game's EPlayerHealthChangeType.Joy, which survives there
-    //   for schema compatibility. Enum presence is not evidence that Joy is a current gameplay pool,
-    //   so the model does not book it.
-    // - CombatImpactPeriodicProof is two-valued on purpose. A tick exposes only aggregate status
-    //   and pool movement, so once two resolved owners coexist, moving one unit between them
-    //   yields a second feasible allocation — no third "narrowed but not unique" class is
-    //   observable here. That is why the earlier Constrained member was removed rather than left
-    //   permanently empty, and why a gap of this kind is not answered with a constraint solver.
-    // Initial Regen with no tick provenance may be redistributed only across item/skill sources
-    // that the completed combat independently proves applied Regen through an execution or
-    // CardStats. A static RegenApplyAmount describes capability, not observed contribution. The
-    // retrospective fallback and every mixed stack retain Proportional proof internally.
+    // Contiguous Burn Health and Shield adjustments are one tick. Book paired Shield consumption even when the Health debit is lethal.
+    // Poison only debits Health. Burn Shield consumption can differ from prevented Burn damage.
+    // Status stock, Health impact and Shield movement must all reconcile before attribution can be Exact.
+    // Only realized pool movement counts as impact. Overheal, overkill and prevented damage stay unbooked.
+    // Joy remains in the game enum for schema compatibility and has no observed impact pool.
+    // Aggregate ticks cannot identify a unique allocation with multiple owners because either owner could have supplied a given unit.
+    // Initial Regen can be assigned only to sources with observed execution or CardStats evidence. A static amount proves capability alone.
 
     internal static PeriodicAttributionReport Project(
         CombatTimeline simulation,

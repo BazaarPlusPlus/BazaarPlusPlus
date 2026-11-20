@@ -1,5 +1,3 @@
-"""Decode the owned Run payload V6 without depending on fact storage."""
-
 import gzip
 import struct
 from collections.abc import Callable, Mapping
@@ -52,11 +50,7 @@ _UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def _v6_times_as_text(root: tuple[Any, ...]) -> tuple[Any, ...]:
-    """Return a V6 root whose time slots hold UTC text.
-
-    V6 carries Run start/end and Battle record times as Unix milliseconds; the fact
-    columns store them as millisecond-precision text (``*_at_utc``).
-    """
+    """Run and Battle timestamps cross from Unix milliseconds to millisecond-precision UTC text."""
     try:
         run = _with_slot(root[3], 22, "run", 3, _ms_text)
         run = _with_slot(
@@ -92,8 +86,6 @@ def _ms_text(value: object) -> str:
 
 
 class _MessagePack:
-    """Small strict decoder for the scalar/array/map subset used by RunPayload V6."""
-
     def __init__(self, content: bytes) -> None:
         self._content = content
         self._offset = 0

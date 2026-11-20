@@ -6,22 +6,13 @@ using BazaarPlusPlus.Infrastructure.SelfUpdate;
 
 namespace BazaarPlusPlus.Game.Lobby;
 
-/// <summary>What one release check concluded, computed off the main thread.</summary>
 public sealed record MainMenuSelfUpdateEvaluation(
     string LatestVersion,
     SelfUpdateDecision Decision,
     ManagedPayloadRelease? Release
 );
 
-/// <summary>
-/// The main menu's side of self-update (ADR-0014), shared by every host: it turns a release
-/// check into a decision against the running copy, shows it on the version label, and starts
-/// the one staging run of the process when the published Managed Payload can be taken. The host
-/// supplies its roots, its platform key, and the transport the download owns. A host with no
-/// download transport stages nothing itself: on Android the Android App stages the Managed
-/// Payload before it starts the game (root ADR 0012), so a payload this copy could take only
-/// asks the user to restart from the App.
-/// </summary>
+// The Android App stages the Managed Payload before launch, so that host can only prompt for a restart.
 public sealed class MainMenuSelfUpdate
 {
     private readonly string _installedManifestPath;
@@ -31,10 +22,7 @@ public sealed class MainMenuSelfUpdate
     private readonly Func<HttpClient>? _downloadClient;
     private readonly string? _runtimeDigest;
 
-    // downloadClient: the transport a staging run downloads with; null when the host stages
-    // nothing itself. runtimeDigest: the non-managed payload digest of the runtime this process
-    // runs, when a launcher names it (the Android App's Launch Record); null reads the installed
-    // manifest's.
+    // The Launch Record can override the installed manifest's runtime digest when a launcher supplies the runtime.
     public MainMenuSelfUpdate(
         string installRoot,
         string dataRoot,
@@ -56,13 +44,8 @@ public sealed class MainMenuSelfUpdate
         _runtimeDigest = runtimeDigest;
     }
 
-    /// <summary>Whether this host downloads and stages a Managed Payload itself.</summary>
     public bool StagesManagedPayload => _downloadClient != null;
 
-    /// <summary>
-    /// The label status a decision shows; null for <see cref="SelfUpdateDecision.Stage"/> on a
-    /// host that stages, where the status follows the staging run.
-    /// </summary>
     public static MainMenuUpdateStatus? StatusFor(SelfUpdateDecision decision, bool hostStages) =>
         decision switch
         {

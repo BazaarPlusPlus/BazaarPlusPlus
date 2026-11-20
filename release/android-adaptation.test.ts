@@ -7,9 +7,6 @@ import { GAME_LIBS_LOCK_PATH, PUBLISHER_KEY } from './snapshot-lock.ts';
 import type { GameLibsLock, InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
-// android-apk-watch.yml's sorting of a capture, simulated locally: a capture
-// is a lock entry beside the previous one.
-
 const LOCKED = Object.freeze(
   JSON.parse(
     fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
@@ -33,7 +30,6 @@ const write = (file: string, bytes: string): string => {
   return file;
 };
 
-// A captured Android entry: the locked one with the given changes.
 const captured = (changes: Partial<InteropLockEntry>): InteropLockEntry => ({
   ...LOCKED,
   apkSha256: 'a'.repeat(64),
@@ -86,7 +82,6 @@ test('the locked game code with another Interop Snapshot is refused', () => {
   ).toBe('unchanged');
 });
 
-// A workspace whose lock holds `entry`, as a capture leaves it.
 function capturedWorkspace(entry = captured({})) {
   const workspaceRoot = tempDir();
   const lock = JSON.parse(

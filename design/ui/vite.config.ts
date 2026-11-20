@@ -1,9 +1,6 @@
 import { defineConfig } from 'vite-plus';
 
-// Lint for the Web component library, under the React rules the installer and
-// the site use. The root `bun run lint` runs it from this directory, so the
-// type-aware pass reads ./tsconfig.json; the root lint skips design/ui.
-// Formatting stays with the root fmt block.
+// Run from design/ui so type-aware lint uses its tsconfig. Formatting uses the root config.
 export default defineConfig({
   lint: {
     plugins: [

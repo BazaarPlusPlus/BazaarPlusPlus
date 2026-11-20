@@ -39,7 +39,6 @@ internal sealed class VersionLabelScanner : MonoBehaviour
 
         if (versionLabel != null)
         {
-            // Later ticks find the label through the cheap cached path, not a full scan.
             if (usedFullScan)
                 _cachedVersionLabelPath = BuildPath(versionLabel.transform);
 
@@ -52,8 +51,7 @@ internal sealed class VersionLabelScanner : MonoBehaviour
             if (ShouldDelayMount(anchorHasChineseCoverage, typographyWaiting))
                 return;
 
-            // A failed mount builds and destroys the subtitle objects, so it backs off like a
-            // full-scan miss.
+            // A failed mount still builds and destroys subtitle objects, so back it off like a full scan.
             if (!usedFullScan && !_backoff.CanAttempt(Time.unscaledTime))
                 return;
 

@@ -7,10 +7,8 @@ public sealed class InMemoryBppEventBus : IBppEventBus
 {
     private readonly object _syncRoot = new();
 
-    // Copy-on-write: each event type maps to an immutable handler array that Subscribe/Unsubscribe
-    // replace wholesale. Publish can therefore grab the current array under a brief lock and iterate
-    // it without allocating a per-call snapshot, while a handler that subscribes/unsubscribes during
-    // dispatch still cannot mutate the array the in-flight Publish is walking.
+    // Copy-on-write arrays let a publisher iterate outside the lock even if a handler
+    // subscribes or unsubscribes during dispatch.
     private readonly Dictionary<Type, Delegate[]> _handlers = new();
 
     public IDisposable Subscribe<TEvent>(Action<TEvent> handler)
@@ -50,7 +48,6 @@ public sealed class InMemoryBppEventBus : IBppEventBus
                 return;
         }
 
-        // snapshot is immutable (copy-on-write), so iterating it outside the lock is safe.
         foreach (var registration in snapshot)
         {
             try

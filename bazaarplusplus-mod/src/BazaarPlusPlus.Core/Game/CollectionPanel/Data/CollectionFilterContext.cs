@@ -12,8 +12,6 @@ public sealed class CollectionFilterContext
     // The run day's highest dealable tier; null disables the Day gate.
     public CardTier? DayMaximumTier { get; init; }
 
-    // True when the selected source deals a fixed-tier pool (its offer rule pins a starting
-    // tier, e.g. Luxe/Goldie or the tier trainers). Such sources offer their tier regardless
-    // of the run day, so the day's tier ceiling must not narrow their resolved pool.
+    // A fixed-tier source offers its tier regardless of the run day, so skip the day ceiling for its resolved pool.
     public bool SuppressDayGate { get; init; }
 }

@@ -3,11 +3,7 @@ import { commandClient } from '../../api/commandClient';
 import type { InstallState } from '../../types/backend';
 import { createLegacyDataWorkflow } from './legacyDataWorkflow';
 
-/**
- * Legacy Roots of the selected game directory, reloaded whenever the install
- * state is redetected, for example after a reinstall changes which Data Root
- * the mod writes. Nothing loads until the install state is known.
- */
+/** Redetection matters because reinstall can change which Data Root the mod writes. */
 export function useLegacyData(installState: InstallState | null) {
   const workflow = useMemo(
     () => createLegacyDataWorkflow({ commands: commandClient }),

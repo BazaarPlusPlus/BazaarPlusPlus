@@ -13,7 +13,6 @@ const mirrors = {
   'darwin-aarch64': 'https://mirror.example/mac'
 };
 
-/** The latest.json the updater fetched, as plugin-updater exposes it. */
 function rawManifest(
   version: string,
   urls: Partial<Record<keyof typeof mirrors, unknown>> = mirrors
@@ -63,7 +62,6 @@ function harness(impl: UpdaterImpl) {
   return { machine, phases, snapshot: () => machine.getSnapshot() };
 }
 
-/** A downloadAndInstall the test drives event-by-event. */
 function drivableDownload() {
   let emit: ((event: DownloadEvent) => void) | undefined;
   let finish: (() => void) | undefined;
@@ -264,7 +262,6 @@ describe('createUpdaterMachine install', () => {
       download.emit({ event: 'Progress', data: { chunkLength: chunk } });
     }
 
-    // Started, then one publish per elapsed interval instead of per chunk.
     expect(published.length).toBe(
       1 + Math.ceil((chunks * 2) / PROGRESS_PUBLISH_INTERVAL_MS)
     );

@@ -36,27 +36,10 @@ using Il2CppBazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Android;
 
-/// <summary>
-/// The Android composition root over Core's <see cref="CoreComposition"/> and the Android Data
-/// Root: the record chain (Run Lifecycle and Run Logging over the IL2CPP probes, the PvP battle
-/// capture with its board captures and Replay Payloads), Bundle sealing, the upload pump, and the
-/// Replay Payload maintenance sweep, all on one history database. Features start in registration
-/// order and stop in reverse; the pump is ticked from the melon's update and disposed first. The
-/// sweep runs once per start on a pool thread, as on the desktop. It also owns what History and
-/// the replay runtime share with the record chain: the battle store and catalog, the payload
-/// store and its operation gate, History's BazaarDB link client, and History's own Mod API
-/// session (ADR-0006), which outlives the upload pump's per-activation sessions and is disposed
-/// last. It owns the ten-win build catalog, a Remote Embedded Catalog, and the Ten-Win Builds
-/// panel's recommendation repository (<see cref="TouchLiveBuildData"/>), plus the shared
-/// <see cref="AndroidSupporterData"/> used by Collection and Ten-Win Builds. Each loads on demand;
-/// the composition stops them and disposes the build catalog on stop.
-/// </summary>
 internal sealed class AndroidComposition
 {
-    /// <summary>
-    /// The journal mode every Android store opens the database with. The Data Root is on FUSE
-    /// external storage; DELETE keeps one self-contained file that <c>adb pull</c> reads whole.
-    /// </summary>
+    // The Data Root is on FUSE external storage. DELETE keeps the database in one file for adb
+    // pull.
     public static readonly SqliteOpenOptions DatabaseOptions = new(SqliteJournalMode.Delete);
 
     private readonly CoreComposition _core;
@@ -70,9 +53,6 @@ internal sealed class AndroidComposition
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
 
-    // endOfRunCapture: whether the host takes the end-of-run screenshot (the enabled patch
-    // mode). A Run then asks for one only while BazaarDB upload is on, as on the desktop;
-    // otherwise its Bundle is Run-only and sealing never waits for an image.
     public AndroidComposition(
         string dataRoot,
         GameBuildInfo gameBuild,
@@ -102,7 +82,6 @@ internal sealed class AndroidComposition
         Battles = new PvpBattleCatalog(battles);
         Replays = replays;
         ReplayGate = replayGate;
-        // Android records PvP battles only; a monster fight opens no window.
         var reads = new AndroidPvpBattleReads();
         BattleCapture = new AndroidPvpBattleCapture(
             new PvpBattleCaptureWindow<INetMessage>(
@@ -176,8 +155,6 @@ internal sealed class AndroidComposition
             DatabaseOptions
         );
         _core.Register(_sealCoordinator);
-        // BazaarDB account linking posts to bazaardb.gg, not the Mod API, over its own bare
-        // client with the desktop's 30 s timeout.
         _accountLink = new BazaarDbLinkClient(
             BppHttpClientFactory.Create(
                 productVersion: BppPluginVersion.Current,
@@ -187,8 +164,6 @@ internal sealed class AndroidComposition
             ),
             new Uri(BazaarDbLinkClient.DefaultRedeemEndpoint)
         );
-        // The base URL is a constant, so a null session is a build defect: the composition fails
-        // to start (android.record_chain.start_failed), as the desktop plugin does (ADR-0006).
         var historySession = ModApiSession.TryCreate(
             ModApiUploadDefaults.ApiBaseUrl,
             BppPluginVersion.Current,
@@ -204,8 +179,6 @@ internal sealed class AndroidComposition
             );
         }
         _historySession = historySession;
-        // Last, and a failure here disposes the disposables made above: the catalog starts no
-        // load until the touch UI warms it, so nothing is in flight to leak.
         IRemoteEmbeddedCatalog<TenWinBuildCorpus>? buildCatalog = null;
         try
         {
@@ -239,18 +212,14 @@ internal sealed class AndroidComposition
 
     public RunLifecycleModule RunLifecycle { get; }
 
-    /// <summary>The battle catalog over the composition's own DELETE-mode battle store.</summary>
     public PvpBattleCatalog Battles { get; }
 
     public CombatReplayPayloadStore Replays { get; }
 
-    /// <summary>
-    /// The one payload gate: the capture's persistence, the maintenance sweep, and replay
-    /// playback each take its lease.
-    /// </summary>
+    // Capture, maintenance and playback must share this gate so maintenance cannot remove a payload
+    // in use.
     public ReplayPayloadOperationGate ReplayGate { get; }
 
-    /// <summary>The Ten-Win Builds panel's data over the composition-owned build catalog.</summary>
     public TouchLiveBuildData LiveBuild => _liveBuild;
 
     public AndroidSupporterData Supporters => _supporters;
@@ -278,17 +247,11 @@ internal sealed class AndroidComposition
         );
     }
 
-    /// <summary>
-    /// The app left the foreground: the seal worker parks after its current pass. The upload
-    /// pump needs no call: Unity stops the frames that tick it, and an attempt already in flight
-    /// is left to finish.
-    /// </summary>
+    // Unity stops the frames that tick the upload pump when the app leaves the foreground.
     public void Pause() => _sealCoordinator.Pause();
 
-    /// <summary>The app is back in front: the seal worker scans at once.</summary>
     public void Resume() => _sealCoordinator.Resume();
 
-    /// <summary>Main thread, every frame.</summary>
     public void Tick(float nowSeconds)
     {
         BattleCapture.Tick();
@@ -310,11 +273,6 @@ internal sealed class AndroidComposition
         _historySession.Dispose();
     }
 
-    /// <summary>
-    /// History's dependencies over this composition: the repository on the history database,
-    /// Ghost sync over History's session, and the replay service over the runtime the accessor
-    /// returns. The panel only receives them; the composition stays their owner.
-    /// </summary>
     public HistoryPanelDependencies CreateHistoryDependencies(
         Func<ISavedReplayRuntime?> runtime,
         Func<Guid, bool> hasCardTemplate
@@ -337,13 +295,6 @@ internal sealed class AndroidComposition
                 )
         );
 
-    /// <summary>
-    /// The managed half of <see cref="CreateHistoryDependencies(Func{ISavedReplayRuntime?}, Func{Guid, bool})"/>:
-    /// every input is a path, a session, or a delegate, so a test composes History over a
-    /// temporary database without the game. A null session leaves Ghost sync unavailable. A null
-    /// link client leaves out the account-link form. Favorites read and play through the runtime
-    /// the accessor returns, as on the desktop.
-    /// </summary>
     internal static HistoryPanelDependencies CreateHistoryDependencies(
         IRunContext runContext,
         string databasePath,
@@ -406,9 +357,6 @@ internal sealed class AndroidComposition
         };
     }
 
-    // Core's services read no encounter ids or offered pedestal on Android; the touch Collection
-    // has its own probe (GameInterop/AndroidEncounterState). This one makes no Unity call, so it
-    // is safe from any thread a Core service might ask it on.
     internal sealed class NoEncounterState : IEncounterStateProbe
     {
         public static NoEncounterState Instance { get; } = new();

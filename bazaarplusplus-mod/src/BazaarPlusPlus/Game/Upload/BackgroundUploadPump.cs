@@ -6,7 +6,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.Upload;
 
-/// <summary>The desktop's Unity driver of Core's <see cref="UploadPump"/>.</summary>
 internal sealed class BackgroundUploadPump : MonoBehaviour
 {
     private UploadPump? _pump;

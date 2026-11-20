@@ -5,14 +5,10 @@ import { getHeroColor, getHeroShortLabel } from '../lib/heroes';
 type HeroBadgeProps = {
   hero: string;
   selected?: boolean;
-  /** `short` shows the three-letter code and keeps the full name for assistive tech. */
   label?: 'short' | 'full';
-  /** Trailing value, such as a win rate or the active window. */
   children?: ReactNode;
 };
 
-/** The one hero chip: a hero-colored dot, the hero's name, and an optional
- *  trailing value. Its look is `.bpp-hero-badge` in design/components/bundle.css. */
 export default function HeroBadge({
   hero,
   selected = false,

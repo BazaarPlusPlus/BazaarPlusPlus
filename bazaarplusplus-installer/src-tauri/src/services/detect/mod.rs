@@ -11,7 +11,6 @@ use crate::services::vdf::SteamLaunchOptionsState;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
-/// Whether detection verifies the game bundle's signature itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum BundleVerification {
     Verify,
@@ -43,8 +42,6 @@ pub fn detect_for_install(
         "[detect_for_install] start requested_game_path={:?}",
         game_path
     );
-    // Read cached startup context. On first call this lazily initializes:
-    // reads the bundled payload and resolves Steam/game paths.
     let startup = state.get_or_initialize(&app);
 
     let steam_path = startup.steam_path.clone();
@@ -64,11 +61,7 @@ pub fn detect_for_install(
         .map(|path| is_bepinex_installed(path))
         .unwrap_or(false);
 
-    // macOS bootstrap facts are recomputed on every detection so Steam Verify,
-    // game updates, launch-option edits, and obsolete files immediately route
-    // the UI to Repair. Other platforms have no Steam launch-option invariant.
-    // Only the detection that ends an install, for the directory that install
-    // just verified, reuses its signature verification.
+    // Recheck macOS readiness each time because Steam can replace signed files or the user can edit launch options.
     let trampoline_current = game_path
         .as_ref()
         .map(|path| {

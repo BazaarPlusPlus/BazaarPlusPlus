@@ -21,12 +21,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android end-of-run screenshot as the host stores and seals it, on Core's net10.0 build:
-/// the PNG the capture writes (rows read bottom-up, flipped), its <c>run_screenshots</c> row
-/// through a DELETE-mode store, and a seal pass with the ImageSharp encoder, so the Bundle
-/// carries the JPEG Screenshot segment the BazaarDB feed selects.
-/// </summary>
 public sealed class AndroidScreenshotBundleTests : IDisposable
 {
     private const string RunId = "run-android-shot";

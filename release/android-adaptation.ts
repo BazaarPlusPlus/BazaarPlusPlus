@@ -7,18 +7,8 @@ import { ANDROID_SOURCES, interopKey } from './snapshot-lock.ts';
 import type { InteropLockEntry } from './snapshot-lock.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 
-// How android-apk-watch.yml sorts a capture of a new official build
-// (docs/release.md "Android 发布顺序"): `content` when the game code is the
-// locked one, so the lock alone changes; `code` when it changed, so the next
-// Product Release adapts the Android App to it.
-
-// How a captured Android lock entry differs from the previous one:
-// `unchanged` for the same APKs, `content` when an APK changed but the game
-// code (libil2cpp.so and global-metadata.dat) did not, `code` otherwise. The
-// Android App judges by the game code alone, so a content-only update needs
-// no new adaptation and no release. The same game code must give the same
-// Interop Snapshot; a different one means the capture is not reproducible,
-// and nobody should ship it unreviewed.
+// The Android App compares game code, so content-only updates need no release.
+// Different Interop Snapshots for identical game code require review.
 export type CaptureKind = 'unchanged' | 'content' | 'code';
 
 export function captureKind(
@@ -51,7 +41,6 @@ const usage = `Usage:
       Print unchanged, content or code: how the locked android-<source> entry
       differs from the one in the previous lock file`;
 
-// The previous lock file, read unvalidated: only its android-<source> entry counts.
 interface PreviousLock {
   entries?: Record<string, InteropLockEntry | null | undefined>;
 }

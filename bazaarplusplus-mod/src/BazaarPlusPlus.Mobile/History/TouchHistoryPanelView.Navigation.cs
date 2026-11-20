@@ -56,7 +56,6 @@ internal sealed partial class TouchHistoryPanelView
             1,
             _l.BodyFont
         );
-        // The action reads as a button inside the strip: the selected plate under its word.
         var action = UiKit.Rect(
             "Action",
             link.Button.transform,

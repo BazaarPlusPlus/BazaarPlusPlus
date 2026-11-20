@@ -48,10 +48,6 @@ export interface LegacyDataWorkflow {
   acknowledgeNotice(id: number): void;
 }
 
-/**
- * Lists the selected game directory's Legacy Roots and deletes one root at a
- * time after an explicit confirmation. Nothing here deletes on its own.
- */
 export function createLegacyDataWorkflow({
   commands
 }: {
@@ -65,7 +61,6 @@ export function createLegacyDataWorkflow({
   let load: LegacyDataLoad = { phase: 'idle' };
   let notice: LegacyDeleteNotice | null = null;
   let nextNoticeId = 1;
-  // Each load or deletion bumps the generation; an older response is dropped.
   let generation = 0;
   let snapshot: LegacyDataSnapshot = {
     load,

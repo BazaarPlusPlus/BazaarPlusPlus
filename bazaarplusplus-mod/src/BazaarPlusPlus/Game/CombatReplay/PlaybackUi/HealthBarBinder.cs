@@ -13,12 +13,7 @@ internal static class HealthBarBinder
 {
     private const string EncounterPickerMapName = "EncounterPicker_Map(Clone)";
 
-    // Scene instances only, inactive ones included: Resources.FindObjectsOfTypeAll also returns
-    // prefab assets (SetActive would write to the asset) and walking every Transform for its name
-    // costs a scan of every loaded object per call. The picker map is the node-sequence prefab
-    // root that carries the controller (TransitionInComponent reads it with GetComponent on the
-    // spawned root); the ancestor walk keeps hiding the named map if a controller ever moves to
-    // a child of it.
+    // Resources.FindObjectsOfTypeAll includes prefab assets, where SetActive would mutate the asset.
     internal static void HideEncounterPickerOverlays()
     {
         HideSceneObjectsOfType<EncounterPickerMapController>();

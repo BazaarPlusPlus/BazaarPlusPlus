@@ -5,9 +5,6 @@ using UnityEngine.UIElements;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Ui;
 
-// The merchant and trainer cells. The merchants of a folding catalog group share one cell
-// (CollectionSourceFold) with a count badge; a click on it opens a strip of its members under
-// its line, and a click on a member selects that member. The selection always names a member.
 internal sealed partial class CollectionPanelView
 {
     private const string SourceChipCountName = "bpp-collection-source-chip-count";
@@ -73,8 +70,6 @@ internal sealed partial class CollectionPanelView
         _sourceChipRow?.Clear();
     }
 
-    // A folded cell shows the member that matters, is selected when a member is, and glows when
-    // the run met a member and none is selected.
     private void RefreshSourceCells()
     {
         foreach (var group in _sourceGroups)
@@ -126,17 +121,13 @@ internal sealed partial class CollectionPanelView
 
     internal bool IsSourceFoldOpen => _foldExpansion.Open != null;
 
-    // Escape, the card inspection, a hidden panel or a rebuilt row closes the open fold; the
-    // selection stays.
     internal void CollapseSourceFold()
     {
         if (_foldExpansion.Collapse())
             RefreshSourceCells();
     }
 
-    // A press released outside the open fold's cell and strip closes it. Released, not pressed:
-    // the cells under the strip move up when it closes, and the release must still reach the
-    // cell it started on.
+    // Closing on press would move the underlying cells before release can reach the original target.
     private void OnRootPointerUp(PointerUpEvent evt)
     {
         if (_foldExpansion.Open is not { } open)
@@ -162,7 +153,6 @@ internal sealed partial class CollectionPanelView
         return false;
     }
 
-    // Draws the open fold's member strip under the line that holds its cell, or removes it.
     private void SyncSourceFold()
     {
         _foldStrip?.RemoveFromHierarchy();
@@ -258,7 +248,6 @@ internal sealed partial class CollectionPanelView
             ? source.DisplayName
             : $"{source.DisplayName} - {source.Description}";
 
-    // How many sources share a folded cell, in its lower right corner.
     private static Label CreateSourceCountBadge(int count)
     {
         var badge = CreateLabel(Sizes.FontCorner, FontStyle.Bold, InGameTheme.NeutralInk);

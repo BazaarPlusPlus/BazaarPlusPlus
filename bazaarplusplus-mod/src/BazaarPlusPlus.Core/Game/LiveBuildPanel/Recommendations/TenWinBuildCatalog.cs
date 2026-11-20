@@ -3,12 +3,7 @@ using BazaarPlusPlus.Infrastructure.RemoteEmbeddedCatalog;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
-/// <summary>
-/// Where every host fetches and caches the ten-win build catalog. Each host's composition root
-/// supplies the transport, the embedded seed, and the data root; each host embeds the one seed
-/// file under <see cref="EmbeddedResourceName"/>, which its MSBuild item restates and a
-/// compiled-artifact test pins.
-/// </summary>
+// Both hosts embed the same ten-win seed. A compiled-artifact test pins its resource name.
 public static class TenWinBuildCatalogSettings
 {
     public const string EmbeddedResourceName =

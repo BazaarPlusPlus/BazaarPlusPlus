@@ -61,8 +61,7 @@ internal readonly struct BppDockButtonVisualState(
         );
     }
 
-    // Opening the settings popover is not a persistent button selection. Resetting to this native
-    // baseline lets SpriteSwap return from its hover override without exposing ClickedImage.
+    // Reset the native baseline so SpriteSwap leaves its hover override without exposing ClickedImage.
     internal ColorBlock ResolveNormalColors() => Colors;
 
     internal AnimationTriggers CloneAnimationTriggers()

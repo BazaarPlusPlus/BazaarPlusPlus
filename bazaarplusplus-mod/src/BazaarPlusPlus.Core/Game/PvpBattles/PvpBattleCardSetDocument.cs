@@ -4,12 +4,8 @@ using Newtonsoft.Json;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// One board capture as the history database stores it in <c>battle_snapshots</c>: snake_case
-/// JSON whose card enums are the game's member names, which equal the card facets' names. Both
-/// hosts write their facet captures through <see cref="PvpBattleSnapshotsCodec"/>. The Bundle
-/// composer reads it through this type.
-/// </summary>
+// The installer History reader consumes this battle_snapshots JSON shape, including
+// snake_case keys and game enum member names.
 public sealed class PvpBattleCardSetDocument
 {
     private static readonly JsonSerializerSettings SerializerSettings =
@@ -32,14 +28,9 @@ public sealed class PvpBattleCardSetDocument
         ?? new PvpBattleCardSetDocument();
 }
 
-/// <summary>
-/// One captured card; the four enum fields hold the game's member names, except that a card the
-/// game gave no size stores <see cref="NoSize"/>, the game's unnamed value 0, which a Bundle
-/// carries as 0.
-/// </summary>
+// The game and Bundle use 0 for a card with no size, so the database stores it as "0".
 public sealed class PvpBattleCardDocument
 {
-    /// <summary>The <see cref="Size"/> of a card the game gave no size.</summary>
     public const string NoSize = "0";
 
     public string InstanceId { get; set; } = string.Empty;

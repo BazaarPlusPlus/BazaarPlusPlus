@@ -64,7 +64,6 @@ internal sealed class ModApiHealthClient
                     stopwatch.ElapsedMilliseconds,
                     "server_time_invalid"
                 );
-            // server_time_ms is part of the health contract: reject an out-of-range value.
             try
             {
                 _ = DateTimeOffset.FromUnixTimeMilliseconds(parsed.ServerTimeMs.Value);

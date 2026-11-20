@@ -327,8 +327,7 @@ limit 1
     Ok(Some(map_overlay_snapshot_row(row)?))
 }
 
-/// The stored image path of any screenshot, whatever its capture source: History
-/// shows a run's primary screenshot, which need not be an end-of-run capture.
+/// History can show a primary screenshot taken before the end of a run.
 pub fn load_screenshot_image_path(
     database_path: &Path,
     screenshot_id: &str,

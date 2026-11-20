@@ -3,7 +3,6 @@ import { describe, expect, test, vi } from 'vitest';
 
 import { createBundleDownloadSigner, signDownloadPage } from '../src/presigner';
 
-// An in-memory signer that records each signed key, for exercising page fan-out.
 function recordingSigner() {
   const calls: Array<{ objectKey: string; issuedAtMs: number }> = [];
   return {

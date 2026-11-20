@@ -1,4 +1,3 @@
-// Run the installer CLI from source with no prepared release Payload required.
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tauriSourceEnvironment } from './tauri-source-env.ts';

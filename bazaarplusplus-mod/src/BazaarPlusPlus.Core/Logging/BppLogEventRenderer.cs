@@ -3,12 +3,7 @@ using System.Text;
 
 namespace BazaarPlusPlus.Infrastructure.Logging;
 
-/// <summary>
-/// Renders one event as a single line: <c>[BPP][Scope] event=id name=value ...</c>, fields in
-/// call order, then <c>exception_type=</c> and the escaped <c>exception=</c> text when an
-/// exception is attached. An undeclared scope, an id outside the scope's prefix, a field name
-/// that is not snake case, or an unknown correlation policy renders the fixed fallback record.
-/// </summary>
+// Operational log consumers read the [BPP][Scope] event=id prefix and trailing key-value fields.
 public static class BppLogEventRenderer
 {
     public const string FallbackRecord = "[BPP][Logger] event=logging.render.failed";

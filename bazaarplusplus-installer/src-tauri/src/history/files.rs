@@ -2,19 +2,9 @@ use anyhow::anyhow;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// A path the mod stored relative to one directory of the Data Root, accepted
-/// by the one rule every History and overlay caller uses.
-///
-/// The rule reads the text only, the same way on every platform, and never
-/// touches the filesystem: `/` and `\` both separate segments, each segment is
-/// trimmed, and empty segments between separators are skipped. It rejects an
-/// empty or blank path, a leading separator (a root, a UNC path, `\\?\`), a
-/// segment that is `.` or `..`, and a segment that starts with a drive prefix
-/// (`C:`). An accepted path therefore always joins to a path under its
-/// directory, whatever that directory resolves to on disk.
+/// Normalize text independently of the host OS so stored paths mean the same on Windows and macOS.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StoredRelativePath {
-    /// The accepted segments joined with `/`: the key that compares two rows.
     key: String,
 }
 
@@ -47,7 +37,6 @@ impl StoredRelativePath {
         self.key.rsplit('/').next().unwrap_or(&self.key)
     }
 
-    /// The file this path names under `root`.
     pub fn under(&self, root: &Path) -> PathBuf {
         let mut path = root.to_path_buf();
         path.extend(self.key.split('/'));
@@ -61,7 +50,6 @@ fn has_drive_prefix(segment: &str) -> bool {
     bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
-/// The file `raw` names under `root`, or `None` when the rule rejects it.
 pub fn resolve_stored_path(root: &Path, raw: &str) -> Option<PathBuf> {
     StoredRelativePath::parse(raw).map(|path| path.under(root))
 }
@@ -70,13 +58,7 @@ pub fn resolve_screenshot_path(data_root: &Path, raw: &str) -> Option<PathBuf> {
     resolve_stored_path(&crate::services::paths::screenshots_dir_in(data_root), raw)
 }
 
-/// The stored paths of rows that keep their files: a candidate file this set
-/// protects is never deleted.
-///
-/// A row the rule rejects names no file History can trust, yet before the rule
-/// such a row kept the file its segments named once `.` and `..` were dropped.
-/// So that the rule never deletes a file the old resolvers kept, a rejected row
-/// protects every candidate with its last such segment as file name.
+/// Rejected paths protect files with the same basename so cleanup preserves files older resolvers may have kept.
 #[derive(Debug, Default)]
 pub struct StoredPathReferences {
     accepted: HashSet<String>,
@@ -104,7 +86,6 @@ impl StoredPathReferences {
     }
 }
 
-/// Deletes the video file a row names. A path the rule rejects deletes nothing.
 pub fn remove_video_file(root_dir: &Path, relative_path: &str) -> anyhow::Result<()> {
     let Some(path) = resolve_stored_path(root_dir, relative_path) else {
         return Ok(());

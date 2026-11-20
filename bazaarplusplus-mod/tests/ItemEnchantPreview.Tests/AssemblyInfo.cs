@@ -1,5 +1,4 @@
 using Xunit;
 
-// The tests load the Desktop Host assembly, whose preview cache and log sink are process-global.
-// Run the tests one at a time, as the capsule did.
+// Tests share the Desktop Host's preview cache and log sink.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

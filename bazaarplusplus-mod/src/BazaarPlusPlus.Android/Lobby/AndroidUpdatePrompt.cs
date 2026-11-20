@@ -12,16 +12,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Lobby;
 
-/// <summary>
-/// The main menu's one popup about an update the mod cannot install, in the game's own generic
-/// popup (root ADR 0012). It asks once per published product version when
-/// <see cref="AndroidVersionCheck.Update"/> names one: a newer game, which the user updates from
-/// its store and then starts again from the Android App, with no BPP download; or a new Android
-/// App, with its download. The settings row says the same every time. When the game refuses a
-/// run because its client is outdated (<see cref="GameRequiresUpdate"/>), the game's own message
-/// sends the user to the store but not back to the Android App, so this tells them once that
-/// session.
-/// </summary>
+// The game's outdated-client dialog sends the player to the store without explaining that they must
+// relaunch from the Android App.
 internal sealed class AndroidUpdatePrompt
 {
     // The game opens its own popups as the menu loads; asking waits until they are gone.
@@ -59,10 +51,6 @@ internal sealed class AndroidUpdatePrompt
     private volatile bool _gameRequiresUpdate;
     private bool _toldForGame;
 
-    /// <param name="check">The main menu's release check.</param>
-    /// <param name="dataRoot">The Data Root, where the last product version asked about is kept.</param>
-    /// <param name="download">Opens the download of the new Android App.</param>
-    /// <param name="panelOpen">Whether a BPP panel covers the menu.</param>
     public AndroidUpdatePrompt(
         AndroidVersionCheck check,
         string dataRoot,
@@ -76,10 +64,8 @@ internal sealed class AndroidUpdatePrompt
         _panelOpen = panelOpen ?? throw new ArgumentNullException(nameof(panelOpen));
     }
 
-    /// <summary>The game refused a run because its client is outdated; any thread.</summary>
     public void GameRequiresUpdate() => _gameRequiresUpdate = true;
 
-    /// <summary>Main thread, every frame.</summary>
     public void Tick()
     {
         // Only the main menu asks; the loading scene the game adds on top leaves it active.

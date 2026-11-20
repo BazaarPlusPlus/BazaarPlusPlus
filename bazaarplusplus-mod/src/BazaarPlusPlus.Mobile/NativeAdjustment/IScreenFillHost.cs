@@ -3,32 +3,18 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
-/// <summary>
-/// The Android host's read and write of the game objects <see cref="TouchScreenFill"/> adjusts
-/// (ADR-0025 decision 5): the letterbox, the board and the day clock are game types the tree
-/// cannot name, so the host adapts them here. Main thread.
-/// </summary>
+// Main-thread adapter for game types the Mobile UI cannot reference.
 internal interface IScreenFillHost
 {
-    /// <summary>
-    /// Writes <paramref name="floor"/> as the game's letterbox floor, unless the game already holds
-    /// it, so that the next letterbox update recomputes the crop; true with the floor it replaced
-    /// when it wrote.
-    /// </summary>
+    // The native letterbox recomputes its crop during its next update.
     bool LowerLetterBox(Vector2Int floor, out Vector2Int previous);
 
-    /// <summary>Every canvas scaler in the loaded scenes.</summary>
     IEnumerable<CanvasScaler> CanvasScalers();
 
-    /// <summary>The board's centre (<c>BoardManager</c>'s), or null with no board.</summary>
     Transform? BoardCenter();
 
-    /// <summary>The day clock, the encounter prefab <c>ClockViewController</c> sits on, or null.</summary>
     Transform? FindDayClock();
 
-    /// <summary>
-    /// The day-change overlay, the root <c>NewDayTransition</c> shows for the day change (active
-    /// only while it plays), or null.
-    /// </summary>
+    // NewDayTransition's root is active only while its animation plays.
     Transform? FindDayChangeOverlay();
 }

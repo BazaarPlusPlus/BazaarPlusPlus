@@ -12,14 +12,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// Writes the level-up rewards (Core's <see cref="EncounterPreviewModule.ResolveLevelUp"/>) into
-/// the hero-level tooltip's passive block, below its "next level rewards" icon strip, as the
-/// desktop's <c>HeroLevelRewardsTooltipPatch</c> appends its section. The handler starts with
-/// <c>ResetValues</c>, which empties that block, so a switched-off preview leaves the native
-/// tooltip. The text goes to the block directly: <c>RenderPassiveEffectTextBlock</c> would also
-/// run <see cref="EncounterPreviewPatch"/> against the pooled controller's last card.
-/// </summary>
+// RenderPassiveEffectTextBlock would run EncounterPreviewPatch against the pooled controller's
+// previous card.
 [HarmonyPatch(
     typeof(HeroLevelTooltipTypeHandler),
     nameof(HeroLevelTooltipTypeHandler.HandleTooltip)
@@ -48,13 +42,10 @@ internal static class HeroLevelRewardsTooltipPatch
                 return;
             }
 
-            // As on the desktop: a pooled controller that last showed a quest item keeps its
-            // quest rows, which the handler's reset does not clear.
+            // The pooled tooltip's reset leaves quest rows from the previous card behind.
             controller._questDisplayService?.BuildDisplay(null, null);
 
-            // The level as GetCurrentAndNextLevel reads it, whose returned tuple does not marshal
-            // through the interop. The badge's own player, so a replay shows the rewards of the
-            // hero it replays.
+            // GetCurrentAndNextLevel returns a tuple that does not marshal through IL2CPP interop.
             var player = heroLevel._player;
             var level =
                 player?.Attributes?.TryGetValue(EPlayerAttributeType.Level, out var value) == true
@@ -92,9 +83,8 @@ internal static class HeroLevelRewardsTooltipPatch
                 ReportObserved("section_unavailable", "section_unavailable", level, content.Length);
                 return;
             }
-            // The prefab lays the passive block out above the strip; the desktop's section sits
-            // below it. Only this tooltip shows the strip, so moving it right before the block
-            // leaves every other tooltip's order as it was.
+            // Only this tooltip shows the reward strip, so reordering it is safe for other
+            // tooltips.
             if (strip.GetSiblingIndex() > block.GetSiblingIndex())
                 strip.SetSiblingIndex(block.GetSiblingIndex());
             visibility.SetVisible(true);
@@ -127,7 +117,6 @@ internal static class HeroLevelRewardsTooltipPatch
         }
     }
 
-    // The desktop's event and fields; the values are its outcome and reason enums' log names.
     private static void ReportObserved(
         string outcome,
         string reasonCode,

@@ -1,17 +1,5 @@
 // @vitest-environment jsdom
 
-// Isolated on purpose: the History page's refresh on visibility and focus is
-// anchored by pages/History.test.tsx. These cases need the native window and
-// event APIs, which the page tests do not run with, or observe events after
-// disposal.
-// - Native focus registration fails and the page never refreshes on focus.
-// - A blur or a hidden-to-hidden change triggers a refresh.
-// - Under Tauri a page that becomes visible without focus stays paused.
-// - The native hide-to-tray event, or a hidden page, does not report hidden,
-//   or the event name drifts from the one the native side emits.
-// - A listener keeps firing after disposal, or a native registration that
-//   finishes after disposal is never released.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Event as TauriEvent } from '@tauri-apps/api/event';

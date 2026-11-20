@@ -1,5 +1,3 @@
-//! Canonical Tauri IPC registration and TypeScript export.
-
 use tauri_specta::{collect_commands, Builder, ErrorHandlingMode};
 
 pub fn builder() -> Builder<tauri::Wry> {

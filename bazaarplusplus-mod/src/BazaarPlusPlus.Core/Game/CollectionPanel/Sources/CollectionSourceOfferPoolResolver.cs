@@ -26,7 +26,6 @@ public static class CollectionSourceOfferPoolResolver
         return CollectionSourceOfferPoolResult.Ready(offeredCardIds);
     }
 
-    // Segments OR together; each segment keeps its own AND predicates.
     private static bool IsOffered(
         CollectionSourceEntry source,
         CardHero effectiveHero,
@@ -55,8 +54,6 @@ public static class CollectionSourceOfferPoolResolver
         if (!MatchesBaseRule(sourceKind, rule, effectiveHero, card))
             return false;
 
-        // An enchanted segment offers a card through one of its enchantments; a normal segment
-        // needs one only where its rule constrains enchantments.
         if (segment.Kind == CollectionSourceOfferSegmentKind.Enchanted)
             return MatchesAnyEnchantment(rule, card);
 

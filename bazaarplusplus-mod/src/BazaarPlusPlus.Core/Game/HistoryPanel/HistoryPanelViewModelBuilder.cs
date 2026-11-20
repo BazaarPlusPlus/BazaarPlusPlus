@@ -5,16 +5,8 @@ using BazaarPlusPlus.Game.Supporters;
 
 namespace BazaarPlusPlus.Game.HistoryPanel;
 
-/// <summary>
-/// Builds the <see cref="HistoryPanelViewModel"/> both hosts render from the panel's state and
-/// coordinator, so the desktop and Android panels show the same lists, labels and buttons. The
-/// host supplies only what it alone knows: the frame clock, the supporter samples it shows,
-/// each native board's status (a host without native boards passes the default), the game's
-/// hero names and the wall clock the row stamps compare years against.
-/// </summary>
 public static class HistoryPanelViewModelBuilder
 {
-    // The battle the replay, favorite and board actions act on in the current section.
     public static HistoryBattleRecord? ActiveSelectedBattle(
         HistoryPanelState state,
         HistoryPanelCoordinator? coordinator
@@ -33,8 +25,7 @@ public static class HistoryPanelViewModelBuilder
         HistoryPanelCoordinator? coordinator
     ) => state.GetSelectedRun(coordinator?.GetFilteredRuns() ?? Array.Empty<HistoryRunRecord>());
 
-    // Runs shows the opponent's board above yours; a Local-origin favorite keeps that layout.
-    // Ghost, and a Ghost-origin favorite, show only the challenger's board (ADR-0002).
+    // Ghost Battles and their favorite copies show only the challenger's board because the payload stays in recorder perspective (ADR-0002).
     public static bool ShowsBothBoards(HistoryPanelState state) =>
         state.SectionMode switch
         {
@@ -89,8 +80,7 @@ public static class HistoryPanelViewModelBuilder
         else
         {
             canReplaySelectedBattle = coordinator.CanReplaySelectedBattle(selectedBattle, out _);
-            // Record needs the replay to be possible; reuse that answer rather than asking the
-            // saved-replay catalog again on every refresh.
+            // Reuse the playback availability so a refresh only checks the saved-replay catalog once.
             canRecordSelectedBattle =
                 canReplaySelectedBattle && coordinator.CanRecordLoadedReplay(out _);
             canDeleteSelectedRun = coordinator.CanDeleteSelectedRun(selectedRun, out _);
@@ -271,8 +261,6 @@ public static class HistoryPanelViewModelBuilder
         };
     }
 
-    // Runs and Ghost favorite the selected battle (or jump to it once it is one); Favorites edits
-    // the selected favorite's note.
     private static (bool Visible, string Text, bool Enabled) FavoriteButton(
         HistoryPanelState state,
         HistoryPanelCoordinator? coordinator,

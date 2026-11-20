@@ -50,7 +50,6 @@ public sealed class SampleStoreTests : IDisposable
                 $"SELECT status || '|' || hero || '|' || upload_policy || '|' || mod_version || '|' || player_account_id || '|' || final_day || '|' || victories || '|' || losses FROM runs WHERE run_id = '{runId}';"
             )
         );
-        // Both battles join the run as the local player's; only the one with a replay is ready.
         Assert.Equal(
             $"{runId}-00|ready|{LocalAccount}|Sample|Rival|1,{runId}-01|missing|{LocalAccount}|Sample|Second|0",
             Query(
@@ -71,7 +70,6 @@ public sealed class SampleStoreTests : IDisposable
                 $"{(f.Written ? "put" : "rm")} {f.RelativePath.Replace('\\', '/')}"
             )
         );
-        // A sampled run is never sealed, protected or resumed, so nothing uploads it.
         Assert.Equal(
             "0",
             Query(
@@ -141,8 +139,6 @@ public sealed class SampleStoreTests : IDisposable
         RunBundleV6Contract.Open(bytes).Value
         ?? throw new InvalidOperationException("Bundle does not open.");
 
-    // One run with a replayable battle whose four card sets were captured, and a battle with no
-    // card sets or replay.
     private static byte[] BuildBundle()
     {
         const string replayable = "battle-replayable";

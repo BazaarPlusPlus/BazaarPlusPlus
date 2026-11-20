@@ -8,12 +8,7 @@ using Newtonsoft.Json.Converters;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Data;
 
-/// <summary>
-/// A built Collection catalog on disk, one file per language, so a launch whose
-/// <see cref="CollectionCatalogCacheIdentity"/> matches skips the build. Facets are stored by name
-/// (ADR-0015). A miss names its reason and never throws; the caller builds instead. Safe to call
-/// from several threads.
-/// </summary>
+/// <summary>Persist Card Facet names because their integer values have no stable meaning (ADR-0015).</summary>
 public sealed class CollectionCatalogCacheStore
 {
     public const int SchemaVersion = 1;
@@ -157,7 +152,6 @@ public sealed class CollectionCatalogCacheStore
         }
         catch (ArgumentException)
         {
-            // A card listing one enchantment twice.
             missReason = "invalid-json";
             return false;
         }
@@ -173,7 +167,6 @@ public sealed class CollectionCatalogCacheStore
         return builder.Length > 0 ? builder.ToString() : "default";
     }
 
-    // A crash between the temp write and the rename leaves the temp file behind.
     private static void DeleteOrphanedTempFiles(string path)
     {
         var directory = Path.GetDirectoryName(path);
@@ -274,7 +267,6 @@ public sealed class CollectionCatalogCacheStore
                 IsPackage = card.IsPackage,
             };
 
-        // The projection hands out sets; a hit hands back the same shapes.
         public CollectionCardVm ToVm() =>
             new()
             {

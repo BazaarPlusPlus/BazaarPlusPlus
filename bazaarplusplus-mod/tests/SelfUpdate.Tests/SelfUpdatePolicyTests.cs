@@ -68,7 +68,6 @@ public sealed class SelfUpdatePolicyTests
     [Fact]
     public void Anything_the_copy_cannot_take_by_itself_falls_back_to_a_manual_update()
     {
-        // No Managed Payload published for this platform.
         Assert.Equal(
             SelfUpdateDecision.ManualUpdate,
             SelfUpdatePolicy.Decide(Running(), "3.3.0", null, staged: false)
@@ -78,7 +77,6 @@ public sealed class SelfUpdatePolicyTests
             SelfUpdateDecision.ManualUpdate,
             SelfUpdatePolicy.Decide(Running(), "3.3.0", Release(historyVersion: 2), false)
         );
-        // A native, bootstrap, SQLite or Updater change.
         Assert.Equal(
             SelfUpdateDecision.ManualUpdate,
             SelfUpdatePolicy.Decide(Running(), "3.3.0", Release(digest: new string('f', 64)), false)
@@ -88,7 +86,6 @@ public sealed class SelfUpdatePolicyTests
             SelfUpdateDecision.ManualUpdate,
             SelfUpdatePolicy.Decide(Running(digest: null), "3.3.0", Release(), false)
         );
-        // A record of another version than the manifest names.
         Assert.Equal(
             SelfUpdateDecision.ManualUpdate,
             SelfUpdatePolicy.Decide(Running(), "3.3.0", Release(version: "3.2.9"), false)
@@ -98,7 +95,6 @@ public sealed class SelfUpdatePolicyTests
     [Fact]
     public void The_comparison_is_against_the_running_copy_not_the_previous_release()
     {
-        // A copy on 3.1.0 skipping to 3.3.0 compares its own schema, whatever 3.2.0 changed.
         var running = Running("3.1.0.prod", historyVersion: 1);
         Assert.Equal(
             SelfUpdateDecision.ManualUpdate,

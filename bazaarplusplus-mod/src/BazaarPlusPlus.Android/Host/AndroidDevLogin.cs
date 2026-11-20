@@ -6,8 +6,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Host;
 
-// The debug App supplies this mailbox before CoreCLR starts. The release App never does.
-// Only this main-thread adapter touches the game's login flow; the game owns authentication.
+// Only the debug App supplies this private mailbox before CoreCLR starts.
 internal sealed class AndroidDevLogin(string directory, HarmonyLib.Harmony harmony)
 {
     private static AndroidDevLogin? _active;
@@ -138,9 +137,6 @@ internal sealed class AndroidDevLogin(string directory, HarmonyLib.Harmony harmo
                 _submitted
             );
         }
-        catch
-        {
-            // The CLI stops an unacknowledged process and removes the request on its deadline.
-        }
+        catch { }
     }
 }

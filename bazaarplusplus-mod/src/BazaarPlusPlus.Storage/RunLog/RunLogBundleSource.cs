@@ -4,16 +4,11 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Storage.RunLog;
 
-/// <summary>
-/// The reads Core's Bundle composer seals a Run from: the ended run's facts and its events, as
-/// stored. Mapping them onto the Run segment stays with the composer; the SQL stays here.
-/// </summary>
 public sealed class RunLogBundleSource : SqliteStoreBase
 {
     public RunLogBundleSource(string databasePath, SqliteOpenOptions options)
         : base(databasePath, options ?? throw new ArgumentNullException(nameof(options))) { }
 
-    /// <summary>The run's row once it is no longer active, or null when there is none.</summary>
     public RunLogEndedRun? TryReadEndedRun(string runId)
     {
         using var connection = OpenConnection();
@@ -58,7 +53,6 @@ public sealed class RunLogBundleSource : SqliteStoreBase
         };
     }
 
-    /// <summary>The run's events in <c>seq</c> order, each with its stored payload JSON.</summary>
     public IReadOnlyList<RunLogStoredEvent> ReadEvents(string runId)
     {
         using var connection = OpenConnection();
@@ -87,7 +81,6 @@ public sealed class RunLogBundleSource : SqliteStoreBase
         };
 }
 
-/// <summary>One ended run's row, with the final day and hour in place of the last seen ones.</summary>
 public sealed class RunLogEndedRun
 {
     public string Hero { get; set; } = string.Empty;
@@ -133,7 +126,7 @@ public sealed class RunLogEndedRun
     public string? ModVersion { get; set; }
 }
 
-/// <summary>One <c>run_events</c> row; <see cref="PayloadJson"/> is the stored JSON, verbatim.</summary>
+// PayloadJson is the stored JSON, verbatim.
 public sealed class RunLogStoredEvent
 {
     public long Seq { get; set; }

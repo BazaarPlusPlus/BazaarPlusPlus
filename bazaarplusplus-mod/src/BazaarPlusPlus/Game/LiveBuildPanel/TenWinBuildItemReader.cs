@@ -19,15 +19,7 @@ using TheBazaar.Utilities;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-/// <summary>
-/// A Ten-Win Build item as the game shows it, for the copied build: its template's title, its
-/// enchantment and tag labels, and the text, cooldown and ammo the game's tooltip renders for a
-/// detached card set up as <c>CardPreviewBase.SetUp</c> sets up a board card, with the item's
-/// Saved Card Values over its tier's and enchantment's (<c>NativeCardSetUp</c>). Nothing is
-/// rented or drawn, so an item reads the same before the panel's boards finish loading. A part
-/// that throws costs only that part; an unknown template leaves the template id as the name.
-/// Main thread only.
-/// </summary>
+// Main thread only. The reader uses native card and tooltip data before the panel's board previews finish loading.
 internal static class TenWinBuildItemReader
 {
     public static TenWinBuildItemText Read(BppItemBoardCard saved)
@@ -59,8 +51,6 @@ internal static class TenWinBuildItemReader
         );
     }
 
-    // The card the game's preview prefab builds from a template and an instance, without the
-    // prefab: starting tier's values, the item's tier and enchantment, then its saved values.
     private static Card DetachedCard(
         TCardBase template,
         ITCard cardTemplate,
@@ -109,7 +99,6 @@ internal static class TenWinBuildItemReader
         return card;
     }
 
-    // The description, then the active and passive lines, as the game's tooltip stacks them.
     private static string Description(CardTooltipData tooltip)
     {
         var lines = new List<string>();

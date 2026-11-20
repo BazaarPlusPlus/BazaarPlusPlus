@@ -3,10 +3,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The snapshot the touch Collection opens on, by the rules of the desktop's
-/// <c>EncounterStateProbe</c> (#727): same game state, same source on both hosts.
-/// </summary>
 public sealed class AndroidEncounterIdsTests
 {
     private static readonly Guid Merchant = Guid.Parse("11111111-1111-1111-1111-111111111111");

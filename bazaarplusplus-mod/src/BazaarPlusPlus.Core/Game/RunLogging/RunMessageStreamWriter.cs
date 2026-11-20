@@ -5,16 +5,11 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.RunLogging;
 
-/// <summary>
-/// Writes the Run Message Stream (ADR-0028) into the active run as <c>run_events</c> rows. Frames
-/// that arrive before the run's start event is written (the command that starts the run, its first
-/// messages, a resumed run's reconnect state) are held and written right after it. The caller
-/// serializes access.
-/// </summary>
+// The caller serializes access. Buffer early frames because their command or reconnect message can arrive
+// before the run start event they must follow.
 internal sealed class RunMessageStreamWriter
 {
-    // Frames are held only between a run's first command and its start event; the bound keeps a
-    // client that never starts a run from growing the list.
+    // Bound the pending buffer so a client that never starts a run cannot grow it indefinitely.
     private const int MaxHeldFrames = 4096;
 
     private readonly List<(RunMessageStreamFrameObserved Frame, DateTimeOffset At)> _held = new();
@@ -45,7 +40,6 @@ internal sealed class RunMessageStreamWriter
             _held.Add((frame, now));
     }
 
-    /// <summary>The run's start event is written: its held frames and every later one go to it.</summary>
     internal void Attach(string runId, RunLogSessionManager sessions)
     {
         _runId = runId;

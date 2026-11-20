@@ -1,15 +1,11 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Events;
 
-/// <summary>
-/// Published after a host saved a local PvP battle to the history database: the facts Run
-/// Logging attaches to the run, copied from the host's capture.
-/// </summary>
+// Publish after committing the battle so Run Logging can attach the persisted row.
 public sealed class PvpBattleRecorded
 {
     public string BattleId { get; init; } = string.Empty;
 
-    /// <summary>The run the capture saw; null when it was captured before the run id was known.</summary>
     public string? RunId { get; init; }
 
     public string? CombatKind { get; init; }

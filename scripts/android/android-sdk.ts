@@ -1,7 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
 
-/** Resolve SDK executables for both standalone commands and device setup. */
 export function androidSdkPaths(
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,

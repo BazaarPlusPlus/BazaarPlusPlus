@@ -3,15 +3,9 @@ use std::path::PathBuf;
 use crate::problem::{SemanticProblem, SemanticProblemCode};
 use crate::services::game_process::GameRunningRefusal;
 
-/// Why an install-page action (install, reset, Legacy Root deletion) failed.
-/// Refusals and partial failures stay typed until [`ActionError::into_problem`]
-/// turns them into the problem the frontend renders; any other failure is a
-/// diagnostic string.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum ActionError {
-    /// The game was running, or its processes could not be inspected.
     Refused(GameRunningRefusal),
-    /// The action removed what it could and left these paths behind.
     PartialFailure(Vec<PathBuf>),
     Failed(String),
 }

@@ -94,14 +94,12 @@ async function text(locator: Locator) {
   return (await locator.textContent())?.trim();
 }
 
-/** The value beside a key in a card's facts list, or null when the row is absent. */
 async function fact(card: Locator, label: string) {
   const key = card.locator('dt', { hasText: label });
   if ((await key.count()) === 0) return null;
   return text(key.locator('xpath=following-sibling::dd[1]'));
 }
 
-/** Each adapted game beside "Adapted game", or null when the row is absent. */
 async function adaptedGames(card: Locator) {
   const key = card.locator('dt', { hasText: 'Adapted game' });
   if ((await key.count()) === 0) return null;
@@ -109,7 +107,6 @@ async function adaptedGames(card: Locator) {
   return (await rows.allTextContents()).map((row) => row.trim());
 }
 
-/** The online game and the conclusion beside it, or null while the Game Status is missing. */
 async function onlineGame(card: Locator) {
   const key = card.locator('dt', { hasText: 'Online game' });
   if ((await key.count()) === 0) return null;
@@ -120,7 +117,6 @@ async function onlineGame(card: Locator) {
   };
 }
 
-/** The Android entry as a visitor reads it; an unavailable card has no APK facts. */
 async function describeAndroid(page: Page) {
   const card = platformCard(page, 'Android');
   if ((await card.count()) === 0) return null;
@@ -160,7 +156,6 @@ async function describeAndroid(page: Page) {
   };
 }
 
-/** What a visitor can act on in each card, plus whether the GitHub fallback appears. */
 async function describeDownloads(page: Page) {
   const cards = await Promise.all(
     PLATFORM_TITLES.map((title) => describeCard(page, title))
@@ -284,7 +279,6 @@ test.describe('Game Status', () => {
         online: await onlineGame(card)
       };
     };
-    // The same game code; a newer game; a content-only update of the adapted game.
     expect(await games('macOS')).toEqual({
       adapted: ['1.0.13081'],
       online: { version: '1.0.13081', conclusion: 'Adapted' }

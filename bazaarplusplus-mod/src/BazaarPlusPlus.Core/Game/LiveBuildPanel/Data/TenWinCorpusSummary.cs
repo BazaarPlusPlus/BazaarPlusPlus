@@ -2,7 +2,6 @@
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Data;
 
-/// <summary>Provenance summary of a loaded corpus for status/feedback surfaces.</summary>
 public readonly struct TenWinCorpusSummary
 {
     public TenWinCorpusSummary(

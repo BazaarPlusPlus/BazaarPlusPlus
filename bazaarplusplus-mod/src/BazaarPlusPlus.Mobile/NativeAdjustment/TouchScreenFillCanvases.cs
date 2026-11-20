@@ -3,27 +3,17 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.NativeAdjustment;
 
-/// <summary>
-/// The game's own canvases on a screen <see cref="TouchScreenFill"/> lets it fill. They scale with
-/// the screen's height alone (a 3840×2160 reference, <c>matchWidthOrHeight</c> 1; tooltips aside),
-/// so a screen narrower than 16:10 gives them less width than any layout was made for: on a
-/// foldable's 2480×2248 inner display the main canvas is 2382 units wide where its panels expect
-/// 3456 (16:10) or more, and the settings menu, the hero picker and the like run off both sides.
-/// Each canvas Core's <see cref="ScreenFill.TakesCanvas"/> accepts gets
-/// <see cref="ScreenFill.GameCanvasMatch"/>: as wide as 16:10 makes it, and at 16:10 or wider
-/// back as the game set it. Main thread only.
-/// </summary>
+// Height-scaled game canvases get too narrow for native layouts below the game's
+// design aspect. Adjust their scale to preserve the layout width.
 internal sealed class TouchScreenFillCanvases
 {
     private readonly IScreenFillHost _host;
 
-    // The match each canvas had before it was moved, by instance.
     private readonly Dictionary<int, (CanvasScaler Scaler, float Match)> _original = new();
     private readonly List<int> _destroyed = new();
 
     public TouchScreenFillCanvases(IScreenFillHost host) => _host = host;
 
-    /// <summary>Sets every game canvas's match for a screen of <paramref name="aspect"/>.</summary>
     public void Apply(float aspect)
     {
         if (!ScreenFill.Fills(aspect))

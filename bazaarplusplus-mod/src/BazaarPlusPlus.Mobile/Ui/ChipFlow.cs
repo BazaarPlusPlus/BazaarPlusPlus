@@ -4,14 +4,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>
-/// Lays chips, headers and notes top to bottom in a fixed column grid under one parent. Columns
-/// are fractions of the parent's width, so nothing waits for a layout pass to measure it. Sizes
-/// come from the shared touch frame (<see cref="TouchChrome"/>): a chip is one touch target tall
-/// with button-sized text that shrinks to fit, never under body size, and a chip whose label
-/// would not fit whole at body size widens across more columns (<see cref="TouchChrome.ChipSpan"/>);
-/// a note is as tall as its wrapped text.
-/// </summary>
+// Fractional column widths avoid waiting for a layout pass before positioning chips.
 internal sealed class ChipFlow
 {
     private readonly RectTransform _parent;
@@ -46,7 +39,6 @@ internal sealed class ChipFlow
 
     private float Gap => _chrome.Gap;
 
-    /// <summary>The height laid out so far, the next row included when it has chips.</summary>
     public float Height => _y + (_column > 0 ? Math.Max(ChipHeight, _rowHeight) : 0f);
 
     public void Chip(string label, bool selected, Action onTap, int span = 1)
@@ -188,7 +180,6 @@ internal sealed class ChipFlow
         _y += _chrome.Metrics.Dp(56f) + Gap;
     }
 
-    // The label at body size, the smallest autosize goes, plus the button's padding.
     private float ChipWidth(string label)
     {
         if (_probe == null)
@@ -215,7 +206,6 @@ internal sealed class ChipFlow
             TextAlignmentOptions.BottomLeft
         );
 
-    /// <summary>Wrapped text as tall as it needs, under the chips so far.</summary>
     public TextMeshProUGUI Note(string text, Color color, float? fontSize = null)
     {
         Break();
@@ -368,7 +358,6 @@ internal sealed class ChipFlow
         }
     }
 
-    /// <summary>Content-sized, noninteractive native tags; wrap without shrinking the text.</summary>
     public void Tags(IReadOnlyList<string> tags)
     {
         Break();
@@ -424,7 +413,6 @@ internal sealed class ChipFlow
             _y += rowHeight + Gap;
     }
 
-    /// <summary>Ends the current chip row.</summary>
     public void Break()
     {
         if (_column == 0)

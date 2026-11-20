@@ -3,7 +3,6 @@ using BazaarPlusPlus.ManagedPayload;
 
 namespace BazaarPlusPlus.Updater;
 
-/// <summary>The outcome of one Updater run.</summary>
 internal enum SwapOutcome
 {
     NothingStaged,
@@ -12,16 +11,7 @@ internal enum SwapOutcome
     RolledBack,
 }
 
-/// <summary>
-/// Swaps the newest verified staged Managed Payload into the install before any BPP assembly
-/// loads (ADR-0014). It re-verifies the manifest signature and every file hash, moves each old
-/// file aside and the staged one in under a write-ahead journal, removes the managed files the
-/// installed manifest lists and the new one does not, and installs the new manifest last. A
-/// failure, or a journal left by an interrupted run, rolls every step back. A staged version not
-/// newer than the installed one is deleted unapplied. Inside the Android App the non-managed
-/// payload digest is compared with the runtime the App started this process with, from its
-/// Launch Record, rather than with the installed manifest's (root ADR 0012).
-/// </summary>
+// Run before BPP assemblies load so the Updater can replace them without file locks.
 internal sealed class ManagedPayloadSwap
 {
     private const string SwapDirectoryName = ".swap";
@@ -36,9 +26,6 @@ internal sealed class ManagedPayloadSwap
     private readonly UpdaterLog _log;
     private readonly string? _runtimeDigest;
 
-    // runtimeDigest: the non-managed payload digest of the runtime this process runs, when the
-    // Android App's Launch Record for this process names one; null compares with the installed
-    // manifest's.
     public ManagedPayloadSwap(
         string installRoot,
         string dataRoot,
@@ -112,13 +99,8 @@ internal sealed class ManagedPayloadSwap
         return outcome;
     }
 
-    // Core's staging already refused these (SelfUpdatePolicy); the Updater holds the line again
-    // for anything staged by other means, and on Android for what the Android App staged. A copy
-    // with no installed manifest file (a development build) has nothing to compare; one whose
-    // manifest file is unreadable cannot be checked, so nothing is applied over it. The history
-    // schema is always the installed copy's. The non-managed digest is the running runtime's when
-    // the Launch Record names it: the installed Mods were staged by an earlier Android App and
-    // record that App's runtime, not this one.
+    // The installed Mods carry the previous App's digest. A digest from this process's
+    // Launch Record describes the runtime the staged files will use.
     private static bool Compatible(
         ManagedPayloadManifest manifest,
         string directoryVersion,
@@ -355,11 +337,10 @@ internal sealed class ManagedPayloadSwap
         public string Label { get; }
         public ManagedPayloadManifest? Manifest { get; }
 
-        /// <summary>A manifest file exists but does not parse.</summary>
         public bool ManifestUnreadable { get; }
     }
 
-    /// <summary>Write-ahead journal: each step is on disk before it happens.</summary>
+    // Each write-ahead journal step must reach disk before its file operation.
     private sealed class Journal : IDisposable
     {
         private readonly FileStream _stream;

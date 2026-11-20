@@ -10,8 +10,6 @@ using Xunit;
 
 namespace TooltipPreviewTargetResolver.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages. The capsule shared
-// one item card across its checks; each test builds the card the check saw.
 public sealed class TooltipPreviewTargetSelectionTests
 {
     [Fact]

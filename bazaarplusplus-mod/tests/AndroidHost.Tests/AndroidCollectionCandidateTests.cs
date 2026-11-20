@@ -4,19 +4,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// <see cref="AndroidCollectionCatalog.ReadCandidateIds"/>, the pool-thread read that picks which
-/// game data rows the catalog loads with the game's per-card <c>GetCardById</c>. Its failure
-/// modes:
-/// <list type="number">
-/// <item>Dropping a card the projection would accept, which leaves it out of the catalog: only
-/// a text <c>Type</c> other than Item or Skill, or a <c>SpawningEligibility</c> of Never, may
-/// drop a row; a missing or non-text value keeps it.</item>
-/// <item>One row that is not JSON failing the whole read: it is kept for the projection to
-/// judge.</item>
-/// <item>A BLOB column read as SQLite's binary JSON, which drops every row.</item>
-/// </list>
-/// </summary>
 public sealed class AndroidCollectionCandidateTests : IDisposable
 {
     private readonly string _directory = Path.Combine(
@@ -55,7 +42,7 @@ public sealed class AndroidCollectionCandidateTests : IDisposable
             Directory.Delete(_directory, recursive: true);
     }
 
-    // The game's schema: text ids, the card JSON as a BLOB.
+    // Store JSON as a BLOB to match the game's SQLite schema.
     private string Database(params (Guid Id, string Json)[] rows)
     {
         Directory.CreateDirectory(_directory);

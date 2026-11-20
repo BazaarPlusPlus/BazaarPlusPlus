@@ -21,13 +21,11 @@ public static class BPPSupporterAttributionText
         return SupportedBySuffix.Resolve(languageCode, L.CurrentMode);
     }
 
-    /// <summary>The short word before the names in a Desktop panel's supporter line.</summary>
     public static string FormatThanks(string languageCode)
     {
         return Thanks.Resolve(languageCode, L.CurrentMode);
     }
 
-    /// <summary>Who the supporter line thanks when it has no name to show.</summary>
     public static string FormatCommunity(string languageCode)
     {
         return Community.Resolve(languageCode, L.CurrentMode);

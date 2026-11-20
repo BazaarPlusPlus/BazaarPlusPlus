@@ -5,35 +5,17 @@ import type { DownloadPlatform } from './downloads.ts';
 import { platformInventory } from './payload-inventory.ts';
 import type { PayloadHost, PayloadInventory } from './payload-inventory.ts';
 
-// Release platform facts live here so bundle.sh and the Bun release scripts
-// cannot drift independently. Browser-safe keys come from downloads.ts.
-// `key` values are an external wire contract: they are the Tauri updater
-// {{target}}-{{arch}} lookup keys inside every manifest, and the file name of
-// each Platform Release Manifest (`platformManifestPath` and
-// `UPDATER_ENDPOINTS` in downloads.ts) that shipped installers, the site and
-// the mod request. NEVER rename a key; only append. `kind` says how the
-// platform ships: `tauri` platforms ship a Tauri installer and updater package
-// and carry the Tauri fields below; the `android` platform ships the Android
-// App, an Interop Package and a Managed Payload zip and has none of them
-// (ADR 0012).
-// `payloadHost` names the mod loader whose Payload Inventory entries the
-// platform installs. `rustTarget` is scalar-or-null by design. A future
-// platform requiring multiple Rust triples needs a schema migration, not a
-// comma hack.
+// Shipped Tauri clients, the site and the mod request these keys. Only append new keys.
+// A platform with multiple Rust triples would require a schema migration.
 
-/** The wire key of a release platform, e.g. `windows-x86_64`. */
 export type ReleasePlatformKey =
   (typeof DOWNLOAD_PLATFORM_KEYS)[DownloadPlatform];
-/** The wire key of a Lockstep Platform: one the Release Manifest waits for. */
 export type LockstepPlatformKey =
   | typeof DOWNLOAD_PLATFORM_KEYS.windows
   | typeof DOWNLOAD_PLATFORM_KEYS.mac;
-/** The build platform name of a platform that ships a Tauri installer. */
 export type TauriBuildPlatform = 'windows' | 'macos';
-/** The build platform name of every release platform. */
 export type BuildPlatform = TauriBuildPlatform | 'android';
 
-/** A platform that ships a Tauri installer and updater package. */
 export interface TauriReleasePlatform {
   readonly key: ReleasePlatformKey;
   readonly kind: 'tauri';
@@ -51,7 +33,6 @@ export interface TauriReleasePlatform {
   readonly resourceZip: string;
 }
 
-/** The platform that ships the Android App; it has no Tauri facts. */
 export interface AndroidReleasePlatform {
   readonly key: ReleasePlatformKey;
   readonly kind: 'android';
@@ -60,7 +41,6 @@ export interface AndroidReleasePlatform {
   readonly payloadHost: PayloadHost;
 }
 
-/** One row of RELEASE_PLATFORMS, discriminated by `kind`. */
 export type ReleasePlatform = TauriReleasePlatform | AndroidReleasePlatform;
 
 export const RELEASE_PLATFORMS: readonly ReleasePlatform[] = Object.freeze([
@@ -110,14 +90,10 @@ export const RELEASE_PLATFORMS: readonly ReleasePlatform[] = Object.freeze([
 export const RELEASE_PLATFORM_KEYS: readonly ReleasePlatformKey[] =
   Object.freeze(RELEASE_PLATFORMS.map((platform) => platform.key));
 
-// The platforms the Release Manifest (`latest.json`) waits for: it advances
-// only when every one of them names the same release. Android ships on the
-// game's APK cadence and stays outside, so it never holds back a desktop
-// release (ADR 0012).
+// Android follows the game's APK cadence and must never hold back a desktop release (ADR 0012).
 export const LOCKSTEP_PLATFORM_KEYS: readonly LockstepPlatformKey[] =
   Object.freeze([DOWNLOAD_PLATFORM_KEYS.windows, DOWNLOAD_PLATFORM_KEYS.mac]);
 
-// The one lookup of a release platform by its build platform name.
 export function releasePlatform(buildPlatform: string): ReleasePlatform {
   const platform = RELEASE_PLATFORMS.find(
     (candidate) => candidate.buildPlatform === buildPlatform
@@ -133,8 +109,6 @@ export function releasePlatformByKey(key: string): ReleasePlatform {
   return platform;
 }
 
-// A platform that ships a Tauri installer; the Tauri build facts exist only
-// on these.
 export function tauriPlatform(buildPlatform: string): TauriReleasePlatform {
   const platform = releasePlatform(buildPlatform);
   if (platform.kind !== 'tauri')
@@ -142,8 +116,6 @@ export function tauriPlatform(buildPlatform: string): TauriReleasePlatform {
   return platform;
 }
 
-// The Tauri platform a build platform, a Node `process.platform` name or a
-// TAURI_ENV_PLATFORM value names; null when the host builds no installer.
 export function resolveBuildPlatform(
   platformEnv: string | undefined
 ): TauriBuildPlatform | null {
@@ -157,14 +129,12 @@ export function resolveBuildPlatform(
   );
 }
 
-// The Tauri installer build targets.
 export function defaultTargetBuildPlatforms(): TauriBuildPlatform[] {
   return RELEASE_PLATFORMS.filter((platform) => platform.kind === 'tauri')
     .map((platform) => platform.buildPlatform)
     .sort();
 }
 
-// The part of a platform's Tauri config overlay the coherence check reads.
 interface TauriConfigOverlay {
   bundle?: { targets?: unknown; resources?: Record<string, unknown> };
 }
@@ -207,11 +177,7 @@ export function assertPlatformCoherence(rootDir: string): void {
   }
 }
 
-/**
- * The replay recorder plugin bundle inside a platform Payload, as the Payload
- * Inventory (`release/payload.json`) names it: the platform's only `native`
- * directory entry. bundle.sh signs and team-checks this path.
- */
+/** bundle.sh signs and team-checks this path. */
 export function replayRecorderBundlePath(
   buildPlatform: BuildPlatform,
   inventory?: PayloadInventory

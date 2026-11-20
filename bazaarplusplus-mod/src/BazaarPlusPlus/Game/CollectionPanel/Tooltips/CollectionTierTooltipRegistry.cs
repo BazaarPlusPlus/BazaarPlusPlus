@@ -9,9 +9,7 @@ internal static class CollectionTierTooltipRegistry
     private static readonly object Gate = new();
     private static readonly HashSet<Card> Cards = new(ReferenceCardComparer.Instance);
 
-    // The tier tooltip's render cache for the last hovered card, owned by the tooltip patch.
-    // Unregistering that card drops it, so a released card (and the run its tooltip data
-    // captured) is not kept alive past a recycle, the closed panel's release or a scene change.
+    // The retained tooltip can hold a recycled card and the run captured by its tooltip data.
     [ThreadStatic]
     private static Card? _previewSlotCard;
 

@@ -51,10 +51,7 @@ public sealed class BppLogEmitter
                 return;
             pipeline.Emit(BppLogSeverity.Debug, logEvent, fieldsFactory(), exception);
         }
-        catch
-        {
-            // Debug diagnostics never affect feature behavior.
-        }
+        catch { }
     }
 
     public void RecoverStorm(BppLogEvent logEvent, IReadOnlyList<BppLogField>? fields)
@@ -67,10 +64,7 @@ public sealed class BppLogEmitter
             else
                 pipeline?.RecoverStorm(logEvent, fields);
         }
-        catch
-        {
-            // Recovery reporting is best effort.
-        }
+        catch { }
     }
 
     public void Flush()

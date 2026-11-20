@@ -2,9 +2,7 @@
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-// L.Install is process-global mutable state. Tests that resolve localized text mutate it,
-// so the whole assembly must run serially to keep one class's install from leaking into
-// another that reads L in parallel.
+// L.Install mutates process-wide localization state, so tests need serial execution.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace BazaarPlusPlus.Tests;

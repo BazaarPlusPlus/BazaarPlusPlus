@@ -5,9 +5,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CosmeticNames;
 
-// One plugin-lifetime driver for every enabled CosmeticNameOverlay: it reads the feature switch
-// and the locale once per frame instead of once per collection item, and it is disabled (no
-// LateUpdate) while no overlay is enabled.
+// A single observer avoids reading the feature switch and locale once per enabled cosmetic.
 internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
 {
     private static readonly List<CosmeticNameOverlay> Overlays = new();
@@ -26,8 +24,6 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
         enabled = Overlays.Count > 0;
     }
 
-    // OnEnable and OnDisable/OnDestroy pair up, so the overlay's own flag keeps each one listed
-    // once without searching the list.
     internal static void Register(CosmeticNameOverlay overlay)
     {
         if (overlay.IsRegistered)
@@ -37,8 +33,7 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
         if (_instance == null || _instance.enabled)
             return;
 
-        // An idle observer's baseline is stale. Overlays refresh with the current values as they
-        // register, so take the baseline now: a change before the next LateUpdate is then seen.
+        // An idle observer's baseline is stale. Resample on registration to catch changes before the next LateUpdate.
         _instance.CaptureBaseline();
         _instance.enabled = true;
     }
@@ -69,8 +64,7 @@ internal sealed class CosmeticNameOverlayObserver : MonoBehaviour
     private void LateUpdate()
     {
         var featureEnabled = _config?.EnableCosmeticNamesConfig.Value ?? false;
-        // Publicized native events have ambiguous backing fields; observe the locale value
-        // just like config values instead of subscribing to LocalizationService.LocaleChanged.
+        // Publicized LocalizationService.LocaleChanged has an ambiguous backing field, so observe the locale value.
         var language = L.CurrentLanguageCode;
         var chineseMode = L.CurrentMode;
         var changed =

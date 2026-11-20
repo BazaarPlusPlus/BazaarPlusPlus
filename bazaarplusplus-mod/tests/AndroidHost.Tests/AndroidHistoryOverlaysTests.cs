@@ -4,11 +4,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// History's modal layer on Android, run with fake overlays: the back key closes the top-most
-/// open one (note, More, inspection, skills); a scene change closes only the overlays that rent
-/// cards, so a note keeps its unsaved draft and More stays open; a close of the panel closes all.
-/// </summary>
 public sealed class AndroidHistoryOverlaysTests
 {
     [Fact]
@@ -38,8 +33,7 @@ public sealed class AndroidHistoryOverlaysTests
         Assert.True(rig.Overlays.AnyOpen);
     }
 
-    // A card overlay returns its cards on a scene change even when it is not open, since the
-    // rental destroys every card right after it.
+    // The rental destroys every card after a scene change, so even a closed overlay must return its cards.
     [Fact]
     public void A_scene_change_with_nothing_open_still_returns_every_card()
     {

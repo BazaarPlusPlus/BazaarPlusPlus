@@ -60,7 +60,6 @@ function updaterProblemMessageKey(problem: UpdaterProblem): MessageKey {
     case 'updater_install_failed':
       return 'updaterProblemInstallFailed';
     case 'updater_restart_failed':
-      // The recovery step names a real OS surface, so it has to match the host.
       return isWindowsPlatform()
         ? 'updaterProblemRestartFailedWindows'
         : 'updaterProblemRestartFailedMac';

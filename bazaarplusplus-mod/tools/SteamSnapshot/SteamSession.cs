@@ -3,7 +3,6 @@ using SteamKit2.Authentication;
 
 namespace BazaarPlusPlus.SteamSnapshot;
 
-/// <summary>One connection to Steam, and the login on it.</summary>
 public sealed class SteamSession : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
@@ -60,7 +59,6 @@ public sealed class SteamSession : IDisposable
         }
     }
 
-    /// <summary>Signs in with a saved login. A rejected login names the step that renews it.</summary>
     public static async Task<SteamSession> SignIn(SteamLogin login)
     {
         var session = await Connect();
@@ -73,8 +71,8 @@ public sealed class SteamSession : IDisposable
                     {
                         Username = login.Account,
                         AccessToken = login.RefreshToken,
-                        // Steam ends an older session with the same login id. Channels run at the
-                        // same time on one account, beside its desktop client.
+                        // Steam ends an older session with the same login ID. Randomize it so concurrent
+                        // channels and the desktop client can share one account.
                         LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
                         ShouldRememberPassword = true,
                     }
@@ -91,7 +89,6 @@ public sealed class SteamSession : IDisposable
         }
     }
 
-    /// <summary>Signs in at the terminal, with Steam Guard, and returns the login to save.</summary>
     public static async Task<SteamLogin> CreateLogin(string account, string password)
     {
         using var session = await Connect();

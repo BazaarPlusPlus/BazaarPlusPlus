@@ -3,7 +3,6 @@ using System.Text;
 using BazaarPlusPlus.Game.PostCombatImpact.Data;
 using BazaarPlusPlus.TestSupport;
 
-/// <summary>The acceptance rules a projected corpus must hold, and its evidence golden.</summary>
 internal static class CorpusAcceptance
 {
     internal static void Validate(CorpusInventoryReport report)
@@ -258,10 +257,6 @@ internal static class CorpusAcceptance
         }
     }
 
-    /// <summary>
-    /// Compares the evidence with its committed golden byte for byte, or rewrites the golden
-    /// under <c>BPP_UPDATE_GOLDENS=1</c>.
-    /// </summary>
     internal static void CompareWithGolden(string goldenPath, string actual)
     {
         if (Environment.GetEnvironmentVariable("BPP_UPDATE_GOLDENS") == "1")

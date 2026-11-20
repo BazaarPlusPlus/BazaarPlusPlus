@@ -42,7 +42,6 @@ internal sealed partial class HistoryPanel
 
     private void TryDeleteSelectedRun() => _coordinator?.DeleteSelected();
 
-    // In Favorites the coordinator hands back the selected favorite, whose note the dialog edits.
     private void TryFavoriteSelectedBattle()
     {
         if (_coordinator?.FavoriteSelected() is { } favorite)

@@ -363,8 +363,6 @@ public sealed class EncounterStructuredParserTests
     [Fact]
     public void TryParseRewardFilter_merges_alternative_filters_of_the_same_card_type()
     {
-        // Weighted alternatives (e.g. a 95%/5% split) of the same card type describe one
-        // pool for display purposes and are unioned.
         var json = """
             {
               "$type": "TCardEncounterStep",
@@ -544,7 +542,6 @@ public sealed class EncounterStructuredParserTests
         Assert.Equal(3, Choices.TryParseEventChoiceLimit(JToken.Parse(json)));
     }
 
-    // Core's parsers over the desktop's enum names, as its card reader runs them.
     private static readonly EncounterChoicePlanParser Choices = new(
         EncounterStructuredParser.NormalizeChoiceEnum
     );

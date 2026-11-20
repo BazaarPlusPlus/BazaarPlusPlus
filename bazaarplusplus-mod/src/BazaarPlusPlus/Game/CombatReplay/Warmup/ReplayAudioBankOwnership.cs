@@ -1,12 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay.Warmup;
 
-/// <summary>
-/// The board SFX banks the replay audio warmup loaded itself and the game has no path to
-/// unload: banks neither half of which was loaded before the warmup, on a board that is not
-/// the player's (the game unloads the player board on <c>RunInterrupted</c>). Drained when a
-/// saved replay settles. No lock: the warmup and the release both run on Unity's main thread.
-/// </summary>
+// RunInterrupted unloads the player board's SFX banks. Warmup and release run on the Unity main thread.
 internal sealed class ReplayAudioBankOwnership
 {
     private readonly List<ReplayAudioBank> _owned = [];

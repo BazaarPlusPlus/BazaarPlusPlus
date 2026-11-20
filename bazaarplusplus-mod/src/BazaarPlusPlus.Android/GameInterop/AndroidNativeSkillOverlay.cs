@@ -8,16 +8,8 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The game's own mobile skill overlay (<c>MobileSkillOverlayController</c>, opened through
-/// <c>PopupManager.ShowMobileSkillOverlay</c>) over skills that are not on a live board, as the
-/// end-of-run summary opens it. Each skill rides a bare <see cref="SkillProxyRenderer"/> that
-/// carries only its card and tier: the overlay reads nothing else, loading the icon from the
-/// card's template art and the frame from its own tier frames. The proxies live under an inactive
-/// root and are destroyed when the overlay closes. While open, the overlay's canvas sorts at
-/// <paramref name="sortingOrder"/> so it stands over the BPP panel that opened it; its own order
-/// comes back on close, since the board opens the same overlay. Main thread only.
-/// </summary>
+// The live board shares this popup, so restore its original canvas sorting order when the rented
+// skills close.
 internal sealed class AndroidNativeSkillOverlay(int sortingOrder) : INativeSkillOverlay
 {
     private GameObject? _proxies;
@@ -25,10 +17,8 @@ internal sealed class AndroidNativeSkillOverlay(int sortingOrder) : INativeSkill
     private bool _shown;
     private (Canvas Canvas, int Order, bool Override)? _raised;
 
-    /// <summary>Requested or showing; the overlay owns input until it closes.</summary>
     public bool IsOpen => _proxies != null;
 
-    /// <summary>False when the game has no popup manager or none of the skills builds a card.</summary>
     public bool Open(IReadOnlyList<CardRentalSubject> skills, string source)
     {
         Close("reopened");
@@ -68,11 +58,7 @@ internal sealed class AndroidNativeSkillOverlay(int sortingOrder) : INativeSkill
         return true;
     }
 
-    /// <summary>
-    /// Every frame while the opener is visible: notices the overlay showing and closing. The
-    /// overlay loads on first use, so a request stays open until it shows and closes, or until
-    /// the opener closes it.
-    /// </summary>
+    // The overlay loads on first use, so it can be absent for several frames after an open request.
     public void Tick()
     {
         if (_proxies == null)
@@ -90,7 +76,6 @@ internal sealed class AndroidNativeSkillOverlay(int sortingOrder) : INativeSkill
             Close("closed");
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (_proxies == null)

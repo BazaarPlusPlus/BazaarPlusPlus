@@ -56,7 +56,6 @@ import {
 import type { SignWithUpdaterKeyOptions } from './managed-payload.ts';
 import { managedPayloadKey } from './manifest.ts';
 
-/** The files of one platform's Payload under the installer directory. */
 export interface PayloadPaths {
   source: string;
   archive: string;
@@ -64,19 +63,16 @@ export interface PayloadPaths {
   journal: string;
 }
 
-/** One hashed release input, or one hashed seed. */
 export interface PayloadInputRecord {
   path: string;
   sha256: string;
 }
 
-/** The Payload input digest and the records it hashes. */
 export interface PayloadInputs {
   digest: string;
   files: PayloadInputRecord[];
 }
 
-/** The options of computePayloadInputs: a Managed directory or game records. */
 export type ComputePayloadInputsOptions =
   | {
       workspaceRoot: string;
@@ -89,14 +85,12 @@ export type ComputePayloadInputsOptions =
       gameRecords: readonly PayloadInputRecord[];
     };
 
-/** One file of the prepared Payload output. */
 export interface PayloadOutputRecord {
   path: string;
   mode: number;
   sha256: string;
 }
 
-/** The sealed Payload build record, payload-build.json. */
 export interface PayloadBuildRecord {
   schemaVersion: number;
   productVersion: ProductVersion;
@@ -109,10 +103,8 @@ export interface PayloadBuildRecord {
   output: PayloadOutputRecord[];
 }
 
-/** The release operation that holds the Payload lock. */
 export type PayloadLockKind = 'prepare' | 'build';
 
-/** The Payload lock file, src-tauri/target/payload.lock. */
 export interface PayloadLock {
   pid: number;
   host: string;
@@ -120,13 +112,11 @@ export interface PayloadLock {
   token: string;
 }
 
-/** A held Payload lock: its token and the function that releases it. */
 export interface PayloadLockHandle {
   token: string;
   release: () => void;
 }
 
-/** The options of promotePayload. */
 export interface PromotePayloadOptions {
   rootDir: string;
   stageRoot: string;
@@ -135,7 +125,6 @@ export interface PromotePayloadOptions {
   rename?: (oldPath: string, newPath: string) => void;
 }
 
-/** What a Payload producer is given to stage the mod build into. */
 export interface ProducePayloadOptions {
   rootDir: string;
   platform: TauriBuildPlatform;
@@ -145,7 +134,6 @@ export interface ProducePayloadOptions {
   buildArgs: string[];
 }
 
-/** The options of preparePayload. */
 export interface PreparePayloadOptions {
   workspaceRoot: string;
   rootDir?: string;
@@ -158,7 +146,6 @@ export interface PreparePayloadOptions {
   validate?: (options: PayloadZipOptions) => void;
 }
 
-/** The options of verifyPayloadBuild. */
 export interface VerifyPayloadBuildOptions {
   workspaceRoot: string;
   rootDir?: string;
@@ -166,7 +153,6 @@ export interface VerifyPayloadBuildOptions {
   verifyNative?: (options: VerifyNativeRecorderInputOptions) => void;
 }
 
-/** The options of buildProduct: preparation plus packaging and recording. */
 export interface BuildProductOptions extends PreparePayloadOptions {
   bundle: (options: { token: string }) => void;
   captureIdentity?: (rootDir: string) => GitState;
@@ -176,7 +162,6 @@ export interface BuildProductOptions extends PreparePayloadOptions {
   sign?: (options: SignWithUpdaterKeyOptions) => string;
 }
 
-// The Payload promotion journal, src-tauri/target/payload-promotion.json.
 interface PromotionReplacement {
   source: string;
   destination: string;
@@ -221,16 +206,12 @@ export function payloadPaths(
   };
 }
 
-// Workspace files outside the scanned directories that feed every Payload.
-// computePayloadInputs skips a missing one, so release-inputs.test.ts keeps
-// every entry real.
+// release-inputs.test.ts verifies these paths exist because missing inputs are skipped.
 export const PAYLOAD_TOOLING_INPUTS = [
   'scripts/git-command.ts',
   'bazaarplusplus-installer/src-tauri/history-database-compatibility.json'
 ];
 
-// `gameRecords` replaces the Managed directory records for a host that does
-// not compile against Managed: the Android host's Interop Snapshot.
 export function computePayloadInputs({
   workspaceRoot,
   managedPath,
@@ -294,8 +275,6 @@ export function computePayloadInputs({
     path: 'VERSION',
     sha256: hash(fs.readFileSync(path.join(workspaceRoot, 'VERSION')))
   });
-  // Game references are inputs, not just a path or a Steam branch name. The
-  // same records, hashed alone, are the Snapshot Lock entry's sha256.
   records.push(...(gameRecords ?? managedDirectoryRecords(managedPath)));
   records.sort((a, b) => a.path.localeCompare(b.path));
   return { digest: hash(JSON.stringify(records)), files: records };
@@ -395,9 +374,6 @@ export function assertBuildOwner(
   process.kill(lock.pid, 0);
 }
 
-// One release operation per checkout at a time, desktop or Android. Returns
-// the lock token and the function that releases it; an asynchronous holder
-// (the Android release) releases it once its operation settles.
 export function acquirePayloadLock(
   rootDir: string,
   kind: PayloadLockKind
@@ -571,10 +547,7 @@ export function assertReleaseBuildArgs(
   msbuildArgs: readonly string[],
   platform?: BuildPlatform
 ): void {
-  // Only the game reference directories are caller-selectable: Managed for a
-  // desktop host, the Interop Snapshot and Loader Release for Android (each
-  // still checked against the Snapshot Lock). Build graph, compiler, output and
-  // version overrides would invalidate source provenance.
+  // Build graph, compiler, output and version overrides would invalidate source provenance.
   const names =
     platform === 'android' ? 'InteropPath|LemonLoaderPath' : 'ManagedPath';
   const allowed = new RegExp(`^(?:-p:|--property:)(?:${names})=[^;\\r\\n]+$`);
@@ -685,8 +658,6 @@ function preparePayloadUnlocked({
     )
       throw new Error('Release inputs changed while building the Payload');
     verifyNative({ rootDir: stagedInstaller, platforms: [platform] });
-    // Every install carries the manifest of its own Managed Payload; it is
-    // written once every non-managed file it digests is staged.
     writeManagedPayloadManifest({
       sourceDir: staged.source,
       platform,
@@ -750,8 +721,6 @@ export function preparePayload(
   );
 }
 
-// The signed Managed Payload zip of the sealed Payload source, beside the
-// release artifacts (mod ADR-0014).
 function writeDesktopManagedPayload({
   rootDir,
   workspaceRoot,

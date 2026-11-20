@@ -39,7 +39,6 @@ test('the three images read the analyzer goldens and fill every value', () => {
   const players = renderPlayers(highlights);
   for (const html of [overview, heroes, players])
     expect(html).not.toMatch(/\{\{\w+\}\}/);
-  // Hero names are the game's Simplified Chinese ones.
   expect(heroes).toContain('瓦内莎');
   for (const card of highlights.ten_win_cards)
     expect(heroes).toContain(card.name);

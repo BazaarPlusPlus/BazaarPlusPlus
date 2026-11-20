@@ -7,16 +7,8 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The compiled host's interop-array rule (ADR-0009: compiled artifacts, never source text).
-/// <c>new Il2CppStringArray(0)</c> or <c>new Il2CppStructArray&lt;Vector3&gt;(4)</c> binds an int
-/// literal to the array's <c>(IntPtr pointer)</c> constructor, not its <c>(long size)</c> one,
-/// because <c>int</c> converts implicitly to <c>nint</c>: the proxy wraps address 0 or 4. On the
-/// device the first faulted History with a SIGSEGV in <c>RectTransform.GetWorldCorners</c> and the
-/// second threw from the replay's opponent loadout, so the host never wraps a raw pointer. The
-/// shared IL index drops primitive parameter types, so this rule decodes the constructor
-/// references the host's metadata holds itself.
-/// </summary>
+// An int literal binds to the interop array's IntPtr overload, wrapping the literal as an address.
+// Decode the signature here because the shared IL index drops primitive parameter types.
 public sealed class AndroidHostInteropRuleTests
 {
     private const string ArrayNamespace = "Il2CppInterop.Runtime.InteropTypes.Arrays";
@@ -77,7 +69,6 @@ public sealed class AndroidHostInteropRuleTests
                 violations.Add($"{owner}::.ctor(System.IntPtr)");
         }
 
-        // The rule must see the host's interop arrays, or it proves nothing.
         Assert.True(arrayConstructors > 0, "the host constructs no interop array");
         Assert.True(
             violations.Count == 0,
@@ -104,7 +95,6 @@ public sealed class AndroidHostInteropRuleTests
             _ => null,
         };
 
-    /// <summary>Full names, with primitives named by their System type.</summary>
     private sealed class SignatureNames : ISignatureTypeProvider<string, object?>
     {
         public string GetPrimitiveType(PrimitiveTypeCode typeCode) =>

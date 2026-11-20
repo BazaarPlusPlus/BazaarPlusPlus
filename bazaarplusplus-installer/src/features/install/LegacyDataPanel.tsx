@@ -8,12 +8,7 @@ import type {
   LegacyDataWorkflow
 } from './legacyDataWorkflow';
 
-/**
- * Folders earlier major versions wrote into the game directory. Each one is
- * deleted only after its own confirmation; the installed-mod hint asks for a
- * reinstall when the mod on disk still writes one of them.
- * `LEGACY_DATA_SECTION_ID` is the anchor History links to for that reinstall.
- */
+/** History's reinstall link targets this anchor. */
 export const LEGACY_DATA_SECTION_ID = 'legacy-data';
 
 export function LegacyDataPanel({
@@ -39,7 +34,6 @@ export function LegacyDataPanel({
     );
   }
   const data = load.phase === 'idle' ? null : load.data;
-  // Without a game directory there is nothing to list or reinstall into.
   if (!data?.game_path) return null;
 
   const reinstallRequired =

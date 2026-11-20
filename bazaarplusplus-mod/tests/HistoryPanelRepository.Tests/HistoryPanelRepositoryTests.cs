@@ -7,9 +7,6 @@ using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// History's repository over a real run log database. The capsule ran this sequence over one
-// database first; the other classes are the checks it ran after it, each over its own files in
-// a temp root.
 public sealed class HistoryPanelRepositoryTests : IDisposable
 {
     private readonly string root = TestRoot.Create();
@@ -64,8 +61,6 @@ public sealed class HistoryPanelRepositoryTests : IDisposable
             "DeleteRun must retain successful MP4 metadata as a discoverable detached artifact."
         );
 
-        // A completed Ranked Run whose Bundle is still owed is refused inside the delete, and the
-        // row says so before any delete is tried; a pending outbox row ends the protection.
         store.CreateRun(
             new RunLogCreateRequest
             {
@@ -222,7 +217,6 @@ public sealed class HistoryPanelRepositoryTests : IDisposable
             Result = "unknown",
         };
 
-    // Summary pages must remain independent of malformed or absent snapshot documents.
     private static void AssertRecentRunProjection(string databasePath)
     {
         using var connection = new SqliteConnection($"Data Source={databasePath}");
@@ -233,7 +227,6 @@ public sealed class HistoryPanelRepositoryTests : IDisposable
         // Ends last despite starting first, so a wrong ordering key surfaces here.
         InsertRun(connection, "run-newest", started: 1767268800000L, ended: 1767398400000L);
 
-        // Two countable battles.
         InsertLocalBattle(connection, "b-ok-1", "run-newest");
         const string emptyCapture =
             "{\"Items\":[],\"Status\":\"CapturedEmpty\",\"Source\":\"Unknown\"}";
@@ -247,12 +240,9 @@ public sealed class HistoryPanelRepositoryTests : IDisposable
         );
         InsertLocalBattle(connection, "b-ok-2", "run-newest");
         InsertSnapshot(connection, "b-ok-2", "[1]", "[2]", "[3]", "[4]");
-        // Malformed snapshot document: present but not countable.
         InsertLocalBattle(connection, "b-bad-json", "run-newest");
         InsertSnapshot(connection, "b-bad-json", "[]", "not json", "[]", "[]");
-        // Battle without any snapshot row: not countable.
         InsertLocalBattle(connection, "b-no-snapshot", "run-newest");
-        // Ghost battles never belong to a run and must never be counted.
         InsertGhostBattle(connection, "b-ghost");
         InsertSnapshot(connection, "b-ghost", "[]", "[]", "[]", "[]");
 

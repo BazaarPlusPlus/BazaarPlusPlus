@@ -1,7 +1,5 @@
-// tauri-build copies bundle resources even during clippy/test/doc. Source
-// checks and binding export need no prepared release ZIP. Return a child-only
-// override so subsequent packaging still checks the real bundle inputs.
-// The TAURI_CONFIG override JSON; only its bundle resources are replaced.
+// `tauri-build` copies resources during source checks, which lack a prepared release ZIP.
+// Keep the override child-only so packaging still checks the real resources.
 interface TauriConfigOverride {
   bundle?: Record<string, unknown>;
   [key: string]: unknown;

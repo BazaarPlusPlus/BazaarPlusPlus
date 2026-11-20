@@ -4,8 +4,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using Xunit;
 
-// A Ghost is marked when its challenger fought a build the player favorited: the player's hero,
-// day, level, prestige and victories on both sides, and the Ghost recorded after the favorite.
 public sealed class FavoriteBuildsTests
 {
     private static readonly DateTimeOffset Favorited = DateTimeOffset.Parse("2026-11-13T12:00:00Z");
@@ -100,7 +98,6 @@ public sealed class FavoriteBuildsTests
     {
         var builds = FavoriteBuilds.From([Battle(HistoryBattleSource.Local)]);
 
-        // A Ghost stored before the server returned the local player's progress.
         Assert.False(
             builds.Matches(
                 Battle(HistoryBattleSource.Ghost, level: null, prestige: null, victories: null)

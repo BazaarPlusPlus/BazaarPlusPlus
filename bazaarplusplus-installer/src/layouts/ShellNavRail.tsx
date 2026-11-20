@@ -6,8 +6,6 @@ import type { AppBootstrapController } from '../features/about/useAppBootstrap';
 import { useI18n } from '../i18n/LocaleProvider';
 import { ShellSupportMenu } from './ShellSupportMenu';
 
-/** Icon rail: the four pages, then support and language at its foot. Route
- *  changes are immediate; nothing waits on an animation before navigating. */
 export function ShellNavRail({
   bootstrap,
   supportTriggerRef,

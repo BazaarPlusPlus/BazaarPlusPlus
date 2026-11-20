@@ -22,7 +22,6 @@ public enum UploadLogReasonCode
     PayloadInvalid,
     PayloadUnreadable,
 
-    // Pending Bundles wait out the queue backoff after the endpoint was unavailable.
     QueueBackoff,
 }
 

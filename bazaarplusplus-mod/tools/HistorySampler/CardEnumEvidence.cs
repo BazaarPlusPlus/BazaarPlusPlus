@@ -4,10 +4,6 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.HistorySampler;
 
-/// <summary>
-/// The game-typed card reads, from the card enum table both hosts are held to. The tool never
-/// verifies a replay: the game does that when it plays one.
-/// </summary>
 internal sealed class CardEnumEvidence : IPvpBattleEvidenceBinding
 {
     public static CardEnumEvidence Instance { get; } = new();

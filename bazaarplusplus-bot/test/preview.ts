@@ -1,11 +1,3 @@
-// Renders the stats and hero images from real Bundles; never sends a QQ message.
-//
-//   bun test/preview.ts <bundle dir> [--name <shown name>] [--art <Card Art dir>]
-//
-// <bundle dir> holds one player's *.bundle files (for example fetched with
-// `wrangler r2 object get`). Hero metrics, builds and names come from the CDN.
-// --art serves a local `just bot::card-art` output in place of the published
-// card-art/ set. Images go to artifacts/qqbot/.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -68,7 +60,6 @@ const input: ReportInput = {
   name: values.name ?? `玩家 ${runs[0].account.slice(0, 8)}`,
   runs,
   names: translations,
-  // Beijing midnight at or before the first Run.
   from:
     Math.floor((runs[0].ended! + 8 * 3_600_000) / day) * day - 8 * 3_600_000,
   before,

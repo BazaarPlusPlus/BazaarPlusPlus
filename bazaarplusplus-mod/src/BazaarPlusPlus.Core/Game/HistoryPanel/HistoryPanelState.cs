@@ -12,9 +12,7 @@ public enum HistorySectionMode
     Favorites,
 }
 
-// TrySyncGhostBattlesAsync alone writes Running, Failed, and Completed; each session boundary
-// (OnPanelHidden, ObserveAccount) writes NotStarted, because a sync its session cancelled returns
-// without touching state and would otherwise stay Running.
+// Session boundaries reset the sync phase because cancelled syncs return without clearing Running.
 public enum GhostSyncPhase
 {
     NotStarted,
@@ -49,7 +47,6 @@ public sealed class HistoryPanelState
     public HistoryCountedPage<HistoryFavoriteRecord> FavoritePage { get; set; } =
         HistoryCountedPage<HistoryFavoriteRecord>.Empty();
 
-    // The detail read for DetailBattleId returned snapshots; the host keeps the snapshots.
     public bool DetailLoaded { get; set; }
     public string? DetailBattleId { get; set; }
     public bool DetailLoading { get; set; }
@@ -65,7 +62,6 @@ public sealed class HistoryPanelState
 
     public int SelectedFavoriteIndex { get; set; }
 
-    // Whether the battle the detail read last checked (Runs or Ghost) is already a favorite.
     public string? FavoriteCheckBattleId { get; set; }
     public bool FavoriteCheckIsFavorite { get; set; }
     public bool FavoriteActionInProgress { get; set; }
@@ -76,22 +72,17 @@ public sealed class HistoryPanelState
 
     public bool GhostDayMin10 { get; set; }
 
-    // Read with each Ghost page; the rows that fought one of these show the favorite build mark.
     public FavoriteBuilds FavoriteBuilds { get; set; } = FavoriteBuilds.None;
 
     public string? StatusMessage { get; set; }
 
     public StatusSeverity StatusSeverity { get; set; }
 
-    // Keyed by run id in Runs and by battle id in Favorites, where the delete button removes the
-    // favorite; every section change and archive load clears it.
     public DeleteConfirmation DeleteRunConfirmation { get; set; }
 
     public bool DeleteRunConfirmationStatusActive { get; set; }
 
-    // The run a confirmed delete is removing off the main thread. Only the delete clears it, when
-    // it ends: it cannot be cancelled, so a session boundary leaves it alone. Delete stays
-    // disabled meanwhile, and the run's replay and favorite actions too.
+    // A run delete cannot be cancelled, so only the delete itself clears this flag, even across session boundaries.
     public string? DeletingRunId { get; set; }
 
     public bool RunDeleteInProgress => DeletingRunId != null;
@@ -112,7 +103,6 @@ public sealed class HistoryPanelState
 
     public bool LocalLinkedHint { get; set; }
 
-    // Pure UI disclosure flag; panels open with account linking collapsed by default.
     public bool AccountLinkExpanded { get; set; }
 
     public string? AccountLinkBannerMessage { get; set; }

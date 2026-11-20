@@ -2,9 +2,6 @@
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// What a Main Overlay Panel hands the Overlay Panel Host. Lifecycle (mutual exclusion, scene
-// change, Panel Switch-Off, combat gate, toggle and escape routing, per-frame tick dispatch) is
-// host-owned; the panel supplies content callbacks only.
 public sealed class OverlayPanelRegistration
 {
     public OverlayPanelRegistration(
@@ -26,27 +23,23 @@ public sealed class OverlayPanelRegistration
 
     public SceneChangeClosePolicy SceneChangeClose { get; init; } = SceneChangeClosePolicy.Always;
 
-    // The panel's switch. Null means always enabled. A true-to-false edge closes the panel with
-    // SwitchedOff and then calls OnSwitchedOff; a disabled panel never opens.
     public Func<bool>? Enabled { get; init; }
 
     public Func<bool>? IsModalInputActive { get; init; }
     public Action? DismissModal { get; init; }
 
-    // Unconditional scene-change side effects (dispose runtime state, re-arm prewarm, ...).
-    // Runs on every scene change regardless of visibility, after any policy-driven close.
+    // Scene cleanup runs after policy close even for hidden panels, which can still own runtime state.
     public Action? OnSceneChanged { get; init; }
 
-    // Runs on every switch-off edge, open or not, after the SwitchedOff close.
+    // Switch-off cleanup runs after the close and also reaches hidden panels.
     public Action? OnSwitchedOff { get; init; }
 
-    // Returns false when the panel could not open; the panel stays closed and no OnClose follows.
+    // A false return must leave no partial view because the host will skip OnClose.
     public Func<bool> OnOpen { get; }
 
     public Action<OverlayCloseReason> OnClose { get; }
 
-    // Called every frame after lifecycle directives, with visibility read at call time. Panels
-    // keep their closed-state work (fades, cache warmup, deferred cleanup) inside this.
+    // Hidden panels still tick so fades, warmup and deferred cleanup can finish.
     public Action<float, bool> Tick { get; }
 }
 
@@ -54,7 +47,7 @@ public interface IOverlayPanelHandle : IDisposable
 {
     bool IsVisible { get; }
 
-    // Synchronous: enabled and combat gates, close-others and OnOpen run at the call site.
+    // External opens resolve synchronously so mutual exclusion holds within the calling frame.
     OverlayRequestOutcome RequestOpen();
 
     OverlayRequestOutcome RequestClose();
@@ -96,8 +89,6 @@ public enum OverlayRequestOutcome
     Busy,
 }
 
-// Why the Host's own resources (Android card rentals) are released. A plain close never
-// releases them.
 public enum OverlayReleaseReason
 {
     SceneChange,

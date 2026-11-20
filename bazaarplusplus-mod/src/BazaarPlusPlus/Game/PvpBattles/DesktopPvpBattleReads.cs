@@ -12,11 +12,6 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Game.PvpBattles;
 
-/// <summary>
-/// The desktop's reads for <see cref="PvpBattleCaptureWindow{TMessage}"/>: Mono net messages, the
-/// client's <c>Data</c> statics for the player, and replay parts serialized at the close. Every
-/// read may throw; the window guards each one.
-/// </summary>
 internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
 {
     public PvpBattleSignal Classify(INetMessage message) =>
@@ -149,8 +144,6 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
         return attributes;
     }
 
-    // Runs once per part when the window closes, inside the call that delivered the closing
-    // message; a throw is left to the window, which fails the part.
     private static byte[] Serialize<T>(T message) =>
         MessagePackSerializer.Serialize(message, MessagePackConfig.Options);
 

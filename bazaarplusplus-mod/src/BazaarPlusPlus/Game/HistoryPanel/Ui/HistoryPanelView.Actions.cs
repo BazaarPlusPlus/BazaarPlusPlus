@@ -36,8 +36,6 @@ internal sealed partial class HistoryPanelView
         _accountWhy = null!,
         _accountBanner = null!;
 
-    // The actions on the selected record: delete at the left, away from the others; the
-    // status line between; favorite, record and replay at the right, replay last.
     private void CreateActions(DesktopKit kit, RectTransform detail)
     {
         var actions = Line(detail, "Actions", InGameSizes.Space8);
@@ -68,7 +66,6 @@ internal sealed partial class HistoryPanelView
         );
     }
 
-    // More: the local database with the server check, then the account link.
     private void CreateMoreDialog(DesktopKit kit)
     {
         _more = kit.Modal(_layout!, "HistoryMoreDialog", DialogWidth, InGameTheme.Scrim);
@@ -184,8 +181,7 @@ internal sealed partial class HistoryPanelView
         _recordButton.gameObject.SetActive(m.RecordAndReplayButtonVisible && hasBattle);
         _recordButton.Label = m.RecordAndReplayButtonText;
         _recordButton.interactable = m.RecordAndReplayButtonEnabled && !m.PageLoading;
-        // Unavailable reads as dimmed but stays pressable: the press puts the reason on the
-        // status line. A busy replay or a loading page does not take presses.
+        // Keep unavailable actions pressable so a click can show the reason in the status line.
         _replayButton.gameObject.SetActive(hasBattle);
         _replayButton.Label = m.ReplayButtonText;
         _replayButton.interactable = !m.ReplayButtonBusy && !m.PageLoading;
@@ -220,7 +216,6 @@ internal sealed partial class HistoryPanelView
         Show(_accountBanner, m.AccountLinkBannerText, StatusColor(m.AccountLinkBannerSeverity));
     }
 
-    // A text that takes no room in its column while it has nothing to say.
     private static void Show(TextMeshProUGUI text, string? value, Color color)
     {
         text.text = value ?? string.Empty;

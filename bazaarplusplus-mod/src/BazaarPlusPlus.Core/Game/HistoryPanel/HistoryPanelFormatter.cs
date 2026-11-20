@@ -75,7 +75,6 @@ public static class HistoryPanelFormatter
         return value.ToLocalTime().ToString("g", ResolveTimestampCulture());
     }
 
-    // A row's stamp: month, day and time, with the year only when it is not this year's.
     public static string RowStamp(DateTimeOffset value, DateTimeOffset now)
     {
         var local = value.ToLocalTime();

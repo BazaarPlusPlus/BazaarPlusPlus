@@ -3,8 +3,7 @@ using BazaarPlusPlus.Game.CollectionPanel.Ui;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Complete presentable result of a Collection view-state transition. Null command results mean
-// the command was a same-value no-op (no debounce cancel, no render, no scroll reset).
+// A null command result is a no-op. Preserve pending search debounce and scroll position.
 public sealed class CollectionRenderOutcome
 {
     public CollectionRenderOutcome(

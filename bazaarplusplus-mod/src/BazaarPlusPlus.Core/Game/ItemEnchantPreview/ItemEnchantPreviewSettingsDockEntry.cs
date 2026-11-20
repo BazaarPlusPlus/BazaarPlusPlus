@@ -6,7 +6,6 @@ namespace BazaarPlusPlus.Game.ItemEnchantPreview;
 
 public static class ItemEnchantPreviewSettingsDockEntry
 {
-    /// <param name="onChanged">The host's reaction after a mode is written, such as logging it.</param>
     public static CyclingSettingsDockEntry<PreviewVisibilityMode> Create(
         Action<PreviewVisibilityMode>? onChanged = null
     ) =>

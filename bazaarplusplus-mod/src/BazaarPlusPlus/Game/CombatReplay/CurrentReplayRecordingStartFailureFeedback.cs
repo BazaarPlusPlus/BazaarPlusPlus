@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// Retains synchronous start feedback across the controller's immediate and per-frame refreshes.
-/// A meaningful display-state transition owns clearing stale feedback; diagnostic prose is
-/// deliberately excluded from that identity because it is not user-visible state.
-/// </summary>
+// Diagnostic prose can change without changing the user-visible state that clears failure feedback.
 internal sealed class CurrentReplayRecordingStartFailureFeedback
 {
     private CurrentReplayRecordingStatusCode? _statusCode;

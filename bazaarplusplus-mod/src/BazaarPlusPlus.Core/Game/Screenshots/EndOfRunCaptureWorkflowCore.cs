@@ -917,10 +917,8 @@ public sealed class EndOfRunCaptureWorkflowCore<TScreen>
         }
     }
 
-    // Unblocking is requested on every frame away from the summary, so it reaches the surface
-    // only while the surface may still hold a physical blocker: from any attach attempt (a
-    // throwing attach can leave it half active) until a detach returns normally (a throwing
-    // detach is retried on the next request).
+    // Attach can throw after leaving a physical blocker behind. Keep attempting detach until
+    // one returns normally so Continue cannot remain blocked.
     private void SetContinueBlocked(TScreen? screen, bool blocked)
     {
         if (blocked ? _state.ContinueBlocked : !_surfaceMayBlock)

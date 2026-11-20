@@ -15,7 +15,6 @@ public sealed class LiveBuildPanelLayoutTests
     [InlineData(1600, 1200)]
     public void Four_equal_boards_and_their_text_fit_the_scaled_canvas(float width, float height)
     {
-        // Match the panel's height-scaled canvas, including ultrawide displays.
         var canvasScale = height / 1000;
         var panel = new LiveBuildPanelLayout(width / canvasScale, height / canvasScale);
         var previousBottom = LiveBuildPanelLayout.HeaderHeight;

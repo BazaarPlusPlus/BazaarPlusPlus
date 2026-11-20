@@ -1,10 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure.Logging;
 
-/// <summary>
-/// Closed, low-cardinality owner of an operational event. Feature code selects a declared scope;
-/// it never manufactures a component name from runtime data.
-/// </summary>
+// Declare scopes centrally to keep event cardinality independent of runtime data.
 public sealed class BppLogFeatureScope
 {
     public static BppLogFeatureScope Logger { get; } = new("Logger", "logging");
@@ -115,12 +112,7 @@ public enum BppLogCorrelationPolicy
     Hash,
 }
 
-/// <summary>
-/// One operational event, written at its call site: a closed scope, a literal dotted-snake id
-/// under the scope's prefix, and the storm key. <c>Storm == null</c> never suppresses;
-/// <c>storm: []</c> suppresses repeats of the id; named keys suppress repeats whose named
-/// fields carry equal values. Errors key on correlation fields and the exception type instead.
-/// </summary>
+// A null storm key disables suppression. An empty key groups by event ID alone.
 public readonly struct BppLogEvent
 {
     public BppLogEvent(BppLogFeatureScope scope, string id, string[]? storm = null)
@@ -137,12 +129,7 @@ public readonly struct BppLogEvent
     public IReadOnlyList<string>? Storm { get; }
 }
 
-/// <summary>
-/// One rendered field, written at its call site as <c>("name", value)</c> or
-/// <c>("name", value, policy)</c>. The policy is the privacy contract: <c>Short</c> renders the
-/// first 8 characters, <c>Hash</c> the first 12 hex digits of SHA-256, <c>Full</c> marks a
-/// correlation id rendered verbatim, and <c>None</c> renders the value verbatim.
-/// </summary>
+// The field policy defines which correlation identifiers may appear verbatim in logs.
 public readonly struct BppLogField
 {
     public BppLogField(

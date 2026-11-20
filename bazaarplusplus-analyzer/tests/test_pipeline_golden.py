@@ -1,11 +1,3 @@
-"""Bundle Server → facts → seal → heroes/builds snapshots, compared byte for byte.
-
-``just analyzer::golden`` rewrites the four goldens; ``just analyzer::test`` only
-compares. The snapshot goldens are shared consumer fixtures under
-``contracts/v6/fixtures/``; the run report is run evidence and stays in
-``tests/fixtures/``.
-"""
-
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,11 +22,7 @@ from tests.pipeline_fixtures import (
     golden_day_bundles,
 )
 
-# Source Day 2026-08-10 is the only day with Bundles. At 00:30 on 08-11,
-# healing_days(now, 2) is [08-10, 08-11]. is_hour_settled requires
-# now >= hour + 1h + 60s, so all 24 Source Hours of 08-10 settle and the day is
-# sealed, while 08-11 has no settled hour and stays incomplete. The Analysis
-# Window is therefore exactly one day.
+# The settle lag leaves the current day incomplete, so the window contains one day.
 CLOCK = datetime(2026, 8, 11, 0, 30, tzinfo=UTC)
 WALL_CLOCK_DOWNLOAD_FIELDS = ("download_latency_ms_p50", "download_latency_ms_p95")
 
@@ -75,7 +63,6 @@ def test_one_bundle_day_reproduces_the_committed_snapshots_and_run_report(
     assert build_payload["heroes"]["Mak"]["builds"][0][1][-1][2:] == [1, 0, 1]
     assert build_payload["heroes"]["Stelle"]["builds"][0][1][-1][2:] == [5, 0, 1]
 
-    # A golden that proves nothing must never be committed.
     assert report["window"] == {"start": "2026-08-10", "end": "2026-08-10", "days": 1}
     assert report["builds"]["published_builds"] >= 1
     assert report["facts"]["discarded_unknown_hero"] > 0
@@ -91,7 +78,6 @@ def test_one_bundle_day_reproduces_the_committed_snapshots_and_run_report(
     assert_golden(CONTRACT_FIXTURES / "builds.latest.json", builds)
     assert_golden(TEST_FIXTURES / "pipeline-golden.run-report.json", canonical_json(report))
 
-    # Daily Highlights read the same sealed day; the golden day has a Ten-Win Run.
     store = FactStore(tmp_path)
     resources = AnalysisResources("1GB", 1)
     highlights = build_highlights(store, "2026-08-10", resources)

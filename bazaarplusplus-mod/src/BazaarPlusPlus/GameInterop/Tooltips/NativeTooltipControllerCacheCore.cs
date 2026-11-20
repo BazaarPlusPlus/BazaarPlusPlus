@@ -2,7 +2,6 @@
 
 namespace BazaarPlusPlus.GameInterop.Tooltips;
 
-/// <summary>Monotonic invalidation signal emitted by native controller lifecycle patches.</summary>
 internal sealed class NativeTooltipControllerTopologyGeneration
 {
     private int _generation;
@@ -12,7 +11,6 @@ internal sealed class NativeTooltipControllerTopologyGeneration
     internal void ObserveControllerLifecycleChange() => Interlocked.Increment(ref _generation);
 }
 
-/// <summary>Keeps one native-controller snapshot until topology or object lifetime invalidates it.</summary>
 internal sealed class NativeTooltipControllerCacheCore<TController>
 {
     private TController[] _controllers = [];

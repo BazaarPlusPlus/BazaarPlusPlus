@@ -4,13 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The run's item and skill tier odds for the current day, the desktop's
-/// <c>GameDataDayTierSource</c> on IL2CPP: the run's game mode's
-/// <c>ItemSkillSpawnTierPercantagesByDay</c>, normalized by Core's
-/// <see cref="GameDataDayTierTable"/>. Null outside a run, before static data loads, or for a day
-/// the mode has no odds for. Main thread only.
-/// </summary>
 internal static class AndroidDayTiers
 {
     private static int _failures;

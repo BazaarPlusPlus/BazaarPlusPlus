@@ -17,13 +17,6 @@ using Il2CppTheBazaar.Tooltips;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The desktop's <c>UpgradePreviewValueProjection</c> over the IL2CPP game types: a copy of the
-/// item at its next tier, carrying the runtime gains it has over its current tier's base values
-/// and the out-of-combat multiplier auras of the cards around it, and the tooltip tokens
-/// resolved again against that copy. The arithmetic is Core's
-/// <see cref="UpgradePreviewValueMath"/>, shared with the desktop.
-/// </summary>
 internal sealed class AndroidUpgradePreviewValueProjection
 {
     private readonly ItemCard _source;
@@ -48,7 +41,6 @@ internal sealed class AndroidUpgradePreviewValueProjection
 
     public ETier ProjectedTier => _card.Tier;
 
-    /// <summary>Why the last multiplier resolution failed, or null; read once by the caller.</summary>
     public Exception? MultiplierFailure { get; private set; }
 
     public static bool TryCreate(
@@ -91,12 +83,11 @@ internal sealed class AndroidUpgradePreviewValueProjection
                 : nextBase.Value;
         }
 
-        // The game's own copy keeps the section, socket owner, tags, and enchantment.
         var card = Il2CppTheBazaar.CardExtensions.CreateCopy(source)?.TryCast<ItemCard>();
         if (card == null)
             return false;
         card.Tier = nextTier;
-        // Copies, as the desktop's projection makes: the source's own sets stay the source's.
+        // Copy mutable sets so the next-tier projection cannot change the live card's sets.
         card.Heroes = CopyOf(source.Heroes);
         card.HiddenTags = CopyOf(source.HiddenTags);
         card.State = source.State;
@@ -112,7 +103,6 @@ internal sealed class AndroidUpgradePreviewValueProjection
         return true;
     }
 
-    /// <summary>The value <paramref name="token"/> resolves to on the next-tier copy.</summary>
     public bool TryResolve(ITooltipToken token, out float value)
     {
         value = default;
@@ -181,7 +171,6 @@ internal sealed class AndroidUpgradePreviewValueProjection
         Dictionary<ECardAttributeType, UpgradePreviewMultipliers> auraMultipliers;
         try
         {
-            // The auras read the copy's attributes as they stand after the additive projection.
             _card.Attributes = Write(attributes);
             auraMultipliers = AuraMultipliers.Resolve(_source, _card, run);
         }
@@ -281,16 +270,8 @@ internal sealed class AndroidUpgradePreviewValueProjection
         where T : unmanaged =>
         value.HasValue ? new Il2CppSystem.Nullable<T>(value.Value) : new Il2CppSystem.Nullable<T>();
 
-    /// <summary>
-    /// The out-of-combat <c>Multiply</c> attribute auras that reach the item, from itself and from
-    /// every card its player and opponent hold, once as it is and once with its own auras at the
-    /// next tier.
-    /// </summary>
-    /// <remarks>
-    /// Counterpart of the desktop's <c>UpgradePreviewAttributeMultiplierResolver</c>, which
-    /// names this class back: the two walk the same game rules over different bindings, so a
-    /// fix to which auras count, or when, lands in both in one change.
-    /// </remarks>
+    // Keep aura eligibility and timing in sync with the Desktop Host's
+    // UpgradePreviewAttributeMultiplierResolver.
     private static class AuraMultipliers
     {
         public static Dictionary<ECardAttributeType, UpgradePreviewMultipliers> Resolve(

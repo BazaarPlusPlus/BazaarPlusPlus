@@ -1,12 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Reads release/github-secrets.json, the one owner of every GitHub secret and
-// variable the workflows consume, for `bun scripts/workspace.ts secrets` and
-// .github/scripts/release-secrets.sh (through the CLI at the bottom). Nothing
-// here reads a value; the table only names scopes and local sources.
+// The CLI and release-secrets.sh share this table of names and scopes. It contains no secret values.
 
-/** The GitHub scope a secret or variable is set in. */
 export type GithubSecretScope =
   | 'repository-secret'
   | 'repository-variable'
@@ -20,7 +16,6 @@ export type GithubSecretReleaseStage = 'prepare' | 'release';
 /** The release.yml platform whose signing needs an item. */
 export type GithubSecretReleasePlatform = 'macos' | 'windows' | 'android';
 
-/** Where `secrets push` reads an item's value: a config.toml key or a keys/ file. */
 export interface GithubSecretLocal {
   section?: string;
   key?: string;
@@ -28,13 +23,11 @@ export interface GithubSecretLocal {
   encoded?: 'base64';
 }
 
-/** The release.yml stage, and optionally the platform, that needs an item. */
 export interface GithubSecretRelease {
   stage: GithubSecretReleaseStage;
   platform?: GithubSecretReleasePlatform;
 }
 
-/** One item of release/github-secrets.json. */
 export interface GithubSecretItem {
   name: string;
   scope: GithubSecretScope;
@@ -44,12 +37,10 @@ export interface GithubSecretItem {
   purpose: string;
 }
 
-/** release/github-secrets.json after validation. */
 export interface GithubSecretsTable {
   items: GithubSecretItem[];
 }
 
-/** The options of cliMain. */
 export interface GithubSecretsCliOptions {
   workspaceRoot?: string;
 }
@@ -103,7 +94,6 @@ export function loadGithubSecrets(
   workspaceRoot: string = path.resolve(import.meta.dirname, '..')
 ): GithubSecretsTable {
   const file = path.join(workspaceRoot, GITHUB_SECRETS_PATH);
-  // assertItem checks each item against the shape its type claims.
   const table = JSON.parse(fs.readFileSync(file, 'utf8')) as {
     items?: GithubSecretItem[];
   };
@@ -119,7 +109,6 @@ export function loadGithubSecrets(
   return { items: table.items };
 }
 
-// Where `secrets push` reads the value, as release-secrets.sh prints it.
 export function localSource(item: GithubSecretItem): string {
   const { local } = item;
   if (local.file)
@@ -129,13 +118,10 @@ export function localSource(item: GithubSecretItem): string {
   return `config.toml [${local.section}] ${local.key}`;
 }
 
-// Names release.yml reads, in table order.
 export function releaseWorkflowNames(table: GithubSecretsTable): string[] {
   return table.items.filter((item) => item.release).map((item) => item.name);
 }
 
-// Names one release.yml run needs: every prepare item, plus the signing items
-// of the platform for a release stage.
 export function requiredForRelease(
   table: GithubSecretsTable,
   platform: string,

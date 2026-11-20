@@ -3,7 +3,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>Scrollable native tooltip text; long effects stay readable at the body text floor.</summary>
 internal sealed class InspectionText
 {
     private readonly ScrollRect _scroll;

@@ -5,10 +5,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// Architecture.Tests holds the Desktop UI to <see cref="InGameColourRule"/>; no desktop build
-/// compiles the Mobile UI, so the Android host's copy of it is checked here.
-/// </summary>
 public sealed class MobileUiColourTests
 {
     private const string MobileNamespace = "BazaarPlusPlus.Mobile";
@@ -28,7 +24,6 @@ public sealed class MobileUiColourTests
         InGameColourRule.RequireThemeConstructsColours(
             mobile.Single(type => type.FullName == MobileNamespace + ".Ui.InGameTheme")
         );
-        // The whole tree, so a move inside it cannot make the rule pass over a few types.
         Assert.True(mobile.Length >= 50, $"Only {mobile.Length} Mobile UI types were scanned.");
 
         var violations = InGameColourRule.Violations(mobile).ToArray();

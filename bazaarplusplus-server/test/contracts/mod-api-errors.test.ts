@@ -73,7 +73,6 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
   );
   await record(collection('?unknown=1'));
   await record(collection('?available_from_ms=0'));
-  // The window end is never settled within SYNC_SETTLE_LAG_MS of the request.
   const now = Date.now();
   await record(
     collection(`?available_from_ms=${now - 120_000}&available_before_ms=${now}`)
@@ -90,7 +89,6 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
       }
     }
   });
-  // Invalid service configuration emits internal_error, not the diagnostic log code.
   const errorLog = vi
     .spyOn(console, 'error')
     .mockImplementation(() => undefined);

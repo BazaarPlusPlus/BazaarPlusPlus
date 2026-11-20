@@ -52,11 +52,7 @@ internal static class NativeCardPreviewReflection
             ? AccessTools.Field(CardPreviewBaseType, "_frameContainer")
             : null;
 
-    /// <summary>
-    /// Reads the serialized <c>CardPreviewBase._frameContainer</c> on the preview root, accepted
-    /// only as a <see cref="RectTransform"/> carrying <paramref name="expectedName"/>, so callers
-    /// that located the frame by name keep resolving the same node.
-    /// </summary>
+    // Match the expected name so this serialized reference resolves the same node as the name walk.
     public static bool TryGetFrameContainer(
         RectTransform preview,
         string expectedName,

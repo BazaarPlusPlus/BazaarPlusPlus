@@ -12,12 +12,6 @@ using BazaarPlusPlus.Storage.Paths;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-/// <summary>
-/// Uploads the sealed outbox through <see cref="BundleUploadFeed.Session"/> against a recording
-/// Mod API handler that answers like the server: an unavailable endpoint stops the batch and
-/// keeps file and row, an accepted upload commits before its file is deleted, and the cleanup pass
-/// reclaims leftovers.
-/// </summary>
 internal static class UploadStage
 {
     internal static async Task RunAsync(
@@ -32,8 +26,6 @@ internal static class UploadStage
         var services = new TestServices(new TestPaths(root));
         var all = runIds.ToArray();
 
-        // A 5xx stops the batch at its first Bundle and keeps that file and pending row; the row
-        // stays due at once, and only this session backs off the whole queue.
         var unavailable = new ServerHandler(HttpStatusCode.ServiceUnavailable);
         using (var session = Session(services, store, unavailable, Files(outboxRoot)))
         {
@@ -58,8 +50,6 @@ internal static class UploadStage
             );
         artifacts.RecordQueue("upload:transient", database, all);
 
-        // The uploaded state commits before the file is deleted: a delete that fails leaves an
-        // uploaded row with its file still present, for the next cleanup pass to reclaim.
         var accepted = new ServerHandler(HttpStatusCode.Created);
         var failingDelete = new DeleteFailingFiles(Files(outboxRoot));
         using (var session = Session(services, store, accepted, failingDelete))
@@ -75,7 +65,6 @@ internal static class UploadStage
             );
         artifacts.RecordQueue("upload:commit-before-delete", database, all);
 
-        // Drain: cleanup reclaims the leftovers, then the transient rows upload and delete.
         var drain = new ServerHandler(HttpStatusCode.Created);
         var drainSession = Session(services, store, drain, Files(outboxRoot));
         for (var attempt = 0; attempt < 5; attempt++)
@@ -143,7 +132,6 @@ internal static class UploadStage
         return names;
     }
 
-    /// <summary>Answers each upload like the server, echoing the Bundle's own identity.</summary>
     private sealed class ServerHandler(HttpStatusCode status) : HttpMessageHandler
     {
         internal List<RecordedUpload> Requests { get; } = new();
@@ -216,14 +204,8 @@ internal static class UploadStage
     }
 }
 
-/// <summary>
-/// Upload-feed rules the sealed pipeline cannot reach with real files: the 512 MB soft limit,
-/// the outbox root boundary, the live-run gate, and the retry schedule under a manual clock.
-/// </summary>
 public sealed class UploadFeedBoundaries : IDisposable
 {
-    // Each scenario writes under its own temporary directory, as the capsule gave each one its
-    // own subdirectory of one root.
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
         "bpp-upload-feed-boundaries-" + Guid.NewGuid().ToString("N")
@@ -303,7 +285,6 @@ public sealed class UploadFeedBoundaries : IDisposable
         catch (InvalidDataException) { }
     }
 
-    // Row times are relative to the clock: retention windows are measured from now.
     [Fact]
     public async Task CleanupRetentionAndSoftLimitStopAtThreshold()
     {

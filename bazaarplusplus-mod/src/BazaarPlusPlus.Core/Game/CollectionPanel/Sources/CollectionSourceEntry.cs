@@ -76,8 +76,6 @@ public sealed class CollectionSourceEntry
 
     public int GroupDisplayIndex { get; }
 
-    // The desktop Collection draws the merchants with one fold value as one cell
-    // (CollectionSourceFold); null draws the source alone.
     public string? Fold { get; }
 
     public bool AppliesToHero(CardHero hero) =>

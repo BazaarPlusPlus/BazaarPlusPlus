@@ -218,10 +218,6 @@ mod tests {
         }
     }
 
-    /// History resolves its installation with no requested path and
-    /// `DatabaseExists` (`History::resolved_game_path`): the first of the
-    /// selected, startup and fallback paths with a database wins, so a selected
-    /// installation whose database a Reset removed falls through.
     #[test]
     fn database_exists_skips_a_selected_installation_without_a_database() {
         struct Row {

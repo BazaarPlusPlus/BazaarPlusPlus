@@ -6,7 +6,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.GameInterop.NativeSkin;
 
-/// <summary>A sprite of the game's rectangle button set that the Desktop UI draws with.</summary>
 internal enum DesktopSkinPart
 {
     Frame,
@@ -14,65 +13,43 @@ internal enum DesktopSkinPart
     BlueCenter,
 }
 
-/// <summary>
-/// A sprite the Desktop UI kit draws with (ADR-0027). The plates are BPP's own art, embedded in
-/// the plugin; the rule and the glyphs are the game's.
-/// </summary>
 internal enum DesktopKitArt
 {
-    /// <summary>The plates' silhouette in solid white, tinted: hover washes.</summary>
     Shape,
 
-    /// <summary>A control's plate at rest, under the pointer and pressed.</summary>
     Plate,
     PlateHover,
     PlatePressed,
 
-    /// <summary>The primary button's plate at rest and under the pointer.</summary>
     PrimaryPlate,
     PrimaryPlateHover,
 
-    /// <summary>The destructive confirm's plate in three states.</summary>
     DangerPlate,
     DangerPlateHover,
     DangerPlatePressed,
 
-    /// <summary>A soft gold line along the plates' silhouette, and its brighter form.</summary>
     Edge,
     EdgeBright,
 
-    /// <summary>The ground of a rail, a well or a floating surface.</summary>
     Ground,
 
-    /// <summary>The fading rule the game draws between match-history runs.</summary>
     Divider,
     IconClose,
     IconSearch,
     IconArrow,
 
-    /// <summary>
-    /// BPP's painted state marks: a finished run below a trophy, an abandoned run, a run in
-    /// progress, a battle won and a battle lost.
-    /// </summary>
     MarkCompleted,
     MarkAbandoned,
     MarkActive,
     MarkWon,
     MarkLost,
 
-    /// <summary>BPP's supporter heart, in solid white.</summary>
     IconHeart,
 }
 
-/// <summary>
-/// The Desktop UI's native skin (ADR-0026): the game's <c>Btn_Rectangle</c> sprites, loaded once
-/// per process in Global scope so they outlive the lobby and run scopes, and BPP's own kit
-/// art. A caller keeps its own retry cadence: it calls <see cref="Request"/> when it wants
-/// a missing sprite again, and repaints what it drew when <see cref="Generation"/> moves.
-/// </summary>
+// Load the native skin in Global scope so its sprites survive lobby and run scope changes.
 internal static class DesktopNativeSkin
 {
-    /// <summary>The pixels-per-unit multiplier of a panel's sliced native frame.</summary>
     internal const float PanelPixelsPerUnit = 2.5f;
 
     private const string ButtonRoot = "Assets/TheBazaar/Art/UI/Buttons/Btn_Rectangle/";
@@ -84,9 +61,6 @@ internal static class DesktopNativeSkin
     ];
     private static readonly Sprite?[] Sprites = new Sprite?[Addresses.Length];
 
-    // The Desktop UI kit's art (ADR-0027), in DesktopKitArt order: an embedded PNG of BPP's own
-    // (a file name), or a game sprite (an address). Each game sprite loads on its own, so a game
-    // build without one leaves the others and the frame and centre sprites above untouched.
     private const string HistoryRoot = "Assets/TheBazaar/Art/UI/Buttons/Btn_MatchHistory/";
     private const string IconRoot = "Assets/TheBazaar/Art/UI/Icons/";
     private const string OwnedPrefix = "BazaarPlusPlus.Resources.DesktopKit.";
@@ -120,26 +94,15 @@ internal static class DesktopNativeSkin
     private static readonly string?[] KitProblems = new string?[KitSources.Length];
     private static Task<Sprite?[]>? _load;
 
-    /// <summary>
-    /// The owned plates' pixels per canvas unit (and so their pixels-per-unit multiplier): a
-    /// plate PNG is one md control tall at this scale.
-    /// </summary>
+    // At this scale each owned plate PNG is one medium control tall.
     internal const float KitPixelsPerUnit = 3f;
 
-    /// <summary>
-    /// The sliced border of the owned plates, in pixels: the silhouette's corner and its rim.
-    /// </summary>
     internal const float KitBorderPixels = 30f;
 
-    /// <summary>Moves whenever a sprite changes, so a view repaints the images it drew.</summary>
     internal static int Generation { get; private set; }
 
     internal static bool IsLoading => _load != null;
 
-    /// <summary>
-    /// The exception of the last load that failed, or null when it finished, with or without
-    /// every sprite.
-    /// </summary>
     internal static Exception? LastLoadError { get; private set; }
 
     // A sprite the scope release destroyed reads as missing (Unity's ==), so it loads again.
@@ -148,10 +111,6 @@ internal static class DesktopNativeSkin
 
     internal static bool Has(DesktopSkinPart part) => Get(part) != null;
 
-    /// <summary>
-    /// Starts one load when a sprite is missing and none is running; true while a load runs.
-    /// False when the skin is whole or the game's asset loader is not up yet.
-    /// </summary>
     internal static bool Request()
     {
         Poll();
@@ -171,7 +130,6 @@ internal static class DesktopNativeSkin
         return true;
     }
 
-    /// <summary>A sprite of the kit's art, or null while it is loading or missing.</summary>
     internal static Sprite? KitArt(DesktopKitArt art)
     {
         var index = (int)art;
@@ -185,20 +143,13 @@ internal static class DesktopNativeSkin
         return KitSprites[index];
     }
 
-    /// <summary>Why a kit sprite is missing: null while it loads or once it is in.</summary>
     internal static string? KitArtProblem(DesktopKitArt art) => KitProblems[(int)art];
 
-    /// <summary>A kit sprite's file name, for the Kit Gallery's diagnostics.</summary>
     internal static string KitArtName(DesktopKitArt art) =>
         Path.GetFileNameWithoutExtension(KitSources[(int)art]);
 
     private static bool IsOwned(int index) => !KitSources[index].Contains('/');
 
-    /// <summary>
-    /// Starts a load of every game sprite of the kit that is missing and not loading; true while
-    /// one runs. A sprite whose address the build lacks, or whose load failed, is remembered
-    /// with the reason and never asked again. The owned plates need no load.
-    /// </summary>
     internal static bool RequestKitArt()
     {
         var loading = false;
@@ -254,8 +205,7 @@ internal static class DesktopNativeSkin
         Generation++;
     }
 
-    // An owned sprite lives for the process: it is marked to survive UnloadUnusedAssets and is
-    // never destroyed. A plate is sliced; a mark or an icon is not.
+    // Owned sprites must survive UnloadUnusedAssets for the lifetime of the process.
     private static Sprite? DecodeOwned(string file) =>
         Decode(
             OwnedPrefix + file,
@@ -267,7 +217,6 @@ internal static class DesktopNativeSkin
                 : KitBorderPixels
         );
 
-    /// <summary>Takes a finished load's sprites; true when one changed.</summary>
     internal static bool Poll()
     {
         if (_load is not { IsCompleted: true } load)
@@ -294,11 +243,6 @@ internal static class DesktopNativeSkin
         return changed;
     }
 
-    /// <summary>
-    /// A sliced image of <paramref name="part"/> stretched over <paramref name="parent"/> and
-    /// inset by <paramref name="inset"/> on every side; it takes no raycast. Until the sprite
-    /// loads it is clear, and <see cref="Paint"/> fills it in.
-    /// </summary>
     internal static Image Layer(
         Transform parent,
         string name,
@@ -322,7 +266,6 @@ internal static class DesktopNativeSkin
         return image;
     }
 
-    /// <summary>Puts the part's current sprite on an image, tinted, or clears it while missing.</summary>
     internal static void Paint(Image image, DesktopSkinPart part, Color tint)
     {
         image.sprite = Get(part);

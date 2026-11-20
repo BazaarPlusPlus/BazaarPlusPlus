@@ -26,8 +26,6 @@ type ToastAction = {
   onClick: () => void;
 };
 
-/** A prompt is an offer the player may take or leave: a title, one line,
- *  and a dismiss button beside the action. */
 type ToastPrompt = {
   title: string;
   icon: LucideIcon;
@@ -145,7 +143,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         viewport.showPopover();
       }
     } catch {
-      // Browsers without popover or already-open state are fine.
+      // Popover support varies across browsers.
     }
   }, [toasts.length]);
 

@@ -24,11 +24,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * The App's readers against the release tooling's shared fixtures (root AGENTS.md, Contracts):
- * the interop statement bytes, the release certificate digest and the Managed Payload Manifest.
- * Unit tests run in app/.
- */
 public class SharedReleaseFixturesTest {
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
@@ -57,10 +52,6 @@ public class SharedReleaseFixturesTest {
         assertEquals(signer.group(1), InteropStatementTest.RELEASE_CERT_SHA256);
     }
 
-    /**
-     * The App reads one line of a Managed Payload Manifest: its version. The golden is the one
-     * release/managed-payload.test.ts writes, for version 6.1.0.
-     */
     @Test
     public void theManagedPayloadManifestGoldenNamesTheVersionTheAppStagesUnder() throws Exception {
         String golden = new String(bytes(new File(RELEASE, "fixtures/managed-payload/manifest.txt")),
@@ -75,10 +66,6 @@ public class SharedReleaseFixturesTest {
         assertArrayEquals(golden.getBytes(StandardCharsets.UTF_8), bytes(new File(staged, ManagedPayloadStaging.MANIFEST)));
     }
 
-    /**
-     * On a game switch the App reads the golden's {@code file} lines as well: it deletes each path
-     * in Mods/ or UserLibs/, and refuses the desktop paths the golden names.
-     */
     @Test
     public void theManagedPayloadManifestGoldenNamesTheFilesTheAppRemoves() throws Exception {
         String golden = new String(bytes(new File(RELEASE, "fixtures/managed-payload/manifest.txt")),

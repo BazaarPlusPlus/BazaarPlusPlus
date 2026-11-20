@@ -5,7 +5,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.GameInterop.Ranks;
 
-/// <summary>A finished run's trophy, from the lowest tier to the highest.</summary>
 internal enum NativeTrophy
 {
     Bronze,
@@ -14,10 +13,6 @@ internal enum NativeTrophy
     Diamond,
 }
 
-/// <summary>
-/// The game's four trophy sprites. Call <see cref="Tick"/> every frame the view shows; it
-/// loads what is missing, tries again every five seconds, and says when a sprite arrived.
-/// </summary>
 internal sealed class NativeTrophyProvider
 {
     private static readonly string[] Addresses =

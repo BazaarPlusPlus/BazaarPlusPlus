@@ -10,11 +10,7 @@ import {
   SYNC_MAX_LIMIT
 } from '../limits';
 
-// Response bodies are declared once here. The modules take their types from
-// these schemas and /openapi.json renders them, so the published document
-// cannot drift from what the handlers return. Query schemas describe the
-// handwritten parsers in src/modules for the document only; the parsers own
-// the error semantics.
+// Query schemas describe the wire shape for OpenAPI. The handwritten parsers own error semantics.
 
 const unixMs = z
   .int()

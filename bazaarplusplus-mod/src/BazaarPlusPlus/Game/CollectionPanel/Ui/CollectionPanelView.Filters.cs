@@ -730,7 +730,6 @@ internal sealed partial class CollectionPanelView
         return ring;
     }
 
-    // The selected cell's ring; an open fold without a selected member rings in muted ink.
     private static void RefreshSourceSelectionRing(Button chip, bool selected, bool open = false)
     {
         var ring = chip.Q<VisualElement>(SourceChipSelectionRingName);
@@ -1141,7 +1140,6 @@ internal sealed partial class CollectionPanelView
 
     private static void ReportHeroPortraitOutcome(CardHero hero, HeroPortraitLoadOutcome? outcome)
     {
-        // Repeats are bounded by the reason_code storm key, one line per reason per window.
         if (outcome == null || !outcome.IsDegraded)
             return;
         var reasonCode = outcome.Reason switch
@@ -1195,7 +1193,6 @@ internal sealed partial class CollectionPanelView
         EncounterPortraitLoadOutcome? outcome
     )
     {
-        // Repeats are bounded by the reason_code storm key, one line per reason per window.
         if (outcome == null || !outcome.IsDegraded)
             return;
         var reasonCode = outcome.Reason switch
@@ -1277,10 +1274,7 @@ internal sealed partial class CollectionPanelView
         portrait?.MarkDirtyRepaint();
     }
 
-    // UI Toolkit draws a sprite background as the sprite's tight mesh, and drew several
-    // merchant and trainer portraits as displaced fragments that way, though each mesh matches
-    // its UVs. Each portrait is an unpacked sprite that fills its own texture, so the texture
-    // draws the same image as one quad; any other sprite keeps the sprite path.
+    // UI Toolkit's tight sprite mesh fragments some source portraits. An unpacked, full-texture sprite can use the texture as a single quad.
     private static StyleBackground SourcePortraitBackground(Sprite sprite)
     {
         var texture = sprite.texture;
@@ -1317,8 +1311,6 @@ internal sealed partial class CollectionPanelView
         return new string(initials.ToArray());
     }
 
-    // A tag or keyword chip keeps the game's keyword colour on its text at rest, as its native
-    // icon does; selected, it reads like every other selected chip.
     private static void RefreshTagChip(Button chip, bool selected, Color? accent) =>
         StyleCollectionChip(
             chip,
@@ -1521,8 +1513,6 @@ internal sealed partial class CollectionPanelView
             button.text = text;
     }
 
-    // Always visible; the face shows the effective day number and highlights when the day
-    // participates in filtering (select = on, chip = off).
     private void RefreshDayToggle(int? day, bool active)
     {
         if (_dayToggleButton == null)

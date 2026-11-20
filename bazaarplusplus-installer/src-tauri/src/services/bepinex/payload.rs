@@ -1,4 +1,3 @@
-// src-tauri/src/services/bepinex/payload.rs
 use anyhow::{anyhow, Context as _};
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -22,8 +21,6 @@ struct PayloadEntry {
     platforms: Option<Vec<String>>,
 }
 
-/// The BepInEx host's entries of the compiled Payload Inventory: the files the installer owns in
-/// the game directory. The MelonLoader entries belong to the Android release and never reach it.
 fn inventory() -> &'static PayloadInventory {
     static INVENTORY: std::sync::OnceLock<PayloadInventory> = std::sync::OnceLock::new();
     INVENTORY.get_or_init(|| {
@@ -79,9 +76,6 @@ fn owned_paths(ownership: &str) -> impl Iterator<Item = &'static str> + '_ {
         .map(|entry| entry.path.as_str())
 }
 
-/// Where the installed Managed Payload Manifest sits: the BepInEx host's one
-/// `managed-manifest` entry (`installedManifestPath` in
-/// `release/managed-payload.ts`).
 pub(super) fn installed_managed_manifest_path() -> &'static str {
     let mut entries = inventory()
         .files
@@ -93,10 +87,7 @@ pub(super) fn installed_managed_manifest_path() -> &'static str {
     }
 }
 
-/// Backoff used between retries when a file/directory removal fails. The first
-/// retry runs immediately, the second after a short pause, and the last after
-/// a longer pause. Windows often releases ERROR_SHARING_VIOLATION holds inside
-/// 200ms once the holding process closes the handle.
+/// A Windows sharing violation can persist briefly while the holding process exits.
 const REMOVE_RETRY_DELAYS_MS: &[u64] = &[0, 50, 200];
 
 pub(super) struct PreservedFile {
@@ -139,9 +130,6 @@ impl InstallTargetBackup {
     }
 }
 
-/// Failure report for a per-file removal pass. `failed` lists the paths the
-/// walker could not delete after retrying. The list is empty on success and on
-/// "nothing to do" (path didn't exist).
 #[derive(Debug, Default)]
 pub(crate) struct RemovalReport {
     pub(crate) failed: Vec<PathBuf>,
@@ -217,10 +205,7 @@ fn copy_path(source: &Path, destination: &Path) -> anyhow::Result<()> {
         .with_context(|| format!("Cannot set permissions on {}", destination.display()))
 }
 
-/// Try to delete a single file or empty directory, retrying briefly to absorb
-/// transient sharing violations from antivirus / explorer / a slow OS handle
-/// release. Returns `true` on success or when the path didn't exist; returns
-/// `false` if every retry failed.
+/// Retry transient sharing violations from antivirus, Explorer, or delayed handle release.
 fn try_remove_with_retry(path: &Path, is_dir: bool) -> bool {
     for (attempt, delay_ms) in REMOVE_RETRY_DELAYS_MS.iter().enumerate() {
         if *delay_ms > 0 {
@@ -244,10 +229,7 @@ fn try_remove_with_retry(path: &Path, is_dir: bool) -> bool {
     false
 }
 
-/// Bottom-up recursive delete that retries each entry independently and
-/// collects every path it could not remove. Unlike `remove_dir_all`, this does
-/// not abort on the first sharing violation, so a single locked sqlite handle
-/// won't leave the rest of the BazaarPlusPlus data directory half-deleted.
+/// Continue after a sharing violation so one locked SQLite handle cannot block removal of its siblings.
 pub(crate) fn remove_dir_with_retry(root: &Path) -> RemovalReport {
     let mut report = RemovalReport::default();
 
@@ -278,8 +260,6 @@ pub(crate) fn remove_dir_with_retry(root: &Path) -> RemovalReport {
 
     for entry in entries {
         let Ok(entry) = entry else {
-            // We don't know which path this was; mark the parent as failed so
-            // callers know the directory isn't empty.
             report.failed.push(root.to_path_buf());
             continue;
         };
@@ -302,7 +282,6 @@ pub(crate) fn remove_dir_with_retry(root: &Path) -> RemovalReport {
         }
     }
 
-    // Only attempt to drop the directory itself if every child is gone.
     if report.failed.is_empty() && !try_remove_with_retry(root, true) {
         report.failed.push(root.to_path_buf());
     }
@@ -381,11 +360,7 @@ pub(super) fn has_third_party_plugins(game_path: &Path) -> bool {
     })
 }
 
-/// A patcher-only mod leaves nothing in `BepInEx/plugins`: its whole footprint
-/// lives under `BepInEx/patchers`. BPP's only file there is its own Updater
-/// (the Payload Inventory's `BepInEx/patchers/BazaarPlusPlus.Updater.dll`); any
-/// other file means a third-party mod still depends on the shared BepInEx
-/// bootstrap.
+/// A third-party patcher can depend on BepInEx even when `BepInEx/plugins` is empty.
 pub(super) fn has_third_party_patchers(game_path: &Path) -> bool {
     dir_contains_unowned_file(game_path, &game_path.join("BepInEx/patchers"))
 }
@@ -437,9 +412,6 @@ pub(super) fn prepare_install_target(
     Ok(backup)
 }
 
-/// Install-time pre-clean. Removes an owned path only when the incoming payload
-/// no longer ships it; paths the zip will overwrite anyway stay in place so
-/// extraction's identical-skip gate decides their fate.
 fn remove_stale_bpp_files(
     game_path: &Path,
     incoming_relative_paths: &std::collections::HashSet<String>,
@@ -490,12 +462,7 @@ pub(super) fn cleanup_bpp_data_directory(game_path: &Path) -> RemovalReport {
     remove_dir_with_retry(&crate::services::paths::bpp_data_dir(game_path))
 }
 
-/// Blunt whole-folder wipe of `<game>/BepInEx` — deletes BazaarPlusPlus AND any
-/// third-party plugin/patcher living under it, unlike the surgical
-/// `uninstall_payload`. Leaves the platform bootstrap (winhttp.dll on Windows;
-/// libdoorstop.dylib, the macOS stub, and the `.orig` backup on macOS) in place.
-/// Both loaders tolerate a missing target assembly and fall through to the real
-/// game, so the bundle stays launchable and a later Reinstall re-lays BepInEx.
+/// Both loaders fall through to the real game when the target assembly is absent, so keep the bootstrap.
 pub(super) fn reset_bepinex_directory(game_path: &Path) -> RemovalReport {
     remove_dir_with_retry(&game_path.join("BepInEx"))
 }
@@ -520,7 +487,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // The fixture lays out a macOS or Windows game root only.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn test_prepare_install_target_removes_only_stale_bpp_files() {
@@ -553,8 +519,6 @@ mod tests {
         )
         .unwrap();
 
-        // The incoming payload still ships BazaarPlusPlus.dll but no longer
-        // ships Microsoft.Data.Sqlite.dll.
         let incoming: std::collections::HashSet<String> =
             ["BepInEx/plugins/BazaarPlusPlus.dll".to_string()]
                 .into_iter()
@@ -562,14 +526,11 @@ mod tests {
 
         prepare_install_target(tmp.path(), &incoming).unwrap();
 
-        // Third-party file: never touched.
         assert!(tmp.path().join("BepInEx/plugins/old.dll").exists());
-        // Owned and shipped by the incoming zip: left for extraction to overwrite.
         assert!(tmp
             .path()
             .join("BepInEx/plugins/BazaarPlusPlus.dll")
             .exists());
-        // Owned but stale: removed.
         assert!(!tmp
             .path()
             .join("BepInEx/plugins/Microsoft.Data.Sqlite.dll")
@@ -585,7 +546,6 @@ mod tests {
         }
     }
 
-    // The fixture lays out a macOS or Windows game root only.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn test_install_target_backup_restores_previous_payload_after_partial_install() {
@@ -631,7 +591,6 @@ mod tests {
         );
     }
 
-    // The fixture lays out a macOS or Windows game root only.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     #[test]
     fn test_prepare_install_target_preserves_bpp_data_directory() {
@@ -665,8 +624,6 @@ mod tests {
 
     #[test]
     fn uninstall_preserves_every_data_root() {
-        // Uninstall's filesystem effects, in both of its modes, leave the
-        // current Data Root and every Legacy Root in place (ADR-0008).
         for keep_shared_dependencies in [false, true] {
             let tmp = tempfile::tempdir().unwrap();
             std::fs::create_dir_all(tmp.path().join("BepInEx/plugins")).unwrap();
@@ -828,7 +785,6 @@ mod tests {
 
         remove_bootstrap_files(tmp.path()).unwrap();
 
-        // Bootstrap gone, unknown foreign config (and thus BepInEx/) kept.
         assert!(!tmp.path().join("BepInEx/core").exists());
         assert!(tmp.path().join("BepInEx/config/OtherMod.cfg").exists());
         assert!(tmp.path().join("BepInEx").exists());
@@ -971,7 +927,6 @@ mod tests {
         std::fs::write(data_dir.join("removable.bin"), b"x").unwrap();
         std::fs::write(unwritable_subdir.join("trapped.bin"), b"x").unwrap();
 
-        // Drop write permission on the parent dir so its child can't be unlinked.
         std::fs::set_permissions(&unwritable_subdir, std::fs::Permissions::from_mode(0o500))
             .unwrap();
 

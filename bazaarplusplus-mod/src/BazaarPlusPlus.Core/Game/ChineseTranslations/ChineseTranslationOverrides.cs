@@ -9,8 +9,7 @@ public static class ChineseTranslationOverrides
 {
     private static readonly Lazy<IReadOnlyDictionary<string, string>> Overrides = new(Load);
 
-    // The game's Simplified Chinese locale is zh-CN. Do not use IsChinese: it includes
-    // Traditional Chinese and would apply Simplified replacements to those locales too.
+    // The game uses zh-CN for Simplified Chinese. IsChinese also matches Traditional Chinese locales.
     public static bool AppliesTo(string languageCode) =>
         string.Equals(languageCode, "zh-CN", StringComparison.OrdinalIgnoreCase);
 

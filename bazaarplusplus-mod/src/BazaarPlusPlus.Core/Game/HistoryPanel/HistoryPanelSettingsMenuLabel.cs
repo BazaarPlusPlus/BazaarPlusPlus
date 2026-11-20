@@ -24,7 +24,6 @@ public static class HistoryPanelSettingsMenuLabel
         "Cronologia partite"
     );
 
-    /// <summary>The label of a host that opens History without a hotkey.</summary>
     public static string ResolvePlain(string languageCode) =>
         PlainLabels.Resolve(languageCode, L.CurrentMode);
 

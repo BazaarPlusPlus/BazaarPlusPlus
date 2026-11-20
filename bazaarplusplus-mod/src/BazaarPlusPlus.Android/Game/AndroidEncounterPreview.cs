@@ -15,12 +15,6 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Android.Game;
 
-/// <summary>
-/// Reads encounter choices, their rewards, merchant quality rules and each package's merchant
-/// off-thread, for Core's <see cref="EncounterPreviewModule"/> (<see cref="Module"/>) to resolve
-/// on inspection through <see cref="AndroidEncounterPreviewReads"/>. A package names its merchant,
-/// which no preview switch hides.
-/// </summary>
 internal sealed class AndroidEncounterPreview
 {
     private IntPtr _source;
@@ -33,22 +27,20 @@ internal sealed class AndroidEncounterPreview
     public AndroidEncounterPreview(BppSettings settings) =>
         Module = new EncounterPreviewModule(settings, new AndroidEncounterPreviewReads(this));
 
-    /// <summary>The event, encounter-step and hero-level previews over these plans.</summary>
     public EncounterPreviewModule Module { get; }
 
-    /// <summary>The plans of the current static-data source; null until they are read.</summary>
     public AndroidEncounterPlans? Plans => _plans;
 
     public void Tick()
     {
-        // Not behind the Detailed Preview switch: a package's merchant summary has none.
+        // Package merchant text is independent of the Detailed Preview switch.
         if (!Data.IsManagerCreated())
             return;
         var manager = Data.GetStatic();
         if (manager == null)
             return;
-        // The path is marshalled only for a new manager: each read of the IL2CPP field allocates
-        // a managed string. An empty path leaves the source unset, so the next frame retries.
+        // Each IL2CPP path field read marshals a new managed string. Read it only when the manager
+        // changes.
         if (_source != manager.Pointer)
         {
             var path = manager._dbPath;
@@ -81,11 +73,6 @@ internal sealed class AndroidEncounterPreview
         }
     }
 
-    /// <summary>
-    /// The native passive text of <paramref name="card"/> with the merchant that accepts it, as
-    /// the desktop's <c>PackageMerchantSummaryTooltipPatch</c> appends it; null for any other
-    /// card, or while the plans are not read yet. Main thread only.
-    /// </summary>
     public string? RenderPackageMerchant(Card? card, string text)
     {
         if (
@@ -187,10 +174,6 @@ internal sealed class AndroidEncounterPreview
         Enum.TryParse<T>(raw, true, out var value) ? value.ToString() : null;
 }
 
-/// <summary>
-/// The encounter plans read from one static-data source, and the merchant each package template
-/// names.
-/// </summary>
 internal sealed record AndroidEncounterPlans(
     EncounterPreviewSnapshot Snapshot,
     IReadOnlyDictionary<Guid, Guid> PackageMerchants

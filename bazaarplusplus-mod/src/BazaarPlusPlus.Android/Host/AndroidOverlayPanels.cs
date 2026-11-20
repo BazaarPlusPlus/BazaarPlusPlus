@@ -1,25 +1,11 @@
-using BazaarPlusPlus.Android.Patches;
 using BazaarPlusPlus.Game.OverlayPanels;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Android.Host;
 
-/// <summary>
-/// The Android adapter of the Overlay Panel Host (GLOSSARY.md §Overlay panels): History, Collection
-/// and Ten-Win Builds register with Core's <see cref="OverlayPanelHost"/> through it, and so does
-/// the Mobile UI's HUD, which never opens but takes the ticks and scene changes. The host keeps
-/// one of them open at a time, closes them for combat, a scene change and Panel Switch-Off, and
-/// releases the rented cards once every panel let go of its own (on a scene change or a
-/// switch-off, never on a plain close). The scene is a generation counter that
-/// <see cref="SceneLoaded"/> advances. The back key (Escape under Unity) is answered at once,
-/// inside the game's escape hooks (<see cref="BackKeyPatches"/>): the open panel's modal first,
-/// then the panel. One press can reach BPP
-/// twice in a frame, through the game's escape hook and through the touch UI's own keyboard
-/// read, so a consumed press is stamped with its frame and the second sighting is consumed
-/// without closing a second panel. Every entry runs inside the main-thread pump's scope; nothing
-/// here touches the IL2CPP runtime, which the host injects as delegates (ADR-0016 §3).
-/// </summary>
+// The game's escape hook and the touch UI can see the same press in one frame, so a consumed press
+// must be deduplicated.
 internal sealed class AndroidOverlayPanels
 {
     private const long LoggedPasses = 5;
@@ -53,33 +39,22 @@ internal sealed class AndroidOverlayPanels
         _host.ObserveScene(_sceneToken);
     }
 
-    /// <summary>The open Main Overlay Panel's id, or null.</summary>
     public string? OpenPanelId => _host.OpenPanelId;
 
-    /// <summary>
-    /// Registers a Main Overlay Panel with Core's host: the Mobile Platform Port's overlay
-    /// registration (<see cref="AndroidMobilePlatform.RegisterOverlayPanel"/>).
-    /// </summary>
     public IOverlayPanelHandle Register(OverlayPanelRegistration registration)
     {
         using var scope = AndroidMainThread.Host.Enter();
         return _host.Register(registration);
     }
 
-    /// <summary>The native tooltip's auxiliary drawer, dismissed before native Back handling.</summary>
     public void SetTooltipPreview(Func<string, bool>? close) => _closeTooltipPreview = close;
 
-    /// <summary>
-    /// Main thread, every frame: the lifecycle rules, with the Walkthrough Control's toggle, then
-    /// every panel's tick.
-    /// </summary>
     public void Frame(float deltaTime)
     {
         using var scope = AndroidMainThread.Host.Enter();
         var toggle = _walkthrough.NextToggle(deltaTime, _host.OpenPanelId);
         _host.Frame(new OverlayPanelFrame(_sceneToken, deltaTime, false, toggle));
         _walkthrough.AfterFrame(_host.OpenPanelId);
-        // The Android host has no in-game capture; `just mod::android-capture` covers it.
         if (_walkthrough.TakeShot() is { } shot)
             BppLog.WarnEvent(
                 new BppLogEvent(
@@ -90,11 +65,7 @@ internal sealed class AndroidOverlayPanels
             );
     }
 
-    /// <summary>
-    /// A scene loaded: the host closes what the scene policies close,
-    /// tells every panel, and releases the rented cards. The rental destroys every card right
-    /// after this, so no lease may outlive it.
-    /// </summary>
+    // Panels must give up their leases before the scene change destroys the rented cards.
     public void SceneLoaded()
     {
         using var scope = AndroidMainThread.Host.Enter();
@@ -103,10 +74,6 @@ internal sealed class AndroidOverlayPanels
         _host.ObserveScene(_sceneToken);
     }
 
-    /// <summary>
-    /// A back press reached BPP through <paramref name="source"/>; true when BPP closed something
-    /// for it, so the game must not handle it.
-    /// </summary>
     public bool TryConsumeBack(string source)
     {
         using var scope = AndroidMainThread.Host.Enter();

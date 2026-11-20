@@ -3,7 +3,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>Borrowed game art, with independent controls and no native business callbacks.</summary>
 internal sealed class NativeSkin
 {
     private readonly NativeSkinArt _art = MobilePlatform.Port.ReadNativeSkinArt();
@@ -11,14 +10,8 @@ internal sealed class NativeSkin
     private readonly Sprite? _selectedPlate;
     private readonly float _plateMultiplier;
 
-    /// <summary>A skin whose buttons are the game's own button art.</summary>
     public NativeSkin() { }
 
-    /// <summary>
-    /// A skin whose buttons are BPP's touch plates (<see cref="TouchPlates"/>), sliced with
-    /// <paramref name="multiplier"/> (<c>HistoryHeaderArtwork.TouchMultiplier</c>); without
-    /// them the buttons are the game's art.
-    /// </summary>
     public NativeSkin(TouchPlates? plates, float multiplier)
     {
         _plate = plates?.HeaderNormal;
@@ -26,7 +19,6 @@ internal sealed class NativeSkin
         _plateMultiplier = multiplier;
     }
 
-    /// <summary>The game destroyed or never loaded a sprite this skin draws with.</summary>
     public bool NeedsRefresh
     {
         get
@@ -37,12 +29,7 @@ internal sealed class NativeSkin
         }
     }
 
-    /// <summary>
-    /// An opaque backing with the native frame art over it. With <paramref name="borderOnly"/>
-    /// the art's centre is not drawn: the backing is the interior, so the rect fills its interior
-    /// once, not twice. History opts in; the other panels keep the filled centre until device
-    /// screenshots confirm the art's centre adds nothing over the backing.
-    /// </summary>
+    // Use borderOnly when the backing supplies the interior so it is filled once.
     public void Frame(RectTransform rect, Color? backing = null, bool borderOnly = false)
     {
         var background = backing ?? UiKit.PanelColor;

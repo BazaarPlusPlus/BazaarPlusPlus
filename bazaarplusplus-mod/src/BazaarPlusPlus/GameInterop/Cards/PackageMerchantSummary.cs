@@ -20,18 +20,10 @@ internal enum PackageMerchantSummaryFailureReason
     RenderException,
 }
 
-/// <summary>
-/// Resolves a package's merchant summary from the referenced encounter template by creating the
-/// same lightweight card/tooltip pair the game uses. The resulting description has already passed
-/// through TooltipBuilder, including locale lookup, values, and keyword rich-text styling.
-/// </summary>
 internal static class PackageMerchantSummary
 {
-    // A Package item's passive block re-renders on every combat attribute event, so the summary
-    // is cached per static data, package template and game language. Run state is not in the
-    // key, although the native renderer resolves tokens against Data.Run and the first render
-    // may happen outside a run. That is correct only while the first sentence the summary keeps
-    // resolves no run-dependent token (docs/architecture/previews.md, Gotchas).
+    // The passive block rerenders on every combat attribute event. Caching without Data.Run
+    // is safe only while the first sentence has no run-dependent tokens (previews.md Gotchas).
     private static readonly StaticDataScopedCache<Guid, Resolution> Resolutions = new();
 
     internal static bool TryResolve(
@@ -102,10 +94,7 @@ internal static class PackageMerchantSummary
         return new(PackageMerchantSummaryFailureReason.None, merchantTemplateId, summary);
     }
 
-    /// <summary>
-    /// Whether an outcome is a static-data fact worth caching. A native tooltip that failed to
-    /// build or rendered empty may succeed on a later render, so those outcomes are recomputed.
-    /// </summary>
+    // A native tooltip that failed to build or rendered empty may succeed on a later render.
     internal static bool IsCacheable(PackageMerchantSummaryFailureReason failureReason) =>
         failureReason
             is PackageMerchantSummaryFailureReason.None

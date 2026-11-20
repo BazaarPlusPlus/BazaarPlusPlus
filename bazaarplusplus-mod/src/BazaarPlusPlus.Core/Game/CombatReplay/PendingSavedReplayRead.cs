@@ -3,8 +3,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-// Contains only managed storage reads. The worker releases its reference even when the host
-// stops pumping continuations; the owner's reference transfers to playback without a gate gap.
+// The worker releases its lease reference even if the Host stops pumping. Transfer the owner's reference to playback so the gate stays held.
 internal sealed class PendingSavedReplayRead
 {
     private IDisposable? _owner;

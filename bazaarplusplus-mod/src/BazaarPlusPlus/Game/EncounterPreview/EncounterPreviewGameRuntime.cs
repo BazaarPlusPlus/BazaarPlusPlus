@@ -91,8 +91,7 @@ internal sealed class EncounterPreviewGameRuntime(
         }
         catch (Exception)
         {
-            // Unsupported live targets (for example, Self without a targeting card)
-            // degrade only this placeholder; the rest of the preview remains useful.
+            // Self can lack a targeting card in a live encounter.
             return false;
         }
     }

@@ -22,11 +22,7 @@ internal enum RandomCosmeticPoolOperation
     LoadPool,
 }
 
-/// <summary>
-/// The Random Cosmetic Pool on the desktop: reads the game's collection, keeps the saved
-/// exclusions in PlayerPrefs, and replaces the game's random pick at run start. Pool Mode is
-/// the game's own per-hero Randomize preference, never the toggle's on-screen state.
-/// </summary>
+// The game's per-hero Randomize preference is authoritative because the category UI can reset the toggle.
 internal sealed class RandomCosmeticPoolService
 {
     // The categories CollectionManager.GetRandomizedLoadout draws. It never sets a toy, and
@@ -50,12 +46,7 @@ internal sealed class RandomCosmeticPoolService
     private static bool IsPoolCategory(BazaarInventoryTypes.ECollectionType category) =>
         Array.IndexOf(PoolCategories, category) >= 0;
 
-    // ---- loadout list ----
-
-    /// <summary>
-    /// Opening a category sets the native Randomize toggle off. In Pool Mode the toggle is
-    /// moved off silently first, so that assignment changes nothing; true when it was moved.
-    /// </summary>
+    // Opening a category resets the native toggle, so move it off silently before that assignment can change the preference.
     internal bool HoldRandomize(CosmeticsPanelController panel)
     {
         var toggle = panel._randomizeToggle;
@@ -71,11 +62,7 @@ internal sealed class RandomCosmeticPoolService
     internal void RefreshPanel(CosmeticsPanelController panel) =>
         RefreshList(panel._cosmeticsListManager);
 
-    /// <summary>
-    /// A click on a cosmetic of the loadout list in Pool Mode leaves it out of the pool or
-    /// brings it back instead of equipping it; true when the click was taken. The Profile
-    /// skin list reuses the list type and keeps the native click.
-    /// </summary>
+    // The Profile skin list reuses the loadout list type but must keep its native click behavior.
     internal bool EditPool(CosmeticsListManager list, EquipableItem item)
     {
         var category = item.itemData.CollectionType;
@@ -90,15 +77,10 @@ internal sealed class RandomCosmeticPoolService
 
         if (!item.itemData.IsDefault)
             Toggle(collection, category, item.hero, item.itemData.CollectionItemID);
-        // The click marked only the clicked item selected; every item shows its pool state again.
         RefreshList(list);
         return true;
     }
 
-    /// <summary>
-    /// Gives every cosmetic of a loadout list its pool state and selected look: in Pool Mode
-    /// a member is selected, outside it the equipped cosmetic is, as natively.
-    /// </summary>
     internal void RefreshList(CosmeticsListManager? list)
     {
         var collection = Services.Get<CollectionManager>();
@@ -134,7 +116,6 @@ internal sealed class RandomCosmeticPoolService
         }
     }
 
-    /// <summary>In Pool Mode an item shows selected exactly when it is in the pool.</summary>
     internal void ResolveSelected(CosmeticItem item, ref bool selected)
     {
         var state = item.GetComponent<RandomCosmeticPoolItem>();
@@ -142,10 +123,7 @@ internal sealed class RandomCosmeticPoolService
             selected = state.IsMember;
     }
 
-    /// <summary>
-    /// Hovering one cosmetic natively drops every other item's selected look until the pointer
-    /// leaves. In Pool Mode the pool's members keep theirs; true when the native hover is skipped.
-    /// </summary>
+    // Native hover drops every other item's selected look until pointer exit, which hides pool membership.
     internal bool KeepPoolLook(CosmeticButtonBase button, CosmeticButtonBase hovered) =>
         button is CosmeticItem
         && button != hovered
@@ -153,8 +131,6 @@ internal sealed class RandomCosmeticPoolService
 
     private static bool IsLoadoutList(Component component) =>
         component.GetComponentInParent<LoadoutPopupController>(includeInactive: true) != null;
-
-    // ---- pool ----
 
     internal RandomCosmeticPool Resolve(
         CollectionManager collection,
@@ -173,12 +149,9 @@ internal sealed class RandomCosmeticPoolService
         );
     }
 
-    /// <summary>False on a client without the collection read the pool is built from.</summary>
     internal bool CanReadCollection => DisplayItems != null;
 
-    // Bound by signature: Steam staging 1.0.13257 reshapes the method to
-    // GetCollectionDisplayItems(bool withOffers), with no category or hero. Without the online
-    // shape RandomCosmeticPoolPatchCapabilities keeps the pool off.
+    // Some game builds ship a bool-only GetCollectionDisplayItems signature that cannot filter by category or hero.
     private const string DisplayItemsMethod = "GetCollectionDisplayItems";
 
     private static readonly Func<
@@ -215,7 +188,6 @@ internal sealed class RandomCosmeticPoolService
             : null;
     }
 
-    /// <summary>Leaves out or brings back one cosmetic; false when the click changes nothing.</summary>
     internal bool Toggle(
         CollectionManager collection,
         BazaarInventoryTypes.ECollectionType category,
@@ -237,7 +209,6 @@ internal sealed class RandomCosmeticPoolService
         return true;
     }
 
-    /// <summary>Replaces the game's pick in every category whose pool leaves something out.</summary>
     internal void ApplyTo(CollectionManager collection, EHero hero, EquipLoadoutRequest request)
     {
         foreach (var category in PoolCategories)

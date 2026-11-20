@@ -6,10 +6,6 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// The coordinator's existing filters as touch targets, one headed group per filter. The dialog is
-/// as tall as the open section's groups and scrolls only when the sheet is shorter.
-/// </summary>
 internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
 {
     private readonly GameObject _root,
@@ -75,7 +71,6 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             .ToArray();
         var heroRows = (int)Math.Ceiling(choices.Length / (float)columns);
         _heroHeight = heading + heroRows * (target + gap) - gap;
-        // Result: heading and three choices. Day: heading, the toggle, and the cloud note.
         _ghostHeight = 2f * heading + 3f * (target + gap) - gap;
         _heroes = TouchScreen.Child("Heroes", content, new(0, 0, width, _heroHeight)).gameObject;
         _ghost = TouchScreen.Child("Battles", content, new(0, 0, width, _ghostHeight)).gameObject;
@@ -166,7 +161,6 @@ internal sealed class TouchHistoryFilterDialog : IHistoryOverlay
             color: TouchHistoryUi.Muted
         );
 
-    // Shrinks the full-height dialog to its content; it keeps its top, title and close.
     private void Fit(float content)
     {
         var dialog = _layout.Dialog;

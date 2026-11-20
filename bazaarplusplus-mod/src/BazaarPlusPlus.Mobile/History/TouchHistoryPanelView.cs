@@ -13,24 +13,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// The touch twin of the desktop's <c>HistoryPanelView</c>, a full-screen sheet laid out from
-/// Core's <see cref="HistoryTouchLayout"/> for the screen it was built on and bound from
-/// Core's <see cref="HistoryPanelViewModel"/>. The header
-/// holds the section tabs, the section's filter, the supporter action, More and Close. The
-/// archive groups its records and pager. Beside it are the battle rail and native boards; compact screens switch
-/// from archive to one board with a horizontal battle rail and opponent/you selection.
-/// Lists drag-scroll with inertia and show a thumb while they overflow; each finished gesture logs
-/// <c>touch.history.scrolled</c>. A section without rows says so once, centred in the detail
-/// column, with no boards, titles or actions under it.
-/// Hero portraits share the Collection framing; rank badges and run trophies are the game's art
-/// through the Mobile Platform Port (<see cref="IMobilePlatformPort.RankBadge"/>), with text
-/// while it is missing; the two BPP badge atlases ship in the Android host's assembly. The panel rents the native boards into
-/// <see cref="UpperBoard"/> and <see cref="LowerBoard"/> and lays its overlays over
-/// <see cref="Surface"/>; a new screen size builds a new view. A view that throws while it builds
-/// destroys its canvas, active and kept across scenes until its last lines, before the exception
-/// leaves.
-/// </summary>
 internal sealed partial class TouchHistoryPanelView : IDisposable
 {
     public const int SortingOrder = 29000;
@@ -142,10 +124,8 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
 
     public IHistoryOverlay FilterOverlay => _filters;
 
-    /// <summary>The canvas-wide parent the panel's overlays are laid over.</summary>
     public RectTransform Surface { get; }
 
-    /// <summary>The opponent's board with two boards, the challenger's with one.</summary>
     public RectTransform UpperBoard { get; private set; } = null!;
 
     public RectTransform LowerBoard { get; private set; } = null!;
@@ -172,7 +152,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             UpdateContent();
     }
 
-    /// <summary>The board messages, each under the board it describes.</summary>
     public void SetBoardStatus(string upperMessage, string lowerMessage)
     {
         _upperMessage = upperMessage;
@@ -180,7 +159,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         ApplyBoardStatus();
     }
 
-    // An empty section's one message is the detail column's; the boards then carry none.
     private void ApplyBoardStatus()
     {
         ShowStatus(_upperStatusBand, _upperStatus, _l.UpperBoard, _empty ? "" : _upperMessage);
@@ -188,7 +166,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         ApplyNavigation();
     }
 
-    // A board message's band grows to the wrapped text, so a long message is never cut.
     private void ShowStatus(GameObject band, TextMeshProUGUI label, TouchRect board, string text)
     {
         label.text = text;
@@ -203,7 +180,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         );
     }
 
-    /// <summary>The skills action, available while the selected battle's boards are loaded.</summary>
     public void SetSkillsAvailable(bool available)
     {
         _snapshotsAvailable = available;
@@ -211,7 +187,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         ApplyNavigation();
     }
 
-    /// <summary>Main thread, every frame while visible: logs each finished drag scroll.</summary>
     public void Tick()
     {
         if (!_visible || _disposed)
@@ -239,10 +214,8 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         _badges?.Dispose();
     }
 
-    // The backdrop hides the game around the sheet and takes the touches that land there. It
-    // covers only the margins, as four bands, because the sheet paints its own opaque backing: a
-    // backdrop across the whole canvas would fill every sheet pixel twice. The bands reach the
-    // canvas edges through their anchors, so no rounding of the canvas size leaves a seam.
+    // Cover only the margins to avoid drawing a second opaque layer over every sheet pixel.
+    // Anchor bands to the canvas edges so rounding cannot leave a seam.
     private void BuildBackdrop()
     {
         var sheet = _l.Sheet;
@@ -519,7 +492,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                     }
                 )
                 .As(HistoryButtonStyle.Record);
-            // Every row reads as name, meta and stamp lines, so the button's own label stays off.
             TouchHistoryUi.SetActive(control.Label.gameObject, false);
             var row = new Row
             {
@@ -680,9 +652,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
                 ),
                 Outcome = UiKit.Fill(outcome, Color.clear, blocksTouches: false),
             };
-            // The opponent's portrait leads, with the rank at its upper left corner and the
-            // outcome mark at its lower right; the day is the one line of text. The board title
-            // names the opponent. A compact chip is one target high: the day over the outcome.
             var top = new Vector2(.5f, 1f);
             var dp = _l.Metrics.UnitsPerDp;
             var portrait = UiKit.Fixed(
@@ -751,7 +720,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         return (band.gameObject, label);
     }
 
-    // Rows place their images as they bind: where they sit depends on the row mode and rating.
     private static Image ArtSlot(
         RectTransform parent,
         string name,
@@ -770,7 +738,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         return image;
     }
 
-    // A small image at a fixed offset, in dp, from an anchor of its chip.
     private Image CornerArt(
         RectTransform parent,
         string name,
@@ -817,7 +784,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             SyncTrackers();
         }
         var noRows = m.ArchiveRows.Count == 0;
-        // A run that recorded no battle has nothing for the boards either; it can still be deleted.
         _empty = m.ArchiveEmptyMessage.Length > 0;
         _emptyDetail.text = m.ArchiveEmptyMessage;
         TouchHistoryUi.SetActive(_emptyDetail.gameObject, _empty);
@@ -836,7 +802,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             )
         );
 
-        // One page of battles needs no rail pager; the list then takes the whole rail.
         var railPaged = m.BattleHasNewer || m.BattleHasOlder;
         if (_railPaged != railPaged)
         {
@@ -860,8 +825,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         if (runs)
             BindRail(m.Timeline, m.SelectedBattleIndex, m.PageLoading);
 
-        // Two boards show yours below the opponent's; one board is the challenger's (ADR-0002).
-        // Each title names its side: the opponent by name, yours with the battle's outcome.
+        // A single board shows the challenger, as required by recorder perspective (ADR-0002).
         var titles = m.BoardTitles;
         _upperTitle.text = titles.Upper;
         _lowerTitle.text =
@@ -875,9 +839,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             TouchHistoryUi.SetActive(_lowerStatusBand, false);
         ApplyBoardStatus();
 
-        // An empty section offers no action: there is nothing to act on.
         TouchHistoryUi.SetActive(_delete.GameObject, m.DeleteButtonVisible && !noRows);
-        // Dimmed but tappable: the tap puts the reason on the status line.
         _delete.Set(
             m.DeleteButtonText,
             enabled: !m.PageLoading && !m.DeleteButtonBusy,
@@ -887,7 +849,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         _favorite.Set(m.FavoriteButtonText, enabled: m.FavoriteButtonEnabled && !m.PageLoading);
         TouchHistoryUi.SetActive(_skills.GameObject, !_empty);
         TouchHistoryUi.SetActive(_replay.GameObject, !_empty);
-        // The button names its action; unavailable reads as dimmed, and the tap explains.
         _replay.Set(
             m.ReplayButtonText,
             true,
@@ -899,7 +860,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         ApplyNavigation();
     }
 
-    // Archive rows carry runs in Runs and battles in Ghost and Favorites.
     private void ApplyRowMode(bool runs)
     {
         _archive.Height = runs ? _l.RunRowHeight : _l.BattleRowHeight;
@@ -951,8 +911,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             var rated = row.Rating.text.Length > 0;
             if (_l.RowTwoLine)
             {
-                // A run's end time follows its hero on the first line; a battle's stamp follows
-                // its hero and day on the second.
                 row.Name.text =
                     runs && fields.Stamp.Length > 0
                         ? $"{fields.Name}  <size={_l.BodyFont.ToString("0.#", CultureInfo.InvariantCulture)}>{Tinted(fields.Stamp, TouchHistoryUi.Muted)}</size>"
@@ -1004,7 +962,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             TouchHistoryUi.SetActive(chip.Rect.gameObject, shown);
             if (!shown)
                 continue;
-            // The page's newest-first order, matching the archive and the pager.
             var battle = battles[i];
             chip.Control.Set(string.Empty, i == selected, !loading);
             chip.Day.text = battle.DayText;
@@ -1063,8 +1020,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         SyncTrackers();
     }
 
-    // A row of an archive with room: the portrait, then the name line over the meta line, then
-    // the rank badge and the outcome badge. A Legendary rating stands under the badges.
     private void PlaceTwoLineRow(Row row, bool rated)
     {
         var dp = _l.Metrics.UnitsPerDp;
@@ -1095,14 +1050,8 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         rect.offsetMax = new Vector2(-right, 0f);
     }
 
-    // A narrow archive's row has the desktop's three lines. The portrait, the name and the short line share
-    // the top two thirds with the rank badge and the outcome badge; the long line runs under both
-    // badges, short of a Legendary rating, so it stays whole on a phone. So a run puts its end
-    // time second and its mode, day and duration last; a battle keeps hero and day second and
-    // its stamp or "Favorited <date>" last.
     private void PlaceRunRow(Row row, bool rated) => PlaceRow(row, row.Stamp, row.Meta, rated);
 
-    // Without a hero and day line the name drops to sit between the row's top and its stamp.
     private void PlaceBattleRow(Row row, bool hasMeta, bool rated)
     {
         PlaceRow(row, row.Meta, row.Stamp, rated);
@@ -1128,7 +1077,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         portrait.anchoredPosition = new Vector2(_l.Metrics.Dp(8f), y);
     }
 
-    // A finished run shows the trophy its tier earned; unfinished runs keep the BPP state badges.
     private Task<Sprite?>? BadgeSprite(HistoryRowBadge badge) =>
         badge switch
         {
@@ -1144,7 +1092,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             _ => null,
         };
 
-    // A Legendary rank carries its rating, and a run its change in the outcome colours.
     private static string RatingText(HistoryArchiveRow row) =>
         row.RatingDelta.Length == 0 ? row.Rating
         : row.RatingTone == HistoryOutcomeTone.None ? $"{row.Rating} {row.RatingDelta}"
@@ -1158,7 +1105,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
             _ => TouchHistoryUi.Muted,
         };
 
-    /// <summary>A stored hero id under the game's own hero name.</summary>
     private static CardHero? ParseHero(string? hero) =>
         TheDragonsHeroId.IsAlias(hero) ? CardHero.TheDragons
         : Enum.TryParse<CardHero>(hero, true, out var parsed) ? parsed
@@ -1219,7 +1165,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal bool ResetScroll;
     }
 
-    // One selectable opponent on the run's battle rail.
     private sealed class Chip
     {
         internal RectTransform Rect = null!;
@@ -1234,10 +1179,7 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal Image Outcome = null!;
     }
 
-    // A thin bar in the gutter right of a list while its rows overflow, so a list that scrolls
-    // looks it. The bar is written only when its visibility or placement changed, so a list at
-    // rest marks nothing on the view's shared canvas dirty. A view build makes new thumbs, so a
-    // relayout starts from an empty cache.
+    // Cache thumb visibility and placement so a resting list leaves the shared canvas clean.
     private sealed class ScrollThumb
     {
         private readonly ScrollRect _scroll;
@@ -1299,7 +1241,6 @@ internal sealed partial class TouchHistoryPanelView : IDisposable
         internal readonly Chip[] Chips = new Chip[Rows];
     }
 
-    /// <summary>What the view's controls call; each runs inside the main-thread scope.</summary>
     public sealed record ViewActions(
         Action Close,
         Action Replay,

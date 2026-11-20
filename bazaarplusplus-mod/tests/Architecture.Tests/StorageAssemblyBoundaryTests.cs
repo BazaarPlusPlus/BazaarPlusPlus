@@ -3,10 +3,6 @@ using Xunit;
 
 namespace Architecture.Tests;
 
-/// <summary>
-/// Storage is shared by every host (ADR-0012, ADR-0013), so neither compiled target may bind the
-/// desktop loader.
-/// </summary>
 public sealed class StorageAssemblyBoundaryTests
 {
     [Fact]

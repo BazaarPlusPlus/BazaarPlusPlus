@@ -15,10 +15,6 @@ public static class ItemEnchantPreviewCandidateSelector
             enchantment => enchantment != currentEnchantment
         );
 
-        // When the choice screen offers a specific enchant pedestal, keep only the
-        // type(s) it would actually apply, so the preview matches "this pedestal".
-        // Empty/null restriction (manual Ctrl, Always mode, not on a pedestal) keeps
-        // the full list — unchanged behavior.
         if (restrictToEnchantmentNames != null && restrictToEnchantmentNames.Count > 0)
         {
             var allowed = new HashSet<string>(

@@ -12,12 +12,6 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.BundlePipeline;
 
-/// <summary>
-/// Composes one run's Run segment and projections from the history database, the stored board
-/// captures (<see cref="PvpBattleCardSetDocument"/>), and the local Replay Payloads. Storage owns
-/// every SQL read (<see cref="RunLogBundleSource"/>, <see cref="PvpBattleSqliteStore"/>); the host
-/// supplies only the game-typed reads, through <see cref="IPvpBattleEvidenceBinding"/>.
-/// </summary>
 public sealed class RunPayloadComposer
 {
     private const string ItemCardType = "Item";
@@ -111,8 +105,7 @@ public sealed class RunPayloadComposer
         if (composition.Payload.Degradation.ScreenshotOmitted == screenshotOmitted)
             return encoded;
 
-        // Keep the final flag after budgeting: setting it before the probes changes which
-        // trims fit near the limit. Reuse the selected bytes unless this final field changes.
+        // Setting ScreenshotOmitted before budgeting can change which trims fit near the limit.
         composition.Payload.Degradation.ScreenshotOmitted = screenshotOmitted;
         return RunPayloadV6Codec.Encode(composition.Payload);
     }
@@ -152,9 +145,7 @@ public sealed class RunPayloadComposer
         };
     }
 
-    // The game version a Run started under is the one its run_started event recorded; a
-    // run_resumed event keeps its own in the event JSON. Read from the stored events, which the
-    // size budget has not trimmed.
+    // Use untrimmed events for the starting version. A resumed Run may have a different version.
     private static JObject? RunStartedEventBody(IReadOnlyList<RunLogStoredEvent> events)
     {
         var started = events.FirstOrDefault(stored => stored.Kind == "run_started");
@@ -170,7 +161,6 @@ public sealed class RunPayloadComposer
             PayloadJson = EventPayloadBody(stored.PayloadJson),
         };
 
-    // The stored row is the frame as the writer recorded it (RunMessageStreamWriter).
     private static RunMessageFrameV6 MapStreamFrame(RunLogStoredEvent stored)
     {
         var body = LoadEventJson(stored.PayloadJson);
@@ -186,8 +176,6 @@ public sealed class RunPayloadComposer
         };
     }
 
-    // A replay that exists but cannot be used is reported, not decided: the seal coordinator asks
-    // BundleSealFailurePolicy whether it omits that replay or holds the whole Run.
     private RunBattleV6 MapBattle(
         PvpBattleRecord manifest,
         string? finalBattleId,
@@ -268,7 +256,6 @@ public sealed class RunPayloadComposer
         };
     }
 
-    // A battle without a snapshot row has every set Missing, as a capture that never ran.
     private static PvpBattleCardSetDocument ReadCardSet(string? document) =>
         document == null
             ? new PvpBattleCardSetDocument()
@@ -300,8 +287,7 @@ public sealed class RunPayloadComposer
             SkillCount = CountCards(skills, SkillCardType),
         };
 
-    // Counted from the captured set so they survive ApplySizeBudget dropping the card sets; a
-    // Missing set was never captured, so its count is unknown rather than zero.
+    // Count from the captured set before budgeting can drop it. A missing capture has an unknown count.
     private int? CountCards(PvpBattleCardSetDocument source, string cardType)
     {
         if (source.Status == PvpBattleCaptureStatus.Missing)
@@ -408,12 +394,8 @@ public sealed class RunPayloadComposer
             Victories = NonNegativeLong(participant.Victories),
         };
 
-    // Trims a Run segment over BundleLimitsV6.MaxRunBytes in a fixed order: non-projection replays,
-    // then the whole Run Message Stream (part of one cannot be followed), then projected battles
-    // oldest first, then snapshots without a replay, then non-terminal events oldest first. Each ordered phase keeps the fewest leading trims that fit, found by
-    // probing 1, 2, 4, ... trims and bisecting, so a large Run is encoded a logarithmic number of
-    // times instead of once per trim. This assumes another trim never grows the gzip size; while
-    // that holds, the result is exactly what trimming one step at a time produced.
+    // A partial Run Message Stream cannot be followed, so budget it as one unit.
+    // The search assumes each additional trim cannot increase the gzip size.
     private static byte[] ApplySizeBudget(
         RunPayloadV6 payload,
         List<BundleBattleProjectionV6> projections
@@ -436,7 +418,6 @@ public sealed class RunPayloadComposer
         if (encoded.Length <= BundleLimitsV6.MaxRunBytes)
             return encoded;
 
-        // Before the trims below snapshot the categories they restore.
         if (payload.MessageStream != null)
         {
             payload.MessageStream = null;
@@ -479,12 +460,7 @@ public sealed class RunPayloadComposer
         return encoded;
     }
 
-    // The fewest trims in 1..count whose encoded size fits, given that zero trims does not:
-    // probes 1, 2, 4, ... (capped at count), then bisects between the last probe over the limit
-    // and the first that fits. When even count trims do not fit, every trim applies, as the
-    // one-at-a-time loop did; under the assumption above no smaller count can fit either.
-    // measure(k) puts the payload in its k-trim state and returns its bytes. Keep the selected
-    // candidate, which need not be the last probe; the caller restores the returned count.
+    // measure(k) leaves the payload in its k-trim state. The caller restores the chosen count because it may differ from the final probe.
     private static (int Count, byte[] Bytes) FewestFittingTrims(
         int count,
         Func<int, byte[]> measure
@@ -524,8 +500,6 @@ public sealed class RunPayloadComposer
         return (fits, fitsBytes);
     }
 
-    // The payload after the first k projected battles are trimmed, oldest first, rebuilt from the
-    // state before any of them was: battles resolve once, lists restore before each replay.
     private sealed class ProjectionTrim
     {
         private readonly RunPayloadV6 _payload;
@@ -578,7 +552,6 @@ public sealed class RunPayloadComposer
         }
     }
 
-    // The payload after its first k non-terminal events are dropped; terminal events stay in place.
     private sealed class EventTrim
     {
         private readonly RunPayloadV6 _payload;
@@ -640,8 +613,7 @@ public sealed class RunPayloadComposer
     private static bool IsTerminalEvent(string kind) =>
         kind is "run_started" or "run_completed" or "run_abandoned";
 
-    // The RunEventV6 envelope owns run_id, seq, ts, and kind; the stored payload_json repeats them
-    // (ts as text), so the Run segment carries only the remaining fields, in stored order.
+    // Stored payload_json repeats the RunEventV6 envelope fields. Keep those fields solely in the wire envelope.
     private static readonly string[] EventEnvelopeKeys = ["run_id", "seq", "ts", "kind"];
 
     internal static string EventPayloadBody(string payloadJson)
@@ -652,7 +624,7 @@ public sealed class RunPayloadComposer
         return body.ToString(Formatting.None);
     }
 
-    // Values stay as stored: no date or float reinterpretation.
+    // Keep stored values as written so date and float parsing cannot reinterpret them.
     private static JObject LoadEventJson(string payloadJson)
     {
         using var reader = new JsonTextReader(new StringReader(payloadJson))

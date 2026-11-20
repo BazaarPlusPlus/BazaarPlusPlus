@@ -4,10 +4,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The compiled host's bool canonicalization: a bool an IL2CPP struct proxy reads can hold any
-/// nonzero byte, and the upgrade preview passes it back into the game only as 0 or 1.
-/// </summary>
+// An IL2CPP bool proxy can supply any nonzero byte for true.
 public sealed class AndroidGameIdsTests
 {
     [Theory]

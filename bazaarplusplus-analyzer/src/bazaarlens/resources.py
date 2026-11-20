@@ -1,5 +1,3 @@
-"""Read the owned contracts from a checkout or an installed distribution."""
-
 import hashlib
 from functools import cache
 from pathlib import Path

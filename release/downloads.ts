@@ -9,34 +9,23 @@ export const DOWNLOAD_PLATFORM_KEYS = Object.freeze({
 
 export type DownloadPlatform = keyof typeof DOWNLOAD_PLATFORM_KEYS;
 
-// Each platform has its own Platform Release Manifest and may be ahead of the
-// others. The Release Manifest at `latest.json` names the newest release every
-// Lockstep Platform (Windows and macOS) promoted together; Android has only its
-// Platform Release Manifest.
 export const RELEASE_MANIFEST_PATH = 'latest.json';
 
 export function platformManifestPath(platformKey: string): string {
   return `latest/${platformKey}.json`;
 }
 
-// The mod reads a separate endpoint of the same Platform Release Manifest.
-// Both endpoints are published together from the complete release artifacts.
+// The mod and installer use separate URLs for the same Platform Release Manifest.
 export function modManifestPath(platformKey: string): string {
   return `latest/mod/${platformKey}.json`;
 }
 
-// The Tauri updater expands `{{target}}-{{arch}}` to the platform key and
-// falls through to the next endpoint on a non-2xx response, so the lockstep
-// manifest remains the fallback while a platform file is missing.
+// Tauri falls through on non-2xx responses, so latest.json is the fallback for missing platform manifests.
 export const UPDATER_ENDPOINTS = Object.freeze([
   `${RELEASE_BASE_URL}/latest/{{target}}-{{arch}}.json`,
   `${RELEASE_BASE_URL}/${RELEASE_MANIFEST_PATH}`
 ]);
 
-// The mainland mirror address is published in each Platform Release Manifest
-// (and the lockstep Release Manifest) as `downloads[platform].mainlandUrl`;
-// the release writer records it from an explicit operator-supplied URL.
-// Consumers read it here and never derive it.
 export function decodeMainlandDownloadUrl(
   manifest: unknown,
   platformKey: string
@@ -61,9 +50,6 @@ export function decodeMainlandDownloadUrl(
   return value;
 }
 
-// The Android App APK of one product version (docs/adr/0012-android-app.md),
-// signed by the BPP Android release key; `versionCode` follows the product
-// version.
 export type AndroidAppDownload = {
   url: string;
   size: number;
@@ -72,8 +58,6 @@ export type AndroidAppDownload = {
   signerSha256: string;
 };
 
-// The Managed Payload zip of one product version, minisign-signed with the
-// Tauri updater key; the mod's self-update installs it.
 export type ManagedPayloadDownload = {
   url: string;
   size: number;
@@ -81,10 +65,7 @@ export type ManagedPayloadDownload = {
   signature: string;
 };
 
-// The Interop Package the release is adapted with, content-addressed by the
-// zip's sha256 under `android/interop/`. `signature` is the base64
-// SHA256withRSA signature of its interop statement; the Android App verifies
-// it before loading the zip.
+// The Android App verifies the interop statement's base64 SHA256withRSA signature before loading the zip.
 export type InteropPackageDownload = {
   url: string;
   size: number;
@@ -93,8 +74,6 @@ export type InteropPackageDownload = {
   signature: string;
 };
 
-// The official game the release is adapted to: its identity and its game
-// code identity (`libil2cpp.so` and `global-metadata.dat`).
 export type AndroidGameRelease = {
   gameVersion: string;
   versionCode: number;
@@ -102,16 +81,12 @@ export type AndroidGameRelease = {
   metadataSha256: string;
 };
 
-/** Where an Android player installs the official game from (ADR 0019). */
 export type AndroidSource = 'publisher' | 'play';
 export const ANDROID_SOURCES: readonly AndroidSource[] = Object.freeze([
   'publisher',
   'play'
 ]);
 
-// One Game Adaptation of an Android release (docs/adr/0019): the game one
-// Android source ships, the sha256 of the certificate that source signs it
-// with, and the Interop Package and Managed Payload built for that game.
 export type AndroidAdaptation = {
   signerSha256: string;
   game: AndroidGameRelease;
@@ -119,8 +94,6 @@ export type AndroidAdaptation = {
   managedPayload: ManagedPayloadDownload;
 };
 
-// The desktop game a release was built against: the Snapshot Lock entry the
-// build record names, and its game code identity (the `Managed/` digest).
 export type DesktopGameRelease = {
   gameVersion: string;
   managedSha256: string;
@@ -155,7 +128,6 @@ function sha256(value: unknown): value is string {
   return typeof value === 'string' && SHA256.test(value);
 }
 
-// True when `value` is an https URL below RELEASE_BASE_URL and `prefix`.
 function releaseUrlUnder(value: unknown, prefix: string): value is string {
   if (typeof value !== 'string') return false;
   let url: URL;
@@ -216,8 +188,6 @@ function decodeDesktopGame(value: unknown): DesktopGameRelease | null {
     : null;
 }
 
-// Reads `downloads[platformKey].game` of a desktop Platform Release Manifest:
-// the game the release was built against. Null for a release without one.
 export function decodeDesktopGameRelease(
   manifest: unknown,
   platformKey: string
@@ -226,13 +196,7 @@ export function decodeDesktopGameRelease(
   return decodeDesktopGame(object(downloads?.[platformKey])?.game);
 }
 
-// Reads `downloads[platformKey]` of an Android Platform Release Manifest: the
-// Android App APK, the Managed Payload zip, the Interop Package and the game
-// of each Android source they are adapted to. Null when any part is missing
-// or points outside the release origin, and for the ADR 0010 shape (`apk`, no
-// `app`). A manifest promoted before ADR 0019 has no `adaptations` and adapts
-// the publisher's game only; the mainland mirror is optional and decoded like
-// the desktop one.
+// Manifests without adaptations still support the publisher's game (ADR 0019).
 export function decodeAndroidDownload(
   manifest: unknown,
   platformKey: string = DOWNLOAD_PLATFORM_KEYS.android
@@ -299,10 +263,7 @@ export function decodeAndroidDownload(
   };
 }
 
-// The Game Status: the game each platform's store serves now, with its game
-// code identity. The Steam snapshot watch writes the desktop object, the
-// Android APK watch the Android one; the download page reads both. They are
-// two objects because each watch replaces its own whole.
+// Separate objects let each watch replace its own Game Status atomically.
 export const GAME_STATUS_PREFIX = 'game-status';
 export const GAME_STATUS_KEY = 'latest.json';
 export const ANDROID_GAME_STATUS_KEY = 'android.json';
@@ -310,7 +271,6 @@ const GAME_STATUS_BASE_URL = `https://cdn.bazaarplusplus.com/${GAME_STATUS_PREFI
 export const GAME_STATUS_URL = `${GAME_STATUS_BASE_URL}/${GAME_STATUS_KEY}`;
 export const ANDROID_GAME_STATUS_URL = `${GAME_STATUS_BASE_URL}/${ANDROID_GAME_STATUS_KEY}`;
 
-/** The online game of each desktop platform on Steam's public branch. */
 export type GameStatus = Record<'macos' | 'windows', DesktopGameRelease>;
 
 export function decodeGameStatus(payload: unknown): GameStatus | null {
@@ -322,7 +282,6 @@ export function decodeGameStatus(payload: unknown): GameStatus | null {
   return { macos, windows };
 }
 
-/** The game the publisher's official Android APK holds now. */
 export type AndroidGameStatus = AndroidGameRelease;
 
 export function decodeAndroidGameStatus(

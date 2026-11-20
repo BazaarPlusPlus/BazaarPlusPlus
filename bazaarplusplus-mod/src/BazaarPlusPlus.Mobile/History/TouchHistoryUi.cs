@@ -6,13 +6,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// The History panel's uGUI parts on the touch layout: its palette (the desktop History's), its
-/// labels, buttons wired through <see cref="UiActions.OnTap"/> so every handler runs in the
-/// main-thread scope, drag-scrolled lists with inertia, and the single-line or multi-line text
-/// input. Rects are <see cref="TouchRect"/>s from Core's <c>HistoryTouchLayout</c>, top-down from
-/// their parent's top-left corner.
-/// </summary>
 internal static class TouchHistoryUi
 {
     public static NativeSkin Skin { get; private set; } = null!;
@@ -49,7 +42,6 @@ internal static class TouchHistoryUi
         return image;
     }
 
-    /// <summary>A label; it takes no touches.</summary>
     public static TextMeshProUGUI Label(
         Transform parent,
         TMP_FontAsset font,
@@ -73,7 +65,6 @@ internal static class TouchHistoryUi
         return label;
     }
 
-    /// <summary>A label filling a fraction of its parent: x, y, width, height from the top-left.</summary>
     public static TextMeshProUGUI Fraction(
         Transform parent,
         TMP_FontAsset font,
@@ -100,10 +91,6 @@ internal static class TouchHistoryUi
         return label;
     }
 
-    /// <summary>
-    /// A filled button with a centred label. <paramref name="control"/> names it in the
-    /// main-thread scope's error reports.
-    /// </summary>
     public static HistoryButton Button(
         Transform parent,
         TMP_FontAsset font,
@@ -147,11 +134,7 @@ internal static class TouchHistoryUi
         return controlButton;
     }
 
-    /// <summary>
-    /// A tap area over a rect, transparent unless <paramref name="fill"/> colours it: it raycasts,
-    /// so it takes the tap and a drag that starts on it still scrolls the list behind it. It is
-    /// the rect's only Graphic, since a GameObject holds one.
-    /// </summary>
+    // A GameObject holds one Graphic. Use it for the raycast so a drag still reaches the ScrollRect.
     public static Button TapArea(
         RectTransform rect,
         string control,
@@ -167,7 +150,6 @@ internal static class TouchHistoryUi
         return button;
     }
 
-    /// <summary>A full-parent shade that swallows taps and calls <paramref name="onOutsideTap"/>.</summary>
     public static RectTransform Overlay(
         Transform parent,
         string name,
@@ -194,10 +176,6 @@ internal static class TouchHistoryUi
         return rect;
     }
 
-    /// <summary>
-    /// A drag-scrolled list in <paramref name="area"/> with inertia, its content anchored to the
-    /// viewport's top-left corner so rows are placed top-down from it.
-    /// </summary>
     public static (ScrollRect Scroll, RectTransform Content) Scroll(
         Transform parent,
         string name,
@@ -239,11 +217,6 @@ internal static class TouchHistoryUi
         return (scroll, content);
     }
 
-    /// <summary>
-    /// A text input: one line for a code, several for a note. Its value is read when the user
-    /// submits; a caller that follows edits (the note's count) adds its listener through
-    /// <see cref="UiActions.OnChanged"/>.
-    /// </summary>
     public static TMP_InputField Input(
         Transform parent,
         TMP_FontAsset font,
@@ -320,8 +293,7 @@ internal static class TouchHistoryUi
             target.SetActive(active);
     }
 
-    // MEMORY gotcha (desktop): NoWrap + Ellipsis at a scaled font can drop a whole TMP block,
-    // so a wrapped label truncates instead.
+    // TMP's NoWrap with Ellipsis can drop an entire scaled text block. Wrap and truncate instead.
     private static void Shape(TextMeshProUGUI label, bool wrap)
     {
         label.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
@@ -329,12 +301,7 @@ internal static class TouchHistoryUi
     }
 }
 
-/// <summary>
-/// A History button and its parts. A dimmed button stays tappable: the model says why it cannot
-/// act, and the tap puts that reason on the status line (tap-to-explain), as hover does on the
-/// desktop. Tabs share a textured surface; records keep a subdued frame until selected. A
-/// danger button's label carries the loss colour.
-/// </summary>
+// Dimmed buttons still accept taps so they can explain why an action is unavailable.
 internal sealed class HistoryButton(
     Button button,
     Image fill,
@@ -357,7 +324,6 @@ internal sealed class HistoryButton(
 
     public GameObject GameObject => Button.gameObject;
 
-    /// <summary>Restyles the button; the next <see cref="Set"/> draws it.</summary>
     public HistoryButton As(HistoryButtonStyle style)
     {
         _style = style;
@@ -374,7 +340,6 @@ internal sealed class HistoryButton(
         return this;
     }
 
-    /// <summary>A centred navigation chevron; the button keeps its descriptive label and action.</summary>
     public void UseChevron(float angle, float size)
     {
         Label.gameObject.SetActive(false);
@@ -411,10 +376,6 @@ internal sealed class HistoryButton(
         Label.margin = new Vector4(size, 0, 2f * size, 0);
     }
 
-    /// <param name="text">The label.</param>
-    /// <param name="selected">True: it reads as the current choice.</param>
-    /// <param name="enabled">False: the button takes no taps.</param>
-    /// <param name="dimmed">True: it reads as unavailable but still takes the tap.</param>
     public void Set(string text, bool selected = false, bool enabled = true, bool dimmed = false)
     {
         if (_shown == (text, selected, enabled, dimmed))

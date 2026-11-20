@@ -10,18 +10,11 @@ using Il2CppBazaarGameShared.Infra.Messages;
 
 namespace BazaarPlusPlus.Android.Patches;
 
-/// <summary>
-/// What the Android patches reach: the startup mode, the plugin version they render, the record
-/// chain's composition, the Overlay Panel Host's adapter the back key goes to, and the hit
-/// counters the periodic summary reports. Patches are static, so
-/// this is static too, the Android counterpart of the desktop's BppPatchHost.
-/// </summary>
 internal static class AndroidPatchHost
 {
     private const int LoggedProbeErrors = 5;
 
-    // Keyed by IL2CPP class pointer, so a message costs no type name; each class's name is
-    // resolved once, the first time it is seen.
+    // Key by IL2CPP class pointer to avoid resolving type names on every message.
     private static readonly ConcurrentDictionary<IntPtr, long> MessageCounts = new();
     private static readonly ConcurrentDictionary<IntPtr, string> MessageTypeNames = new();
     private static long _versionLabelHits;
@@ -42,13 +35,10 @@ internal static class AndroidPatchHost
 
     public static string PluginVersion { get; private set; } = string.Empty;
 
-    /// <summary>The record chain, or null when it failed to start; hooks then only count.</summary>
     public static AndroidComposition? Composition { get; private set; }
 
-    /// <summary>The Main Overlay Panels' adapter the host composed, or null before it did.</summary>
     public static AndroidOverlayPanels? OverlayPanels { get; set; }
 
-    /// <summary>Applies every patch class on its own: a failing class degrades only itself.</summary>
     public static void Install(
         HarmonyLib.Harmony harmony,
         AndroidPatchMode mode,
@@ -86,7 +76,6 @@ internal static class AndroidPatchHost
         InstallCombatSpeedDetour();
     }
 
-    // Not a Harmony class, so the loop above does not see it; it fails alone, as they do.
     private static void InstallCombatSpeedDetour()
     {
         try
@@ -120,11 +109,6 @@ internal static class AndroidPatchHost
 
     public static long CountRunInitialized() => Interlocked.Increment(ref _runInitializedHits);
 
-    /// <summary>
-    /// The type name of a message's IL2CPP class, resolved from the message only the first time
-    /// the class is seen. The intake names a class before it counts it, so every counted class
-    /// has a name.
-    /// </summary>
     public static string NameMessageType(IntPtr nativeClass, INetMessage message) =>
         MessageTypeNames.GetOrAdd(
             nativeClass,

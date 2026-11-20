@@ -50,7 +50,6 @@ internal sealed partial class HistoryPanel
                     RefreshNativeHistoryBoards();
             };
 
-            // Warm the native recorder on the UI thread before per-refresh gating.
             _coordinator?.PrewarmRecordingAvailability();
         }
         _uiView.EnsureCreated();

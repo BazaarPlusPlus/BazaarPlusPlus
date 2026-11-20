@@ -3,21 +3,12 @@ using BazaarPlusPlus.Infrastructure.HeroPortraits.Composition;
 
 namespace BazaarPlusPlus.Infrastructure.DesktopKit;
 
-/// <summary>
-/// A square of a bust portrait to show in a well, relative to the art's opaque bounds: the
-/// centre across the width and down the height (0 at the left and at the top), and the side as
-/// a fraction of the height.
-/// </summary>
+// The center is relative to the opaque bounds, measured from the top left.
+// The square's side is a fraction of the bounds' height.
 internal readonly record struct KitPortraitFocus(float X, float Y, float Size);
 
-/// <summary>A colour as three bytes, for the pixel work.</summary>
 internal readonly record struct KitRgb(byte R, byte G, byte B);
 
-/// <summary>
-/// How a hero's medallion is drawn: the face square (or null to find the head), the hero's
-/// colour for the glow behind the figure, the dark ground the glow fades to, the rim's colour,
-/// and whether the head rises above the plate.
-/// </summary>
 internal readonly record struct KitMedallion(
     KitPortraitFocus? Focus,
     KitRgb Glow,
@@ -26,14 +17,10 @@ internal readonly record struct KitMedallion(
     bool Rise
 );
 
-/// <summary>
-/// The pixel work behind the kit's small art: where a hero's head is in a portrait, and an
-/// area-averaged copy of a part of an image. Numeric data only, so it runs off the Unity thread.
-/// Coordinates have their origin at the bottom left, as <see cref="PortraitImage"/> has.
-/// </summary>
+// This code can run off the Unity thread. Pixel coordinates start at the bottom left
+// to match PortraitImage.
 internal static class KitArtReduction
 {
-    /// <summary>A square part of an image, in its pixels; it may reach outside the image.</summary>
     internal readonly record struct Square(float Left, float Bottom, float Side);
 
     // A portrait well shows the head and shoulders: a square this tall, as a fraction of the
@@ -45,11 +32,6 @@ internal static class KitArtReduction
     private const float HeadBandTop = .08f;
     private const float HeadBandBottom = .36f;
 
-    /// <summary>
-    /// The head and shoulders of a bust portrait: a square under the top of the art, centred on
-    /// the head and not on the whole bust, which a weapon or a shoulder pulls to one side; or
-    /// the square <paramref name="focus"/> names. Null when the image has no opaque pixel.
-    /// </summary>
     internal static Square? HeadSquare(PortraitImage image, KitPortraitFocus? focus = null)
     {
         int top = -1,
@@ -111,21 +93,12 @@ internal static class KitArtReduction
         return best > 0 ? bestStart + best / 2f : null;
     }
 
-    // A medallion's proportions, as fractions of the plate's side.
     internal const float MedallionRise = .16f;
     private const float MedallionRadius = .14f;
     private const float RimInset = .012f;
     private const float RimWidth = .03f;
     private const float FigureInset = .036f;
 
-    /// <summary>
-    /// A hero's medallion: a rounded plate with the hero's colour glowing behind the figure, a
-    /// thin rim, and the head and shoulders cut from <paramref name="image"/>. With
-    /// <see cref="KitMedallion.Rise"/> the image is taller than the plate by
-    /// <see cref="MedallionRise"/> and wider by the same, the plate sits at its bottom centre,
-    /// and the head stands above the plate's top edge; the sides and the bottom stay inside the
-    /// rim. Null when the image has no opaque pixel.
-    /// </summary>
     internal static PortraitImage? Medallion(
         PortraitImage image,
         KitMedallion look,
@@ -164,7 +137,6 @@ internal static class KitArtReduction
             var distance = Rounded(px - plateLeft, py - plateTop, plate, plate, radius);
             var cover = Clamp01(.5f - distance);
 
-            // The plate: the hero's colour, strongest behind the head, fading to the ground.
             var glow = MathF.Pow(
                 Math.Max(
                     0f,
@@ -186,7 +158,6 @@ internal static class KitArtReduction
                 * Clamp01(.5f - (distance + plate * (RimInset + RimWidth)))
                 * Clamp01(.5f + distance + plate * (RimInset + RimWidth + .023f));
 
-            // The figure: inside the rim, and free above the plate when it rises.
             var at = ((size - 1 - row) * size + x) * 4;
             var inside = Clamp01(
                 .5f
@@ -234,7 +205,6 @@ internal static class KitArtReduction
         return new PortraitImage(size, size, output);
     }
 
-    // Straight-alpha "over": the top colour at its alpha over what is there.
     private static void Over(
         ref float r,
         ref float g,
@@ -255,7 +225,6 @@ internal static class KitArtReduction
         a = alpha;
     }
 
-    // The signed distance from a point to a rounded rectangle at the origin: negative inside.
     private static float Rounded(float x, float y, float width, float height, float radius)
     {
         var dx = MathF.Abs(x - width / 2f) - (width / 2f - radius);
@@ -291,11 +260,7 @@ internal static class KitArtReduction
         return false;
     }
 
-    /// <summary>
-    /// A <paramref name="width"/> by <paramref name="height"/> copy of a part of an image, each
-    /// pixel the alpha-weighted mean of the source pixels it covers; outside the image is clear.
-    /// Clear pixels take a neighbour's colour, so filtering leaves no dark fringe.
-    /// </summary>
+    // Give clear pixels a neighbor's color so filtering leaves no dark fringe.
     internal static PortraitImage Reduce(
         PortraitImage image,
         float left,

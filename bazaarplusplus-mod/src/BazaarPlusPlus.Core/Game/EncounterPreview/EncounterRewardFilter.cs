@@ -56,9 +56,7 @@ public sealed class EncounterRewardFilter
 
     public bool UsesDayTierTable { get; }
 
-    // DownShiftTier still starts from the daily table, but changes the final tier after
-    // the roll. The tooltip intentionally shows only the source distribution, so this
-    // remains true for downshift rewards while fixed/ignored/inherited tiers set it false.
+    // DownShiftTier still uses the day table. The tooltip shows the distribution before the shift.
     public bool UsesDayTierDistribution { get; }
 
     public EncounterRewardFilter WithFromAnyHero(bool fromAnyHero)

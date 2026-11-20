@@ -1,11 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure.SelfUpdate;
 
-/// <summary>
-/// At most one staging run per process. The main menu can be entered many times while a download
-/// is still going; each visit joins the run in flight for that version instead of starting
-/// another. A failed run is forgotten, so the next visit tries again.
-/// </summary>
+// The main menu may re-enter during a download, so all visits share a process-wide staging flight.
 public static class SelfUpdateStaging
 {
     private static readonly object Sync = new();

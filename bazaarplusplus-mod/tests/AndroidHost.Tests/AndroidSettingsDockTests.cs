@@ -10,14 +10,8 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The rows the Android host adds to the game's settings dialog, registered through Core's
-/// registry as the desktop's are: which rows, in which order, and what each does beyond writing
-/// its setting.
-/// </summary>
 public sealed class AndroidSettingsDockTests
 {
-    // The catalog's order, BppSettingsDockOrder's; the dialog groups the rows by control.
     [Fact]
     public void Rows_follow_the_shared_dock_order()
     {
@@ -59,8 +53,6 @@ public sealed class AndroidSettingsDockTests
         );
     }
 
-    // The section draws the roster through Core's BppSettingsSectionRules, which calls only the
-    // definitions: toggles, then choices, then actions, each row resolved for the game language.
     [Theory]
     [InlineData("en", false)]
     [InlineData("zh-CN", true)]
@@ -108,7 +100,6 @@ public sealed class AndroidSettingsDockTests
                 Assert.NotEmpty(state.Options);
             }
         );
-        // History is unavailable and the update check has not answered: both actions dim.
         Assert.All(
             states.Where(state => state.Kind == BppSettingsControlKind.Action),
             state => Assert.False(state.Interactable)
@@ -116,8 +107,6 @@ public sealed class AndroidSettingsDockTests
         Assert.True(states.Single(state => state.Key == "DetailedPreview").ToggleOn);
     }
 
-    // The account link waits on [BazaarDB] UploadScreenshots; the row is its touch switch, off by
-    // default, labelled as the desktop's row.
     [Fact]
     public void Bazaardb_upload_writes_the_shared_setting_and_starts_off()
     {
@@ -168,8 +157,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(new[] { "refresh_previews" }, dock.Calls);
     }
 
-    // The combat clock reads the desktop bar's [CombatStatusBar] Enabled; the row is Core's,
-    // labelled as the desktop's.
     [Fact]
     public void Combat_status_writes_the_shared_default_on_setting()
     {
@@ -184,7 +171,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Empty(dock.Calls);
     }
 
-    // [Touch] UpgradePreview, the Mobile UI's switch.
     [Fact]
     public void Switching_upgrade_preview_off_releases_its_tooltip()
     {
@@ -203,8 +189,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(new[] { "release_upgrade_preview:switched_off" }, dock.Calls);
     }
 
-    // [Touch] PreviewTextSize: 75% of the tooltip's text, as before the row, up to the desktop's
-    // 100%; a change re-renders the open preview.
     [Fact]
     public void Preview_text_size_starts_at_the_old_size_and_refreshes_the_preview()
     {
@@ -232,7 +216,6 @@ public sealed class AndroidSettingsDockTests
     public void Preview_text_size_wraps_within_a_readable_range(int percent, string expected) =>
         Assert.Equal(expected, TouchPreviewTextSize.Wrap("x", percent));
 
-    // [Graphics] FrameRatePriority, off by default: the game keeps its own frame-rate scaling.
     [Fact]
     public void Frame_rate_priority_starts_off_and_writes_the_android_setting()
     {
@@ -291,7 +274,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal("The game is up to date", row.ResolveLabel("en"));
         Assert.False(row.CollapseAfterActivate);
 
-        // Same game, but the release needs another runtime: the row downloads the new App.
         dock.GameUpdateStatus = AndroidGameUpdateStatus.AppUpdated;
         Assert.True(row.IsActive());
         Assert.Equal("Install the new BazaarPlusPlus App", row.ResolveLabel("en"));
@@ -300,7 +282,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal(new[] { "open_game_update" }, dock.Calls);
     }
 
-    // The game updates from its own store; BPP has nothing to download, so the row only says so.
     [Fact]
     public void A_newer_game_is_named_but_offers_no_download()
     {
@@ -323,8 +304,6 @@ public sealed class AndroidSettingsDockTests
         Assert.Equal("BazaarPlusPlus 未适配此游戏版本", row.ResolveLabel("zh-Hans"));
     }
 
-    // The published manifest could not be read (a 404 while Android is unreleased, no network):
-    // the row says so and never claims the game is current.
     [Theory]
     [InlineData(nameof(AndroidGameUpdateStatus.Checking), "Checking for a game update")]
     [InlineData(nameof(AndroidGameUpdateStatus.CheckFailed), "Could not check for a game update")]

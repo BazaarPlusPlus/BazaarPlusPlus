@@ -14,10 +14,6 @@ using TextCoreFontAsset = UnityEngine.TextCore.Text.FontAsset;
 
 namespace BazaarPlusPlus.GameInterop.Fonts;
 
-/// <summary>
-/// Applies the game's native typography to every BPP-owned text surface while keeping renderer-
-/// specific assets, fallback chains, coverage checks, and cleanup inside this adapter.
-/// </summary>
 internal static class NativeGameTypography
 {
     private const string ChineseLocale = "zh-CN";
@@ -568,9 +564,8 @@ internal static class NativeGameTypography
         }
     }
 
-    // TMP_FontAsset.OnDestroy destroys its material and atlas textures, and a copy from
-    // Object.Instantiate shares both with its source: a copy destroyed as it stands takes the
-    // game's own text with it, until the next launch.
+    // TMP_FontAsset.OnDestroy destroys its material and atlas. An instantiated copy shares
+    // those references with the game's font, so detach them before destroying the copy.
     private static void DestroyCopy(TMP_FontAsset copy)
     {
         copy.material = null;

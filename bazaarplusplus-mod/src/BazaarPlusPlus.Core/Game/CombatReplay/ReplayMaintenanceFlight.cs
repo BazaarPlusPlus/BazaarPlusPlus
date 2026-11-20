@@ -1,10 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// At most one background maintenance task at a time, cancelled and waited on, boundedly, at
-/// dispose.
-/// </summary>
 public sealed class ReplayMaintenanceFlight : IDisposable
 {
     private static readonly TimeSpan ShutdownWait = TimeSpan.FromSeconds(1);
@@ -69,7 +65,6 @@ public sealed class ReplayMaintenanceFlight : IDisposable
         }
         catch (AggregateException)
         {
-            // The workflow owner logs its terminal; shutdown itself stays bounded.
             finished = true;
         }
         finally

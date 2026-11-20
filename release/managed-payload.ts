@@ -16,23 +16,14 @@ import { releasePlatform } from './release-platforms.ts';
 import type { BuildPlatform } from './release-platforms.ts';
 import type { ProductVersion } from './product.ts';
 
-// The Managed Payload (root GLOSSARY.md, mod ADR-0014): the managed and
-// history-contract files of one product version on one platform, which the
-// mod's self-update installs without the installer or a new APK. prepare
-// writes the Managed Payload Manifest into the staged Payload beside the mod,
-// so every install carries its own; build zips the manifest, its minisign
-// signature and the files it names, and signs the zip. The manifest's readers
-// are the consumers in the root AGENTS.md Contracts table; a format change
-// lands with all of them.
+// Format changes must land with every parser in the root AGENTS.md Contracts table.
 
-/** One file a Managed Payload Manifest names, by install path. */
 export interface ManagedPayloadFile {
   path: string;
   size: number;
   sha256: string;
 }
 
-/** The facts of a Managed Payload Manifest, as rendered and parsed. */
 export interface ManagedPayloadManifest {
   version: ProductVersion;
   platformKey: string;
@@ -41,16 +32,13 @@ export interface ManagedPayloadManifest {
   files: ManagedPayloadFile[];
 }
 
-/** A staged Payload's manifest, parsed, and its text. */
 export interface StagedManagedPayload {
   manifest: ManagedPayloadManifest;
   text: string;
 }
 
-/** Returns the minisign signature of a file, as signWithUpdaterKey does. */
 export type ManagedPayloadSigner = (request: { file: string }) => string;
 
-/** The options of writeManagedPayloadManifest. */
 export interface WriteManagedPayloadManifestOptions {
   sourceDir: string;
   platform: BuildPlatform;
@@ -59,7 +47,6 @@ export interface WriteManagedPayloadManifestOptions {
   inventory?: PayloadInventory;
 }
 
-/** The options of writeManagedPayloadZip. */
 export interface WriteManagedPayloadZipOptions {
   sourceDir: string;
   platform: BuildPlatform;
@@ -68,7 +55,6 @@ export interface WriteManagedPayloadZipOptions {
   inventory?: PayloadInventory;
 }
 
-/** The Managed Payload zip writeManagedPayloadZip wrote. */
 export interface ManagedPayloadZip {
   path: string;
   size: number;
@@ -76,20 +62,17 @@ export interface ManagedPayloadZip {
   manifest: ManagedPayloadManifest;
 }
 
-/** The options of signWithUpdaterKey. */
 export interface SignWithUpdaterKeyOptions {
   workspaceRoot: string;
   file: string;
   env?: NodeJS.ProcessEnv;
 }
 
-// Producers the self-update replaces.
 export const MANAGED_PRODUCERS: readonly PayloadProducer[] = Object.freeze([
   'managed',
   'history-contract'
 ]);
-// Producers only the installer or the APK replaces; their bytes form the
-// non-managed payload digest a release and a running copy compare.
+// Self-update requires the installed non-managed files to match the release digest.
 export const NON_MANAGED_PRODUCERS: readonly PayloadProducer[] = Object.freeze([
   'native',
   'bootstrap',
@@ -99,7 +82,6 @@ export const NON_MANAGED_PRODUCERS: readonly PayloadProducer[] = Object.freeze([
 ]);
 
 const MANIFEST_HEADER = 'bpp-managed-payload-manifest 1';
-// Inside the Managed Payload zip.
 export const ZIP_MANIFEST = 'manifest.txt';
 export const ZIP_SIGNATURE = 'manifest.txt.minisig';
 export const ZIP_FILES = 'files';
@@ -126,8 +108,6 @@ function onlyEntry(
   return entries[0];
 }
 
-// Where the installed Managed Payload Manifest sits, relative to the
-// platform's install root.
 export const installedManifestPath = (
   platform: BuildPlatform,
   inventory: PayloadInventory = readInventory()
@@ -137,7 +117,6 @@ function staged(sourceDir: string, relative: string): string {
   return path.join(sourceDir, ...relative.split('/'));
 }
 
-// The files under one inventory entry in a staged Payload, as install paths.
 function entryFiles(sourceDir: string, entry: PayloadInventoryEntry): string[] {
   const root = staged(sourceDir, entry.path);
   const stat = fs.statSync(root, { throwIfNoEntry: false });
@@ -170,7 +149,6 @@ const fileRecords = (
     return { path: relative, size: bytes.length, sha256: sha256(bytes) };
   });
 
-// The managed and history-contract files of a staged Payload.
 export function managedPayloadFiles(
   sourceDir: string,
   platform: BuildPlatform,
@@ -184,9 +162,6 @@ export function managedPayloadFiles(
   );
 }
 
-// The digest of every non-managed file a desktop Payload installs: the set a
-// Managed Payload cannot change. Android's comes from its APK identity
-// (manifest.ts androidNonManagedPayloadDigest).
 export function desktopNonManagedPayloadDigest(
   sourceDir: string,
   platform: BuildPlatform,
@@ -258,7 +233,6 @@ export function parseManagedPayloadManifest(
   };
 }
 
-// Writes the Managed Payload Manifest into a staged Payload, beside the mod.
 export function writeManagedPayloadManifest({
   sourceDir,
   platform,
@@ -283,8 +257,6 @@ export function writeManagedPayloadManifest({
   return parseManagedPayloadManifest(text);
 }
 
-// Reads a staged Payload's manifest and checks every file it names is still
-// the prepared one.
 export function readStagedManagedPayload(
   sourceDir: string,
   platform: BuildPlatform,
@@ -305,9 +277,7 @@ export function readStagedManagedPayload(
   return { manifest, text };
 }
 
-// The Managed Payload zip: the manifest and its signature at the root, the
-// files under files/<install path>. `sign({ file })` returns the minisign
-// signature of a file, as signWithUpdaterKey does.
+// Desktop and Android consumers expect manifest files at the root and Payload entries under files/.
 export function writeManagedPayloadZip({
   sourceDir,
   platform,
@@ -356,18 +326,13 @@ function installerRoot(workspaceRoot: string): string {
   return path.join(workspaceRoot, 'bazaarplusplus-installer');
 }
 
-// Signs a file with the Tauri updater key (minisign) through the installer's
-// pinned @tauri-apps/cli, as the Tauri updater packages are signed; returns
-// the signature text the fragment carries. Reads the key from
-// BPP_SIGNING_SECRETS_DIR/tauri-updater.key, else TAURI_SIGNING_PRIVATE_KEY.
+// Use the installer's pinned Tauri CLI so both updater formats share the same signing tool.
 export function signWithUpdaterKey({
   workspaceRoot,
   file,
   env = process.env
 }: SignWithUpdaterKeyOptions): string {
-  // The key is resolved before the CLI is looked up: a missing key is the
-  // operator's problem on every machine, a missing CLI only where the
-  // installer's dependencies are not installed.
+  // Report a missing key before toolchain errors because it blocks signing on every machine.
   const secrets = env.BPP_SIGNING_SECRETS_DIR;
   const keyFile = secrets ? path.join(secrets, 'tauri-updater.key') : '';
   const signing = { ...env };

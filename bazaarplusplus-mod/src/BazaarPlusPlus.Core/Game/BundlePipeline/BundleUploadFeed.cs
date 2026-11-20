@@ -17,12 +17,9 @@ public static class BundleUploadFeed
 {
     public const int MaximumAttemptBatch = 3;
 
-    /// <summary>The cap on every upload retry delay, Retry-After included.</summary>
     public static readonly TimeSpan MaximumRetryDelay = TimeSpan.FromMinutes(30);
 
-    // A queue backoff window counts as over within this fraction of the base interval of its end;
-    // larger than the first step's largest jitter (a tenth), so a jittered first retry still
-    // lands on the pump tick one interval after the failed attempt started.
+    // Cover the first retry's maximum positive jitter so it can run on the next pump tick.
     private const double WindowEndSlackFraction = 0.15;
 
     public static Session Activate(
@@ -32,12 +29,7 @@ public static class BundleUploadFeed
         SqliteOpenOptions databaseOptions
     ) => new(services, cadence, platformKey, databaseOptions);
 
-    /// <summary>
-    /// The retry delay after a failure: <paramref name="baseSeconds"/> doubled per prior
-    /// consecutive failure, scaled by a jitter factor in [0.9, 1.1] drawn from
-    /// <paramref name="jitterSample"/> (a caller-supplied uniform sample in [0, 1)), floored by
-    /// the server's Retry-After, and capped at <see cref="MaximumRetryDelay"/>.
-    /// </summary>
+    /// <summary>jitterSample is a uniform sample in [0, 1).</summary>
     public static TimeSpan RetryDelay(
         int baseSeconds,
         int priorFailures,
@@ -53,11 +45,6 @@ public static class BundleUploadFeed
         return TimeSpan.FromSeconds(Math.Min(seconds, MaximumRetryDelay.TotalSeconds));
     }
 
-    /// <summary>
-    /// Feed-owned behavior for one pump lifetime: enablement, one attempt, the in-memory queue
-    /// backoff and the arm signals that end it, and attempt-resource disposal. The pump owns
-    /// Unity cadence, its own arm of the next attempt, and shutdown drain.
-    /// </summary>
     public sealed class Session : IDisposable
     {
         private static readonly TimeSpan PendingRetention = TimeSpan.FromDays(14);
@@ -71,8 +58,7 @@ public static class BundleUploadFeed
         private readonly Func<DateTimeOffset> _utcNow;
         private readonly Func<double> _jitterSample;
 
-        // Queue backoff after EndpointUnavailable outcomes. Only the single in-flight attempt
-        // touches these two; another thread only sets _backoffClearRequested.
+        // Only the active attempt owns the backoff state. Other threads set _backoffClearRequested.
         private int _consecutiveEndpointFailures;
         private DateTimeOffset? _queueBackoffUntil;
         private int _backoffClearRequested;
@@ -123,8 +109,6 @@ public static class BundleUploadFeed
 
         public async Task<UploadAttemptResult> RunAttemptAsync(CancellationToken cancellationToken)
         {
-            // One instant for the whole attempt: the backoff window opens from it, so the pump's
-            // next tick at attempt start + interval lands on the window edge, not past it.
             var startedAt = _utcNow();
             if (Interlocked.Exchange(ref _backoffClearRequested, 0) == 1)
                 EndQueueBackoff();
@@ -202,8 +186,7 @@ public static class BundleUploadFeed
                                     response.DiagnosticException
                                 )
                             );
-                            // The rest of the batch would fail the same way: stop here and back
-                            // the whole queue off instead of reading, hashing and sending each.
+                            // An endpoint outage would fail every remaining Bundle in the batch.
                             OpenQueueBackoff(startedAt, response);
                             return UploadAttemptResult.From(observations);
                         case BundleUploadDisposition.Permanent:
@@ -291,14 +274,8 @@ public static class BundleUploadFeed
                 _services.EventBus.Publish(new BundleSealJobRecreated { RunId = row.RunId });
         }
 
-        /// <summary>
-        /// Handles the shared arm signals for the queue backoff: an explicit arm
-        /// (<see cref="UploadArmRequested"/>, or leaving a run) ends it, so the attempt the pump
-        /// arms really runs. The pump subscribes this before its own arm handlers, so the bus,
-        /// which calls handlers in subscription order, clears the backoff before the pump can
-        /// start that attempt. The pump holds the handle and disposes it first on shutdown;
-        /// Dispose only owns attempt resources.
-        /// </summary>
+        /// <summary>The bus invokes subscribers in order, so this handler must be installed before the pump's arm handler.
+        /// The pump releases this subscription before draining the active attempt.</summary>
         public IDisposable SubscribeArmSignals() =>
             new ArmSubscriptions(
                 _services.EventBus.Subscribe<UploadArmRequested>(_ => RequestBackoffClear()),
@@ -321,10 +298,7 @@ public static class BundleUploadFeed
             _queueBackoffUntil = null;
         }
 
-        // The window is measured from the attempt's start, so it lines up with the pump tick, but
-        // it never ends sooner after the failure itself than the base interval (or the server's
-        // Retry-After): an attempt that spent its window on a slow upload and a request timeout
-        // must not retry straight away.
+        // Anchor the window at attempt start to align with the pump tick, but allow a full delay after a slow attempt fails.
         private void OpenQueueBackoff(DateTimeOffset startedAt, BundleUploadResponse response)
         {
             var delay = RetryDelay(
@@ -354,10 +328,7 @@ public static class BundleUploadFeed
             );
         }
 
-        // A window counts as over within a fraction of the base interval of its end, so a pump tick
-        // that lands a little early still attempts. A window longer than the cap means the wall
-        // clock moved backwards; that ends it instead of stretching it. Only success, an arm, or
-        // a new Session resets the failure count.
+        // A window longer than the cap means the wall clock moved backwards.
         private bool IsQueueBackingOff(DateTimeOffset now)
         {
             if (_queueBackoffUntil is not { } until)
@@ -433,7 +404,6 @@ public static class BundleUploadFeed
             }
         }
 
-        // A failure about this Bundle backs off this row only, from its recorded attempt count.
         private TimeSpan RowRetryDelay(BundleOutboxRecord row, int? retryAfterSeconds) =>
             RetryDelay(_retryIntervalSeconds, row.Attempts, _jitterSample(), retryAfterSeconds);
 

@@ -6,10 +6,6 @@ using BazaarPlusPlus.GameInterop.Heroes;
 
 namespace BazaarPlusPlus.GameInterop.Cards;
 
-/// <summary>
-/// The desktop host's card facet adapter (ADR-0015): the Mono game enums mapped to BPP card
-/// facets by member name. The Android host has the same adapter over the interop enums.
-/// </summary>
 internal static class DesktopCardFacets
 {
     public static readonly CardFacetNameMap<EHero, CardHero> Hero = new(
@@ -37,9 +33,8 @@ internal static class DesktopCardFacets
 
     public static bool IsHeroAvailable(CardHero hero) => Hero.TryToSource(hero, out _);
 
-    // A captured card's facets. A type the facets lack fails the capture, so the board degrades to
-    // Missing instead of carrying a wrong card; a size, section or socket they lack reads as none.
-    // The game's size 0, which names no member, is a card without a size.
+    // An unknown card type must fail capture to avoid storing a wrong card. The unnamed game
+    // size 0 denotes a card without a size.
     public static CardType CapturedType(ECardType type) =>
         Type.TryToFacet(type, out var facet)
             ? facet
@@ -60,12 +55,9 @@ internal static class DesktopCardFacets
     public static CardEnchantment? CapturedEnchantment(EEnchantmentType? enchantment) =>
         enchantment is { } value && Enchantment.TryToFacet(value, out var facet) ? facet : null;
 
-    // Bronze, the game's own default tier, for a tier the facets lack.
     public static CardTier CapturedTier(ETier tier) =>
         Tier.TryToFacet(tier, out var facet) ? facet : CardTier.Bronze;
 
-    // The game values a captured card's facets name. A card without a size gets the game's 0,
-    // which is what the game itself reported for it.
     public static ECardType GameType(CardType type) =>
         Type.TryToSource(type, out var source) ? source : default;
 

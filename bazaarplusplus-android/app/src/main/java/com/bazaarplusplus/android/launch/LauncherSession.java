@@ -17,20 +17,12 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * The launcher's work and state for the whole process: the launch check, a BPP launch, the
- * diagnostics export, the cover art and the {@link LauncherScreen} they produce. It outlives any one
- * {@link LauncherActivity}, so a fold, a text-size change or a recreated Activity
- * re-renders the same screen and never starts a second check or launch while one runs
- * ({@code GameSession.prepare} runs once per process). State is read and written on the main
- * thread only; the work runs on one worker thread.
- */
+// The session survives Activity recreation so a configuration change cannot start a second launch.
+// The main thread owns the state. The worker does the blocking work.
 final class LauncherSession {
-    /** The attached Activity. */
     interface Listener {
         void changed();
 
-        /** The game is prepared: start the bridge Activity and leave the launcher. */
         void startGame();
     }
 
@@ -45,18 +37,14 @@ final class LauncherSession {
     private final Handler main = new Handler(Looper.getMainLooper());
     private Listener listener;
 
-    /** Null until the first check starts. */
     private LauncherScreen screen;
     private LaunchCheck check;
     private LauncherScreen.Facts facts;
-    /** The finished diagnostics export the Activity has not shown yet, or null. */
     private Export export;
     private boolean exporting;
-    /** Null until the cover art decodes, and after the game starts. */
     private CoverArt.Images cover;
     private boolean coverRequested;
 
-    /** A finished diagnostics export: the result line, and the zip to share when it was saved. */
     static final class Export {
         final String message;
         final Diagnostics.Exported saved;
@@ -77,7 +65,6 @@ final class LauncherSession {
         return check;
     }
 
-    /** The finished export, once: the Activity shows it and opens the share sheet. */
     Export takeExport() {
         Export taken = export;
         export = null;
@@ -100,7 +87,6 @@ final class LauncherSession {
         if (this.listener == listener) this.listener = null;
     }
 
-    /** Runs the launch check unless a check or a launch is already running. */
     void recheck(Context context) {
         if (busy()) return;
         Context app = context.getApplicationContext();
@@ -122,10 +108,7 @@ final class LauncherSession {
         });
     }
 
-    /**
-     * Decodes the cover art once per process, on its own thread so it never holds up the check;
-     * {@code minHeight} is the tallest the cover can be in pixels.
-     */
+    /** Decode on a separate thread so cover art never delays a launch check. */
     void loadCover(Context context, int minHeight) {
         if (coverRequested) return;
         coverRequested = true;
@@ -162,10 +145,8 @@ final class LauncherSession {
                     }
                 });
                 post(() -> {
-                    // Not busy any more: a launcher reopened in this process checks again (and a
-                    // second launch then says the game already ran, as GameSession requires).
                     screen = LauncherScreen.ready(currentFacts);
-                    // The game shares this process; the launcher's art is not needed any more.
+                    // Release the bitmaps because the game shares the launcher's process.
                     cover = null;
                     if (listener != null) {
                         listener.startGame();
@@ -211,12 +192,10 @@ final class LauncherSession {
         });
     }
 
-    /** The facts of a check that the screen shows, worked out on the worker thread. */
     private static LauncherScreen.Facts facts(Context app, LaunchCheck check) {
         PlatformManifest manifest = check.manifest == null ? null : check.manifest.manifest;
         LauncherScreen.AppUpdate update = null;
         if (manifest != null && manifest.app != null) {
-            // Only a release build carries a runtime digest; a development build is never reminded.
             String ownDigest = check.facts == null ? null : check.facts.nonManagedPayloadDigest;
             update = LauncherScreen.appUpdate(ownDigest, BuildConfigFacts.versionCode(app),
                     manifest.nonManagedPayloadDigest, manifest.app.versionCode, manifest.version, manifest.app.file.url);

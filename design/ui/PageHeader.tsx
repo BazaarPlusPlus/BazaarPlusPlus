@@ -9,7 +9,6 @@ export function PageHeader({
   title: string;
   /** Rendered before the title, e.g. a back button. */
   leading?: ReactNode;
-  /** Short secondary facts beside the title. */
   meta?: ReactNode;
   action?: ReactNode;
 }) {

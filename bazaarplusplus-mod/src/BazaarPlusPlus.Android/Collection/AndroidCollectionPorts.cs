@@ -9,19 +9,13 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.Collection;
 
-/// <summary>
-/// The Day filter's port. Android reads the run day while a run is on, but not the GameData
-/// day-tier weights the desktop resolves, so the highest tier stays null and the Day gate fails
-/// open: the Day toggle shows the day and filters nothing. Out of a run there is no day; the game
-/// keeps the last run's object after it ends, so its day is not read there.
-/// </summary>
+// The game keeps the last run object after it ends, so its day is stale outside a run.
 internal sealed class AndroidCollectionDayTierSource(ICollectionRunReads run)
     : ICollectionDayTierSource
 {
     public CollectionDayTiers Resolve() => new(run.IsInRun() ? run.Day() : null, null);
 }
 
-/// <summary>The touch Collection's reads of the run, over the IL2CPP game data.</summary>
 internal sealed class AndroidCollectionRunReads : ICollectionRunReads
 {
     private readonly AndroidGameStateProbe _gameState = new();
@@ -77,10 +71,7 @@ internal sealed class AndroidCollectionRunReads : ICollectionRunReads
     }
 }
 
-/// <summary>
-/// The remembered out-of-run hero, in PlayerPrefs under the desktop's key scoped by the game
-/// account, so each account keeps its own. The account id is only a key; it is never logged.
-/// </summary>
+// Use the account ID to scope the preference and keep it out of logs.
 internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHeroPreferenceStore
 {
     private bool _degradedReported;
@@ -118,8 +109,8 @@ internal sealed class AndroidCollectionHeroPreferenceStore : ICollectionPanelHer
             ReportDegraded("unsupported_hero");
             return;
         }
-        // PlayerPrefs.Save rewrites the SharedPreferences file; a hero tap only stages the value
-        // and the panel flushes it on close or when the app pauses (leaves the foreground).
+        // PlayerPrefs.Save rewrites the SharedPreferences file, so defer that write until close or
+        // pause.
         PlayerPrefs.SetString(Key(), CollectionPanelHeroPreference.Serialize(hero));
         _unsaved = true;
     }

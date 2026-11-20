@@ -11,8 +11,7 @@ internal sealed record PortraitBreakoutSampling(float[] Times, HashSet<int> Stri
         for (var i = 1; i < 32; i++)
             times.Add(animation.Duration * i / 32);
 
-        // Order changes affect the renderer as a whole. Reserve their samples before
-        // optional attachment changes, and visit repeated orders only once.
+        // Renderer-wide order changes get sample budget before individual attachment changes.
         foreach (var timeline in animation.Timelines.OfType<DrawOrderTimeline>())
         {
             var orders = new HashSet<string>(StringComparer.Ordinal);
@@ -36,8 +35,7 @@ internal sealed record PortraitBreakoutSampling(float[] Times, HashSet<int> Stri
             {
                 var before = i == 0 ? null : timeline.AttachmentNames[i - 1];
                 var after = timeline.AttachmentNames[i];
-                // Repeated flipbook cycles need representatives of each transition,
-                // rather than two additional poses for every repetition.
+                // Sample each transition once even when the flipbook repeats many times.
                 if (transitions.Add((i == 0, before, after)))
                     AddBoundary(proposed, timeline.Frames[i]);
                 if (proposed.Count > 64)

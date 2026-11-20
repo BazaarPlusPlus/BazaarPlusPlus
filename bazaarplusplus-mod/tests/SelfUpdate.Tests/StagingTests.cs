@@ -12,12 +12,6 @@ using Xunit;
 
 namespace SelfUpdate.Tests;
 
-/// <summary>
-/// Staging from a downloaded Managed Payload zip, and the Updater swapping in what staging
-/// published. Failure modes: a zip that is not the published one (size, hash, signature), a
-/// manifest signed by another key or naming another version, an entry outside the manifest or
-/// outside the plugins directory, and a failed download leaving a staged version behind.
-/// </summary>
 public sealed class StagingTests : IDisposable
 {
     private const string Platform = "darwin-aarch64";
@@ -294,8 +288,6 @@ public sealed class StagingTests : IDisposable
 
     private static HttpClient Http(byte[] zip) => new(new Handler(zip));
 
-    // A Managed Payload zip whose manifest `manifestSigner` signs; Release() signs the zip itself
-    // with the trusted test key.
     private static byte[] Zip(
         string version,
         TestSigner manifestSigner,
@@ -395,7 +387,6 @@ public sealed class StagingTests : IDisposable
 
     private string Read(string relative) => TestInputs.Scratch(InstallPath(relative));
 
-    // A body with no known length that fails the test once read past `tripAt` bytes.
     private sealed class Tripwire : Stream
     {
         private readonly long _length;

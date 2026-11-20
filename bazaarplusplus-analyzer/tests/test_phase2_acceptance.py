@@ -16,8 +16,7 @@ from tests.pipeline_fixtures import (
 
 
 def test_seven_day_build_records_bounded_rss_and_local_contract_state(tmp_path: Path) -> None:
-    # Source Days 08-04..08-10 hold Bundles. At 00:30 on 08-11, heal_days=8 covers
-    # 08-04..08-11; every hour stays inside the eight-day Bundle Source retention.
+    # Run just after midnight so the earliest fixture day is still within source retention.
     now = datetime(2026, 8, 11, 0, 30, tzinfo=UTC)
     server = BundleServer(daily_bundles(date(2026, 8, 4), 7), now=now)
     with httpx.Client(transport=httpx.MockTransport(server)) as client:

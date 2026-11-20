@@ -17,11 +17,6 @@ internal enum EncounterPreviewPlanPublisherStatus
     Disposed,
 }
 
-/// <summary>
-/// The desktop's encounter plans: observes each new static-data source, loads its plans from the
-/// disk cache or compiles them, and publishes them for Core's <see cref="EncounterPreviewModule"/>
-/// through <see cref="Reads"/>.
-/// </summary>
 internal sealed class EncounterPreviewPlanPublisher : IDisposable
 {
     private readonly EncounterPreviewPlanRegistry _registry;
@@ -72,7 +67,6 @@ internal sealed class EncounterPreviewPlanPublisher : IDisposable
     internal EncounterPreviewPlanPublisherStatus Status =>
         (EncounterPreviewPlanPublisherStatus)Volatile.Read(ref _status);
 
-    /// <summary>The published plans and the game state a query reads beside them.</summary>
     internal IEncounterPreviewReads Reads { get; }
 
     internal void ObserveStaticData()
@@ -211,10 +205,7 @@ internal sealed class EncounterPreviewPlanPublisher : IDisposable
                     )
             );
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Plugin teardown or a superseded generation; no publication is allowed afterwards.
-        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
             _registry.TryRunIfCurrent(
@@ -239,8 +230,7 @@ internal sealed class EncounterPreviewPlanPublisher : IDisposable
         }
     }
 
-    // The source the plans were published for travels with them: a query must read that
-    // source's day tiers and live values, never a newer manager's.
+    // The plan and its day tiers and live values must come from the same static-data source.
     internal EncounterPreviewSnapshot? TryGetSnapshot(
         out object source,
         out EncounterPreviewAvailability unavailable

@@ -1,5 +1,4 @@
 using Xunit;
 
-// The checks count SQLite commands and clear the process-wide SQLite
-// connection pools between databases. Run the tests one at a time, as the capsule did.
+// Run serially because the tests count SQLite commands and clear process-wide connection pools.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

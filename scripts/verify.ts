@@ -5,7 +5,6 @@ import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { runGit } from './git-command.ts';
 
-/** The state of a verification run or of one of its recipes. */
 export type VerificationStatus = 'running' | 'passed' | 'failed';
 
 /** One recipe in result.json; exitCode and signal stay null while it runs. */
@@ -18,7 +17,6 @@ export interface VerificationStep {
   error?: string;
 }
 
-/** The result.json receipt verify writes under artifacts/verification. */
 export interface VerificationResult {
   head: string;
   dirty: boolean;

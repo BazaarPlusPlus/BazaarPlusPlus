@@ -105,8 +105,7 @@ function renderHeader({
 }
 
 describe('ShellHeader', () => {
-  // These assertions are written against the Chinese copy, and the locale now
-  // follows the host language when nothing is stored.
+  // Pin the locale because the assertions use Chinese copy and the host language can vary.
   beforeEach(() => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh');
     vi.mocked(getStreamStatus).mockClear();
@@ -318,7 +317,6 @@ describe('ShellHeader', () => {
       expect(getStreamStatus).toHaveBeenCalledOnce();
       expect(closeLabel()).toBe('关闭窗口');
 
-      // The service starts from the tray; an idle window does not ask.
       vi.mocked(getStreamStatus).mockResolvedValue({
         ...idleStreamStatus,
         running: true

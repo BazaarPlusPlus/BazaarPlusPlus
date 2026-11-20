@@ -15,7 +15,7 @@ public sealed partial class HistoryPanelCoordinator
         FavoriteBuilds? Builds = null
     );
 
-    // The marks are a hint: a failed favorites read leaves the Ghost page unmarked, not unread.
+    // A failed favorites lookup should still let the Ghost page load.
     private static FavoriteBuilds LoadFavoriteBuilds(HistoryFavoriteService? favorites)
     {
         if (favorites == null)
@@ -37,7 +37,6 @@ public sealed partial class HistoryPanelCoordinator
     private readonly LatestHistoryRead<HistoryCursorPage<HistoryBattleRecord>> _battleReads = new();
     private readonly LatestHistoryRead<PvpBattleSnapshots> _detailReads = new();
 
-    // The snapshots of _state.DetailBattleId; _state.DetailLoaded says whether there are any.
     public PvpBattleSnapshots? DetailSnapshots { get; private set; }
     private readonly LatestHistoryRead<MaintenanceResult> _maintenanceReads = new();
 
@@ -338,16 +337,13 @@ public sealed partial class HistoryPanelCoordinator
         );
     }
 
-    // Owns an account change seen while the panel is open, whichever path reads the profile first:
-    // restart the session and re-enter the section, so the open Ghost section syncs the new account.
     private void ObserveAccount()
     {
         if (!AdoptProfileAccount())
             return;
         _session.Begin();
         _state.ReplayActionInProgress = _state.AccountLinkInProgress = false;
-        // A favorite save or removal the restart cancels returns without clearing its flag. A run
-        // delete cannot be cancelled and clears its own.
+        // A cancelled favorite action returns without clearing its flag. The run delete remains active until it clears itself.
         _state.FavoriteActionInProgress = false;
         _state.GhostSync = GhostSyncPhase.NotStarted;
         _state.ServerHealthProbeInProgress = false;
@@ -358,8 +354,7 @@ public sealed partial class HistoryPanelCoordinator
         StartGhostMaintenance();
     }
 
-    // The only writer of CachedAccountId. It clears account-scoped rows but starts no work, so
-    // OnPanelShown can adopt the account inside the session it has just begun.
+    // Adopt the account without starting work so OnPanelShown can use its existing session.
     private bool AdoptProfileAccount()
     {
         var account = NormalizeAccountId(_profileAccountId());
@@ -384,8 +379,7 @@ public sealed partial class HistoryPanelCoordinator
                 var (expired, restored) = _dataService.MaintainGhosts(account, token);
                 return new(expired, restored);
             },
-            // Maintenance runs beside the page read, so a page read first can still list rows it
-            // hid or miss rows it restored. RefreshGhostData never restarts maintenance.
+            // The page read can finish before maintenance, so reload after maintenance changes which Ghost Battles are visible.
             (result, error) =>
             {
                 if (

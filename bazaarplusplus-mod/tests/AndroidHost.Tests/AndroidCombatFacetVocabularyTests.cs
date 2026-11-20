@@ -8,15 +8,8 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// Vocabulary pin (ADR-0019): Core's combat facets mirror the game's combat enums by member
-/// name and value, so an Android adapter maps them by name as the desktop's
-/// <c>DesktopCombatFacets</c> does. Every member the Interop Snapshot defines must be a Core
-/// member with the same value. Core may hold members this snapshot lacks: the Android game
-/// updates on its own schedule, and <c>DesktopCombatFacetVocabularyTests</c> pins Core to the
-/// Managed snapshot in both directions. Read from the interop assembly's metadata, never loaded:
-/// its types resolve only in the game.
-/// </summary>
+// Android updates independently, so its snapshot can lack Core members. The desktop check pins both directions.
+// Read metadata because these interop types resolve only in the running game.
 public sealed class AndroidCombatFacetVocabularyTests
 {
     private const string TypesNamespace = "Il2CppBazaarGameShared.Domain.Core.Types";

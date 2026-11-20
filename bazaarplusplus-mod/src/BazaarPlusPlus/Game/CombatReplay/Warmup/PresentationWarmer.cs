@@ -140,14 +140,11 @@ internal static class PresentationWarmer
         IReplayPlaybackOutcomeSink outcome
     )
     {
-        // Current scope, as VFXManager instantiates it during playback: the game releases the
-        // asset with that scope and dedupes repeat loads within it, so no process-level key set.
+        // Playback uses Current scope, which releases the assets and deduplicates repeat loads.
         await semaphore.WaitAsync();
         try
         {
-            // VFXManager.TryInstantiateVFXByAddress instantiates the key's /Emitters/ twin when
-            // that address exists, and falls back to the key itself only when the twin loads as
-            // null, so the twin is the asset playback uses.
+            // VFXManager prefers the key's /Emitters/ address when it loads successfully.
             var emitterKey = overrideKey.Replace(ProjectilesPath, EmittersPath);
             if (
                 !string.Equals(emitterKey, overrideKey, StringComparison.Ordinal)

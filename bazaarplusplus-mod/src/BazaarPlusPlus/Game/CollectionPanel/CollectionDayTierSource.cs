@@ -4,7 +4,6 @@ using BazaarPlusPlus.GameInterop.DayTiers;
 
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// The desktop GameData day-tier resolver behind the Core Collection port.
 internal sealed class CollectionDayTierSource(GameDataDayTierResolver resolver)
     : ICollectionDayTierSource
 {

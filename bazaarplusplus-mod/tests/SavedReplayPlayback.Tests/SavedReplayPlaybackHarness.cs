@@ -15,11 +15,6 @@ using Xunit;
 
 namespace BazaarPlusPlus.Tests.SavedReplays;
 
-/// <summary>
-/// One <see cref="BazaarPlusPlus.Game.CombatReplay.SavedReplayPlayback"/> over an in-memory host
-/// and the real publisher, gate, catalog and run lifecycle. Every observable step lands in
-/// <see cref="Timeline"/> in the order it happened.
-/// </summary>
 internal sealed class SavedReplayPlaybackHarness : IDisposable
 {
     private readonly string _dataRoot = Path.Combine(
@@ -73,7 +68,6 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
     public ReplayPayloadOperationGate Gate { get; } = new();
     public SavedReplayCatalog Catalog { get; }
 
-    // Every battle-catalog read, in order: "load:<id>" or "exists:<id>".
     public IReadOnlyList<string> CatalogReads => _battles.Reads;
     public Action? BeforeCatalogRead
     {
@@ -101,7 +95,6 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
         return manifest;
     }
 
-    /// <summary>The playback lease is free: nothing the module ran still holds it.</summary>
     public bool LeaseIsFree()
     {
         using var lease = Gate.TryAcquirePlayback();
@@ -262,10 +255,6 @@ internal sealed class SavedReplayPlaybackHarness : IDisposable
     }
 }
 
-/// <summary>
-/// The host port in memory: a counted scope, a settable clock and game state, recorded cleanup
-/// and notices, and starts whose every stage can throw or wait on a gate.
-/// </summary>
 internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness) : ISavedReplayHost
 {
     private bool _lobbyLoaded;
@@ -305,7 +294,6 @@ internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness
     public Exception? MenuReturnFailure { get; set; }
     public int MenuReturns { get; private set; }
 
-    /// <summary>Configures each start the module begins; the last one is <see cref="Start"/>.</summary>
     public Action<InMemorySavedReplayStart>? ConfigureStart { get; set; }
     public InMemorySavedReplayStart? Start { get; private set; }
     public int BeginStartThread { get; private set; }
@@ -384,10 +372,7 @@ internal sealed class InMemorySavedReplayHost(SavedReplayPlaybackHarness harness
     }
 }
 
-/// <summary>
-/// One start in memory. A stage with a gate waits until the test completes it; continuations run
-/// on the completing thread, so every interleaving is deterministic.
-/// </summary>
+// Gated stages resume inline when the test completes the gate, keeping interleavings deterministic.
 internal sealed class InMemorySavedReplayStart(
     InMemorySavedReplayHost host,
     List<string> timeline,
@@ -407,7 +392,6 @@ internal sealed class InMemorySavedReplayStart(
     public Exception? RollbackThrows { get; set; }
     public int Rollbacks { get; private set; }
 
-    /// <summary>The host scope depth at each stage call, keyed by stage.</summary>
     public Dictionary<string, int> DepthAt { get; } = new(StringComparer.Ordinal);
 
     public void Prepare()

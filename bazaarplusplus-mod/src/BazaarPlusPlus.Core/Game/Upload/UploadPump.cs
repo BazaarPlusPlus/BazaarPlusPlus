@@ -9,12 +9,7 @@ using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.Upload;
 
-/// <summary>
-/// The one upload pump of a host: it drives the <see cref="BundleUploadFeed"/> session on the
-/// startup delay and retry interval, arms an immediate attempt when a run ends or a feature asks,
-/// and never starts one while a run is live. The host calls <see cref="Tick"/> from its main
-/// thread with a monotonic clock in seconds, and <see cref="Dispose"/> once at teardown.
-/// </summary>
+// Call Tick on the host's main thread with a monotonic clock in seconds.
 public sealed class UploadPump : IDisposable
 {
     private static readonly TimeSpan ShutdownDrainTimeout = TimeSpan.FromMilliseconds(500);
@@ -34,10 +29,6 @@ public sealed class UploadPump : IDisposable
 
     private UploadPump(IBppServices services) => _services = services;
 
-    /// <summary>
-    /// Activates the feed and starts the startup delay at <paramref name="nowSeconds"/>. On a PTR
-    /// build the pump stays inert: every tick does nothing.
-    /// </summary>
     public static UploadPump Start(
         IBppServices services,
         string? platformKey,
@@ -69,9 +60,8 @@ public sealed class UploadPump : IDisposable
             cadence.RetryIntervalSeconds
         );
         pump._startupRunner = new StartupUploadAttemptRunner(new UploadFeedLogState());
-        // The feed subscribes first: the bus calls handlers in subscription order on the
-        // publisher's thread, so an arm ends the feed's queue backoff before the pump's handler
-        // lets a main-thread Tick start the armed attempt.
+        // The bus invokes subscribers in order on the publisher's thread. Subscribe the feed first so
+        // its backoff clears before the pump can arm a main-thread attempt.
         pump._feedArmSubscription = session.SubscribeArmSignals();
         pump._runLifecycleSubscription = services.EventBus.Subscribe<RunLifecycleChanged>(
             pump.OnRunLifecycleChanged
@@ -106,9 +96,8 @@ public sealed class UploadPump : IDisposable
 
     public void Dispose()
     {
-        // Two-point dispose contract (must not collapse into a single Dispose):
-        // 1) Unsubscribe arm signals first so a half-torn pump cannot be re-armed.
-        // 2) Cancel the in-flight attempt, drain, then dispose session attempt resources.
+        // Unsubscribe before canceling so the pump cannot be re-armed during teardown.
+        // Drain the attempt before disposing its session resources.
         _runLifecycleSubscription?.Dispose();
         _runLifecycleSubscription = null;
         _uploadArmSubscription?.Dispose();

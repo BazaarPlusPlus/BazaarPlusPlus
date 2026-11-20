@@ -12,7 +12,6 @@ export function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-// Null/zero-denominator rates render as an em dash; never let NaN reach formatPercent.
 export function formatNullablePercent(value: number | null): string {
   return value == null || !Number.isFinite(value) ? '—' : formatPercent(value);
 }

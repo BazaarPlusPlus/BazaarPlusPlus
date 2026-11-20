@@ -13,22 +13,13 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Android.CombatReplay.Bootstrap;
 
-/// <summary>
-/// The game services a saved replay drives, the Android forms of the desktop's
-/// <c>SocketBehaviorBridge</c>, <c>AppStateHandlerInstaller</c> and
-/// <c>BootstrapManagerInitializer</c>. The desktop reaches them by reflection; IL2CPP surfaces
-/// private fields as interop properties, so here they are plain reads. The network host is
-/// <c>Il2CppNetworking.NetworkManager</c>: the online Android build has no <c>SocketBehavior</c>.
-/// Every game task is awaited through <see cref="Il2CppTasks"/> and every wait polls on the main
-/// thread. Main thread only.
-/// </summary>
+// Android's online game uses NetworkManager and has no SocketBehavior.
 internal static class AndroidReplayGameServices
 {
-    // A cold first replay on a slow device takes over 5 s here (#771). Nothing else can run on
-    // the board during this wait, so a long limit only delays a real failure.
+    // A cold replay can take several seconds to prepare the board on a slow device.
     private static readonly TimeSpan PresentationReadyTimeout = TimeSpan.FromSeconds(30);
 
-    // These two load the board's assets, which a cold first replay reads from the APK (#771).
+    // A cold replay loads the board assets from the APK.
     private static readonly TimeSpan ManagerSetupTimeout = TimeSpan.FromSeconds(120);
 
     public static NetworkManager RequireNetworkManager() =>
@@ -41,7 +32,6 @@ internal static class AndroidReplayGameServices
             "NetworkManager did not expose a NetMessageProcessor."
         );
 
-    /// <summary>Disposes the network host after a failed lobby bootstrap, as the desktop does.</summary>
     public static (bool Succeeded, Exception? Exception) DisposeNetwork()
     {
         try
@@ -79,8 +69,7 @@ internal static class AndroidReplayGameServices
         AppState._gameSimHandler
         ?? throw new InvalidOperationException("GameSimHandler is unavailable.");
 
-    // The injected spawn is handled directly, bypassing ReceiveOrQueue, as on the desktop; the
-    // handler then records it as handled so the live intake never replays it.
+    // Mark the injected spawn as handled so the live intake cannot play it again.
     public static void HandleSpawnMessage(
         NetMessageProcessor processor,
         GameSimHandler gameSimHandler,
@@ -218,7 +207,6 @@ internal static class AndroidReplayGameServices
         return blockers;
     }
 
-    // The game's skill presentation takes an IL2CPP list of cards; a managed list is rejected.
     private static Il2CppSystem.Collections.Generic.List<Card> Skills(
         Il2CppBazaarGameClient.Domain.Models.Player? owner
     )

@@ -7,10 +7,6 @@ using BazaarPlusPlus.Storage.Sqlite;
 
 namespace BazaarPlusPlus.Game.Upload;
 
-/// <summary>
-/// Pure activation policy shared by <see cref="UploadPump"/> and unit tests. PTR stays a pump-side
-/// precondition; feature enablement remains session behavior after activation.
-/// </summary>
 public static class UploadPumpBootstrap
 {
     public static bool CanActivate(GameBuildChannel channel) => channel != GameBuildChannel.Ptr;
@@ -27,9 +23,8 @@ public static class UploadPumpBootstrap
 
         if (!CanActivate(services.GameBuild.Channel))
         {
-            // Session gate: no upload feed arms on the PTR build. The durable defense is the
-            // build_channel row filter in the upload stores — it keeps PTR-recorded rows out of
-            // uploads even after switching back to online.
+            // Upload stores must also filter persisted build_channel values so PTR runs stay excluded
+            // after a player returns to Online.
             BppLog.DebugEvent(
                 new BppLogEvent(BppLogFeatureScope.Upload, "upload.feed.skipped"),
                 () => [("reason_code", UploadLogReasonCode.PtrBuild)]

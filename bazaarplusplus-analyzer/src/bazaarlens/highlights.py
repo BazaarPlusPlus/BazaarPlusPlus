@@ -1,9 +1,4 @@
-"""Daily Highlights: one Complete Source Day's players, top Ten-Win players,
-popular Ten-Win cards and records, for the QQ daily report.
-
-They name players, so they are never published to the metrics bucket; the
-analyzer workflow hands them to the report job directly.
-"""
+"""Daily Highlights name players, so the workflow passes them directly to the QQ report job."""
 
 from typing import Any
 
@@ -17,7 +12,6 @@ CARDS = 10
 SKILLS = 5
 ENCHANTMENTS = 5
 
-# One display name per account: the newest name its Battles carry that day.
 _NAMES = """
 CREATE TEMP VIEW player_names AS
 SELECT player_account_id, arg_max(player_display_name, recorded_at_utc) AS name
@@ -26,7 +20,6 @@ WHERE coalesce(player_display_name, '') <> ''
 GROUP BY player_account_id
 """
 
-# Accepted completed Runs of the day with the player's name.
 _DAY_RUNS = """
 CREATE TEMP VIEW day_runs AS
 SELECT r.*, coalesce(n.name, '') AS name, (r.victories=10 AND r.losses >= 0) AS ten_win
@@ -35,8 +28,7 @@ LEFT JOIN player_names n USING (player_account_id)
 WHERE r.source_day = {day}
 """
 
-# Cards on the final player board of each Ten-Win Run. Socket overlays
-# (card_type 7) share a slot with an item and are not cards of their own.
+# Socket overlays (card_type 7) share an item's slot and must not count as cards.
 _BOARDS = """
 CREATE TEMP VIEW ten_win_boards AS
 SELECT r.run_id, r.bundle_id, r.player_account_id, r.name, r.hero, r.ended_at_utc,
@@ -48,7 +40,6 @@ WHERE r.ten_win AND c.card_set_label IN ('player_hand', 'player_skills')
   AND coalesce(c.card_type, 0) <> 7 AND coalesce(c.name, '') <> ''
 """
 
-# The longest run of consecutive Ten-Win Runs per player, by end time.
 _STREAKS = """
 CREATE TEMP VIEW streaks AS
 SELECT player_account_id, name, count(*) AS streak, mode(hero ORDER BY hero) AS hero
@@ -83,7 +74,6 @@ def _first(connection, sql: str) -> dict[str, Any] | None:
 
 
 def _popular(connection, label: str, column: str, limit: int) -> list[dict[str, Any]]:
-    """The most frequent cards or enchantments on Ten-Win boards, once per Run."""
     key = "template_id" if column == "card" else column
     return _rows(
         connection,
@@ -101,7 +91,6 @@ def _popular(connection, label: str, column: str, limit: int) -> list[dict[str, 
 
 
 def _run_record(connection, value: str, where: str) -> dict[str, Any] | None:
-    """The single Run with the highest value; ties go to the earlier Run."""
     return _first(
         connection,
         f"""
@@ -115,7 +104,6 @@ def _run_record(connection, value: str, where: str) -> dict[str, Any] | None:
 
 
 def _board_record(connection, value: str, order: str) -> dict[str, Any] | None:
-    """The Ten-Win final board with the extreme item count; ties go to the earlier Run."""
     return _first(
         connection,
         f"""
@@ -130,7 +118,6 @@ def _board_record(connection, value: str, order: str) -> dict[str, Any] | None:
 
 
 def _player_record(connection, value: str, where: str) -> dict[str, Any] | None:
-    """The player with the highest value over the day; ties go to the name."""
     return _first(
         connection,
         f"""
@@ -164,7 +151,6 @@ def build_highlights(store: FactStore, day: str, resources: AnalysisResources) -
             FROM day_runs
             """,
         )[0]
-        # Runs by the UTC hour their client says they started.
         by_hour = dict(
             connection.execute(
                 """
@@ -175,7 +161,6 @@ def build_highlights(store: FactStore, day: str, resources: AnalysisResources) -
                 """
             ).fetchall()
         )
-        # Ties go to fewer Runs, then more Perfect Runs, then the name.
         leaders = _rows(
             connection,
             f"""

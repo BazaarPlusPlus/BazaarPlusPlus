@@ -4,12 +4,7 @@ using System.Security.Cryptography;
 
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>
-/// Ed25519 signature verification (RFC 8032 §5.1.7), verify only. Field arithmetic uses
-/// BigInteger, which both hosts' base libraries carry; a verification costs a few milliseconds,
-/// and the Updater runs it once per start. It never handles a secret, so constant time does not
-/// matter here.
-/// </summary>
+// Ed25519 verification follows RFC 8032 §5.1.7. It operates only on public inputs.
 internal static class Ed25519
 {
     private static readonly BigInteger P = BigInteger.Pow(2, 255) - 19;

@@ -577,7 +577,6 @@ describe('History thumbnails', () => {
     await act(async () =>
       document.dispatchEvent(new Event('visibilitychange'))
     );
-    // B acquired a database while this window was hidden; its list and URLs must refresh together.
     vi.mocked(listHistoryRuns).mockResolvedValue(
       thumbnailPage(1, 'Installation B')
     );

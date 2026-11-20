@@ -5,8 +5,7 @@ namespace EncounterPreview.Tests;
 
 public class EncounterPresentationTests
 {
-    // Wishing Fountain: 21 "Make a Wish" price tiers, limit 3 — the 18 beyond-limit
-    // same-title variants hide instead of rendering as a dimmed wall.
+    // Wishing Fountain supplies 21 same-title price tiers, which exposes the clutter beyond the limit.
     [Fact]
     public void Beyond_limit_steps_with_repeated_titles_hide()
     {

@@ -3,9 +3,6 @@ using System.Reflection;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-/// <summary>Reflection over the end-of-run summary's private members, shared by the per-frame
-/// reveal detector and the visual snapshot sampler. Lookups are keyed by the runtime type, so
-/// they bind no game type and cache misses as well as hits.</summary>
 internal static class EndOfRunSummaryReflection
 {
     private const string AnimatorMemberName = "Animator";

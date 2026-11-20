@@ -33,30 +33,20 @@ internal readonly record struct ReplayAudioCaptureStartOutcome(
     ) => new(false, reasonCode, exception);
 }
 
-/// <summary>
-/// A replay-audio capture source that writes a streaming WAV the recorder later muxes into the MP4.
-/// Implemented by WasapiLoopbackCaptureTap (Windows), CoreAudioProcessTapCaptureTap (macOS ≥ 15), and
-/// UnsupportedPlatformAudioCapture (no-op fallback) so the recorder can swap capture strategies without
-/// changing its lifecycle/teardown code.
-/// </summary>
 internal interface IReplayAudioCaptureTap : IDisposable
 {
-    /// <summary>MAIN thread. Starts capture and returns a typed success/failure outcome.</summary>
+    // Call on the Unity main thread.
     ReplayAudioCaptureStartOutcome TryStart();
 
-    /// <summary>Idempotent teardown. Flushes and closes the WAV so the muxer can read it.</summary>
+    // Idempotent. Closes the WAV before the muxer reads it.
     void Stop();
 
-    /// <summary>True once capture is active.</summary>
     bool IsCapturing { get; }
 
-    /// <summary>True once at least one PCM sample has been written.</summary>
     bool CapturedAnySamples { get; }
 
-    /// <summary>Total interleaved float samples captured.</summary>
     long CapturedSampleFloats { get; }
 
-    /// <summary>The WAV path this tap writes to.</summary>
     string WavFilePath { get; }
 
     ReplayAudioBackend Backend { get; }

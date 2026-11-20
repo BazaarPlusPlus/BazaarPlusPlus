@@ -3,10 +3,7 @@ using BazaarPlusPlus.Core.GameState;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Recommendations;
 
-/// <summary>
-/// Which corpus hero keys are real heroes. The corpus also keys a "Common" pool and may carry
-/// other non-playable keys; recommendations query only these.
-/// </summary>
+// The analyzer's Common pool key has no playable hero.
 public static class LiveBuildPlayableHero
 {
     // An explicit list rather than Enum.TryParse, which would also accept numeric strings.

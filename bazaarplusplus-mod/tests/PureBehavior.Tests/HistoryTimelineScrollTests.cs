@@ -96,8 +96,7 @@ public sealed class HistoryTimelineScrollTests
         Assert.Equal(252, scroll.Bind("selected", 13, Count, 0, Viewport));
     }
 
-    // The Android rail passes its own chip pitch: reveal and clamp follow that pitch, not the
-    // desktop's chip height.
+    // The Android rail passes its own chip pitch.
     [Theory]
     [InlineData(10, 0, 311)]
     [InlineData(2, 300, 112)]

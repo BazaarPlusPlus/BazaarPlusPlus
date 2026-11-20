@@ -18,7 +18,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.GameInterop.MonsterBoardPreview;
 
-// Owns a clone of the native monster board, never the active tooltip's view.
 internal sealed partial class OwnedMonsterBoardPreview : IDisposable
 {
     private const string TooltipAddress = "Assets/Prefabs/UIPrefabs/Tooltips/Tooltip_P.prefab";
@@ -225,7 +224,6 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         {
             try
             {
-                // The shell outlives a replacement; only its cards are re-rented.
                 ClearCards();
                 var view = _view != null ? _view : await CreateShell(generation);
                 if (view == null || _disposed || generation != _generation)
@@ -261,8 +259,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                 RegisterTooltips();
                 view.Show(0f);
                 view._visibilitySequence?.Complete();
-                // Keep native skill visuals and pooling, but own their layout independently.
-                // ClearCards puts the skill parent back before the next replacement.
+                // ClearCards must restore the skill parent before the next replacement reuses the shell.
                 _ownedSkillParent = view._skillParent;
                 _ownedSkillParent.SetParent(_skillContent, false);
                 _ownedSkillParent.anchorMin = _ownedSkillParent.anchorMax = new Vector2(0, .5f);
@@ -295,7 +292,6 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
                     return;
                 if (attempt == 2)
                 {
-                    // Failed requests are retryable when the same battle is selected again.
                     _signature = null;
                     _report(NativeMonsterBoardStatus.Failed, ex);
                     return;
@@ -309,8 +305,6 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         }
     }
 
-    // Clones the native board and does its one-time setup; the clone then serves every
-    // replacement until Dispose or a failed attempt. Null when the request went stale first.
     private async Task<MonsterBoardTooltip?> CreateShell(int generation)
     {
         if (!Services.TryGet<AssetLoader>(out var loader) || loader == null)
@@ -370,10 +364,8 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         return view;
     }
 
-    // A preview shows a board, not a monster, so the clone keeps no health bar. The bar is
-    // found from the serialized health text: a path such as MainSize/Healthbar_Parent stops
-    // resolving when a game build regroups the prefab, and the bar then shows on every board.
-    // Runs before a render moves the skill parent out of the clone.
+    // Find the health bar via its serialized text because prefab hierarchy paths vary by build.
+    // Do this before a render moves the skill parent out of the clone.
     private static void HideHealthBar(MonsterBoardTooltip view)
     {
         if (view._healthText == null)
@@ -498,9 +490,7 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         }
     }
 
-    // Returns every rental and puts the skill parent back where the prefab had it, so the
-    // shell is again as CreateShell left it. Rentals settle, restore prefab layout and
-    // detach before pooling, because native pooling does not reparent.
+    // Detach rentals and restore their prefab layout first because the native pool does not reparent.
     private void ClearCards()
     {
         _ready = false;
@@ -527,8 +517,6 @@ internal sealed partial class OwnedMonsterBoardPreview : IDisposable
         _view = null;
     }
 
-    // Where the clone's skill parent sits inside the shell before a render moves it into
-    // the owned scroll content.
     private readonly record struct SkillParentHome(
         Transform Parent,
         int SiblingIndex,

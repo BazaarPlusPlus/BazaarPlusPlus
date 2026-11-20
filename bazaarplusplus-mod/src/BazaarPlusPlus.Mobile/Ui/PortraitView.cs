@@ -5,7 +5,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Ui;
 
-/// <summary>Shared framed portrait geometry and async binding for Collection and reusable History rows.</summary>
 internal sealed class PortraitView
 {
     private readonly Image _image;
@@ -121,9 +120,7 @@ internal sealed class PortraitView
         }
         var frame = image.rectTransform.parent.Cast<RectTransform>().rect.size;
         var scale = Math.Min(frame.x / visible.x, frame.y / visible.y);
-        // These default hero portraits support an upper-body crop, and so does an encounter's
-        // (a merchant or a trainer is a whole figure, small in the frame). Dooley's antennae
-        // and multi-character heroes keep their complete silhouette.
+        // Keep Dooley and multi-character portraits whole to preserve the full silhouette.
         var zoom = hero switch
         {
             CardHero.Vanessa or CardHero.Pygmalien or CardHero.Karnok => 1.4f,

@@ -5,18 +5,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// History's BPP badge atlases and header art, linked from the desktop's own PNGs: the
-/// battle result and run state badges, and the normal and selected header controls. They
-/// decode through <c>ImageConversion.LoadImage</c> on the main thread; a failure is logged and
-/// the rows show their text fallback instead. Once its sprites exist an atlas keeps no CPU copy
-/// of its pixels (<c>Apply(false, true)</c>, not <c>LoadImage</c>'s <c>markNonReadable</c>,
-/// whose Android interop overload goes through a boxed <c>Il2CppSystem.ReadOnlySpan</c>). A
-/// non-additive scene load unloads every asset no live object references, which would destroy
-/// whichever atlas no row showed at that moment (the run states while Ghost rows were bound,
-/// so runs fell back to "?" after a replay), so each texture and sprite is marked
-/// <c>DontUnloadUnusedAsset</c> and <see cref="Dispose"/> destroys it.
-/// </summary>
+// Discard atlas CPU pixels with Apply to avoid LoadImage's boxed IL2CPP ReadOnlySpan overload.
+// Pin atlases and sprites so a non-additive scene load cannot unload unused badges.
 internal sealed class TouchHistoryBadges : IDisposable
 {
     private readonly List<UnityEngine.Object> _owned = new();
@@ -121,7 +111,6 @@ internal sealed class TouchHistoryBadges : IDisposable
             sprites[index].hideFlags = HideFlags.DontUnloadUnusedAsset;
             _owned.Add(sprites[index]);
         }
-        // The sprites exist, so the decoded pixels go: the texture stays on the GPU only.
         texture.Apply(false, true);
         return sprites;
     }

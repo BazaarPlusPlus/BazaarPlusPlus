@@ -3,8 +3,7 @@ using BazaarPlusPlus.Game.PvpBattles;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.Favorites;
 
-// A favorite's replay copy: the manifest and payload it replays from, taken once at favorite time.
-// Player is the recorder in BattleManifest, as in both a local manifest and a Ghost payload's.
+// Player identifies the recorder in both local and Ghost Battle manifests.
 public sealed class FavoriteBattlePayload
 {
     public string BattleId { get; set; } = string.Empty;

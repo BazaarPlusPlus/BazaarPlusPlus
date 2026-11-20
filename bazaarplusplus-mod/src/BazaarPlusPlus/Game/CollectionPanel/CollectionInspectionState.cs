@@ -1,7 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CollectionPanel;
 
-// Generation and input-release decisions stay independent of Unity and async completion order.
 internal sealed class CollectionInspectionState
 {
     private int _revision;

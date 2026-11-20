@@ -9,8 +9,7 @@ public static class BppLogValueFormatter
 {
     private const int HashChunkBytes = 1024;
 
-    // Emit can run off the main thread, so the reusable hash state is per thread. The
-    // instance is deliberately never disposed: it lives for the thread's lifetime.
+    // Reuse hash state for the lifetime of each thread because Emit can run off the main thread.
     [ThreadStatic]
     private static SHA256? _hashAlgorithm;
 

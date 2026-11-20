@@ -8,8 +8,7 @@ using Object = UnityEngine.Object;
 
 namespace BazaarPlusPlus.Game.HeroPortraits;
 
-// Own only the cloned character, its mask, and the materials Spine creates for that mask.
-// The original sprite remains assigned for native swaps, bounds, inspection, and interaction.
+// Native swaps, bounds, inspection, and interaction still rely on the original sprite.
 internal sealed class NativeAnimatedHeroPortrait : IDisposable
 {
     private readonly SpriteRenderer _portrait;
@@ -97,8 +96,6 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         character.layer = _portrait.gameObject.layer;
         character.SetActive(true);
         _skeleton = character.GetComponent<SkeletonAnimation>();
-        // Reset editor-specific effects and splits before rendering the portrait's
-        // strict frame and verified breakout geometry.
         foreach (var behaviour in character.GetComponents<Behaviour>())
             if (behaviour != _skeleton)
                 behaviour.enabled = false;
@@ -157,10 +154,8 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
         _mask.isCustomRangeActive = true;
         _skeleton.maskInteraction = SpriteMaskInteraction.VisibleInsideMask;
         _layers = NativePortraitLayeredRenderer.TryCreate(_skeleton, plan, applied);
-        // Build the masked materials/parts while hidden, not on the first visible frame.
         SuppressRendering(true);
         _skeleton.LateUpdateMesh();
-        // The slot publishes only after its final cancellation/sprite identity check.
     }
 
     internal void Sync()
@@ -221,8 +216,7 @@ internal sealed class NativeAnimatedHeroPortrait : IDisposable
                 RestoreSprite();
             _publication.Stage(Time.frameCount);
             _root.SetActive(true);
-            // OnEnable can rebuild native renderers. Finish their masked mesh now,
-            // even when this controller runs after SkeletonAnimation.LateUpdate.
+            // OnEnable can rebuild native renderers after SkeletonAnimation.LateUpdate has already run.
             _skeleton.LateUpdateMesh();
             return;
         }

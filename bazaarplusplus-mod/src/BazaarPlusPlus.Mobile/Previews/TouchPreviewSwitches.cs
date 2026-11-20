@@ -8,15 +8,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.Previews;
 
-/// <summary>
-/// The touch switches in the game's item tooltip, which replace the desktop's Shift and Ctrl hold
-/// keys: Upgrade preview, and Enchantments for an item whose main text lists none, with each other
-/// enchantment's effect expanded below it. They join the tooltip's description scroll, so they
-/// move and scroll with the card, and hide under an open panel and during a fight; the upgrade
-/// switch also hides on a replay's or a recap's card (<see cref="TouchPlayState"/>). The HUD
-/// ticks them (<see cref="Hud.TouchHud"/>); the host reads and writes the tooltip
-/// (<see cref="ITooltipPreviewHost"/>). Owns no rented cards. Main thread.
-/// </summary>
 internal sealed class TouchPreviewSwitches : IDisposable
 {
     private static readonly LocalizedTextSet EnchantmentsLabel = new(
@@ -42,7 +33,6 @@ internal sealed class TouchPreviewSwitches : IDisposable
     private ScrollRect? _nativeScroll;
     private Camera? _eventCamera;
 
-    // Kept across renders, as the panels keep theirs; rebuilt only once its art is gone.
     private NativeSkin? _skin;
     private bool _expanded;
     private bool _dirty;
@@ -52,10 +42,7 @@ internal sealed class TouchPreviewSwitches : IDisposable
     public TouchPreviewSwitches(ITooltipPreviewHost host) =>
         _host = host ?? throw new ArgumentNullException(nameof(host));
 
-    /// <summary>
-    /// Whether the focused app's pointer is inside the visible switches or expanded effects, so a
-    /// host can keep the tooltip its own input would dismiss after a switch's tap.
-    /// </summary>
+    // The host uses this hit test to keep the native tooltip open after a switch tap.
     public bool ContainsPointer()
     {
         var pointer = UnityEngine.InputSystem.Pointer.current;
@@ -74,7 +61,6 @@ internal sealed class TouchPreviewSwitches : IDisposable
             );
     }
 
-    /// <summary>Every frame, from the HUD's tick. A failure clears the switches, so no view leaks.</summary>
     public void Tick()
     {
         try
@@ -91,10 +77,6 @@ internal sealed class TouchPreviewSwitches : IDisposable
         }
     }
 
-    /// <summary>
-    /// The back key: collapses the open effects and returns true, or clears the switches and
-    /// returns false, so the tooltip takes the key.
-    /// </summary>
     public bool Collapse(string reason)
     {
         if (!_expanded)
@@ -108,7 +90,6 @@ internal sealed class TouchPreviewSwitches : IDisposable
         return true;
     }
 
-    /// <summary>The tooltip closed or the scene changed: the switches go, and the host lets go of the tooltip.</summary>
     public void Clear(string reason)
     {
         var held = _card != null;
@@ -151,8 +132,6 @@ internal sealed class TouchPreviewSwitches : IDisposable
             UiActions.Run("upgrade_preview", ApplyUpgradeToggle);
         if (!Equals(render, _render))
         {
-            // The main text lists the enchantments under [EnchantPreview] Mode; only a tooltip
-            // whose main text lists none offers them here, behind the switch.
             _render = render;
             _offersEnchantments = _host.OffersEnchantments();
             _dirty = true;
@@ -167,9 +146,8 @@ internal sealed class TouchPreviewSwitches : IDisposable
             Render();
     }
 
-    // The game's deselection check runs late in the frame of a press and asks whether the press
-    // is on the tooltip. A tap can press and release in one frame, and the toggle resizes the
-    // tooltip, so the toggle waits for the next frame.
+    // Defer resizing until the next frame so the game's late deselection check still
+    // sees a same-frame press and release against the original tooltip bounds.
     private void ToggleUpgrade()
     {
         if (_card != null)

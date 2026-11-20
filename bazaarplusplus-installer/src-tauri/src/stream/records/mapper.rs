@@ -7,7 +7,6 @@ use crate::history::screenshots::OverlaySnapshotRow;
 
 use super::image::resolve_overlay_image_path;
 
-/// The OBS overlay's strip route for a screenshot, relative to the service origin.
 fn strip_url_for_screenshot(screenshot_id: &str) -> String {
     format!("/images/{screenshot_id}/strip")
 }

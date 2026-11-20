@@ -42,8 +42,6 @@ public sealed class HistoryPanelDataService
         _repository?.ListRuns(request, RunHeroKey(hero))
         ?? HistoryCountedPage<HistoryRunRecord>.Empty();
 
-    // The stored hero key a Runs hero filter matches: a blank filter lists every Run, and an
-    // unknown hero still filters (to no Runs).
     internal static string? RunHeroKey(string? hero) =>
         string.IsNullOrWhiteSpace(hero) ? null : hero!.Trim().ToLowerInvariant();
 
@@ -89,7 +87,6 @@ public sealed class HistoryPanelDataService
             return null;
         var store = new GhostBattlePayloadStore(GhostBattlePayloadStore.ResolveDirectory(path));
         var result = store.LoadDetailed(battle.BattleId);
-        // The message reaches the History status line; a decode exception stays as the cause only.
         if (result.Status == FileBackedPayloadLoadStatus.Invalid)
             throw new InvalidDataException(InvalidGhostPayloadMessage, result.Exception);
         if (result.Status == FileBackedPayloadLoadStatus.Unreadable)
@@ -122,8 +119,6 @@ public sealed class HistoryPanelDataService
         return snapshots;
     }
 
-    // Expired counts stale undownloaded rows hidden for every account; Restored counts this
-    // account's hidden downloads brought back. Either changes the Ghost page.
     internal (int Expired, int Restored) MaintainGhosts(
         string account,
         CancellationToken cancellationToken
@@ -173,7 +168,6 @@ public sealed class HistoryPanelDataService
         }
     }
 
-    // False with sealProtected set when the repository refused a Run whose Bundle is still owed.
     public bool TryDeleteRun(
         string runId,
         out IReadOnlyList<string> battleIds,
@@ -281,7 +275,6 @@ public readonly struct HistoryPanelAttemptResult
     public static HistoryPanelAttemptResult Success(string statusMessage, int importedCount) =>
         new(true, statusMessage, importedCount, HistoryPanelGhostSyncReasonCode.Completed, null);
 
-    // A Ghost sync answered from the TTL: it succeeded, imported nothing and has no news to show.
     public static HistoryPanelAttemptResult UpToDate() =>
         new(true, string.Empty, 0, HistoryPanelGhostSyncReasonCode.UpToDate, null);
 

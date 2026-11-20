@@ -7,7 +7,6 @@ using Il2CppTheBazaar;
 
 namespace BazaarPlusPlus.Android.Game;
 
-/// <summary>The native playback signals feeding the same logical clock as the desktop.</summary>
 internal sealed class AndroidCombatStatus : IDisposable
 {
     private readonly Il2CppSystem.Action _started;

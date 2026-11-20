@@ -13,12 +13,9 @@ public static partial class HistoryPanelText
 
     public static string UnknownOpponent() => Resolve(UnknownOpponentText);
 
-    // The challenger's run ended with this battle.
     public static string FinalBattle() => FormatSimple("Final", "终局", "終局");
 
-    // Board ownership. In Runs the lower board is the local player's; in Ghost the ONLY
-    // board shown is the challenger's, because ghost payloads stay in recorder perspective
-    // (ADR-0002) and NativeBoards renders BuildPlayer, which reads Snapshots.PlayerHand.
+    // Ghost payloads keep recorder perspective, so the sole board reads PlayerHand and shows the challenger (ADR-0002).
     public static string BoardYou() => FormatSimple("You", "你", "你");
 
     public static string BoardOpponent() => FormatSimple("Opponent", "对手", "對手");
@@ -88,7 +85,6 @@ public static partial class HistoryPanelText
             "无法读取已保存的幽灵对战。请重新打开历史记录后重试。"
         );
 
-    // The status bar keeps the failure detail; the list only says its absence proves nothing.
     public static string GhostSyncIncomplete() =>
         FormatSimple(
             "Couldn't sync Ghost battles, so this list may be incomplete. Reopen History to try again.",

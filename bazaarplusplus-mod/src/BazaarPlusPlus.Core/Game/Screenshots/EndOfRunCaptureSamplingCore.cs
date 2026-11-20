@@ -2,7 +2,6 @@
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-/// <summary>Caps expensive end-of-run visual work without slowing the workflow poll.</summary>
 public sealed class EndOfRunHeavySampleCadence
 {
     public const float IntervalSeconds = 0.075f;
@@ -54,10 +53,7 @@ public static class EndOfRunHierarchySentinelCore
     ) => expected == current;
 }
 
-/// <summary>
-/// Reuses a structural sampling plan only while its source generation and native objects remain
-/// valid. Callers still read every live pose value on each sample.
-/// </summary>
+// A cached structural plan can be reused, but the caller must sample live poses each time.
 public sealed class EndOfRunReusablePlanCache<TKey, TPlan>
     where TKey : notnull
 {

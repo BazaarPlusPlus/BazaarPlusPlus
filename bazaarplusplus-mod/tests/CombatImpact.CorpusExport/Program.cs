@@ -2,16 +2,6 @@
 using System.Security.Cryptography;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 
-// The host lane of the Combat Impact Corpus (ADR-0019).
-//
-// export <game-corpus-dir> <corpus.json.gz>: reads a directory of game replay payloads, run
-// bundles or raw bundles plus the game catalog, and writes the BPP-owned Combat Impact Corpus
-// that the Core-lane runner CombatImpact.Corpus projects.
-// prepare <game-corpus-dir> <replay-store> [battle-id ...]: rebuilds the committed game corpus.
-//
-// The catalog is BPP_GAMEDATA_DB when set, else GameData.cards.db beside the game payloads,
-// else the installed game's GameData.db.
-
 const string gameDataPathEnvironmentVariable = "BPP_GAMEDATA_DB";
 const string trimmedGameDataFileName = "GameData.cards.db";
 

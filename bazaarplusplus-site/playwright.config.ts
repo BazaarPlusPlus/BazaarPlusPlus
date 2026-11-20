@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// `BPP_UPDATE_GOLDENS=1` is the repository-wide way to rewrite goldens; `--update-snapshots`
-// still works because the CLI flag overrides this value.
+// The CLI's --update-snapshots takes precedence over BPP_UPDATE_GOLDENS.
 const updateGoldens = process.env.BPP_UPDATE_GOLDENS === '1';
 const prebuilt = process.env.BPP_SITE_PREBUILT === '1';
 

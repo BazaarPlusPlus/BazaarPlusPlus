@@ -5,13 +5,6 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Mobile.Previews;
 
-/// <summary>
-/// <c>[Touch] PreviewTextSize</c>: the text size of the Detailed Preview the host appends to a
-/// native tooltip (the event and encounter preview, the aggregate item preview and the hero-level
-/// rewards), as a percent of the tooltip's own text. 75, the default, is the size the previews
-/// always had; 100 is the desktop's, where the preview has its own section. No Unity type, so a
-/// host test registers the row.
-/// </summary>
 internal static class TouchPreviewTextSize
 {
     public const int DefaultPercent = 75;
@@ -35,7 +28,6 @@ internal static class TouchPreviewTextSize
             new SettingRange<int>(MinPercent, MaxPercent)
         );
 
-    /// <summary><paramref name="content"/> at <paramref name="percent"/> of the tooltip's text.</summary>
     public static string Wrap(string content, int percent) =>
         "<size="
         + Math.Clamp(percent, MinPercent, MaxPercent).ToString(CultureInfo.InvariantCulture)
@@ -43,8 +35,6 @@ internal static class TouchPreviewTextSize
         + content
         + "</size>";
 
-    /// <param name="setting">The size <see cref="Bind"/> returned.</param>
-    /// <param name="onChanged">What the host does with a new size beyond writing it.</param>
     public static CyclingSettingsDockEntry<int> DockEntry(
         ISetting<int> setting,
         Action<int>? onChanged = null

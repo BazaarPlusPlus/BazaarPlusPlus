@@ -94,10 +94,7 @@ public static class RunBundleV6Contract
         "opponent_skills",
     };
 
-    // Every collection reached here is checked for null even where the DTO declares a non-nullable
-    // collection with an initializer: well-formed MessagePack may encode `nil` for such a member,
-    // and the deserializer writes that null straight over the initializer. Decoded DTOs are
-    // untrusted input, so null-safe rejection is the contract, not defensive style.
+    // MessagePack can overwrite a non-nullable collection's initializer with nil from the wire.
     public static bool IsReplayable(RunBattleV6? battle)
     {
         if (

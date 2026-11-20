@@ -17,10 +17,6 @@ using UnityEngine.InputSystem;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel;
 
-/// <summary>
-/// The desktop shell around <see cref="LiveBuildPanelState"/>: overlay registration, the live
-/// read, the native view and boards, and the await that brings a refresh back to the main thread.
-/// </summary>
 internal sealed class LiveBuildPanel : MonoBehaviour
 {
     private const string OverlayPanelId = "LiveBuildPanel";
@@ -90,8 +86,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         _view = null;
     }
 
-    // Lifecycle (scene change, combat gate, hotkey, escape) is owned by the Overlay Panel Host;
-    // this tick only carries the panel's own per-frame content work.
     private void Tick(float dt, bool isVisible)
     {
         if (!isVisible)
@@ -243,8 +237,6 @@ internal sealed class LiveBuildPanel : MonoBehaviour
         }
     }
 
-    // Status-only updates refresh the view without reloading native boards:
-    // the boards did not change, so re-rendering card previews would be wasted work.
     private void RefreshStatusView()
     {
         if (_state?.IsVisible != true)

@@ -6,10 +6,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// A Walkthrough Control `shot <name>`: the finished frame of the game window, captured inside the
-// game so no screen-recording permission is involved, written to <Data Root>/ui-shots/<name>.png.
-// The file appears only when complete (written beside it, then moved), and a log event names it,
-// so `just mod::ui-shots` can wait for either.
+// In-game capture needs no screen-recording permission. The completed file and log event both signal readiness to the walkthrough.
 internal static class DesktopUiShot
 {
     internal const string DirectoryName = "ui-shots";

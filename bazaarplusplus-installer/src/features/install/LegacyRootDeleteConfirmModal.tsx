@@ -9,7 +9,6 @@ import { InstallProblemBanner } from './InstallProblemBanner';
 import { ResetDataFailureDetails } from './ResetDataFailureDetails';
 import type { InstallProblem } from './installProblems';
 
-/** Deletes one Legacy Root. */
 export function LegacyRootDeleteConfirmModal({
   busy,
   acknowledged,

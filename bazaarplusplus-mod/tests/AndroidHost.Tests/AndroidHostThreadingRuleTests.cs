@@ -5,14 +5,7 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The compiled host's threading rules (ADR-0009: compiled artifacts, never source text). A
-/// game <c>Il2CppSystem</c> task awaited directly resumes outside the main-thread pump, a managed
-/// <c>Task.Run</c>, <c>WhenAll</c> or <c>WhenAny</c> in the replay or History code moves game calls
-/// onto the pool, and a History control wired without the Mobile UI's <c>UiActions</c> starts the
-/// coordinator's work outside the pump's scope; each is a native fault on a device, not an
-/// exception, so the IL is held to them here.
-/// </summary>
+// These calls can resume outside the Android main-thread pump and cause native faults on device.
 public sealed class AndroidHostThreadingRuleTests
 {
     private static readonly Lazy<CompiledAssembly> Host = new(() =>
@@ -63,12 +56,8 @@ public sealed class AndroidHostThreadingRuleTests
         [
             "BazaarPlusPlus.Android.CombatReplay",
             "BazaarPlusPlus.Android.Patches",
-            // The Mobile UI tree: Ten-Win Builds, Collection, History, the HUD, the previews and
-            // Screen Fill (ADR-0025).
             "BazaarPlusPlus.Mobile",
         ];
-        // The host's side of the Mobile UI: its port, its Overlay Panel Host adapter, the entries
-        // that compose the Mobile UI, its control actions and its tooltip reads.
         string[] adapters =
         [
             "BazaarPlusPlus.Android.Host.AndroidMobilePlatform",
@@ -85,10 +74,7 @@ public sealed class AndroidHostThreadingRuleTests
                 namespaces.Any(ns => In(type, ns)) || adapters.Contains(type.FullName)
             )
             .ToArray();
-        // A moved or renamed namespace or type would leave its rule inspecting nothing; the Mobile
-        // UI tree holds the port, the theme, the kit, the leaves #701 steps 2 and 3 moved, Ten-Win
-        // Builds, Collection, History, the HUD, the preview switches and enchant preview, and
-        // Screen Fill.
+        // Require each scope to resolve so a rename cannot silently disable its rule.
         Assert.All(namespaces, ns => Assert.Contains(scope, type => In(type, ns)));
         Assert.Equal(adapters.Length, scope.Count(type => adapters.Contains(type.FullName)));
         Assert.True(
@@ -116,8 +102,6 @@ public sealed class AndroidHostThreadingRuleTests
         );
     }
 
-    // Saved Replay Playback runs the Android replay start from Core (ADR-0020): its awaits must
-    // resume on the context the host installed, so it never leaves it or joins tasks.
     [Fact]
     public void Saved_replay_playback_in_core_awaits_only_on_the_callers_context()
     {
@@ -287,7 +271,6 @@ public sealed class AndroidHostThreadingRuleTests
             .SelectMany(type => type.Methods)
             .SelectMany(method => method.Instructions)
             .ToArray();
-        // Taps, and the note's count following its edits instead of a per-frame poll.
         foreach (var wiring in new[] { "OnTap", "OnChanged" })
             Assert.Contains(
                 calls,

@@ -1,20 +1,3 @@
-// Isolated on purpose: these are the History List failure modes that a DOM
-// snapshot cannot observe, because each depends on the order in which
-// overlapping requests settle. Rendered states are anchored by
-// src/shell.snapshot.test.tsx and pages/History.test.tsx.
-// - A late list read from a previous page, a previous filter or a superseded
-//   refresh overwrites the newer result, or its failure replaces newer data.
-// - A filter change that keeps the page number is taken for no change.
-// - A filter change unmounts the loaded list (and the filter bar on it) while
-//   it loads, or a failed read under the new filter keeps the old rows.
-// - Empty is published before a read succeeds, or a refresh failure drops data
-//   that is still valid.
-// - A page correction after the total shrinks loops, or a failed corrected read
-//   retries a different page.
-// - Leftover-game recovery refreshes a page other than the current one.
-// - A superseded thumbnail preparation sets or clears the image-service notice.
-// - A restarted lifecycle accepts completions from the old one, or a stopped or
-//   duplicate lifecycle starts effects.
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { emptyHistoryRunList } from '../../api/previewDefaults';
 import type { HistoryRunFilter, HistoryRunList } from '../../types/backend';

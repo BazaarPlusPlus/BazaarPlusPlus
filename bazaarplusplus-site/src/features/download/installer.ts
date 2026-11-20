@@ -24,7 +24,6 @@ export type {
   DesktopGameRelease,
   GameStatus
 } from '../../../../release/downloads';
-/** The platforms that ship a desktop installer; Android ships an APK (`loadAndroidRelease`). */
 export type DownloadPlatform = Exclude<ReleasePlatform, 'android'>;
 export const GITHUB_RELEASE_URL =
   'https://github.com/BazaarPlusPlus/BazaarPlusPlus/releases/latest';
@@ -32,13 +31,10 @@ export const GITHUB_RELEASE_URL =
 export type PlatformDownload = {
   version: string;
   downloadUrl: string;
-  /** Published in the Platform Release Manifest; null when this release has no mirror. */
   mainlandDownloadUrl: string | null;
-  /** The game the release was built against; null for a release that does not record it. */
   game: DesktopGameRelease | null;
 };
 
-/** Each platform resolves from its own manifest; null means that platform failed. */
 export type LatestInstaller = {
   downloads: Record<DownloadPlatform, PlatformDownload | null>;
 };
@@ -116,11 +112,6 @@ async function loadPlatformDownload(
   };
 }
 
-/**
- * Android's Platform Release Manifest: the Android App APK to install (`app.url`), the game the
- * release is adapted to, and the Managed Payload and Interop Package the App downloads itself.
- * Android is not part of the lockstep `latest.json`.
- */
 export async function loadAndroidRelease(
   signal: AbortSignal
 ): Promise<AndroidDownload> {
@@ -151,12 +142,10 @@ async function fetchGameStatus<T>(
   return status;
 }
 
-/** The online game on Steam's public branch. The cards show only the adapted game when this fails. */
 export function loadGameStatus(signal: AbortSignal): Promise<GameStatus> {
   return fetchGameStatus(GAME_STATUS_URL, decodeGameStatus, signal);
 }
 
-/** The online game of the publisher's official APK. */
 export function loadAndroidGameStatus(
   signal: AbortSignal
 ): Promise<AndroidGameStatus> {
@@ -167,10 +156,7 @@ export function loadAndroidGameStatus(
   );
 }
 
-/**
- * Whether the online game is the adapted one: the same game code identity (ADR 0016), so a
- * content-only game update stays adapted.
- */
+/** Content-only game updates preserve Game Code Identity and stay adapted (ADR 0016). */
 export function sameDesktopGame(
   adapted: DesktopGameRelease,
   online: DesktopGameRelease
@@ -188,7 +174,6 @@ export function sameAndroidGame(
   );
 }
 
-/** The release number at the front of the game's `Application.version`: `1.0.12825-production-android-d9601ded` → `1.0.12825`. */
 export function gameReleaseNumber(gameVersion: string): string {
   return /^\d+(?:\.\d+)+/.exec(gameVersion)?.[0] ?? gameVersion;
 }

@@ -3,21 +3,8 @@ using Microsoft.Data.Sqlite;
 
 namespace BazaarPlusPlus.Storage.Sqlite;
 
-/// <summary>
-/// Hands the run-log database over to other processes on shutdown.
-/// </summary>
-/// <remarks>
-/// The installer opens this database directly while the game owns it. Two
-/// details make an unmanaged exit hostile to that reader: Microsoft.Data.Sqlite
-/// pools connections, so disposing a store's connection only returns the native
-/// handle to the pool and the <c>-wal</c>/<c>-shm</c> files stay open for the
-/// whole process lifetime; and nothing ever checkpoints, so the WAL that
-/// survives the process holds committed data the main database file does not.
-/// A reader that inherits that state has to recover the WAL before it can see
-/// recent runs. Releasing the pool and truncating the WAL here leaves a
-/// self-contained database file behind instead. Outside WAL mode there is no
-/// <c>-wal</c> to strand, so the release does nothing.
-/// </remarks>
+// Disposing a connection returns its native handle to the pool. Release pooled handles and
+// checkpoint the WAL so the installer can read recent runs from the database file alone.
 public static class SqliteShutdown
 {
     public static void ReleaseRunLogDatabase(
@@ -35,8 +22,7 @@ public static class SqliteShutdown
         if (!string.IsNullOrWhiteSpace(databasePath) && File.Exists(databasePath))
             Checkpoint(databasePath!);
 
-        // The checkpoint connection went back to the pool on dispose; clear again
-        // so the process leaves no sqlite3 handle, and no -shm mapping, behind.
+        // Disposing the checkpoint connection returns it to the pool, keeping its -shm mapping open.
         SqliteConnection.ClearAllPools();
     }
 

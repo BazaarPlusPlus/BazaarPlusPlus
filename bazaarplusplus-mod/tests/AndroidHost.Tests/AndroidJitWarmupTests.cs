@@ -24,7 +24,7 @@ public sealed class AndroidJitWarmupTests
 
         warmup.Tick();
 
-        // The type's expansion is free on this clock; the third 1 ms prepare passes 2.5 ms.
+        // Type expansion does not advance the fake clock, so the third 1 ms prepare crosses the 2.5 ms budget.
         Assert.Equal(3, prepared.Count);
         Assert.False(warmup.IsDone);
 

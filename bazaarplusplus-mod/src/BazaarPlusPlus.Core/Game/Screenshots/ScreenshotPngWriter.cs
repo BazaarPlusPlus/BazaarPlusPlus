@@ -5,7 +5,6 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace BazaarPlusPlus.Game.Screenshots;
 
-/// <summary>Writes a captured frame's RGBA pixels as the end-of-run PNG every host saves.</summary>
 public static class ScreenshotPngWriter
 {
     // GPU readback rows arrive bottom-up when UVs start at the bottom; PNG rows are top-down.
@@ -24,9 +23,7 @@ public static class ScreenshotPngWriter
         }
     }
 
-    // The readback carries the framebuffer's alpha, which the screen ignores: UI blending
-    // leaves it below opaque over cards, so viewers would show those pixels translucent.
-    // Keep only the colours the player saw.
+    // The screen ignores framebuffer alpha, but PNG viewers use it and would show blended cards as translucent.
     public static void WriteOpaquePngAtomically(
         string filePath,
         byte[] rgbaPixels,

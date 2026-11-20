@@ -5,7 +5,6 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Storage;
 
 public sealed partial class HistoryPanelRepository
 {
-    // Battle detail and background recovery need cursor navigation, not archive totals.
     private HistoryCursorPage<T> ReadCursorPage<T>(
         HistoryPageQuery query,
         string columns,
@@ -39,8 +38,7 @@ public sealed partial class HistoryPanelRepository
         );
     }
 
-    // The rows and both counts come from one read transaction, so the counted page's position
-    // invariants hold by construction rather than by reconciliation.
+    // Read rows and counts in one transaction so a concurrent write cannot skew the page position.
     private HistoryCountedPage<T> ReadCountedPage<T>(
         HistoryPageQuery query,
         string columns,

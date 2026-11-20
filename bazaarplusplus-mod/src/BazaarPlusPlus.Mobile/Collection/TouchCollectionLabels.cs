@@ -5,11 +5,6 @@ using BazaarPlusPlus.Localization;
 
 namespace BazaarPlusPlus.Mobile.Collection;
 
-/// <summary>
-/// Filter labels read the game's string table. Inspection tags additionally use the native
-/// tooltip typography for official labels and colors. A reference keyword reads as its base
-/// keyword plus "Related", as on desktop.
-/// </summary>
 internal static class TouchCollectionLabels
 {
     private static readonly LocalizedTextSet RelatedSuffix = new(" Related", "相关", "相關");
@@ -19,7 +14,6 @@ internal static class TouchCollectionLabels
 
     public static string Tag(CardTag tag) => StringTable(tag.ToString());
 
-    /// <summary>The same localized label and accent as the game's tooltip tag renderer.</summary>
     public static string InspectionTag(CardTag tag)
     {
         var native = MobilePlatform.Port.TooltipTag(tag.ToString());
@@ -67,7 +61,6 @@ internal static class TouchCollectionLabels
             )
             : MobilePlatform.Port.HeroName(hero);
 
-    // The game string table keyed by the English source text; a miss returns the key itself.
     private static string StringTable(string key)
     {
         var language = L.CurrentLanguageCode;

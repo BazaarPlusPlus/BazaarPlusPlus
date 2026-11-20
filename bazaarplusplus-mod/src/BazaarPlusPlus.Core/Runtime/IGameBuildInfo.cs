@@ -5,11 +5,10 @@ public enum GameBuildChannel
 {
     Online,
 
-    // Persisted isolation category for PTR and staging clients.
+    // PTR and staging share one persisted isolation category.
     Ptr,
 
-    // Detection failed (version string unreadable). Policy gates must treat Unknown
-    // like Online so a detection failure can never change online behavior.
+    // Treat Unknown like Online so a failed probe cannot change production behavior.
     Unknown,
 }
 

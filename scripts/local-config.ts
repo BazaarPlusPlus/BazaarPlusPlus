@@ -19,26 +19,13 @@ const serverKeys = [
   'BAZAARDB_DELIVERY_TOKEN'
 ];
 const cloudflareKeys = ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'];
-// The one owner of each config.toml section, in file order: its profile, how
-// that profile delivers it, its keys and which of them doctor requires. Each
-// section has exactly one delivery:
-//   projection  copied to a project file, refreshed before the command; the
-//               section's values, then `projected` keys from other sections
-//               so one credential lives in one place
-//   inject      allowlisted keys enter the command environment
-//   stage       values become files in a private BPP_SIGNING_SECRETS_DIR for
-//               bundle.sh and never enter any environment
-// Credentials are kept per trust domain, not per bucket: one Cloudflare
-// operator token in [cloudflare] serves every R2 bucket and Wrangler; the S3
-// pair each store needs is derived from it (release/r2-store.ts).
-/** A key appended to a projection from its owning section, renamed to `as`. */
+// Keep credentials in their owning sections. R2 derives its S3 credentials from the shared Cloudflare operator token.
 export interface ProjectedKey {
   from: string;
   key: string;
   as?: string;
 }
 
-/** One config.toml section's profile, delivery and keys; see the table below. */
 export interface SectionSpec {
   profile: string;
   projection?: string;
@@ -46,45 +33,36 @@ export interface SectionSpec {
   projected?: ProjectedKey[];
   keys?: string[];
   inject?: string[];
-  /** Staged file name to the key whose value it holds. */
   stage?: Record<string, string>;
-  /** Keys doctor does not require; true for every key of the section. */
   optional?: true | string[];
-  /** Doctor scope to the keys it requires. */
   required?: Record<string, string[]>;
 }
 
-/** One parsed config.toml section: its string values. */
 export interface ConfigSection {
   values: Record<string, string>;
 }
 
-/** A parsed config.toml: one mapping per purpose. */
 export interface ParsedConfig {
   sections: Map<string, ConfigSection>;
 }
 
-/** One managed projection file and whether its bytes differ on disk. */
 export interface ProjectionChange {
   relative: string;
   bytes: Buffer;
   changed: boolean;
 }
 
-/** The signing inputs bundle.sh will see, as resolveSigning derives them. */
 export interface ResolvedSigning {
   values: Record<string, string>;
   appleKeyPath: string;
   updaterKey: string;
 }
 
-// The .bpp-local.json receipt of the last refresh.
 interface ProjectionState {
   configHome?: string;
   files?: Record<string, string>;
 }
 
-// The section table; [signing] always stages.
 interface SectionTable extends Record<string, SectionSpec> {
   signing: SectionSpec & { stage: Record<string, string> };
 }
@@ -100,7 +78,6 @@ export const sections: SectionTable = {
   analyzer: {
     profile: 'analyzer',
     projection: 'bazaarplusplus-analyzer/.env',
-    // The analyzer owns its keys; bazaarlens.config load_config reads them.
     keys: [
       'BPP_DATA_ROOT',
       'BPP_MAX_RUN_SECONDS',
@@ -110,7 +87,6 @@ export const sections: SectionTable = {
     optional: true,
     // Every clone receives the same text, so a relative path would move.
     absolute: ['BPP_DATA_ROOT'],
-    // Appended to the projection from their owning sections.
     projected: [
       { from: 'server', key: 'BUNDLE_SYNC_TOKEN', as: 'BPP_BUNDLE_SYNC_TOKEN' },
       { from: 'cloudflare', key: 'CLOUDFLARE_API_TOKEN' },
@@ -128,10 +104,7 @@ export const sections: SectionTable = {
       'ANDROID_KEYSTORE_PASSWORD',
       'ANDROID_KEY_ALIAS'
     ],
-    // bundle.sh, and release/android-release.ts for the android-* files,
-    // read each key from this file in BPP_SIGNING_SECRETS_DIR.
-    // APPLE_CERTIFICATE_PASSWORD is not staged: local builds sign from the
-    // Keychain; it only reaches GitHub with keys/developer-id.p12.
+    // Local Apple signing uses Keychain. APPLE_CERTIFICATE_PASSWORD only travels to GitHub with the p12.
     stage: {
       'apple-signing-identity': 'APPLE_SIGNING_IDENTITY',
       'apple-api-issuer': 'APPLE_API_ISSUER',
@@ -186,7 +159,6 @@ for (const [name, spec] of Object.entries(sections)) {
       throw new Error(`[${name}] projects an unknown key ${from} ${key}`);
 }
 export const profiles = Object.values(sections).map((spec) => spec.profile);
-// Keys owned by a section; projected credentials stay with their source.
 export function sectionKeys(spec: SectionSpec): string[] {
   return spec.keys || spec.inject || Object.values(spec.stage || {});
 }
@@ -282,8 +254,7 @@ function ownedPath(directory: string, relative: string): string {
   return file;
 }
 
-// Parser diagnostics include source text, so never expose the original error.
-// String scalars preserve credentials exactly; quote numbers, booleans and dates.
+// TOML parser errors can quote credentials. Only surface sanitized diagnostics.
 export function parseConfig(text: string, label = CONFIG): ParsedConfig {
   let data: unknown;
   try {
@@ -337,9 +308,6 @@ export function renderConfig({ sections: found }: ParsedConfig): string {
 
 const PROJECTED_MARKER = '# Projected from config.toml';
 
-// The bytes a projection receives: the section's values, then the keys it
-// takes from other sections under a marker line, so a reader of the project
-// file sees where to edit.
 function projectionBody(config: ParsedConfig, name: string): string {
   const spec = sections[name];
   const section = config.sections.get(name);
@@ -364,8 +332,7 @@ export function readConfig(home: string): ParsedConfig {
   return parseConfig(fs.readFileSync(file, 'utf8'));
 }
 
-// Double quotes by default; single quotes carry a backslash literally.
-// Anything else has no form every reader agrees on.
+// Single quotes preserve backslashes across the projection readers.
 function quoted(key: string, value: string): string {
   if (!/[\\"\r\n\0]/.test(value)) return `${key}="${value}"`;
   if (
@@ -478,8 +445,6 @@ export function refreshProjections(
   return changes;
 }
 
-// A section's values as its profile sees them: exported values win for
-// injected keys. Reads only; doctor relies on that.
 export function resolveValues(
   config: ParsedConfig,
   name: string,
@@ -493,8 +458,6 @@ export function resolveValues(
   return values;
 }
 
-// Doctor labels whose required keys are empty.
-/** One doctor scope and the required keys it lacks. */
 export interface MissingValues {
   scope: string;
   missing: string[];
@@ -513,8 +476,6 @@ export function missingValues(
   return rows;
 }
 
-// The bundle.sh file values staged from [signing]. APPLE_API_KEY_PATH is
-// staged absolute, defaulting to the keys/AuthKey_<APPLE_API_KEY>.p8 convention.
 function stagedValues(
   home: string,
   config: ParsedConfig
@@ -533,10 +494,7 @@ function stagedValues(
   return values;
 }
 
-// What bundle.sh will see: the files of an exported BPP_SIGNING_SECRETS_DIR,
-// else the staged [signing] and keys/, each overridden by an exported value.
-// Mirrors bundle.sh load_apple_api_key_path_env: the key path falls back to
-// AuthKey_<APPLE_API_KEY>.p8 in that directory, and a relative path is refused.
+// Keep the key path rules in sync with bundle.sh load_apple_api_key_path_env.
 export function resolveSigning(
   home: string,
   env: NodeJS.ProcessEnv = process.env
@@ -567,9 +525,7 @@ export function resolveSigning(
 
 const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 
-// Signing values reach bundle.sh as files in a private staging directory, so
-// the environment of every earlier step (bun install --frozen-lockfile, payload builds) carries only
-// its path. The staging directory exists only while `use` runs.
+// Stage signing inputs as private files so dependency installs and payload builds inherit only the directory path.
 function withStaging<T>(
   home: string,
   config: ParsedConfig,
@@ -604,8 +560,6 @@ function withStaging<T>(
   }
 }
 
-// Runs `use` with the environment a profile's command receives and returns
-// its result. Projections are refreshed first; staged files are removed after.
 export function withProfileEnvironment<T>(
   profile: string,
   home: string,
@@ -630,13 +584,11 @@ export function withProfileEnvironment<T>(
     return use({ ...env });
   }
   if (spec.stage) {
-    // An explicit directory is used as given, unmixed.
     if (env.BPP_SIGNING_SECRETS_DIR) return use({ ...env });
     return withStaging(home, config, env, use);
   }
   const result = { ...env };
   const values = config.sections.get(name)?.values || {};
-  // The module-load check gives every other section exactly this delivery.
   const inject = spec.inject;
   if (!inject) throw new Error(`[${name}] needs exactly one delivery`);
   for (const key of inject) {

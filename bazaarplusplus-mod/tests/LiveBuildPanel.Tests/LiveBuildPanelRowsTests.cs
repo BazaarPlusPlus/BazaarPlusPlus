@@ -7,11 +7,8 @@ using Xunit;
 
 namespace LiveBuildPanel.Tests;
 
-// The capsule's top-level checks: candidates, rows and corpus text. Each test is one check it
-// called, with the same name.
 public sealed class LiveBuildPanelRowsTests
 {
-    // The capsule installed English before these checks; one test switches to Chinese.
     public LiveBuildPanelRowsTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     [Fact]

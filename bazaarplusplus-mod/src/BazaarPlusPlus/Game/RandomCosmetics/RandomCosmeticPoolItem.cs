@@ -3,12 +3,7 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.RandomCosmetics;
 
-/// <summary>
-/// The Random Cosmetic Pool state of one loadout cosmetic. In Pool Mode the native selected
-/// look (the glowing frame, full brightness) means "in the pool" instead of "equipped"; see
-/// RandomCosmeticPoolService.ResolveSelected. It lives on the native item, so a list rebuild
-/// destroys it with the item.
-/// </summary>
+// Pool Mode repurposes native selection to mean pool membership. The state dies with the native list item.
 internal sealed class RandomCosmeticPoolItem : MonoBehaviour
 {
     internal bool PoolMode { get; private set; }

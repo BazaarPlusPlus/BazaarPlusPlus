@@ -5,14 +5,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Game.EncounterPreview;
 
-/// <summary>
-/// What a spawn context's groups, filters and behaviors constrain a dealt reward to, gathered by
-/// either host's route and turned into its <see cref="EncounterRewardFilter"/>. Values arrive as
-/// game member names or, from runtime objects, as the game's integers, so each goes through the
-/// host's <c>normalize</c> (kinds <c>CardType</c>, <c>Size</c>, <c>Tier</c>, <c>Tag</c>,
-/// <c>HiddenTag</c>) to a member name before it is read as a facet; a facet's own integer means
-/// nothing (ADR-0015).
-/// </summary>
+/// <summary>Normalize numeric tokens in the game's enum space. Card Facet integers have no wire meaning (ADR-0015).</summary>
 public sealed class EncounterSpawnConstraints(Func<string, string?, string?> normalize)
 {
     private static readonly CardSize[] KnownSizes =
@@ -54,9 +47,6 @@ public sealed class EncounterSpawnConstraints(Func<string, string?, string?> nor
         || _keywords.Count > 0
         || _excludedKeywords.Count > 0;
 
-    // Weighted spawn groups of the same card type (e.g. a 95%/5% split) describe one
-    // pool for display purposes: union the inclusive facets, keep only exclusions
-    // every group agrees on. Different card types stay ambiguous.
     public static EncounterSpawnConstraints? TryMergeCompatible(
         IReadOnlyList<EncounterSpawnConstraints> candidates
     )
@@ -181,8 +171,6 @@ public sealed class EncounterSpawnConstraints(Func<string, string?, string?> nor
             AddFacet("Tier", excluded ? _excludedTiers : _tiers, raw);
     }
 
-    // An exclusion-only tier behavior (IsNot: "any tier except X") leaves the pool
-    // day-table-driven; only an inclusive tier list pins the pool to fixed tiers.
     public void ApplyTierTableBehavior(
         bool fixedTier,
         bool downShift,

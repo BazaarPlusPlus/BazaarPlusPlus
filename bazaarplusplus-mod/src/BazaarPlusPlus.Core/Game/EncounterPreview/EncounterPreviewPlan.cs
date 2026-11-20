@@ -107,7 +107,6 @@ public sealed class EncounterPreviewEventPlan
 
     public bool IsRandomSelectionEvent { get; }
 
-    /// <summary>The quality a merchant sells; null for any other event.</summary>
     public EncounterMerchantTierRule? Merchant { get; }
 
     /// <summary>A merchant's random selection draws its stock, not an outcome.</summary>

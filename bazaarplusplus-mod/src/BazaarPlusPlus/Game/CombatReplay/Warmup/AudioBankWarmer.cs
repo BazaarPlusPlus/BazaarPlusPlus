@@ -114,17 +114,9 @@ internal static class AudioBankWarmer
         }
     }
 
-    /// <summary>
-    /// Unloads the board SFX banks the warmup loaded and nothing in the game will unload.
-    /// <c>DesktopSavedReplayHost.Notify</c> calls it on the main thread once a saved replay's
-    /// menu return settles or its operation completes (a failed start included, after its
-    /// rollback), outside <c>ReplayState</c>; on the Exit button that is after the menu return's
-    /// <c>RunInterrupted</c> has stopped the music. <c>SoundManager.UnloadBank</c> only warns on
-    /// a bank already gone.
-    /// </summary>
+    // Release after leaving ReplayState and its RunInterrupted has stopped music. SoundManager only warns if a bank is already gone.
     internal static void ReleaseOwnedBanks(string? battleId)
     {
-        // No battle id: not a saved replay, so nothing was warmed for it.
         if (battleId == null || WarmupsInFlight > 0)
             return;
 

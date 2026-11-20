@@ -3,18 +3,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Marker MonoBehaviour attached to every card instance the collection pool instantiates.
-// Used by Harmony patches to gate the cache + material-sharing replacements so the patches
-// only affect cards owned by this panel — HistoryPanel and live shop/board cards run the
-// original game code untouched.
-//
-// CurrentArtKey records the artKey the card's cached material ref points at. CacheOwner records
-// the exact cache session that acquired the ref so delayed destruction cannot release through a
-// newer panel runtime. CardMaterialOwnedByCache tracks ownership of the _cardMaterial field
-// itself: false means native created it and native OnDestroy must still destroy it.
-//
-// OnArtLoaded is set by the grid virtualizer so CollectionItemLoadArtPatch can invalidate the
-// per-cell visual-bounds cache when material assignment finishes (bounds may change).
+// Harmony scopes cache patches to marked cards. The original cache owner prevents delayed destruction from releasing into a newer panel runtime.
+// Native OnDestroy must still destroy a material it created.
 internal sealed class CollectionPanelOwnedMarker : MonoBehaviour
 {
     public CollectionNativeCardPreviewOwner? PreviewOwner;

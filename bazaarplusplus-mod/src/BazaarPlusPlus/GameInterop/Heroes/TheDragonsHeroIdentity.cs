@@ -5,10 +5,7 @@ using TheBazaar.Utilities;
 
 namespace BazaarPlusPlus.GameInterop.Heroes;
 
-/// <summary>
-/// Temporary compatibility boundary for the game's The Dragons enum-name transition. Delete this
-/// adapter once every supported game build exposes the canonical enum name.
-/// </summary>
+// Supported builds expose different enum names for The Dragons.
 internal static class TheDragonsHeroIdentity
 {
     internal const string CanonicalId = TheDragonsHeroId.CanonicalId;
@@ -24,10 +21,7 @@ internal static class TheDragonsHeroIdentity
 
     internal static string ToCanonicalId(EHero hero) => ToCanonicalId(hero, RuntimeEnumName);
 
-    /// <summary>
-    /// Canonical id for anything that leaves the process (SQLite rows, uploaded payloads). The
-    /// runtime enum name is injectable so tests can pin the result under either transitional build.
-    /// </summary>
+    // Use one ID across builds in SQLite rows and uploaded payloads.
     internal static string ToCanonicalId(EHero hero, Func<EHero, string> getEnumName)
     {
         if (getEnumName == null)
@@ -57,13 +51,11 @@ internal static class TheDragonsHeroIdentity
         EHero? resolved;
         if (IsAlias(trimmed))
         {
-            // Prefer the canonical runtime member when a transitional build exposes both names.
-            // Both input aliases intentionally take the same route so equivalence stays symmetric.
+            // Resolve both aliases through the same path to preserve symmetric equivalence.
             resolved = resolveExactName(CanonicalId) ?? resolveExactName(LegacyId);
         }
         else
         {
-            // Preserve normal EHero parsing: non-Dragons enum names remain case-sensitive.
             resolved = resolveExactName(trimmed);
         }
 

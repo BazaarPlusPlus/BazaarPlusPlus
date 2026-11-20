@@ -26,8 +26,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     private readonly HistoryPanelSessionScope _session = new();
     private bool _replayReturnPending;
 
-    // The open panel's tick reads the game profile once a second, not every frame: the account
-    // changes only on a sign-in, and OnPanelShown and the account-link row read it at once.
+    // Poll only once a second while open. Showing the panel or using the account-link row checks immediately.
     private const float AccountObserveInterval = 1f;
     private float _nextAccountObserveAt = float.NegativeInfinity;
 
@@ -69,32 +68,21 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _session.Dispose();
     }
 
-    /// <summary>A replay this panel started is waiting to bring it back.</summary>
     public bool ReplayReturnPending => _replayReturnPending;
 
-    /// <summary>
-    /// The host's tick while the panel is closed: once the replay is over and the lobby is active,
-    /// asks the host to show the panel. A show that does not open keeps the return pending, so it
-    /// is tried again on the next tick.
-    /// </summary>
+    /// <summary>If the Host is unable to show History yet, keep the return armed for the next tick.</summary>
     public void TickHidden()
     {
-        // The pending flag first: the host's probes run only while a return waits.
         if (
             !_replayReturnPending
             || _replayReturn.SavedReplays() is not { HasSavedReplaySession: false }
             || !_replayReturn.LobbyActive()
         )
             return;
-        // The show re-enters OnPanelShown, which consumes the return; nothing is read after it.
         _replayReturn.Show();
     }
 
-    /// <summary>
-    /// Drops a pending return; true when one was pending. Each host calls it where its own rule
-    /// says: the desktop when the panel's object disables, Android on switch-off and on every close
-    /// but the replay's own (ADR-0003).
-    /// </summary>
+    /// <summary>Hosts cancel on their own close paths. Android must preserve the return when replay itself hides the panel (ADR-0003).</summary>
     public bool CancelReplayReturn()
     {
         if (!_replayReturnPending)
@@ -103,30 +91,22 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Begins a panel session. True when it is the return from a replay this panel started: the
-    /// return is consumed and the selection, filters and pages are resumed.
-    /// </summary>
+    /// <summary>True signals a replay return so the Host can resume the previous selection, filters, and pages.</summary>
     public bool OnPanelShown()
     {
         var resumeSelection = _replayReturnPending;
         _replayReturnPending = false;
         _session.Begin();
         _state.AccountLinkExpanded = false;
-        // Begin() cancels any in-flight redeem, whose continuations bail on !IsCurrent without
-        // resetting state. OnPanelHidden has already cleared the flag (the Overlay Panel Host
-        // answers a second open with AlreadyInState); resetting here too keeps the toggle guard
-        // from leaving the account-link row permanently inert.
+        // A redeem cancelled by Begin returns before clearing its busy flag. Clear it here so the link row can be used again.
         _state.AccountLinkInProgress = false;
-        // Adopt the account inside this session; routing through ObserveAccount would begin a
-        // second session and sync twice.
+        // Adopt inside this session because ObserveAccount would start another one and sync twice.
         AdoptProfileAccount();
         SetAccountLinkBanner(null, StatusSeverity.Neutral);
         RefreshAccountLinkHint();
         _state.ReplayActionInProgress = false;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;
-        // A run delete is left alone: it cannot be cancelled and clears its own flag when it ends.
         _state.FavoriteActionInProgress = false;
         if (resumeSelection)
         {
@@ -150,7 +130,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         return resumeSelection;
     }
 
-    // Leaves a pending return alone: the replay's own hide runs this right after arming it.
+    // Replay arms the return just before hiding the panel, so hiding must preserve it.
     public void OnPanelHidden()
     {
         _state.GhostSync = GhostSyncPhase.NotStarted;
@@ -204,7 +184,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         _state.SectionMode = mode;
         ClearDetail();
-        // A message and an armed delete belong to the section that raised them.
         ClearDeleteRunConfirmation();
         ClearTransientStatus();
         RefreshSectionOnEntry();
@@ -286,16 +265,13 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         return _replayService.CanReplayBattle(activeSelectedBattle, out reason);
     }
 
-    // A battle of the run a delete is removing: it stays listed until the delete publishes, but
-    // its rows and replay files are going, so no replay or favorite may start loading them.
+    // Rows remain visible during deletion, so block replay and favorite actions before their files disappear.
     public bool IsBeingDeleted(HistoryBattleRecord? battle) =>
         battle != null
         && battle.Source == HistoryBattleSource.Local
         && _state.DeletingRunId != null
         && battle.RunId == _state.DeletingRunId;
 
-    // The recording half of record-and-replay, for a battle CanReplaySelectedBattle already
-    // admitted: the view model asks the replay half once and shares it.
     public bool CanRecordLoadedReplay(out string reason) =>
         _replayService.CanRecordLoadedReplay(out reason);
 
@@ -343,8 +319,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
         var logRequestId = NewLogRequestId();
 
-        // Recording must be feasible before a record-and-replay request proceeds; otherwise we
-        // surface the reason and refuse rather than silently starting a no-video replay.
         if (recordVideo)
         {
             string recordUnavailableReason;
@@ -409,7 +383,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
                 && ActiveBattle()?.BattleId == battle.BattleId
                 && (favorite != null || !IsBeingDeleted(battle))
                 && replayAccount == NormalizeAccountId(_profileAccountId());
-            // A favorite replays from its own copy, which belongs to no account.
             replayResult =
                 favorite != null && _favorites != null
                     ? await _favorites.ReplayAsync(favorite, recordVideo, _session.Token, canCommit)
@@ -484,7 +457,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
 
         LogReplayAccepted(logRequestId, battle.BattleId, recordVideo);
         SetStatusMessage(replayResult.StatusMessage, StatusSeverity.Success);
-        // Armed before the hide, which closes the panel and may log the pending return.
         _replayReturnPending = true;
         _replayReturn.Hide();
     }
@@ -505,10 +477,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     public bool IsDeleteRunConfirmationActive(string runId, float now) =>
         _state.DeleteRunConfirmation.IsActiveFor(runId, now);
 
-    /// <summary>
-    /// The delete button: removes the selected favorite in Favorites (a first press arms the
-    /// confirmation), deletes the selected run in every other section, which refuses outside Runs.
-    /// </summary>
     public void DeleteSelected()
     {
         if (_state.SectionMode == HistorySectionMode.Favorites)
@@ -517,8 +485,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             _ = TryDeleteSelectedRunAsync(GetSelectedRun());
     }
 
-    // What the off-thread half of a confirmed run delete found: the repository's answer and the
-    // replay files it removed after it.
     private sealed record RunDeleteOutcome(
         bool Deleted,
         bool SealProtected,
@@ -562,9 +528,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         SetStatusMessage(deletingMessage, StatusSeverity.Pending);
         _requestUiRefresh();
 
-        // The delete transaction (with its Seal-protection check) and the replay files run off the
-        // main thread; the await resumes on the caller's context, which publishes as before. Once
-        // started it always finishes: no session boundary cancels it.
+        // Once a run delete starts, it must finish even if the panel session ends.
         var dataService = _dataService;
         var replayService = _replayService;
         RunDeleteOutcome outcome;
@@ -584,7 +548,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
                     out var sealProtected,
                     out var error
                 );
-                // The run is gone once the delete commits; a cleanup failure is only degraded.
+                // The committed run delete still succeeds if subsequent file cleanup fails.
                 ReplayPayloadCleanupResult cleanup = default;
                 if (deleted)
                 {
@@ -605,7 +569,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             outcome = new RunDeleteOutcome(false, false, Array.Empty<string>(), ex, default);
         }
 
-        // The delete happened whichever session it finishes in, so it is always logged.
         if (outcome.SealProtected)
             LogRunDeleteRefused(logRequestId, run.RunId);
         else if (!outcome.Deleted)
@@ -625,9 +588,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             );
 
         _state.DeletingRunId = null;
-        // Finished after a close, reopen, account change or section change: the result is no
-        // longer this view's news, but its pending line must go, and an open Runs list that may
-        // have been read before the delete committed reloads.
+        // A different session drops the old result but reloads an open Runs page that may predate the delete.
         if (!_session.IsCurrent(session) || _state.SectionMode != HistorySectionMode.Runs)
         {
             if (_state.StatusMessage == deletingMessage)
@@ -867,9 +828,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
                 return; // panel closed / re-opened mid-flight: discard silently.
             }
 
-            // Still the active session, so this is the HttpClient self-timeout, not a user cancel
-            // (a real session cancel bumps the version above). Surface it as a transport failure
-            // instead of silently clearing the banner.
+            // A stale session signals user cancellation. Cancellation in the current session comes from HttpClient timing out.
             _state.AccountLinkInProgress = false;
             SetAccountLinkBanner(HistoryPanelText.AccountLink.Offline(), StatusSeverity.Failure);
             AccountLinkLog.Failed(logRequestId, linkMethod, AccountLinkReason.RequestTimeout, ex);
@@ -937,9 +896,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             return;
         }
 
-        // Only a confirmed 200 link persists the local hint and collapses to the status row. 409 means the
-        // game account is already linked to a DIFFERENT BazaarDB user (contract), and every error
-        // outcome must leave the form open with a failure banner. See OutcomeConfirmsLink.
         if (OutcomeConfirmsLink(result.Outcome))
         {
             _state.LocalLinkedHint = true;
@@ -975,9 +931,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _requestUiRefresh();
     }
 
-    // Contract rule, isolated for testability: ONLY a successful 200 redeem confirms the link, so it
-    // is the only outcome that may persist the local linked hint. 409/AlreadyLinked (a different
-    // BazaarDB user) and every error outcome must return false.
+    // The BazaarDB contract uses 409 when the game account is linked to a different BazaarDB user. Only 200 confirms this link.
     internal static bool OutcomeConfirmsLink(BazaarDbLinkOutcome outcome) =>
         outcome == BazaarDbLinkOutcome.Linked;
 
@@ -1168,8 +1122,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             syncResult.ReasonCode,
             exception: null
         );
-        // Only new ghosts are news, and only on Ghost; otherwise the sync's own pending line goes.
-        // An up-to-date answer imported nothing, so the page the entry loaded stands.
         var ghost = _state.SectionMode == HistorySectionMode.Ghost;
         var message = ghost && syncResult.ImportedCount > 0 ? syncResult.StatusMessage : null;
         if (ghost && syncResult.ReasonCode != HistoryPanelGhostSyncReasonCode.UpToDate)
@@ -1212,8 +1164,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
             SetStatusMessage(null);
     }
 
-    // A changed account goes through ObserveAccount first, so the Ghost list and sync follow it
-    // even when the account-link row is the first to see the new profile.
+    // The account-link row can see a changed profile first. Route through ObserveAccount so Ghost follows the account.
     private string? RefreshAccountLinkIdentityFromGame(bool clearBanner = true)
     {
         ObserveAccount();
@@ -1253,9 +1204,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _state.StatusMessage = statusMessage;
         _state.DeleteRunConfirmationStatusActive =
             isDeleteConfirmation && !string.IsNullOrWhiteSpace(statusMessage);
-        // Severity travels with the message so the banner colour can't desync from in-flight flags
-        // (the source of the phase-1 Pending timing coupling). An empty message clears to Neutral;
-        // a delete confirmation always reads as Confirm regardless of the caller's severity.
+        // Store severity with the message so its color cannot drift when async flags change.
         _state.StatusSeverity =
             string.IsNullOrWhiteSpace(statusMessage) ? StatusSeverity.Neutral
             : isDeleteConfirmation ? StatusSeverity.Confirm

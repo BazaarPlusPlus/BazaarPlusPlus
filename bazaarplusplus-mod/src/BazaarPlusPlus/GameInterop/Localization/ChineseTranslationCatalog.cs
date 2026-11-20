@@ -10,11 +10,8 @@ using TheBazaar.DataManagement;
 
 namespace BazaarPlusPlus.GameInterop.Localization;
 
-/// <summary>
-/// Reads official Simplified Chinese strings without changing the game's active locale.
-/// The game downloads every supported locale into a separate SQLite file at startup;
-/// LocalizationService itself keeps only the active locale open.
-/// </summary>
+// The game downloads each supported locale into its own SQLite file, while the native
+// LocalizationService holds open only the active locale.
 internal static class ChineseTranslationCatalog
 {
     private const string Locale = "zh-CN";

@@ -1,12 +1,8 @@
 #nullable enable
 namespace BazaarPlusPlus.ManagedPayload;
 
-/// <summary>
-/// The one release signing key (root docs/release.md): the Tauri updater's minisign key, which
-/// also signs every Managed Payload zip and Managed Payload Manifest. This is the key line of
-/// the <c>plugins.updater.pubkey</c> in bazaarplusplus-installer/src-tauri/tauri.conf.json; a
-/// test pins the two together.
-/// </summary>
+// Managed Payload zips and manifests use the Tauri updater signing key. A test pins this
+// key line to plugins.updater.pubkey in bazaarplusplus-installer/src-tauri/tauri.conf.json.
 internal static class ReleaseSigningKey
 {
     public const string PublicKeyLine = "RWTvztrqhSPg9Q3b1e0VLpJfCMxUFd5khDkrmoiSE0V8HRbfF7hJaRMZ";

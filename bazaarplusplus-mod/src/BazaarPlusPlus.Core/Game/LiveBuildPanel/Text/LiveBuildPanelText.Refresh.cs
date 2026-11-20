@@ -49,8 +49,6 @@ public static partial class LiveBuildPanelText
 
     public static string CorpusEmpty() => L.Resolve(CorpusEmptyText);
 
-    // The corpus dashboard's freshness line: a localized relative-updated phrase plus the build
-    // total. The absolute timestamp and per-hero breakdown stay on the tooltip (CorpusSummaryTooltip).
     public static string CorpusFreshnessLine(TenWinCorpusSummary summary, DateTimeOffset nowUtc) =>
         $"{RelativeUpdated(summary.WindowEndUtc, nowUtc)} · "
         + $"{summary.BuildCount.ToString("N0", CultureInfo.CurrentCulture)} "
@@ -111,8 +109,7 @@ public static partial class LiveBuildPanelText
         );
     }
 
-    // The Dragons' label is the game's own localized name, so the host supplies it; any other
-    // corpus key shows as stored.
+    // The Dragons uses the game's current localized name, which only the host can supply.
     public static string CorpusSummaryTooltip(
         TenWinCorpusSummary summary,
         Func<string> theDragonsDisplayName

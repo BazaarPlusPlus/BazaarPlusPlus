@@ -4,10 +4,6 @@ using System.Text.RegularExpressions;
 
 namespace BazaarPlusPlus.Core.Cards;
 
-/// <summary>
-/// A package's merchant line: the merchant's title and the first sentence of its description, and
-/// how it sits in the package's passive block. Plain text work, so both hosts share it.
-/// </summary>
 public static class PackageMerchantSummaryText
 {
     private static readonly Regex ScaledInlineSpritePrefix = new(

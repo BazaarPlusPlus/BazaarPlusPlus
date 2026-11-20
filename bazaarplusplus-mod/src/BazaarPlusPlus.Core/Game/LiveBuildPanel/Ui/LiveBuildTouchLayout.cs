@@ -4,21 +4,15 @@ using BazaarPlusPlus.Core.Ui;
 
 namespace BazaarPlusPlus.Game.LiveBuildPanel.Ui;
 
-/// <summary>
-/// Touch geometry for a pinned recommendation and one selectable live board. Ordinary landscape
-/// screens keep both boards fixed; dense screens scroll the same two boards and their overview
-/// so sockets still meet the 48dp floor. The overview starts with a supporter action beside Close.
-/// </summary>
+// Dense screens scroll both boards so that sockets still meet the 48dp touch target floor.
 public sealed class LiveBuildTouchLayout
 {
     public const int SocketCount = 10;
 
-    /// <summary>One board slot, switched between current board, stash and shop.</summary>
     public const int ScrollRowCount = 1;
 
     public const int MetricCount = 4;
 
-    // Side by side, the height of the shown build's figures.
     private const float InfoDp = 96f;
 
     private const float FramedHeight =
@@ -50,10 +44,8 @@ public sealed class LiveBuildTouchLayout
         PinnedTitleHeight = target;
         TagHeight = metrics.Dp(22f);
 
-        // A compact utility column leaves the remaining width to the two boards.
         var sidebarWidth = Math.Min(metrics.Dp(240f), body.Width * 0.45f);
         var columnWidth = Math.Max(1f, body.Width - sidebarWidth - padding);
-        // Two rows stay whole on screen: the pinned build and one row of the list.
         var fixedHeight = PinnedTitleHeight + TagHeight * 2f + Gap * 7f;
         var heightScale = (body.Height - fixedHeight) / 2f / FramedHeight;
         var widthScale = (columnWidth - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
@@ -62,9 +54,7 @@ public sealed class LiveBuildTouchLayout
             PinnedTitleHeight
             + 2f * (FramedHeight * sideBySideScale + TagHeight + Gap * 2f)
             + Gap * 2f;
-        // A screen squarer than 16:10 holds the side-by-side boards by width and leaves the
-        // lower half empty; stacked, they take the full width and the overview fills the rest.
-        // That arrangement is taken whenever it fits without scrolling and its cards are larger.
+        // On squarer screens, side-by-side boards run out of width and leave unused height.
         var roomyScale = StackedScaleWithoutScrolling(metrics, body, target);
         Roomy = roomyScale > sideBySideScale * RoomyGain;
         Stacked =
@@ -75,7 +65,6 @@ public sealed class LiveBuildTouchLayout
         if (!Stacked)
         {
             SetCardScale(sideBySideScale);
-            // Keep the utility column compact; extra width belongs to the boards.
             BoardColumn = new TouchRect(body.Left, body.Top, columnWidth, body.Height);
             Sidebar = new TouchRect(
                 BoardColumn.Right + padding,
@@ -84,8 +73,6 @@ public sealed class LiveBuildTouchLayout
                 body.Height
             );
             PinnedTitle = new TouchRect(BoardColumn.Left, body.Top, columnWidth, PinnedTitleHeight);
-            // Cards that the width limits leave height over: a third of it goes under the title
-            // band, and the selected board stands at the bottom of the body.
             var spare = Math.Max(0f, body.Height - boardColumnHeight);
             PinnedBoard = new TouchRect(
                 BoardColumn.Left,
@@ -94,9 +81,7 @@ public sealed class LiveBuildTouchLayout
                 CardHeight + TagHeight + Gap * 2f
             );
             Close = chrome.CloseAt(Sidebar);
-            // The hand rests at the foot of the sidebar, so the sidebar puts the least used row
-            // first: the library's update, rarely used, at the top, the shown build's figures
-            // under it, and the pager and the board switch, used most, at the foot.
+            // The player holds the device near the foot of the sidebar. Keep the pager and board switch within reach.
             var libraryTop = Close.Bottom + Gap;
             var actionHeight =
                 (body.Bottom - libraryTop - metrics.Dp(InfoDp) - target - Gap * 3f) / 2f;
@@ -146,7 +131,6 @@ public sealed class LiveBuildTouchLayout
                 body.Width,
                 Math.Max(0f, body.Bottom - scrollTop)
             );
-            // Ten sockets span the width, and one list row stays whole in the viewport.
             var stackedWidthScale =
                 (body.Width - Gap * 2f) / (NativeCardPrefab.SocketWidth * SocketCount);
             var rowScale =
@@ -198,7 +182,6 @@ public sealed class LiveBuildTouchLayout
         CarpetWidth = SocketWidth * SocketCount;
     }
 
-    // The pager ends at `right`: previous, the "n / m" label, next.
     private static TouchRect PagerFrom(
         float right,
         float top,
@@ -262,12 +245,8 @@ public sealed class LiveBuildTouchLayout
         Corpus = new TouchRect(area.Left, top, area.Width - actionWidth - Gap, target);
     }
 
-    /// <summary>How much larger stacked cards must be before a screen with room stacks.</summary>
     private const float RoomyGain = 1.15f;
 
-    // Stacked, the card scale at which the header, both boards, the list row's title and the
-    // overview (as LayOverview stacks it) fill the body without scrolling, ten sockets at most
-    // spanning its width.
     private float StackedScaleWithoutScrolling(TouchMetrics metrics, TouchRect body, float target)
     {
         var columns = TouchMetrics.ColumnCount(body.Width, metrics.Dp(110f), Gap, 4);
@@ -285,8 +264,6 @@ public sealed class LiveBuildTouchLayout
         return Math.Min(widthScale, heightScale);
     }
 
-    // Side by side, the sidebar's fixed rows (LayOverview) leave the info area room for every
-    // metric cell at its floor.
     private bool SidebarHoldsTheMetrics(
         TouchMetrics metrics,
         float height,
@@ -304,16 +281,9 @@ public sealed class LiveBuildTouchLayout
 
     public static LiveBuildTouchLayout For(TouchMetrics metrics) => new(metrics);
 
-    /// <summary>
-    /// The dense arrangement: the final build's board and the overview scroll with the list, and
-    /// their rects are list-content-local.
-    /// </summary>
+    // When stacked, both boards and the overview use list-content coordinates.
     public bool Stacked { get; }
 
-    /// <summary>
-    /// Stacked because the screen has room rather than density: everything fits the viewport, so
-    /// nothing scrolls.
-    /// </summary>
     public bool Roomy { get; }
 
     public TouchMetrics Metrics { get; }
@@ -322,7 +292,6 @@ public sealed class LiveBuildTouchLayout
 
     public float TitleFont { get; }
 
-    /// <summary>A button's label padding (<see cref="TouchChrome.LabelInset"/>).</summary>
     public float LabelInset { get; }
 
     public float RowTitleFont { get; }
@@ -337,7 +306,6 @@ public sealed class LiveBuildTouchLayout
 
     public float NameFont { get; }
 
-    /// <summary>The whole panel: the safe area less a margin.</summary>
     public TouchRect Sheet { get; }
 
     public TouchRect BoardColumn { get; }
@@ -354,13 +322,10 @@ public sealed class LiveBuildTouchLayout
 
     public float SocketWidth { get; private set; }
 
-    /// <summary>A rented card's framed height on the boards.</summary>
     public float CardHeight { get; private set; }
 
-    /// <summary>Ten sockets' width: no card reaches past it.</summary>
     public float CarpetWidth { get; private set; }
 
-    /// <summary>The pinned build's title band, a full touch target.</summary>
     public TouchRect PinnedTitle { get; }
 
     public TouchRect PinnedTitleText { get; }
@@ -373,10 +338,8 @@ public sealed class LiveBuildTouchLayout
 
     public TouchRect Next { get; }
 
-    /// <summary>The pinned build's cards and the tag band under them.</summary>
     public TouchRect PinnedBoard { get; }
 
-    /// <summary>The drag-scrolled list's viewport.</summary>
     public TouchRect Scroll { get; }
 
     public float ScrollRowHeight { get; }
@@ -385,7 +348,7 @@ public sealed class LiveBuildTouchLayout
 
     public TouchRect Close { get; }
 
-    /// <summary>Lower-board switch: sidebar-local to the sheet, or list-local when stacked.</summary>
+    // Coordinates are relative to the sheet, or to list content when stacked.
     public TouchRect BoardSelector { get; }
 
     public TouchRect Refresh { get; private set; }
@@ -394,10 +357,8 @@ public sealed class LiveBuildTouchLayout
 
     public TouchRect Hero { get; private set; }
 
-    /// <summary>The match metrics, the guidance, or the corpus details, one at a time.</summary>
     public TouchRect Info { get; private set; }
 
-    /// <summary>One supporter credit and sponsor link in the overview header.</summary>
     public TouchRect Sponsor { get; private set; }
 
     public int MetricColumns { get; private set; }
@@ -416,15 +377,12 @@ public sealed class LiveBuildTouchLayout
 
     public TouchRect InspectDetail { get; }
 
-    /// <summary>A list row's title band, from the list content's top-left corner.</summary>
     public TouchRect ScrollRowTitle(int row) =>
         new(0f, RowTop(row), BoardColumn.Width, RowTitleHeight);
 
-    /// <summary>A list row's cards and tag band, from the list content's top-left corner.</summary>
     public TouchRect ScrollRowBoard(int row) =>
         new(0f, RowTop(row) + RowTitleHeight, BoardColumn.Width, CardHeight + TagHeight + Gap * 2f);
 
-    /// <summary>One metric's cell, row-major, in canvas units.</summary>
     public TouchRect MetricCell(int index)
     {
         var column = index % MetricColumns;
@@ -437,10 +395,7 @@ public sealed class LiveBuildTouchLayout
         );
     }
 
-    /// <summary>
-    /// A card's footprint in its board, from the board's top-left corner: <paramref name="span"/>
-    /// sockets from <paramref name="socket"/>, the tag band left free under it.
-    /// </summary>
+    // Coordinates are relative to the board's top-left corner.
     public TouchRect CardRect(int socket, int span)
     {
         var clampedSpan = Math.Clamp(span, 1, SocketCount);
@@ -453,7 +408,6 @@ public sealed class LiveBuildTouchLayout
         );
     }
 
-    /// <summary>A card's tag under its footprint, from the board's top-left corner.</summary>
     public TouchRect TagRect(int socket, int span)
     {
         var card = CardRect(socket, span);
@@ -461,7 +415,6 @@ public sealed class LiveBuildTouchLayout
         return new TouchRect(card.CenterX - width / 2f, card.Bottom, width, TagHeight);
     }
 
-    /// <summary>The enlarged card's scale on the inspect sheet for a card <paramref name="span"/> sockets wide.</summary>
     public float InspectScale(int span)
     {
         var clampedSpan = Math.Clamp(span, 1, 3);

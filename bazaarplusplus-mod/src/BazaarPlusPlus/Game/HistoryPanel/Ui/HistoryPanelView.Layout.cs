@@ -10,7 +10,6 @@ namespace BazaarPlusPlus.Game.HistoryPanel.Ui;
 
 internal sealed partial class HistoryPanelView
 {
-    // A pooled archive row and the record it last showed.
     private sealed class RowSlot
     {
         internal KitRunRow Row = null!;
@@ -18,7 +17,6 @@ internal sealed partial class HistoryPanelView
         internal bool Bound;
     }
 
-    // A pooled day of the selected run's strip.
     private sealed class DaySlot
     {
         internal KitDay Day = null!;
@@ -174,8 +172,6 @@ internal sealed partial class HistoryPanelView
         var column = Column(detail, InGameSizes.Space8);
         column.padding = new RectOffset(24, 24, 24, 20);
 
-        // The owners' titles frame the two boards from outside: the opponent's above the
-        // upper board, yours under the lower one. With one board only the upper title shows.
         var opponent = Line(detail, "OpponentHead", InGameSizes.Space8);
         DesktopKit.Size(opponent, -1, DesktopKit.RowArt);
         _opponentRank = DesktopKit.Art(
@@ -198,8 +194,7 @@ internal sealed partial class HistoryPanelView
         _playerOwner = Flexible(kit.Text(player.transform, string.Empty, KitTextRole.Section));
         _playerHead = player.gameObject;
 
-        // The run's battles, oldest at the left. The model lists them newest first, so the
-        // strip arranges its cells in reverse and the left arrow pages to older battles.
+        // The model lists battles newest first, opposite the strip's chronological order.
         var days = Line(detail, "Days", InGameSizes.Space8);
         days.childAlignment = TextAnchor.MiddleCenter;
         _battleOlder = kit.PageArrow(days.transform, false, () => _pageBattles?.Invoke(1));
@@ -224,7 +219,6 @@ internal sealed partial class HistoryPanelView
         _emptyLabel.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
     }
 
-    // The rect the game draws one board into, with the message that stands in for the board.
     private static RectTransform Board(
         DesktopKit kit,
         Transform parent,
@@ -302,8 +296,6 @@ internal sealed partial class HistoryPanelView
         RefreshActions();
     }
 
-    // The upper title names the opponent (or the challenger of a single board) with their
-    // rank, and what the day strip's cell has no room for: the day and the rating.
     private void BindTitles(HistoryPanelViewModel m, bool runs)
     {
         var titles = m.BoardTitles;
@@ -333,7 +325,6 @@ internal sealed partial class HistoryPanelView
         _opponentRank.gameObject.SetActive(badge != null);
     }
 
-    // A player's name or note inside rich text: its own tags are shown, not read.
     private static string Plain(string text) =>
         $"<noparse>{text.Replace("</noparse>", string.Empty)}</noparse>";
 
@@ -356,9 +347,6 @@ internal sealed partial class HistoryPanelView
             _shownRows.Add(row.Button);
             row.Button.On = i == selected;
             row.Button.interactable = !loading;
-            // The name leads and the stamp follows it, small; a long stamp (a favorite's note)
-            // is cut at the row's art. The meta line keeps what the run was and a Legendary
-            // rating with its change.
             row.Title.text =
                 fields.Stamp.Length == 0
                     ? Plain(fields.Name)
@@ -381,7 +369,6 @@ internal sealed partial class HistoryPanelView
         DesktopKit.Dividers(_shownRows);
     }
 
-    // A finished run shows its trophy; every other row shows one of the kit's painted marks.
     private Sprite? MarkSprite(HistoryRowBadge badge) =>
         badge switch
         {

@@ -19,15 +19,12 @@ internal static class Sizes
     public const float CollectionLifestealTagIconSize = 21f;
     public const int CollectionTagFontSize = 14;
 
-    // 16px is a restrained nested-card heading: clearly above 14px chips without competing with
-    // the page title.
     public const int CollectionFilterTitleFontSize = 15;
     public const float CollectionSearchRowHeight = 36f;
     public const float CollectionScrollShadowHeight = 18f;
     public const int SourceChipsPerRow = 8;
     public const float SourceChipMinSize = 40f;
 
-    // The count on a Collection source cell that folds several sources.
     public const float SourceCountBadgeSize = 16f;
 
     public const float CollectionSortActiveWidth = 76f;

@@ -1,7 +1,6 @@
 #nullable enable
 namespace BazaarPlusPlus.Core.Cards;
 
-/// <summary>The tag a reference hidden tag points at: a hidden tag, or a public card tag.</summary>
 public readonly struct CardReferenceBase
 {
     private CardReferenceBase(CardHiddenTag? hiddenTag, CardTag? cardTag)

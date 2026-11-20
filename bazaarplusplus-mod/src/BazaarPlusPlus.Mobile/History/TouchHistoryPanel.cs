@@ -15,29 +15,7 @@ using BazaarPlusPlus.Mobile.Ui;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// History on a mobile platform, the touch twin of the desktop's <c>HistoryPanel</c>: it owns
-/// History's state and Core's <see cref="HistoryPanelCoordinator"/> for the host's lifetime and
-/// renders Core's view model through <see cref="TouchHistoryPanelView"/>. The selected battle's
-/// boards are the game's own cards, rented into the view's two board regions
-/// (<see cref="TouchHistoryBoard"/>, the counterpart of the desktop's
-/// <c>HistoryPanel.NativeBoards</c>); a tap inspects a card, and the skills sheet shows both
-/// players' skills. Favorites, delete (refused for a run Seal eligibility protects), the More
-/// dialog with the account link, and the note editor act through the coordinator as the
-/// desktop's do. It is a Main Overlay Panel (<see cref="TouchHistoryEntry"/>): the Overlay Panel
-/// Host opens it, and closes it for the back key (an open dialog first), combat, a scene change
-/// into combat (<see cref="SceneChangeClosePolicy.OnlyWhenInCombat"/>) and another panel
-/// opening; the close button and a replay start request a close. Every other scene change
-/// returns its cards, since the rental destroys them, and renders them again on the next frame;
-/// the note and More dialogs hold no card and stay open (<see cref="TouchHistoryOverlays"/>). A
-/// new screen size lays the view out again and keeps an open note's draft; the view's lifetime is
-/// Core's <see cref="TouchViewSlot{TView}"/>, so a view that fails to build leaves the panel
-/// closed, and the next open builds again. A replay started from it reopens it with the
-/// selection kept once the replay session is over and the lobby is the active scene, unless the
-/// panel was closed meanwhile. The Record action is not offered: a mobile platform records no
-/// video. Every entry point runs inside the host's main-thread scope, so the coordinator's
-/// continuations resume on the main thread.
-/// </summary>
+// Entry points need the host's main-thread scope so coordinator continuations can touch Unity.
 internal sealed class TouchHistoryPanel : IDisposable
 {
     private const string ReplayStarted = "replay_started";
@@ -75,9 +53,6 @@ internal sealed class TouchHistoryPanel : IDisposable
     private long _relayouts;
     private long _boardRenders;
 
-    /// <param name="data">The host services the panel reads.</param>
-    /// <param name="requestOpen">The Overlay Panel Host's open, with its source.</param>
-    /// <param name="requestClose">The Overlay Panel Host's close, with its reason.</param>
     public TouchHistoryPanel(
         TouchHistoryData data,
         Func<string, OverlayRequestOutcome> requestOpen,
@@ -111,17 +86,14 @@ internal sealed class TouchHistoryPanel : IDisposable
 
     public bool IsVisible { get; private set; }
 
-    /// <summary>An open dialog, inspection or skills layer takes the back key before the panel.</summary>
     public bool HasModalBackStep => _overlays?.AnyOpen == true || View?.HasDetailBackStep == true;
 
-    /// <summary>Panel sessions opened and not yet closed: 0 or 1, for the hooks summary.</summary>
     public long OpenSessions => IsVisible ? 1 : 0;
 
     public long Opened => Interlocked.Read(ref _opened);
 
     public int ViewRoots => View?.RootCount ?? 0;
 
-    /// <summary>Cards History holds from the rental: both boards, the skills sheet, the inspection.</summary>
     public int Leases =>
         _upper.Leases + _lower.Leases + (_skills?.Leases ?? 0) + (_inspection?.Leases ?? 0);
 
@@ -135,7 +107,6 @@ internal sealed class TouchHistoryPanel : IDisposable
             ("history_relayouts", _relayouts),
         ];
 
-    /// <summary>The back key closes the top-most open dialog or layer.</summary>
     public void DismissModalBackStep()
     {
         if (_overlays?.AnyOpen == true)
@@ -144,17 +115,12 @@ internal sealed class TouchHistoryPanel : IDisposable
             View?.BackToArchive();
     }
 
-    /// <summary>A new locale: an open panel renders its text again.</summary>
     public void RefreshLocalization()
     {
         if (IsVisible)
             RefreshUi();
     }
 
-    /// <summary>
-    /// The host's tick, every frame: the return from a replay while closed, the open panel's work
-    /// while open.
-    /// </summary>
     public void Tick(float deltaTime, bool isOpen)
     {
         if (_disposed)
@@ -166,7 +132,6 @@ internal sealed class TouchHistoryPanel : IDisposable
                 _coordinator.TickHidden();
                 return;
             }
-            // A visible panel with no view, its last build failed, builds again or closes.
             if (!_slot.IsCurrent(TouchScreen.Key()) && !Relayout())
             {
                 _requestClose("relayout_failed");
@@ -194,18 +159,12 @@ internal sealed class TouchHistoryPanel : IDisposable
         }
     }
 
-    // The coordinator hides the panel for a replay it started and keeps the return pending.
     private void HideForReplay() => _requestClose(ReplayStarted);
 
-    // The coordinator's return from a replay. A combat keeps the return pending, so it is tried
-    // again next frame.
+    // Defer replay return during combat so it can be retried on a later frame.
     private void ReturnFromReplay() => _requestOpen("replay_returned");
 
-    /// <summary>
-    /// A scene loaded and the panel is still open, or was closed: the rental destroys every card
-    /// right after this, so the cards go back first and come again next frame. The dialogs hold no
-    /// card and stay open, a note on its unsaved draft.
-    /// </summary>
+    // Return cards before the scene transition invalidates their leases. Dialog drafts can stay.
     public void OnSceneChanged()
     {
         var dialogsKept = _overlays?.SceneChanged("scene_changed") ?? 0;
@@ -222,7 +181,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         );
     }
 
-    /// <summary>The host stops: the panel hides, its cards go back and its coordinator ends.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -243,10 +201,6 @@ internal sealed class TouchHistoryPanel : IDisposable
 
     private HistoryBoardFacts OpponentStatus => _shownBoth ? _upper.Facts() : default;
 
-    /// <summary>
-    /// The host's open: the combat gate already passed. False when no view could be built, and
-    /// the panel stays closed. A return from a replay resumes its selection.
-    /// </summary>
     public bool Open(string reason)
     {
         if (_disposed)
@@ -276,10 +230,7 @@ internal sealed class TouchHistoryPanel : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// The host's close. Every close but a replay start drops a pending return from a replay, the
-    /// panel already hidden by the replay included.
-    /// </summary>
+    // Preserve the pending return only for a replay start, including while the panel is already hidden.
     public void Hide(string reason)
     {
         if (reason != ReplayStarted)
@@ -309,7 +260,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         );
     }
 
-    // Every overlay closes and every card goes back to the rental.
     private int ReturnCards(string reason)
     {
         _overlays?.CloseAll(reason);
@@ -324,8 +274,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         return returned;
     }
 
-    // The view for the current screen, built when the screen changed or the last build failed.
-    // False when none could be built: no font yet, or the build threw (LayoutFailed).
     private bool EnsureView()
     {
         var key = TouchScreen.Key();
@@ -351,9 +299,6 @@ internal sealed class TouchHistoryPanel : IDisposable
             ) != null;
     }
 
-    // The view and the overlays laid over it. The view destroys its own canvas when it throws; a
-    // throw after it disposes it, and with it every overlay under its surface. The overlay fields
-    // are set only once every overlay is built.
     private TouchHistoryPanelView BuildView(TMP_FontAsset font)
     {
         var view = new TouchHistoryPanelView(
@@ -429,7 +374,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         return view;
     }
 
-    // The overlays live under the view, so they go with it.
     private void DropView(TouchHistoryPanelView view)
     {
         ReturnCards("relayout");
@@ -442,8 +386,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         _overlays = null;
     }
 
-    // The build threw: the slot holds no view, the old view's cards already returned. An open
-    // panel's tick then requests the close, and the next open builds again.
     private static void LayoutFailed(
         Exception exception,
         string before,
@@ -459,8 +401,6 @@ internal sealed class TouchHistoryPanel : IDisposable
             ("rental_leases", MobilePlatform.Port.CardRental.ActiveLeases)
         );
 
-    // The new view reopens an open note on its draft; the other overlays close. False when no view
-    // could be built: the tick then requests the close.
     private bool Relayout()
     {
         var from = _slot.ScreenKey;
@@ -581,8 +521,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         RefreshBoardMessages();
     }
 
-    // Every refresh re-derives both board messages from the boards' facts, as the desktop's
-    // RefreshNativeHistoryMessages does.
     private void RefreshBoardMessages()
     {
         if (View is not { } view)
@@ -604,7 +542,7 @@ internal sealed class TouchHistoryPanel : IDisposable
 
     private void Inspect(BppItemBoardCard card, string source) => _inspection?.Open(card, source);
 
-    // The picker stays open under the game's overlay, so closing the overlay returns to it.
+    // Keep the picker open so the native overlay returns to it.
     private void PickSkillSide(int side)
     {
         if (side < 0 || side >= _skillSides.Count)
@@ -627,8 +565,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         _more.Open();
     }
 
-    // Favorites removes the favorite (confirmed by a second tap); Runs deletes the run, which the
-    // coordinator refuses with the reason on the status line when the button reads unavailable.
     private void Delete()
     {
         BppLog.InfoEvent(
@@ -639,7 +575,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         _coordinator.DeleteSelected();
     }
 
-    // Favorites edits the note; the other sections favorite the selected battle.
     private void Favorite()
     {
         BppLog.InfoEvent(
@@ -678,8 +613,6 @@ internal sealed class TouchHistoryPanel : IDisposable
         _skills.Open(rows);
     }
 
-    // The game's skill overlay, opened from the skills sheet, sits over it and closes with it. It
-    // rents no card: its proxies are destroyed when it closes.
     private sealed class NativeSkillsLayer(INativeSkillOverlay overlay) : IHistoryCardOverlay
     {
         public bool IsOpen => overlay.IsOpen;

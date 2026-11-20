@@ -24,11 +24,7 @@ internal sealed class CollectionCatalog
             cardMapProvider ?? throw new ArgumentNullException(nameof(cardMapProvider));
     }
 
-    /// <summary>
-    /// Non-allocating cache predicate with the same source/identity check (and the same
-    /// invalidate-on-source-swap side effect) as <see cref="TryGetCached"/>. The closed-panel
-    /// warmup tick runs every frame, so its fast path must not allocate a build result.
-    /// </summary>
+    // The closed-panel warmup checks this every frame without allocating a build result.
     public bool IsCacheWarm()
     {
         var source = BppStaticDataAccess.TryGetReadyManagerObject();
@@ -68,13 +64,7 @@ internal sealed class CollectionCatalog
 
     public CollectionPanelLogReasonCode? WarmupFailureReason => _unavailableReason;
 
-    /// <summary>
-    /// Advances the shared catalog build by at most <paramref name="frameBudgetMs"/> on the
-    /// Unity main thread. The card-map acquisition remains in the provider's worker task; only
-    /// the projection of game templates into collection VMs is time-sliced here. The closed-panel
-    /// warmup tick and the open-panel loading path observe the same session, which can only be
-    /// committed once.
-    /// </summary>
+    // Projection touches game templates on the Unity main thread. Closed warmup and open loading share the same build session.
     public CollectionCatalogWarmupStatus AdvanceBuild(
         float frameBudgetMs,
         out CollectionCatalogBuildResult? completed
@@ -161,24 +151,12 @@ internal sealed class CollectionCatalog
         return WarmupStatus;
     }
 
-    /// <summary>
-    /// Kicks (or returns the in-flight) off-thread load of the full game card map so the heavy
-    /// <c>ReadAllCards</c> SQLite read never runs on the Unity main thread. Idempotent per
-    /// static-data manager: repeated calls for the same source share one Task; a changed source
-    /// (runtime swap) re-kicks. Returns <c>null</c> only when static data is not ready yet
-    /// (non-blocking). <paramref name="source"/> is the manager the Task loads from.
-    /// </summary>
+    // ReadAllCards can block on SQLite, so full card-map loading stays off the Unity main thread.
     public Task<Dictionary<Guid, ITCard>?>? BeginCardMapLoad(out object? source)
     {
         return _cardMapProvider.BeginLoad(out source);
     }
 
-    /// <summary>
-    /// Builds a catalog session from a card map already materialised by
-    /// <see cref="BeginCardMapLoad"/> (kept off the main thread). The session then enumerates the
-    /// map on the time-sliced build loop. <paramref name="outcome"/> retains any off-thread
-    /// failure so this catalog remains the sole owner of the unavailable-state transition.
-    /// </summary>
     public bool TryCreateBuildSession(
         CollectionCardMapLoadOutcome outcome,
         out CollectionCatalogBuildSession? session,

@@ -4,14 +4,8 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.OverlayPanels;
 
-// The Walkthrough Control (GLOSSARY.md §Overlay panels): the device walkthrough
-// (`.agents/skills/walkthrough/`) opens a Main Overlay Panel by writing `open <panel id>` to
-// walkthrough-command.txt in the Data Root, and `shot <name>` asks the host for a capture of the
-// game window (`just mod::ui-shots`; a host that cannot capture logs it as unsupported). Each
-// host adapter asks it for a toggle every frame and feeds that to OverlayPanelHost as a hotkey
-// toggle, so the lifecycle rules still apply: combat refuses the open and an open modal swallows
-// it. The file is deleted before the command runs; a
-// file the host cannot read or delete stops the control for the session, so no command repeats.
+// The walkthrough waits for walkthrough-command.txt to disappear before reading the outcome.
+// Delete the file before running a command to prevent repeating it on later frames.
 public sealed class WalkthroughControl
 {
     public const string CommandFileName = "walkthrough-command.txt";
@@ -30,8 +24,7 @@ public sealed class WalkthroughControl
 
     public WalkthroughControl(string dataRoot) => _path = Path.Combine(dataRoot, CommandFileName);
 
-    // The panel to toggle this frame, or null. A request for the panel already open is a no-op,
-    // since a toggle would close it.
+    // Ignore an open request for the current panel because the host would toggle it closed.
     public string? NextToggle(float deltaTime, string? openPanelId)
     {
         if (_stopped)
@@ -97,8 +90,7 @@ public sealed class WalkthroughControl
         return panelId == openPanelId ? null : panelId;
     }
 
-    // The capture `shot <name>` asked for, once: the host writes it as <name>.png. The name is
-    // lowercase letters, digits and dashes, so it cannot leave the capture folder.
+    // The name is restricted to lowercase letters, digits and dashes so captures cannot escape the capture folder.
     public string? TakeShot()
     {
         var shot = _shot;
@@ -110,8 +102,7 @@ public sealed class WalkthroughControl
         name.Length is > 0 and <= 64
         && name.All(character => character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-');
 
-    // After the host's frame: one line with the request and the panel open now, since combat or a
-    // modal can refuse the toggle.
+    // Report after the host's frame because combat or a modal can refuse the toggle.
     public void AfterFrame(string? openPanelId)
     {
         if (_requested == null)

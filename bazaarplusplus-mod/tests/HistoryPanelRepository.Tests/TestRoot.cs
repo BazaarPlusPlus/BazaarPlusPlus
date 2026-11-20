@@ -1,8 +1,6 @@
 #nullable enable
 using Microsoft.Data.Sqlite;
 
-// The temp data root the capsule created before its checks and deleted after them; each test
-// class now owns one.
 internal static class TestRoot
 {
     public static string Create()

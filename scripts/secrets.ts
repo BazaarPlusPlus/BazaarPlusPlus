@@ -7,21 +7,15 @@ import type { GithubSecretItem } from '../release/github-secrets.ts';
 import { readConfig, resolveSigning, root } from './local-config.ts';
 import type { ParsedConfig } from './local-config.ts';
 
-// `bun scripts/workspace.ts secrets check|push`: the GitHub side of
-// release/github-secrets.json. check lists, by name only, what each scope
-// holds on GitHub and what config.toml and keys/ hold locally; push copies
-// every locally present item through `gh secret set` / `gh variable set`
-// over stdin. Values never reach a command line, a file or the output.
+// Send values over stdin to keep them out of arguments, files and logs.
 
 const GH_SCOPE = /^(repository|[a-z][a-z0-9-]*)-(secret|variable)$/;
 
-/** The `gh` addressing of one scope: secret or variable, and its environment. */
 export interface GhScope {
   kind: string;
   env: string | null;
 }
 
-// `gh` arguments that address one scope: repository, or an environment.
 export function ghScope(scope: string): GhScope {
   const match = GH_SCOPE.exec(scope);
   if (!match) throw new Error(`Unknown GitHub scope ${scope}`);
@@ -49,7 +43,6 @@ function runGh(
   return result;
 }
 
-// The GitHub Environment or app a `gh` list or set call addresses.
 interface GhTarget {
   env?: string | null;
   app?: string | null;
@@ -72,8 +65,6 @@ function listNames(
   return new Set(entries.map((entry) => entry.name));
 }
 
-// The value an item copies, as bytes, or null when its local source is empty
-// or absent. Reads happen here and nowhere else.
 function localValue(
   item: GithubSecretItem,
   home: string,
@@ -82,8 +73,6 @@ function localValue(
 ): Buffer | null {
   const { local } = item;
   if (local.section) {
-    // assertItem also accepts a section without a key beside a keys/ file;
-    // such an item reads the key "undefined", as before typing.
     const value =
       config.sections.get(local.section)?.values[local.key as string] ?? '';
     return value.trim() ? Buffer.from(value) : null;
@@ -91,8 +80,6 @@ function localValue(
   let file;
   if (local.file === 'keys/AuthKey_<APPLE_API_KEY>.p8')
     file = resolveSigning(home, env).appleKeyPath;
-  // An item with an empty section reaches here without a file and throws
-  // in path.join, as before typing.
   else file = path.join(home, local.file as string);
   if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) return null;
   const bytes = fs.readFileSync(file);
@@ -107,7 +94,6 @@ function describeScope(scope: string): string {
   return `${env ? `${env} environment` : 'repository'} ${kind}`;
 }
 
-/** Options of inventory: the configuration home and how to reach GitHub. */
 export interface InventoryOptions {
   home: string;
   env?: NodeJS.ProcessEnv;
@@ -116,7 +102,6 @@ export interface InventoryOptions {
   workspaceRoot?: string;
 }
 
-/** One managed name: where it lives on GitHub and whether it has a local value. */
 export interface InventoryRow {
   item: GithubSecretItem;
   scope: string;
@@ -126,14 +111,11 @@ export interface InventoryRow {
   source: string;
 }
 
-/** What inventory returns: one row per item and the config it read. */
 export interface Inventory {
   rows: InventoryRow[];
   config: ParsedConfig;
 }
 
-// One row per item: its scope, name, whether GitHub has it and whether the
-// local source holds a value.
 export function inventory({
   home,
   env = process.env,
@@ -154,7 +136,6 @@ export function inventory({
       'dependabot-secret',
       listNames(gh, 'secret', { app: 'dependabot' })
     );
-  // Every scope and, with dependabot, the Dependabot list were read above.
   const names = (scope: string): Set<string> => {
     const listed = remote.get(scope);
     if (!listed) throw new Error(`No GitHub listing for ${scope}`);
@@ -220,19 +201,15 @@ function setOne(
     throw new Error(`gh ${kind} set ${name} failed: ${result.stderr.trim()}`);
 }
 
-/** Options of push: inventory's, plus where progress lines go. */
 export interface PushOptions extends InventoryOptions {
   log?: (line: string) => void;
 }
 
-/** How many names push set and how many had no local value. */
 export interface PushResult {
   set: number;
   skipped: number;
 }
 
-// Copies every item with a local value; names the ones without one. With
-// --dependabot, items marked for Dependabot are set there too.
 export function push({
   home,
   env = process.env,

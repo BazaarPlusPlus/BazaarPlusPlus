@@ -7,8 +7,6 @@ using BazaarPlusPlus.Storage.RunLog;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// A favorite is a snapshot of its battle: it outlives the run, keeps its own replay state and
-// note, and lists newest-favorited first without opening its board documents.
 public sealed class HistoryFavoritesTests : IDisposable
 {
     private readonly string root = TestRoot.Create();

@@ -5,25 +5,17 @@ namespace BazaarPlusPlus.Infrastructure.SelfUpdate;
 
 public enum SelfUpdateDecision
 {
-    /// <summary>The running copy is the published version or newer.</summary>
     UpToDate,
 
-    /// <summary>Download and stage the published Managed Payload.</summary>
     Stage,
 
-    /// <summary>The published version is staged; the next start swaps it in.</summary>
     Staged,
 
-    /// <summary>Only the installer (on Android, a new Android App) can update this copy.</summary>
     ManualUpdate,
 }
 
-/// <summary>
-/// Whether the running copy may take the published release as a Managed Payload (ADR-0014). The
-/// comparison is against the running copy itself, never against the previous release: a copy
-/// that skipped versions still sees every schema or non-managed change between. The release's
-/// <c>selfUpdatable</c> flag is a hint for the download page and plays no part here.
-/// </summary>
+// Compare against the running copy so skipped releases cannot hide schema or runtime changes.
+// The release's selfUpdatable hint is for the download page.
 public static class SelfUpdatePolicy
 {
     public static SelfUpdateDecision Decide(

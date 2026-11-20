@@ -10,9 +10,7 @@ using BazaarPlusPlus.ModApi;
 using BazaarPlusPlus.TestSupport;
 using Xunit;
 
-// Ghost and favorite payload files carry a manifest whose cards are BPP facets. A facet's integer
-// is BPP's own and never persisted (ADR-0015 §4), so both files store every enum by member name
-// and read back to the same facets.
+// Persist names because facet numbers are local to BPP.
 public sealed class PayloadFacetNameTests
 {
     private static readonly string[] MemberNames =

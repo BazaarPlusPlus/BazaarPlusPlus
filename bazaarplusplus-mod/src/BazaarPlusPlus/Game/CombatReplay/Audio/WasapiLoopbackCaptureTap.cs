@@ -3,21 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace BazaarPlusPlus.Game.CombatReplay.Audio;
 
-/// <summary>
-/// Captures the game's audio by recording the default render endpoint in WASAPI LOOPBACK mode — i.e.
-/// the exact PCM the speakers play. This is independent of FMOD's internal bus/DSP routing, so it
-/// captures everything the player hears: music, settlement, VO, AND the 3D combat/board SFX whose
-/// spatialised signal does not appear on any tappable FMOD channel group (verified: no Resonance
-/// Listener DSP exists on any Studio bus and the core master output is music-only).
-///
-/// A background thread pulls capture packets and writes them to a streaming float <see cref="WavStreamWriter"/>.
-/// Everything degrades gracefully: any COM/WASAPI failure during <see cref="TryStart"/> tears the tap
-/// down, logs a Warn, and returns false so the recorder proceeds with a silent video. Game playback is
-/// never affected (loopback is read-only).
-///
-/// NOTE: default-endpoint loopback captures the whole render-endpoint mix, so any other app playing
-/// sound to the same device is also recorded. For a typical recording the game is the only audio.
-/// </summary>
+// Default-endpoint loopback captures the entire device mix, including audio from other apps on the same endpoint.
 internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
 {
     private const int CLSCTX_ALL = 0x17;
@@ -284,10 +270,7 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
                 if (File.Exists(_wavFilePath))
                     File.Delete(_wavFilePath);
             }
-            catch
-            {
-                // Deferred cleanup is best-effort after the typed stop failure is recorded.
-            }
+            catch { }
         }
     }
 
@@ -299,10 +282,7 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
         {
             Stop();
         }
-        catch
-        {
-            // Stop is fully guarded; final safety net so a start failure never escapes.
-        }
+        catch { }
     }
 
     private void CaptureLoop()
@@ -403,7 +383,6 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             return;
         }
 
-        // Unknown format width: emit silence rather than garbage.
         Array.Clear(dst, 0, count);
     }
 
@@ -467,10 +446,7 @@ internal sealed class WasapiLoopbackCaptureTap : IReplayAudioCaptureTap
             if (Marshal.IsComObject(obj))
                 Marshal.ReleaseComObject(obj);
         }
-        catch
-        {
-            // Best-effort release.
-        }
+        catch { }
         obj = null;
     }
 

@@ -6,10 +6,8 @@ using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-// HistoryBoardProjection: a stored battle's hands and skills as the Android boards rent them.
 public sealed class HistoryBoardProjectionTests
 {
-    // The capsule ran these checks with English installed.
     public HistoryBoardProjectionTests() =>
         L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
@@ -180,8 +178,6 @@ public sealed class HistoryBoardProjectionTests
         );
     }
 
-    // A socket effect raises its attribute to at least 1 on the placed items that cover its
-    // socket, and is no card on the board.
     private static void SocketEffects(Func<Guid, bool> hasTemplate)
     {
         var heat = Guid.Parse("66666666-6666-6666-6666-666666666666");

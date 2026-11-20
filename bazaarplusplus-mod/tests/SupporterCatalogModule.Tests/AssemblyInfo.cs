@@ -1,5 +1,4 @@
 using Xunit;
 
-// The BPPSupporterCatalog facade is process-global; the tests reset it and read what the module
-// published. Run the tests one at a time.
+// Run serially because the tests reset the process-global BPPSupporterCatalog facade.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

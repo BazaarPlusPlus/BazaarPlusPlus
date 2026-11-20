@@ -19,12 +19,8 @@ internal static class CollectionTierTooltipPreview
     [ThreadStatic]
     private static bool _isRenderingVariant;
 
-    // One card's render runs the active, passive and cooldown postfixes back to back, and each
-    // needs the same tier list and tier variants. The registry's preview slot holds the last
-    // card's, keyed by its instance, template and tier; a different card replaces it whole, and
-    // unregistering the card drops it. Reuse is safe: rendering only fills CardTooltipData's own
-    // compiled-tooltip memo, and native lock-variant previews render their own card copies,
-    // which the registry never holds.
+    // Active, passive and cooldown postfixes can share variants because rendering only
+    // fills their compiled-tooltip memo and native lock variants use separate card copies.
     public static bool IsRenderingVariant => _isRenderingVariant;
 
     public static void MergeActive(
@@ -191,7 +187,6 @@ internal static class CollectionTierTooltipPreview
         return CollectionTierTooltipTextMerger.Merge(lineVariants);
     }
 
-    // The merger colors each variant by its tier facet; a tier without one reads as Bronze.
     private static CardTier TierFacet(ETier tier) =>
         DesktopCardFacets.Tier.TryToFacet(tier, out var facet) ? facet : CardTier.Bronze;
 
@@ -208,7 +203,6 @@ internal static class CollectionTierTooltipPreview
         return new CardTooltipData(previewCard, source.CardTemplate);
     }
 
-    // The registry check runs before the slot is read, so a released card never reuses it.
     private static bool TryGetPreviewTiers(CardTooltipData tooltipData, out VariantSlot slot)
     {
         slot = null!;
@@ -237,9 +231,8 @@ internal static class CollectionTierTooltipPreview
         return slot.Tiers.Length > 0;
     }
 
-    // Online's GetPassiveTooltipBlock(Card) returns (StringBuilder, TooltipSegment?). Steam
-    // staging 1.0.13257 takes no card and returns tooltip segments, so the passive patch does
-    // not apply there and this stays unbound.
+    // Some builds expose a parameterless GetPassiveTooltipBlock with a different return shape,
+    // so the passive patch stays unbound there.
     private static readonly Func<
         CardTooltipData,
         Card,

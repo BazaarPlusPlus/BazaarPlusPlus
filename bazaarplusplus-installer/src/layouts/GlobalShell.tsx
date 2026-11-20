@@ -77,8 +77,6 @@ function GlobalShellContent() {
     }
   }, [showToast, t, updater.phase, updater.problem, updater.checkNow]);
 
-  // Close the header popovers on Escape or a click outside them — the native
-  // behaviour these controlled dropdowns were missing.
   useEffect(() => {
     if (!showBilibili && !showSupport) return;
     const closeMenus = (restoreFocus = false) => {
@@ -162,8 +160,6 @@ function GlobalShellContent() {
   );
 }
 
-/** Route changes are immediate; the keyed wrapper only replays a short,
- *  non-blocking fade so the new page settles in. */
 function RouteOutlet() {
   const location = useLocation();
   return (

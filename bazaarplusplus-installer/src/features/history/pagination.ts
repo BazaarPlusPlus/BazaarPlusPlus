@@ -21,7 +21,6 @@ export const UNFILTERED: HistoryRunFilter = {
   key_card: null
 };
 
-/** A History List selection: one page of the Runs one filter selects. */
 export type HistoryListQuery = { page: number; filter: HistoryRunFilter };
 
 export function parseHistoryPage(value: string | null): number {
@@ -37,7 +36,6 @@ function oneOf<T extends string>(options: T[], value: string | null): T {
   return options.find((option) => option === value) ?? options[0];
 }
 
-/** Reads the selection from a History List URL; unknown values select everything. */
 export function parseHistoryQuery(params: URLSearchParams): HistoryListQuery {
   return {
     page: parseHistoryPage(params.get('page')),
@@ -50,7 +48,6 @@ export function parseHistoryQuery(params: URLSearchParams): HistoryListQuery {
   };
 }
 
-/** URL parameters of a selection, leaving out the defaults. */
 export function historySearchParams({
   page,
   filter

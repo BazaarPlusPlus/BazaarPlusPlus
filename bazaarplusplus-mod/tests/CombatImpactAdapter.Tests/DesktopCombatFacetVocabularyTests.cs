@@ -7,11 +7,6 @@ using Xunit;
 
 namespace CombatImpactAdapter.Tests;
 
-/// <summary>
-/// Vocabulary pin (ADR-0019): every member of the combat enums the Managed snapshot defines maps
-/// to a Core combat facet member of the same name and value, so a game update that adds, drops
-/// or renumbers one fails here instead of silently dropping events from Combat Impact.
-/// </summary>
 public sealed class DesktopCombatFacetVocabularyTests
 {
     public static TheoryData<string, string[]> Maps =>
@@ -78,8 +73,7 @@ public sealed class DesktopCombatFacetVocabularyTests
             $"{gameEnum} defines {string.Join(", ", unmapped)} with no combat facet member."
         );
 
-    // The facets copy the game's values so sets and sorts order as the game's do; the projector's
-    // output order, and with it the Combat Impact goldens, depends on that.
+    // Game enum values determine iteration order, which the Combat Impact goldens depend on.
     [Theory]
     [MemberData(nameof(Vocabularies))]
     public void Combat_facets_mirror_the_game_enum_names_and_values(Type game, Type facet) =>

@@ -7,11 +7,8 @@ using TheBazaar;
 
 namespace BazaarPlusPlus.Patches.RandomCosmetics;
 
-/// <summary>
-/// Arms the Random Cosmetic Pool only when every one of its patches is installed and every
-/// game field and method it reads exists. Patches apply per class, so a game update can drop one
-/// of them; then the whole pool stays off, the run-start pick included, and the loadout is native.
-/// </summary>
+// Patches apply per class. Require every patch and native member before arming the pool
+// so a partial install cannot alter the native loadout.
 internal static class RandomCosmeticPoolPatchCapabilities
 {
     private static volatile bool _armed;

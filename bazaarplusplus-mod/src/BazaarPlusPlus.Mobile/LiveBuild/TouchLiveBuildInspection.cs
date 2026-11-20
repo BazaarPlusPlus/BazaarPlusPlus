@@ -10,15 +10,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Mobile.LiveBuild;
 
-/// <summary>
-/// A recommended build's card, tapped, enlarged over the panel with its name and its text as the
-/// game's tooltip renders it (<see cref="IMobilePlatformPort.CardDescription"/>):
-/// the touch counterpart of hovering a card on the desktop, where the game's own tooltip shows.
-/// A touch screen has no hover tooltip, so the text stands beside the card as in the Collection
-/// inspection. The card is the game's own prefab, rented at the build's tier and enchantment. A
-/// tap outside, the close button, or the back key dismisses it, and the lease goes back to the
-/// rental.
-/// </summary>
 internal sealed class TouchLiveBuildInspection
 {
     public const string RentalOwner = "live_build.inspection";
@@ -63,7 +54,6 @@ internal sealed class TouchLiveBuildInspection
         );
 
         var info = TouchScreen.Child("Info", root, layout.InspectInfo);
-        // Opaque, so the panel's text under it does not show through.
         skin.Frame(info);
         // Swallows taps on the panel, which would otherwise reach the dismiss button behind it.
         var swallow = info.gameObject.AddComponent<Button>();
@@ -98,10 +88,8 @@ internal sealed class TouchLiveBuildInspection
 
     public bool IsOpen => _root.activeSelf;
 
-    /// <summary>The inspected card's lease, Pending or Ready: one while open.</summary>
     public int Leases => _lease != null ? 1 : 0;
 
-    /// <summary>The inspected card is still being instantiated or set up.</summary>
     public bool SettingUp => _lease is { State: CardRentalLeaseState.Pending };
 
     public void Open(BppItemBoardCard card, string source)
@@ -124,7 +112,6 @@ internal sealed class TouchLiveBuildInspection
         );
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (!IsOpen)
@@ -145,7 +132,6 @@ internal sealed class TouchLiveBuildInspection
         _lease = null;
     }
 
-    // A sheet rect as its parent's local rect, inset horizontally for text.
     private static TouchRect Local(TouchRect rect, TouchRect origin, float inset) =>
         new(
             rect.Left - origin.Left + inset,

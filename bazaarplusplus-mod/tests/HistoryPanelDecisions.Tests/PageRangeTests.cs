@@ -6,7 +6,6 @@ using Xunit;
 
 public sealed class PageRangeTests
 {
-    // The capsule ran these checks with English installed.
     public PageRangeTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     private static readonly HistoryCursor First = new(1789862400000, "first");
@@ -91,7 +90,6 @@ public sealed class PageRangeTests
         }
     }
 
-    // The two page shapes reject the combinations a reader could not have produced.
     [Fact]
     public void CheckShapes()
     {

@@ -1,5 +1,3 @@
-"""Build and persist local Operational Evidence for pipeline Runs."""
-
 import contextlib
 import json
 import os
@@ -233,8 +231,6 @@ class RunSummary:
 
 @dataclass(slots=True)
 class RunEvidence:
-    """Accumulate one Run's facts and materialize its terminal summary."""
-
     run_id: str
     started_at: datetime
     started_monotonic: float
@@ -276,7 +272,6 @@ class RunEvidence:
         report: Callable[[str], None],
         checkpoint: Callable[..., None],
     ) -> None:
-        """Translate intake facts into live evidence and aggregate each terminal once."""
         if update.error is not None or update.commit is not None:
             self.expected_bundles += update.expected_bundles or 0
             self.admitted_bundles += update.admitted_bundles
@@ -290,8 +285,7 @@ class RunEvidence:
             self.parquet_write_seconds += update.timings.get("parquet_write_seconds", 0.0)
             self.fact_finalize_seconds += update.timings.get("fact_finalize_seconds", 0.0)
         if update.error is not None:
-            # This may be a lost lock or a runtime limit. Only record in memory;
-            # the driver owns whether any further durable evidence is permitted.
+            # The driver checks lock ownership and runtime limits before writing any failure evidence.
             return
         hour = update.source_hour
         if (commit := update.commit) is not None:
@@ -427,8 +421,6 @@ class CurrentRun:
 
 
 class OperationalEvidence:
-    """Own status, Run history, and log persistence behind one interface."""
-
     def __init__(
         self,
         root: str | Path,

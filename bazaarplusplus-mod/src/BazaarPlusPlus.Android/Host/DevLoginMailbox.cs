@@ -3,8 +3,7 @@ using Newtonsoft.Json.Linq;
 
 namespace BazaarPlusPlus.Android.Host;
 
-// Private, one-use development input. No game or Unity types: file lifecycle and redaction
-// are verified without loading IL2CPP. The debug App owns the directory, not the Data Root.
+// Keep the one-use credentials mailbox in the debug App's private storage.
 internal sealed class DevLoginMailbox(string directory)
 {
     internal sealed class Request
@@ -103,8 +102,8 @@ internal sealed class DevLoginMailbox(string directory)
     }
 }
 
-// This order reflects the native Android flow: a notice or a LogIn frame while the async
-// submission is pending is not a terminal result. Authentication also waits for profile data.
+// The native login form and notices can appear while submission is pending, so neither alone
+// signals a terminal result.
 internal static class DevLoginOutcome
 {
     public static string? Read(

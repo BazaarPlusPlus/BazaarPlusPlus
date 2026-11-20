@@ -19,7 +19,6 @@ export const names = (signal: AbortSignal) =>
   json<Names>(`${CDN}/mod-data/zh-names/zh-names.json`, signal);
 export const heroes = (signal: AbortSignal) =>
   json<HeroSnapshot>(`${CDN}/metrics/v6/heroes/latest.json`, signal);
-/** TemplateId to the Card Art file under CARD_ART; root ADR 0020. */
 export type CardArt = Record<string, string>;
 export const CARD_ART = `${CDN}/card-art`;
 export const cardArt = (signal: AbortSignal) =>

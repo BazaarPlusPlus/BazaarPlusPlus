@@ -1,9 +1,6 @@
 use std::sync::OnceLock;
 
-/// The Data Root the mod writes under the game directory. The mod owns the name
-/// (`PathConstants.DataRootDirectoryName`); `history-database-compatibility.json`
-/// restates it as `dataRootDirectoryName`, which `just release::check` compares
-/// against the mod's contract and a test here compares against this constant.
+/// The mod owns this name in `PathConstants.DataRootDirectoryName`. The release check enforces agreement.
 pub const BAZAAR_DATA_DIRECTORY: &str = "BazaarPlusPlusV6";
 pub const INSTALLER_STATE_DIRECTORY: &str = "BazaarPlusPlusInstaller";
 pub const COMBAT_REPLAYS_DIRECTORY: &str = "CombatReplays";
@@ -45,7 +42,6 @@ pub fn supported_mod_db_user_versions() -> &'static [i64] {
     &compatibility.supported_user_versions
 }
 
-/// The supported versions, comma-separated, as unsupported-schema diagnostics print them.
 pub fn supported_mod_db_user_versions_label() -> String {
     supported_mod_db_user_versions()
         .iter()

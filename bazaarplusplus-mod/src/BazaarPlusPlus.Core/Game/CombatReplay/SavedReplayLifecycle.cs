@@ -1,27 +1,9 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.CombatReplay;
 
-/// <summary>
-/// Pure owner of a saved-replay playback session's state algebra: start progress, terminal
-/// ownership, the time-bounded duplicate-exit suppression window, bootstrap/menu-return flags,
-/// startup-interruption latch, and the pending menu-return deadline. Saved Replay Playback
-/// (<see cref="SavedReplayPlayback"/>) feeds it observations and executes the returned decisions.
-/// It never exits <c>ReplayState</c> itself:
-/// per ADR-0002 the native recap continue click and the bootstrapped <c>Exit()</c> prefix are the
-/// only exit paths.
-/// </summary>
-/// <remarks>
-/// Zero Unity / zero held delegates. All time is a caller-supplied <c>float now</c>
-/// (typically <c>Time.realtimeSinceStartup</c>).
-/// </remarks>
 internal sealed class SavedReplayLifecycle
 {
-    /// <summary>
-    /// Escape-hatch window after a bootstrapped exit is latched. ReturnToMainMenu awaits a
-    /// network call internally and can silently fail, leaving the game parked in ReplayState
-    /// forever. Past the window, a fresh native Exit() click is allowed through again — running
-    /// the original Exit body is the lesser evil versus a permanently dead continue button.
-    /// </summary>
+    /// <summary>ReturnToMainMenu can silently fail after awaiting the network. Let a fresh native Exit through after this window so Continue can recover.</summary>
     public const float ExitSuppressionWindowSeconds = 15f;
 
     private enum Progress
@@ -51,8 +33,7 @@ internal sealed class SavedReplayLifecycle
     public bool IsReplayStartInProgress =>
         _progress is Progress.StartInProgress or Progress.StartFailureCleanup;
 
-    // --- Start (staged commit; three distinct commit points prevent mid-start exit races) ---
-
+    // The three start commits keep a mid-start exit from being mistaken for normal playback completion.
     public void OnStartBegun()
     {
         _progress = Progress.StartInProgress;
@@ -69,19 +50,11 @@ internal sealed class SavedReplayLifecycle
         _returnToMenuAfterReplay = returnToMenuAfter;
     }
 
-    /// <summary>
-    /// Injection succeeded and the mid-start interruption check passed. Commits
-    /// <c>bootstrappedActive</c> from the already-resolved return-to-menu flag.
-    /// </summary>
     public void OnInjectionCommitted()
     {
         _bootstrappedReplayActive = _returnToMenuAfterReplay;
     }
 
-    /// <summary>
-    /// Pure start-failure path (no ReplayState exit). Clears bootstrap flags and moves progress
-    /// into <see cref="Progress.StartFailureCleanup"/> so the async finally can settle to Idle.
-    /// </summary>
     public void OnStartFailed()
     {
         _returnToMenuAfterReplay = false;
@@ -123,8 +96,7 @@ internal sealed class SavedReplayLifecycle
         return taken;
     }
 
-    // --- Two-phase state-exit decision (publish-before facts must not mix with publish-after) ---
-
+    // An interrupted start still owns the terminal event. The ended publish determines which failure it reports.
     public SavedReplayExitOwnership BeginReplayStateExit(float now)
     {
         _ = now;
@@ -205,11 +177,7 @@ internal sealed class SavedReplayLifecycle
         );
     }
 
-    /// <summary>
-    /// Synchronous menu-return dispatch failed. Clears any optimistically armed pending window
-    /// so a later <see cref="TickMenuReturn"/> cannot emit CompleteTimeout for an operation the
-    /// runtime already terminated with <see cref="ReplayPlaybackReasonCode.MenuReturnFailed"/>.
-    /// </summary>
+    /// <summary>Clear the pending window so a later tick cannot time out an operation already terminated by dispatch failure.</summary>
     public void OnMenuReturnDispatchFailed()
     {
         _pendingMenuReturn = null;
@@ -241,12 +209,6 @@ internal sealed class SavedReplayLifecycle
         );
     }
 
-    // --- Exit-suppression latch (single owner for bootstrapped-exit / native-exit) ---
-
-    /// <summary>
-    /// The exit latch is set, whether or not its suppression window has passed: only
-    /// <see cref="ObserveReplayStateGone"/> clears it.
-    /// </summary>
     public bool IsExitLatched => _replayExitInProgress;
 
     public bool IsExitSuppressed(float now) =>
@@ -260,10 +222,7 @@ internal sealed class SavedReplayLifecycle
 
     public SavedReplayExitRequestDecision RequestBootstrappedExit(float now, bool inReplayState)
     {
-        // A replay exit is already in flight (bootstrapped flags cleared, async menu-return has
-        // not left ReplayState yet). Report Suppressed so the Exit() prefix patch suppresses the
-        // original body — running it now would dispatch the dead replay's despawn GameSim into
-        // the live state machine mid transition. Time-bounded: see ExitSuppressionWindowSeconds.
+        // A second native Exit could dispatch the old replay's despawn into the live state machine while menu return is in flight.
         if (IsExitSuppressed(now) && inReplayState)
             return SavedReplayExitRequestDecision.Suppressed;
 
@@ -278,12 +237,7 @@ internal sealed class SavedReplayLifecycle
         return SavedReplayExitRequestDecision.Proceed;
     }
 
-    /// <summary>
-    /// Clears the exit-in-progress latch once ReplayState is actually gone. This is the only
-    /// reliable signal on the bootstrapped exit path, where the state transition happens via
-    /// RunManager.ReturnToMainMenu without a normal ReplayState exit event. Returns whether the
-    /// latch was set.
-    /// </summary>
+    /// <summary>ReturnToMainMenu on the bootstrapped path provides no ReplayState exit event. Wait until the Host observes that the state is gone.</summary>
     public bool ObserveReplayStateGone()
     {
         var wasLatched = _replayExitInProgress;
@@ -291,7 +245,6 @@ internal sealed class SavedReplayLifecycle
         return wasLatched;
     }
 
-    /// <summary>Drop a pending menu-return without completing it (runtime destroy path).</summary>
     public void ClearPendingMenuReturn()
     {
         _pendingMenuReturn = null;
@@ -350,7 +303,6 @@ internal readonly record struct SavedReplayStartupInterruption(
 
 internal enum SavedReplayStateExitKind
 {
-    /// <summary>No terminal action for the runtime (startup owns the terminal, or menu return already pending).</summary>
     Defer,
     CompleteNow,
     BeginMenuReturn,

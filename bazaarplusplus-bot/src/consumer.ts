@@ -20,11 +20,10 @@ export interface Reply {
   text: string;
   html?: string;
 }
-/** Milliseconds from the job start to the end of each step, and the Bundle count, for the timing log. */
+/** Timing marks mix elapsed work, queue delay, and Bundle count. */
 export type Marks = Record<string, number>;
 export interface Hooks {
   mark?: (step: string, value?: number) => void;
-  /** Called once the command is known to reply with an image. */
   image?: () => void;
 }
 export async function replyFor(
@@ -51,7 +50,6 @@ export async function replyFor(
     return {
       text: await data.bind(job.memberId, command.name!, window.from, now)
     };
-  // Without the index the board still draws each card's name.
   const art = cardArt(signal).catch((): CardArt => ({}));
   if (command.kind === '英雄') {
     image();
@@ -78,7 +76,7 @@ export async function replyFor(
   let cursor: Awaited<ReturnType<Data['page']>>['next_after'] = null;
   do {
     const page = await data.page(player.account_id, window.from, now, cursor);
-    // Up to four downloads run ahead of the one being decoded (each Bundle is at most 8 MB).
+    // Each prefetched Bundle can retain up to 8 MB.
     const downloads = new Map<number, Promise<Uint8Array>>();
     const download = (i: number) => {
       const ref = page.items[i];
@@ -156,7 +154,7 @@ export async function handleJob(job: Job, env: Env): Promise<void> {
   const session: { browser?: Promise<Browser> } = {};
   const image = () => {
     session.browser = openBrowser(env.BROWSER);
-    // A launch failure surfaces in render and falls back to text.
+    // Render awaits this same promise so an early rejection still reaches the fallback.
     session.browser.then(
       () => mark('launch'),
       () => {}

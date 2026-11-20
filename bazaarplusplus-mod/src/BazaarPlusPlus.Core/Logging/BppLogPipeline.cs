@@ -11,13 +11,6 @@ public enum BppLogSeverity
     Error,
 }
 
-/// <summary>
-/// Storm suppression in front of the sink. A warning or error whose event declares a storm key
-/// is written once per key per <see cref="StormWindow"/>; repeats are counted and summarized as
-/// <c>logging.storm.suppressed</c> when the window expires, the key is recovered or evicted, or
-/// the pipeline flushes at shutdown. A warning keys on its named storm fields; an error keys on
-/// its correlation fields and the exception type. Any key that cannot be built fails open.
-/// </summary>
 public sealed class BppLogPipeline
 {
     public const int MaximumActiveStormKeys = 256;
@@ -111,10 +104,8 @@ public sealed class BppLogPipeline
         }
     }
 
-    /// <summary>Ends every active storm of the event and writes its pending summaries.</summary>
     public void RecoverStorm(BppLogEvent logEvent) => RecoverStormCore(logEvent.Id, stormKey: null);
 
-    /// <summary>Ends the warning storm whose key the given fields build.</summary>
     public void RecoverStorm(BppLogEvent logEvent, IReadOnlyList<BppLogField>? fields)
     {
         if (
@@ -162,10 +153,7 @@ public sealed class BppLogPipeline
             }
             WritePending(pending);
         }
-        catch
-        {
-            // Recovery reporting is best effort.
-        }
+        catch { }
     }
 
     public void Flush()
@@ -231,8 +219,7 @@ public sealed class BppLogPipeline
         }
     }
 
-    // A storm key names categorical fields. A key that names a missing or null field, or one
-    // carrying any correlation policy, fails open: the record is written rather than merged.
+    // Correlation fields cannot serve as categorical warning storm keys. Write the warning when that happens.
     private static bool AppendWarningKey(
         StringBuilder builder,
         IReadOnlyList<string> keyNames,
@@ -510,8 +497,7 @@ public sealed class BppLogPipeline
             new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    // Rendering is deferred to WritePending so a record discarded by the storm-key decision is
-    // never rendered at all.
+    // Delay rendering so storm-suppressed records incur no rendering cost.
     private readonly struct PendingEmission
     {
         private PendingEmission(

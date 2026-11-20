@@ -197,7 +197,6 @@ public sealed class CollectionInspectionTests
             Assert.True(settle.ShouldMeasure(frame));
             Assert.False(settle.Observe(frame, 1800f, 800f, 650f, 400f, 1800f, 800f, false));
         }
-        // Something outside the module moves the description back every frame.
         for (var frame = 5; frame <= 8; frame++)
         {
             Assert.True(settle.ShouldMeasure(frame));
@@ -224,7 +223,6 @@ public sealed class CollectionInspectionTests
         var settle = new CollectionInspectionLayoutSettle();
         settle.Observe(1, 1800f, 800f, 650f, 400f, 1800f, 800f, true);
         Assert.True(settle.Observe(2, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
-        // A new preview lands after this frame's tick already measured the old one.
         settle.MarkDirty();
         Assert.False(settle.Observe(2, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
         Assert.True(settle.Observe(3, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
@@ -239,7 +237,6 @@ public sealed class CollectionInspectionTests
         Assert.True(settle.Observe(2, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
         settle.MarkDirty();
         Assert.True(settle.ShouldMeasure(3));
-        // The first frame after a change matches the old bounds but cannot settle alone.
         Assert.False(settle.Observe(3, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
         Assert.False(settle.Observe(4, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
         Assert.True(settle.Observe(5, 1800f, 800f, 900f, 400f, 1800f, 800f, true));
@@ -256,10 +253,8 @@ public sealed class CollectionInspectionTests
         var recheck = 2 + CollectionInspectionLayoutSettle.RecheckFrames;
         Assert.False(settle.ShouldMeasure(recheck - 1));
         Assert.True(settle.ShouldMeasure(recheck));
-        // Nothing changed: one frame re-settles silently.
         Assert.False(settle.Observe(recheck, 1800f, 800f, 650f, 400f, 1800f, 800f, true));
         Assert.False(settle.ShouldMeasure(recheck + 1));
-        // A change no dirty source reported is caught by the next recheck and reported.
         recheck += CollectionInspectionLayoutSettle.RecheckFrames;
         Assert.True(settle.ShouldMeasure(recheck));
         Assert.False(settle.Observe(recheck, 1800f, 800f, 700f, 400f, 1800f, 800f, true));

@@ -11,17 +11,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
-// Behavior tests for the analyzer ten-win build corpus consumed by LiveBuildPanel, run against
-// Core alone. The payload is the compact string-table + schema-driven array-row format published
-// at builds/latest.json on the V6 metrics origin. Every assertion drives the public
-// BuildRecommendationRepository.FindRecommendations surface (parse + recall + scoring + board
-// projection). Catalog lifecycle is tested through IRemoteEmbeddedCatalog in the dedicated
-// RemoteEmbeddedCatalog.Tests project; the embedded seed the desktop host bundles is gated by
-// LiveBuildRecommendations.Tests.
-
 public sealed class TenWinBuildTests
 {
-    // The analyzer-produced golden (contracts/v6/fixtures/builds.latest.json).
     private const string ContractResourceName =
         "LiveBuildRecommendationCore.Tests.builds.latest.json";
     private const string ContractHeroName = "Dooley";
@@ -29,9 +20,6 @@ public sealed class TenWinBuildTests
     private const string GuidB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     private const string GuidC = "cccccccc-cccc-cccc-cccc-cccccccccccc";
     private const string GuidD = "dddddddd-dddd-dddd-dddd-dddddddddddd";
-
-    // ---- Tests ------------------------------------------------------------
-    // Each test is one check the capsule's Run() called, with the same name.
 
     [Fact]
     public void TestParserAcceptsAnalyzerContract()
@@ -257,7 +245,6 @@ public sealed class TenWinBuildTests
             repository =>
             {
                 var scores = ScoresOf(Find(repository, "Vanessa", [GuidA]));
-                // cardIndex[A] = [build0(score100), build1(score200)] -> ranked by score desc.
                 Assert(
                     scores.SequenceEqual([200L, 100L]),
                     $"Single-card recall should return A's builds by score; got [{string.Join(",", scores)}]."
@@ -274,7 +261,6 @@ public sealed class TenWinBuildTests
             repository =>
             {
                 var scores = ScoresOf(Find(repository, "Vanessa", [GuidA, GuidB]));
-                // cardIndex[A]=[0,1], cardIndex[B]=[0,2] -> intersection {0} (score100).
                 Assert(
                     scores.SequenceEqual([100L]),
                     $"Intersection of A and B should return only build0; got [{string.Join(",", scores)}]."
@@ -286,7 +272,6 @@ public sealed class TenWinBuildTests
     [Fact]
     public void TestUnionFallbackWhenIntersectionEmptyButAllCovered()
     {
-        // cards A,B both covered but with disjoint build sets -> intersection empty -> union.
         var payload = Payload(
             cards: $"[\"{GuidA}\",\"{GuidB}\"]",
             enchantments: "[null]",
@@ -314,8 +299,6 @@ public sealed class TenWinBuildTests
             MainRecallPayload("Vanessa"),
             repository =>
             {
-                // C is present in cards[] but absent from this hero's cardIndex -> uncovered.
-                // The literal intersection is empty, so union over the covered card (A) must still return results.
                 var scores = ScoresOf(Find(repository, "Vanessa", [GuidA, GuidC]));
                 Assert(
                     scores.Count == 2,
@@ -458,7 +441,6 @@ public sealed class TenWinBuildTests
             MainRecallPayload("Vanessa"),
             repository =>
             {
-                // D is absent from cards[] entirely; C is in cards[] but not in cardIndex. Neither has coverage.
                 Assert(
                     ScoresOf(Find(repository, "Vanessa", [GuidD])).Count == 0,
                     "An unknown selected card should return no recommendation."
@@ -478,14 +460,11 @@ public sealed class TenWinBuildTests
             MainRecallPayload("Vanessa"),
             repository =>
             {
-                // Selecting A returns build0(score100, contains B) and build1(score200, A only).
-                // With no live state, build1 wins on score.
                 Assert(
                     ScoresOf(Find(repository, "Vanessa", [GuidA])).First() == 200L,
                     "Without live state the higher-score build ranks first."
                 );
 
-                // Put B on the board: build0 gains live-state weight and must outrank the higher-score build1.
                 var liveState = LiveState(board: [GuidB], stash: [], shop: []);
                 var ranked = ScoresOf(Find(repository, "Vanessa", [GuidA], liveState));
                 Assert(
@@ -534,7 +513,6 @@ public sealed class TenWinBuildTests
                 );
                 Assert(card.DisplaySocketId == 3, "Slot 3 should keep socket index 3.");
 
-                // tenWinRunCount / score survive into the recommendation DTO for UI evidence.
                 Assert(
                     recommendation.TenWinRunCount == 80,
                     "TenWinRunCount should be carried from stats."
@@ -622,7 +600,6 @@ public sealed class TenWinBuildTests
             "A repeated query against the same snapshot should reuse the projected board."
         );
 
-        // The replacement keeps Vanessa's build id 0 but upgrades its socket-0 card to Diamond.
         var replacement = Payload(
             cards: $"[\"{GuidA}\"]",
             enchantments: "[null]",
@@ -906,8 +883,6 @@ public sealed class TenWinBuildTests
     private static JArray ContractSchema(JObject root, string name) =>
         (JArray)((JObject)root["schemas"]!)[name]!;
 
-    // ---- Payload builders -------------------------------------------------
-
     private static string MainRecallPayload(string hero) =>
         Payload(
             cards: $"[\"{GuidA}\",\"{GuidB}\",\"{GuidC}\"]",
@@ -916,7 +891,6 @@ public sealed class TenWinBuildTests
             builds: $"[{Build("[0,1]", "[[0,0,1,0,1],[1,1,1,0,1]]", 100)},"
                 + $"{Build("[0]", "[[0,0,1,0,1]]", 200)},"
                 + $"{Build("[1]", "[[1,0,1,0,1]]", 150)}]",
-            // A(ref0) -> builds 0,1 ; B(ref1) -> builds 0,2 ; C(ref2) absent (uncovered for this hero).
             cardIndex: "[[0,[0,1]],[1,[0,2]]]"
         );
 
@@ -1030,8 +1004,6 @@ public sealed class TenWinBuildTests
               }
             }
             """;
-
-    // ---- Plumbing ---------------------------------------------------------
 
     private static void WithCorpus(string payload, Action<BuildRecommendationRepository> body)
     {

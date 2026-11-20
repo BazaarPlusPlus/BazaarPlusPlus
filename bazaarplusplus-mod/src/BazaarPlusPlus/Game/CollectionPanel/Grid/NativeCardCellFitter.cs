@@ -5,16 +5,6 @@ using UnityEngine.UI;
 
 namespace BazaarPlusPlus.Game.CollectionPanel.Grid;
 
-// Unity adapter that measures a native card preview and fits it into a Collection grid cell.
-// Measurement chain (FrameContainer → RawImage → Aspect-ratio mutation fallback → root.rect →
-// sizeDelta → 1×1) runs only on cache miss / force-remeasure. Scroll reposition reads the
-// per-cell NativeCardCellBoundsCache and does pure position math (zero measure).
-//
-// Aspect fallback decision (issue #166): SetSizeWithCurrentAnchors runs once when that branch
-// measures, then the resulting bounds are cached. Scroll frames do not re-SetSize. If in-game
-// smoke finds Aspect-fallback cards drifting without repeated SetSize, exempt that path from
-// the cache (or re-apply SetSize from cached width/height on reposition) — do not silently
-// change behavior without a recorded decision.
 internal static class NativeCardCellFitter
 {
     public const float FallbackNativeCardHeight = NativeCardPrefab.Height;
@@ -43,8 +33,7 @@ internal static class NativeCardCellFitter
         rect.localScale = new Vector3(scale * Mathf.Max(0.01f, horizontalScale), scale, 1f);
     }
 
-    // allowMeasure=false is the scroll path: never walk the measurement chain. Callers must
-    // keep the cache warm via ApplyScale / invalidation+remeasure on the three hooks.
+    // The scroll path depends on callers warming the bounds cache before repositioning.
     public static void Reposition(
         RectTransform rect,
         CollectionGridRect cellRect,
@@ -171,8 +160,6 @@ internal static class NativeCardCellFitter
 
         var width = Mathf.Max(1f, FallbackNativeCardHeight * fitter.aspectRatio);
         var height = FallbackNativeCardHeight;
-        // One-time SetSize on measure (cached thereafter). See class comment for the #166
-        // decision if smoke finds Aspect-fallback cards needing repeated SetSize.
         root.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
         root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
         var rect = root.rect;

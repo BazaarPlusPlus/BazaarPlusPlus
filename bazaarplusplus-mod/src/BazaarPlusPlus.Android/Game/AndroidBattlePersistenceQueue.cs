@@ -6,10 +6,8 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Android.Game;
 
-/// <summary>
-/// Persists detached battle facts on one worker. Results, including a capacity fallback, publish
-/// in capture order on the caller's thread. No delegate run by the worker may enter IL2CPP.
-/// </summary>
+// Worker delegates must use detached managed data because IL2CPP access is confined to the game
+// thread.
 internal sealed class AndroidBattlePersistenceQueue : IDisposable
 {
     private const int MaximumQueuedBattles = 16;
@@ -58,7 +56,6 @@ internal sealed class AndroidBattlePersistenceQueue : IDisposable
             return _protected.Values.ToArray();
     }
 
-    /// <returns>False when capacity required the existing synchronous persistence path.</returns>
     public bool Enqueue(PvpBattleCapture capture)
     {
         Work work;
@@ -211,8 +208,7 @@ internal sealed class AndroidBattlePersistenceQueue : IDisposable
             // Catch a result that arrived between the normal drain and switching modes.
             Drain(publish: false);
         }
-        // Accepted writes continue after a bounded shutdown. Late results release tracking only;
-        // they never publish to the stopped event bus or call a game's runtime object.
+        // Late results only release tracking because the event bus may have stopped.
     }
 
     private sealed record Work(long Sequence, PvpBattleCapture Capture, long Bytes);

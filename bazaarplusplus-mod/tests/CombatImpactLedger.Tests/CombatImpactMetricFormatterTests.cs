@@ -10,7 +10,6 @@ public sealed class CombatImpactMetricFormatterTests
     private const string DamageIcon = "<sprite name=Damage>";
     private const string HealingIcon = "<sprite name=Healing>";
 
-    // The producer stamps its attribution model; the formatter never reads it.
     private const string PeriodicModelVersion = "periodic-impact-test";
 
     private static readonly CombatImpactLedgerEntity Target = new("target", "Target", "Item", 0);

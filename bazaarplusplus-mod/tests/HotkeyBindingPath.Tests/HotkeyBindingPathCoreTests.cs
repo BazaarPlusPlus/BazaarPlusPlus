@@ -4,9 +4,6 @@ using Xunit;
 
 namespace HotkeyBindingPath.Tests;
 
-// Each test is one check the capsule ran, with the same calls and messages; its unnamed blocks
-// are named by the function they call. The capsule gathered every failure and threw once at the
-// end; a test now stops at its first failure.
 public sealed class HotkeyBindingPathCoreTests
 {
     [Fact]
@@ -93,7 +90,6 @@ public sealed class HotkeyBindingPathCoreTests
         var history = BppHotkeyActionId.ToggleHistoryPanel;
         var collection = BppHotkeyActionId.ToggleCollectionPanel;
 
-        // A rebind from F9 to F10 leaves F9 unbound: its action is released.
         configured[history] = F10;
         Check(
             !HotkeyBindingPathCore.IsBoundToAnyAction(F9, Configured),
@@ -104,14 +100,12 @@ public sealed class HotkeyBindingPathCoreTests
             "a rebound path stays bound, compared case-insensitively"
         );
 
-        // Another action sharing the old path keeps it.
         configured[collection] = F9;
         Check(
             HotkeyBindingPathCore.IsBoundToAnyAction(F9, Configured),
             "a path another hotkey shares is kept"
         );
 
-        // Swapping two bindings keeps both paths when either side is noticed first.
         configured[history] = F9;
         configured[collection] = F10;
         Check(
@@ -120,7 +114,6 @@ public sealed class HotkeyBindingPathCoreTests
             "swapped bindings keep both paths"
         );
 
-        // An invalid configured value falls back to the default, which therefore stays bound.
         configured[history] = "not-a-binding";
         Check(
             HotkeyBindingPathCore.IsBoundToAnyAction(
@@ -177,7 +170,6 @@ public sealed class HotkeyBindingPathCoreTests
         );
     }
 
-    // One path table, changed between the checks.
     [Fact]
     public void FindConflict_compares_modifier_aliases()
     {

@@ -6,7 +6,6 @@ namespace Architecture.Tests;
 
 public sealed class OutboundNetworkSeedArchitectureTests
 {
-    // The fetcher and build.sh seed gates are verified by running `just mod::fetch-data`.
     [Fact]
     public void Build_seed_target_delegates_transport_to_the_fetcher()
     {

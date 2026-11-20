@@ -10,18 +10,10 @@ using BazaarPlusPlus.Storage.BundleQueue;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-/// <summary>
-/// The upload retry schedule against real SQLite rows, a manual clock and a jitter-free sample:
-/// an unavailable endpoint stops the batch and backs off the whole queue without reading, hashing
-/// or sending anything; success, an explicit arm or a new session ends that backoff; a failure
-/// about one Bundle backs off that row only.
-/// </summary>
 public sealed class UploadBackoffScenarios : IDisposable
 {
     private const int Base = 180;
 
-    // Each scenario writes under its own temporary directory, as the capsule gave each one its
-    // own subdirectory of one root.
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
         "bpp-upload-backoff-scenarios-" + Guid.NewGuid().ToString("N")
@@ -35,8 +27,6 @@ public sealed class UploadBackoffScenarios : IDisposable
         Directory.Delete(_root, recursive: true);
     }
 
-    // The window lines up with the attempt's start, but an attempt that outlasts it (a slow
-    // request, then a timeout) still waits the base interval, or Retry-After, after its failure.
     [Fact]
     public async Task LongAttemptStillWaitsAfterItsFailure()
     {
@@ -48,8 +38,7 @@ public sealed class UploadBackoffScenarios : IDisposable
         var startedAt = harness.Now;
         await harness.AttemptAsync();
         Check.That(harness.Now == startedAt.AddSeconds(150), "The clock moved during the request.");
-        // The pump ticks one interval after the attempt started: the window from the attempt's
-        // start is over, but only 30 s have passed since the failure.
+        // The clock includes the slow request, so only 30 seconds have passed since failure.
         harness.Advance(TimeSpan.FromSeconds(Base - 150));
         harness.ExpectDeferred(await harness.AttemptAsync(), requests: 1, reads: 1);
         harness.Advance(TimeSpan.FromSeconds(150));
@@ -59,7 +48,6 @@ public sealed class UploadBackoffScenarios : IDisposable
             "The window ends one base interval after the failure."
         );
 
-        // The same holds for a Retry-After floor: it counts from the failure, not the start.
         harness.Publish(new UploadArmRequested());
         retryAfter = 600;
         startedAt = harness.Now;
@@ -102,7 +90,6 @@ public sealed class UploadBackoffScenarios : IDisposable
         harness.Advance(TimeSpan.FromSeconds(100));
         harness.ExpectDeferred(await harness.AttemptAsync(), requests: 1, reads: 1);
 
-        // The pump tick a few ms before the window edge still attempts.
         harness.Advance(TimeSpan.FromSeconds(Base - 100) - TimeSpan.FromMilliseconds(5));
         await harness.AttemptAsync();
         Check.That(
@@ -110,7 +97,6 @@ public sealed class UploadBackoffScenarios : IDisposable
             "The window ends at the base interval, and the least-attempted row goes first."
         );
 
-        // Each further failure doubles the window up to the 30-minute cap.
         foreach (var window in new[] { 360, 720, 1440, 1800, 1800 })
             await harness.ExpectWindowAsync(window);
         Check.That(
@@ -126,7 +112,6 @@ public sealed class UploadBackoffScenarios : IDisposable
         using var harness = new Harness(root, ["a", "b", "c"], _ => Unavailable503());
         await harness.AttemptAsync();
         await harness.ExpectWindowAsync(Base);
-        // Now inside a 360 s window.
         harness.Advance(TimeSpan.FromSeconds(10));
         harness.ExpectDeferred(await harness.AttemptAsync(), requests: 2, reads: 2);
 
@@ -136,7 +121,6 @@ public sealed class UploadBackoffScenarios : IDisposable
         harness.Publish(new RunLifecycleChanged { IsInGameRun = false });
         await harness.AttemptAsync();
         Check.That(harness.Requests.Count == 3, "Leaving a run ends the backoff.");
-        // The arm also reset the failure count: the next window is the base again.
         await harness.ExpectWindowAsync(Base);
 
         harness.Advance(TimeSpan.FromSeconds(10));
@@ -157,8 +141,6 @@ public sealed class UploadBackoffScenarios : IDisposable
         );
         await harness.AttemptAsync();
         await harness.ExpectWindowAsync(Base);
-        // At the 360 s window's end the batch is c (accepted), then d (unavailable): the success
-        // reset the count, so d opens a base window, not 720 s.
         await harness.ExpectWindowAsync(360);
         Check.That(
             harness.Requests.SequenceEqual(["a", "b", "c", "d"]),
@@ -168,8 +150,7 @@ public sealed class UploadBackoffScenarios : IDisposable
         await harness.ExpectWindowAsync(Base);
     }
 
-    // Resilience: a 5xx is service-wide by the API reference, but if one Bundle keeps getting one
-    // while the others are accepted, the rest of the queue must still drain.
+    // A single Bundle can repeatedly get a service-wide 5xx. The rest of the queue still needs to drain.
     [Fact]
     public async Task OneFailingBundleDoesNotStarveTheQueue()
     {
@@ -304,10 +285,7 @@ public sealed class UploadBackoffScenarios : IDisposable
         string? LastErrorCode
     );
 
-    /// <summary>
-    /// One session over its own database, Bundle files held in memory (their bytes are the Bundle
-    /// id, so the handler knows which one it got), a manual clock and a jitter sample of 0.5.
-    /// </summary>
+    // Use each Bundle ID as its file content so the fake server can identify the upload.
     private sealed class Harness : IDisposable
     {
         private readonly string _database;
@@ -377,7 +355,6 @@ public sealed class UploadBackoffScenarios : IDisposable
 
         internal DateTimeOffset Now { get; set; }
 
-        // How far the clock moves while a request is in flight; zero unless a scenario sets it.
         internal TimeSpan RequestDuration { get; set; }
         internal IReadOnlyList<string> Requests => _handler.Requests;
         internal int Reads => _files.Reads;
@@ -404,7 +381,6 @@ public sealed class UploadBackoffScenarios : IDisposable
             );
         }
 
-        // The current window is `seconds` long: deferred a minute before its end, attempted at it.
         internal async Task ExpectWindowAsync(int seconds)
         {
             var requests = Requests.Count;

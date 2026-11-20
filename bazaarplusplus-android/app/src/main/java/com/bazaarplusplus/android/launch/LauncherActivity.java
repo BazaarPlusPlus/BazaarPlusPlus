@@ -35,20 +35,10 @@ import com.bazaarplusplus.android.game.InstalledGame;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * The App's start screen (design/components/Launcher). It renders {@link LauncherSession}'s
- * {@link LauncherScreen} into the layout the window width picks (one column; the cover over two
- * panes from {@code pane-breakpoint}; cover and content side by side in a window wider than
- * tall from {@code cover-pane-breakpoint}) and hands taps back to the session. The Activity handles size
- * and text-scale changes itself (see the manifest), so a fold re-renders the screen without
- * recreating it; the work and its state live in the session either way.
- */
 public final class LauncherActivity extends Activity implements LauncherSession.Listener {
     static final String TAG = "BppLauncher";
-    /** Android font scale from which the panes would be too narrow for their text. */
     private static final float PANES_MAX_FONT_SCALE = 1.3f;
     private static final String PREFERENCES = "launcher";
-    /** The App version whose update reminder was shown; each version reminds once. */
     private static final String REMINDED_VERSION = "reminded_version";
 
     private final LauncherSession session = LauncherSession.get();
@@ -63,7 +53,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        // Android 15 draws apps edge to edge; do the same on older versions and pad by the insets.
+        // Match Android 15's enforced edge-to-edge layout on older versions.
         getWindow().setDecorFitsSystemWindows(false);
         inflate(0);
         session.attach(this);
@@ -73,7 +63,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
     @Override
     protected void onResume() {
         super.onResume();
-        // Coming back from Google Play or the official game: the installed game may have changed.
         session.recheck(this);
     }
 
@@ -114,7 +103,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         finish();
     }
 
-    /** Picks the layout for the current window and text size, then renders the session into it. */
     private void inflate(int scrollY) {
         Configuration config = getResources().getConfiguration();
         largeText = config.fontScale >= PANES_MAX_FONT_SCALE;
@@ -132,7 +120,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         root.requestApplyInsets();
 
         if (layout == LauncherLayout.COLUMN && largeText) {
-            // Accessibility text sizes: the stats as rows, so long values never squeeze.
             View stats = findViewById(R.id.stats);
             ViewGroup parent = (ViewGroup) stats.getParent();
             int index = parent.indexOfChild(stats);
@@ -141,10 +128,8 @@ public final class LauncherActivity extends Activity implements LauncherSession.
             rows.setId(R.id.rows);
             parent.addView(rows, index);
         } else if (layout == LauncherLayout.PANES) {
-            // Rows sit beside the end pane's buttons without dividers; the wide content pane keeps them.
             ((LinearLayout) findViewById(R.id.rows)).setShowDividers(LinearLayout.SHOW_DIVIDER_NONE);
-            // The end pane is at least as tall as the start pane, so its primary lines up with the
-            // last row (a match_parent pane would be cut to the start pane's height instead).
+            // match_parent can clip the end pane to the start pane's height.
             View end = findViewById(R.id.end_pane);
             findViewById(R.id.start_pane).addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop,
                     oldRight, oldBottom) -> {
@@ -163,7 +148,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         scroll.post(() -> scroll.scrollTo(0, scrollY));
     }
 
-    /** Keeps the panel's content and More clear of the system bars and the cutout; the cover runs under them. */
     private void pad() {
         View panel = findViewById(R.id.panel);
         int gutter = getResources().getDimensionPixelSize(layout == LauncherLayout.COLUMN ? R.dimen.bpp_space_16 : R.dimen.bpp_space_24);
@@ -192,7 +176,7 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         renderSource(screen.source, check);
         renderProgress(screen.progress);
         bind(findViewById(R.id.primary), screen.primary);
-        // An empty action area would add its 16 gap under the row above it.
+        // A visible empty action area adds a gap beneath the preceding row.
         findViewById(R.id.action).setVisibility(screen.progress == null && screen.primary == null ? View.GONE : View.VISIBLE);
 
         List<String> notes = new ArrayList<>();
@@ -209,7 +193,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         if (export != null) shareDiagnostics(export);
     }
 
-    /** The stats as columns and as rows: the one-column layout carries both and shows one. */
     private List<TextView> views(int id) {
         List<TextView> found = new ArrayList<>();
         for (int container : new int[] {R.id.stats, R.id.rows}) {
@@ -237,10 +220,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         error.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_ASSERTIVE);
     }
 
-    /**
-     * The source row: the official game with its own icon, or the publisher's APK beside a Google
-     * Play primary, shown with the promotional art.
-     */
     private void renderSource(LauncherScreen.Action source, LaunchCheck check) {
         View row = findViewById(R.id.source);
         if (source == null) {
@@ -295,7 +274,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
                 getString(R.string.size_mb, progress.received / 1e6), getString(R.string.size_mb, progress.total / 1e6)));
     }
 
-    /** A newer App: a dialog once per version, never a gate. */
     private void remind(LauncherScreen.AppUpdate update, String adaptedVersion) {
         if (update == null || (dialog != null && dialog.isShowing())) return;
         SharedPreferences preferences = getSharedPreferences(PREFERENCES, MODE_PRIVATE);
@@ -324,7 +302,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         menu.show();
     }
 
-    /** The launcher's dialog: a title, an optional sentence, a text button and an optional primary. */
     private void showDialog(String title, String message, int dismiss, int confirm, Runnable action) {
         if (dialog != null) dialog.dismiss();
         dialog = new Dialog(this, R.style.Theme_Bpp_Dialog);
@@ -349,14 +326,13 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         dialog.show();
     }
 
-    /** The export's result as a toast, then the system share sheet on the saved zip. */
     private void shareDiagnostics(LauncherSession.Export export) {
         Toast.makeText(this, export.message, Toast.LENGTH_LONG).show();
         if (export.saved == null) return;
         Intent send = new Intent(Intent.ACTION_SEND).setType("application/zip")
                 .putExtra(Intent.EXTRA_STREAM, export.saved.uri)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        // The share sheet previews the clip by its label: the file name, not the MediaStore row id.
+        // The share sheet uses the clip label as the preview filename.
         send.setClipData(ClipData.newUri(getContentResolver(), export.saved.name, export.saved.uri));
         try {
             startActivity(Intent.createChooser(send, getString(R.string.export_diagnostics)));
@@ -365,7 +341,6 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         }
     }
 
-    /** Busy dots pulse at 1.2s, unless the system turned animations off. */
     private void startPulse(View dot) {
         if (pulse != null && pulse.getTarget() == dot) return;
         stopPulse();
@@ -433,19 +408,16 @@ public final class LauncherActivity extends Activity implements LauncherSession.
         }
     }
 
-    /** A dimension token in dp, comparable with {@link Configuration#screenWidthDp}. */
     private float dp(int dimen) {
         return getResources().getDimension(dimen) / getResources().getDisplayMetrics().density;
     }
 
-    /** A version as players know it: "1.0.12825" from "1.0.12825-production-android-d9601ded". */
     private String valueOrEmpty(String value) {
         if (value == null || value.isEmpty()) return getString(R.string.empty_value);
         int build = value.indexOf('-');
         return build > 0 ? value.substring(0, build) : value;
     }
 
-    /** The tone's colour and its -subtle fill (design/components/Badge). */
     private static int[] toneColors(LauncherScreen.Tone tone) {
         switch (tone) {
             case OK:

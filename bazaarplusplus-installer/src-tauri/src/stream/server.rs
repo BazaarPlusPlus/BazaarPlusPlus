@@ -93,8 +93,6 @@ struct ServiceUrls {
     settings_url: String,
 }
 
-/// The origin every service URL is built from; `bind_listener` has no fallback
-/// port, so a running service always answers here.
 pub(super) fn origin() -> String {
     format!("http://{HOST}:{PREFERRED_PORT}")
 }

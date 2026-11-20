@@ -1,5 +1,3 @@
-//! Deterministic filesystem evidence shared by headless repair and acceptance.
-
 use anyhow::Context as _;
 use std::io::Read;
 use std::path::Path;

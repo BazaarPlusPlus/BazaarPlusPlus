@@ -5,8 +5,6 @@ using BazaarPlusPlus.Game.HistoryPanel.Ui;
 using BazaarPlusPlus.Localization;
 using Xunit;
 
-// HistoryTouchLayout on the screens the Android History panel must fit: a 20:9 phone, a 16:10
-// tablet, a 16:9 phone, a 20:9 phone with a left cutout, and a denser 19.5:9 phone.
 public sealed class HistoryTouchLayoutTests
 {
     private sealed record Screen(
@@ -30,12 +28,10 @@ public sealed class HistoryTouchLayoutTests
         new("1920x1080@560 cutout", 1920f, 1080f, 560f, CutoutLeft: 110f),
     ];
 
-    // The capsule ran these checks with English installed.
     public HistoryTouchLayoutTests() => L.Install(() => "en", () => BppChineseLocaleMode.Mainland);
 
     public static TheoryData<string> ScreenNames => new(Screens.Select(screen => screen.Name));
 
-    // The capsule's loop over Screens: one row per screen.
     [Theory]
     [MemberData(nameof(ScreenNames))]
     public void ScreenFits(string name) => Check(Screens.Single(screen => screen.Name == name));
@@ -244,7 +240,6 @@ public sealed class HistoryTouchLayoutTests
             $"{name}: an oversized starting socket clamps onto the board."
         );
 
-        // Overlays: each fits the sheet and its controls do not overlap.
         RequireLaidOut(
             name + " inspection",
             layout.Sheet,
@@ -270,7 +265,6 @@ public sealed class HistoryTouchLayoutTests
             );
         }
 
-        // The skills sheet hugs what it shows, from one skill to two full rows.
         foreach (
             var counts in new[]
             {

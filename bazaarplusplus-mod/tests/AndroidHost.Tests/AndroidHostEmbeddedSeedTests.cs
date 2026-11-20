@@ -8,12 +8,6 @@ using Xunit;
 
 namespace AndroidHost.Tests;
 
-/// <summary>
-/// The Android host embeds the desktop's Remote Embedded Catalog seeds through linked
-/// <c>EmbeddedResource</c> items; Core owns the resource names. A dropped item or a drifted
-/// <c>LogicalName</c> would leave a catalog without its first-launch seed, so the compiled host's
-/// manifest is checked against Core's constants.
-/// </summary>
 public sealed class AndroidHostEmbeddedSeedTests
 {
     public static TheoryData<string> SeedNames =>

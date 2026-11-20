@@ -1,8 +1,7 @@
 #nullable enable
 namespace BazaarPlusPlus.Game.HistoryPanel.Data;
 
-// Whether History can replay a battle. Ghost rows reach every value; local rows are only
-// Saved or Unavailable. Storage strings are owned by ReplayAvailabilityCodec.
+// Local rows use Saved or Unavailable. Ghost rows can use every value.
 public enum ReplayAvailability
 {
     Remote,

@@ -7,13 +7,8 @@ public static class BppHttpClientFactory
 {
     private const string ProductName = "BazaarPlusPlus";
 
-    // Each consumer passes its own userAgentSuffix (BundleUpload, OnlineClient, ...). The backend
-    // groups its metrics and rate limits by that suffix, so keep the suffixes owner-specific:
-    // collapsing them into one shared token silently re-buckets server-side traffic.
-    //
-    // The host passes its release platform key (darwin-aarch64, windows-x86_64, android-aarch64),
-    // carried as a User-Agent comment so the server can tell the hosts' traffic apart without a
-    // Run segment change. Null leaves the comment out.
+    // The backend groups metrics and rate limits by owner-specific user-agent suffix.
+    // The user-agent comment carries the release platform key independently of the Run segment.
 
     public static HttpClient Create(
         string productVersion,
@@ -63,8 +58,7 @@ public static class BppHttpClientFactory
         if (string.IsNullOrWhiteSpace(value))
             return null;
 
-        // RFC 7230 token chars; replace anything else with '-' so a flaky version string never
-        // throws inside ProductInfoHeaderValue during plugin startup.
+        // ProductInfoHeaderValue rejects characters outside the RFC 7230 token set.
         var trimmed = value.Trim();
         var buffer = new char[trimmed.Length];
         for (var i = 0; i < trimmed.Length; i++)

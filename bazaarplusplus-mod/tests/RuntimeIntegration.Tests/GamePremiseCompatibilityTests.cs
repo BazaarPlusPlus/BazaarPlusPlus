@@ -17,21 +17,7 @@ using Xunit;
 
 namespace RuntimeIntegration.Tests;
 
-// Checks the mod's premises about the game against the real assemblies under ManagedPath:
-// signatures by reflection, method-body calls by scanning IL. The channel comes from the
-// GameBuildInfoResolver probe (TheBazaar.Config declares ServerOption only on PTR); premises
-// shared by online and PTR run on both.
-//
-// Each run against valid inputs writes artifacts/compatibility/<channel>-<buildid>.json,
-// also when a game premise fails, with no timestamps, so two runs against one ManagedPath are byte-identical and a
-// diff between two builds' reports names the premise that drifted.
-//
-// Failure modes: a premise reports resolved=false when the game renamed, removed, retyped,
-// or re-scoped the member, or when a method body stopped calling the target. A snapshot
-// manifest whose channel disagrees with the dispatch shape fails the snapshot-channel
-// premise. Staging shares the online dispatch shape, independently of upload isolation.
-// The buildid is "unknown" when ManagedPath is neither a
-// game-libs snapshot nor under a Steam library holding appmanifest_1617400.acf.
+// The report omits timestamps so a diff between builds isolates changes to game premises.
 public sealed class GamePremiseCompatibilityTests
 {
     private const BindingFlags Declared =
@@ -338,9 +324,8 @@ public sealed class GamePremiseCompatibilityTests
                 && field.FieldType.Name == "CardTooltipData"
         );
 
-        // The mod rebuilds the game's UI card itself, so the game's own construction must
-        // still pick the per-size asset reference, instantiate it, parent it, resize, and
-        // set it up. Private helper names drift between builds; the public entry does not.
+        // BPP reproduces the game's card construction. Follow the public entry point
+        // because private helpers vary by build.
         var instantiateUiCard = p.Method(
             "AssetLoader",
             "InstantiateUICardAsync",
@@ -414,9 +399,7 @@ public sealed class GamePremiseCompatibilityTests
         );
     }
 
-    // NativeCardPrefabLoader resolves InstantiateAssetAsyncByReference by name alone, so a
-    // second overload would make that lookup ambiguous. The two Load methods are filtered
-    // through SupportsSignature by NativeGlobalAssetLoader.
+    // NativeCardPrefabLoader resolves InstantiateAssetAsyncByReference by name, so a second overload is ambiguous.
     private static void CheckAssetLoaderOverloads(Premises p, SortedSet<string> supported)
     {
         var loader = p.Type("AssetLoader");
@@ -646,7 +629,6 @@ public sealed class GamePremiseCompatibilityTests
                         .SequenceEqual(parameterTypes)
                 );
 
-        // The overload matters less than its visibility and return type for these gates.
         internal MethodInfo? PublicMethod(string type, string name, System.Type? returnType) =>
             Type(type)
                 ?.GetMethods(Declared)
@@ -793,10 +775,7 @@ public sealed class GamePremiseCompatibilityTests
         }
     }
 
-    // Lists what a method body references: "Ns.Type::Method/arity" for call, callvirt,
-    // newobj, and ldftn targets, "Ns.Type::field" for field operands. The scan follows the
-    // compiler-generated code a C# method body compiles into (async state machines, local
-    // functions, lambdas) and, when asked, the caller type's own private helpers.
+    // Follow compiler-generated methods so the scan reaches calls inside async bodies and lambdas.
     private sealed class IlCallScanner : IDisposable
     {
         private static readonly Dictionary<ushort, OperandType> Operands = BuildOperandTable();
@@ -1064,12 +1043,7 @@ public sealed class GamePremiseCompatibilityTests
     }
 }
 
-// The game builds this repo can prove (game-libs/ snapshots, the installed client) take
-// (T, AssetScope? scope = null); GamePremiseCompatibilityTests checks those against the real
-// AssetLoader. These synthetic shapes have no snapshot on record, so they stay synthetic:
-// the two legacy shapes guard a build reverting to them (the mod would silently stop
-// loading native art), the unknown one guards a future second parameter the mod would
-// otherwise fill with a wrong value.
+// These fallback shapes are synthetic because the available game snapshots all use the optional AssetScope parameter.
 public sealed class NativeAssetLoaderUnprovenShapeTests
 {
     [Fact]

@@ -9,16 +9,8 @@ using UnityEngine;
 
 namespace BazaarPlusPlus.Mobile.History;
 
-/// <summary>
-/// The selected battle's skills side picker over the panel, one button per board: the desktop's
-/// native board shows skills beside the items, which a phone's detail column has no room for.
-/// Tapping a side opens the game's own skill overlay on its skills
-/// (<see cref="INativeSkillOverlay"/>); a side without skills is dimmed and takes
-/// no tap. The picker is sized to the skills it shows each time it opens
-/// (<see cref="HistoryTouchLayout.SkillsSheet"/>). Each skill rents
-/// the game's own skill prefab while the sheet is open; a tap inspects it. The close button, a
-/// tap outside, or the back key dismisses the sheet, and its leases go back to the rental.
-/// </summary>
+// The phone's detail column has no room for skills beside items, so open the native overlay
+// from a side picker.
 internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
 {
     public const string RentalOwner = "history.skills";
@@ -48,7 +40,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
             () => Close("outside_tap")
         );
         _root = root.gameObject;
-        // Built at the largest size; Open places every part for what it shows.
         var full = layout.SkillsSheet([
             HistoryTouchLayout.SkillsPerRow,
             HistoryTouchLayout.SkillsPerRow,
@@ -77,7 +68,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
         for (var row = 0; row < 2; row++)
         {
             var side = row;
-            // The side's button first, so its title and skills draw over it.
             _sides[row] = TouchHistoryUi.Button(
                 sheet,
                 font,
@@ -113,7 +103,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
                 slot.anchoredPosition = new Vector2(layout.SkillSide / 2f, -layout.SkillSide / 2f);
                 slot.localScale = new Vector3(layout.SkillScale, layout.SkillScale, 1f);
                 var cell = new Cell(rect, slot);
-                // A skill's tap is its side's: the overlay shows all of that side's skills.
                 TouchHistoryUi.TapArea(rect, "skill", () => pick(side));
                 rect.gameObject.SetActive(false);
                 _cells[row, index] = cell;
@@ -146,7 +135,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
         }
     }
 
-    /// <summary>Opens the sheet on one or two rows of skills, each with its title.</summary>
     public void Open(IReadOnlyList<(string Title, IReadOnlyList<BppItemBoardCard> Skills)> rows)
     {
         ReturnAll();
@@ -202,7 +190,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
         );
     }
 
-    /// <summary>False when it was not open.</summary>
     public bool Close(string reason)
     {
         if (!IsOpen)
@@ -220,7 +207,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
 
     void IHistoryCardOverlay.ReturnCards() => ReturnAll();
 
-    /// <summary>Every skill goes back to the rental; the sheet stays as it is.</summary>
     public int ReturnAll()
     {
         var returned = 0;
@@ -235,7 +221,6 @@ internal sealed class TouchHistorySkillsSheet : IHistoryCardOverlay
         return returned;
     }
 
-    // The sheet and its fixed parts; the shown cells are placed as they are filled.
     private void Place(HistorySkillsSheetLayout fit)
     {
         TouchScreen.Place(_sheet, fit.Sheet);

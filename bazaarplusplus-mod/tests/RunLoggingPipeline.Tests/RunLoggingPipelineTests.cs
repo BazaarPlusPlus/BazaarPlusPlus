@@ -15,45 +15,6 @@ using BazaarPlusPlus.Storage.RunLog.Replication;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
-// The Run Logging anchor: InMemoryBppEventBus -> RunLoggingModule -> QueuedRunLogStore ->
-// RunLogStore and PvpBattleSqliteStore -> one SQLite file, the rows the installer's History reads.
-// It references only Core and Storage, as every host composes them: this project binds the
-// netstandard2.1 outputs and the game's libraries (the desktop host), and
-// RunLoggingPipeline.Net10.Tests compiles the same sources against the net10.0 outputs and the
-// pinned NuGet packages (the Android host). Both must reproduce the same goldens.
-// Only IRunContext, IRunSnapshotProbe, the clock, and the deferred-completion timer are stand-ins;
-// they are the module's effect seams (ADR-0003). The database always starts empty: v1/v2 files
-// are unsupported and are never built here. HistoryDatabaseArtifacts owns the two goldens.
-//
-// Failure modes this anchor exists to catch, each tied to the step that fails:
-// 1. Start: the store is created before Start, or a Start that throws after creating it leaves
-//    the store's writer alive. A Subscribe failure would take the same rollback, but
-//    InMemoryBppEventBus.Subscribe cannot throw for a non-null handler, so it is not driven.
-// 2. Run created: a field of the create request maps to the wrong column, a second
-//    RunInitializedObserved for the same run appends a second run_started, a player account
-//    resolved only after the run row exists never reaches it, or a run_started or run_resumed
-//    event lacks the build id its run's initialization carried or the ETag the game's data
-//    manifest names (the golden rows show both in the event JSON).
-// 3. PvP recorded: a matching PvP battle is not attached to the run (a replay captured before
-//    the run id was known keeps battles.run_id NULL), a mismatched or PvE battle is linked,
-//    run_events.seq and runs.last_seq drift apart, or a later account replaces the run's first.
-// 4. Completion: a run completes while replay persistence is still pending, a stale deadline
-//    completes a run that resumed or was replaced, or a replacement inherits the old deadline.
-// 5. Interruption: an interrupted run that comes back is abandoned, or a different run starts
-//    before the interrupted one is abandoned.
-// 6. Reused server run id: a terminal row is reopened instead of a collision id being created.
-// 7. Crash recovery (data loss): a restart loses run_id, last_seq, or the checkpoint day/hour of
-//    the unfinished run, or returns a run that was abandoned since.
-// 8. Quiescence: Stop leaves the module subscribed, or a handler captured before Stop writes
-//    after the store is disposed.
-// 10. Run Message Stream (ADR-0028), in steps 2 and 3: a frame that arrives before the run's
-//    start event is lost or written before it, a message lacks the seq of the command it
-//    answers, or a frame from before the run's first command is written to the run.
-// 9. Rank refresh (RankedRunWaitsForTheRankRefresh, outside the goldens): a Ranked Run completes
-//    with the starting rating the game still caches at exit instead of the one its end-of-run
-//    screen fetches, waits forever for a refresh that never comes, or makes an unranked Run wait.
-// The order "attach the battle, then append the event and checkpoint" is not provable from final
-// rows: the attach commits synchronously while the event and checkpoint go through the queue.
 public sealed class RunLoggingPipelineTests : IDisposable
 {
 #if BPP_NET10_BINDING
@@ -113,7 +74,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
                 SqliteConnection.ClearAllPools();
             }
 
-            // The rows diff comes first, so a regression reads as an artifact diff before the check message.
             artifacts.CompareRows(scenarioCompleted: failure == null);
         }
         finally
@@ -141,9 +101,7 @@ public sealed class RunLoggingPipelineTests : IDisposable
         List<string> logs
     )
     {
-        // 1. start: the store is created by Start, once.
         var bus = new InMemoryBppEventBus();
-        // The seal worker discovers a Run when Run Logging reports it completed.
         var completed = new List<(string RunId, string? Status)>();
         bus.Subscribe<RunLogRunCompleted>(done =>
             completed.Add((done.RunId, h.Status(done.RunId)))
@@ -156,13 +114,9 @@ public sealed class RunLoggingPipelineTests : IDisposable
         artifacts.RecordSchema(h.Database);
         h.Record(artifacts, 1, "start");
 
-        // 2. run-created: a run initialization creates the run row and one run_started event.
         h.Clock.Advance(TimeSpan.FromMinutes(1));
         h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
-        // The profile account is not known yet when the run row is created.
         h.PlayerAccountId = null;
-        // Stream frames before the start event: one from before the run's first command, then
-        // that command and its answer.
         bus.Publish(new RunMessageStreamFrameObserved { Message = [9, 9, 9] });
         bus.Publish(
             new RunMessageStreamFrameObserved
@@ -205,13 +159,10 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "2: an account resolved after the run row exists is written to it."
         );
 
-        // 3. pvp-recorded: matching PvP battles attach and append; mismatched and PvE ones do not.
-        // A different account resolved mid-run must not replace the run's first one.
         h.PlayerAccountId = "account-other";
         h.Clock.Advance(TimeSpan.FromMinutes(3));
         h.Probe.Basics = Basics(day: 2, hour: 1, victories: 1, losses: 0);
         h.Probe.Stats = Stats(gold: 14);
-        // Once the start event is written, a frame is written as it arrives.
         bus.Publish(
             new RunMessageStreamFrameObserved
             {
@@ -254,7 +205,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
         );
         h.PlayerAccountId = "account-001";
 
-        // 4. completion: pending replay persistence defers completion until drained or the deadline.
         h.Clock.Advance(TimeSpan.FromMinutes(2));
         h.Probe.Basics = Basics(day: 3, hour: 2, victories: 2, losses: 1);
         h.Probe.Rank = new RankSnapshot { Rank = "Gold 1", Rating = 1436 };
@@ -328,7 +278,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
         h.PendingReplayPersistence = false;
         h.Record(artifacts, 4, "completion");
 
-        // 5. interrupt: the same run id resumes; a different one abandons the interrupted run first.
         h.Clock.Advance(TimeSpan.FromMinutes(1));
         h.Probe.Basics = Basics(day: 4, hour: 1, victories: 3, losses: 1);
         h.Activate(bus, "run-delta");
@@ -348,7 +297,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "5: a different run abandons the interrupted run before it starts."
         );
 
-        // 6. collision: a reused terminal server run id gets an independent local identity.
         h.Clock.Advance(TimeSpan.FromMinutes(1));
         h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
         h.Activate(bus, "run-alpha");
@@ -375,7 +323,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "6: a repeated initialization keeps the recovered local identity."
         );
 
-        // 7. restart: stop without completing, then a new process recovers the unfinished run.
         module.Stop();
         h.ForgetStore();
         var recovered = new RunLogStore(h.Paths).TryResumeActiveRun();
@@ -390,7 +337,7 @@ public sealed class RunLoggingPipelineTests : IDisposable
         var restartedBus = new InMemoryBppEventBus();
         h.Context.IsInGameRun = false;
         h.Context.CurrentServerRunId = null;
-        // Subscribed before the module, so InMemoryBppEventBus.Publish snapshots it first (step 8).
+        // Subscribe before the module so Publish can stop it before invoking its snapshotted handler.
         var stopOnNextBattle = false;
         var restarted = h.CreateModule(restartedBus);
         restartedBus.Subscribe<PvpBattleRecorded>(_ =>
@@ -411,8 +358,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "7: an abandoned run is never resumed again."
         );
 
-        // 8. stop-barrier: Stop forces the deferred completion; a handler captured before Stop runs
-        // after it and writes nothing; Stop is idempotent and releases every subscription.
         h.Clock.Advance(TimeSpan.FromMinutes(1));
         h.PendingReplayPersistence = true;
         h.EndRun(restartedBus, RunExitKind.Completed);
@@ -475,7 +420,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "9: a refresh after the completion is written changes nothing."
         );
 
-        // Without a refresh the deadline completes the Run with the rating read at exit.
         h.Probe.Rank = new RankSnapshot { Rank = "Legendary", Rating = 1046 };
         h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
         h.Activate(bus, "run-unrefreshed");
@@ -494,7 +438,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
             "9: the deadline completes the Run as a rank-refresh timeout."
         );
 
-        // An unranked Run's rating never changes, so it does not wait.
         h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
         h.Probe.Basics.GameMode = "Unranked";
         h.Activate(bus, "run-unranked");
@@ -580,7 +523,6 @@ public sealed class RunLoggingPipelineTests : IDisposable
         };
 }
 
-/// <summary>Owns one data root and the stand-ins the module reads through its effect seams.</summary>
 internal sealed class Harness
 {
     private static readonly DateTimeOffset Epoch = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
@@ -646,7 +588,6 @@ internal sealed class Harness
             gameDataEtagResolver: () => GameDataManifest.ReadGameDataEtag(GameDataCache)
         );
 
-    /// <summary>As the game's end-of-run screen does: replace the cached rank, then notify.</summary>
     internal void RefreshRank(RankSnapshot rank)
     {
         Probe.Rank = rank;
@@ -665,10 +606,8 @@ internal sealed class Harness
         public void Dispose() => dispose();
     }
 
-    /// <summary>The store is gone after Stop; later dumps need no drain.</summary>
     internal void ForgetStore() => LiveStore = null;
 
-    /// <summary>As RunLifecycleModule does: enter the run, then observe its server run id.</summary>
     internal void Activate(IBppEventBus bus, string runId)
     {
         if (!Context.IsInGameRun)
@@ -688,7 +627,6 @@ internal sealed class Harness
         bus.Publish(new RunInitializedObserved { RunId = runId, BuildId = BuildId });
     }
 
-    /// <summary>As RunLifecycleModule does on RunEnded or RunInterrupted.</summary>
     internal void EndRun(IBppEventBus bus, RunExitKind kind)
     {
         Context.CurrentServerRunId = null;
@@ -707,7 +645,6 @@ internal sealed class Harness
         );
     }
 
-    /// <summary>As a host's battle capture does: save the battle, then announce it.</summary>
     internal void RecordBattle(IBppEventBus bus, string battleId, string? runId, int day, int hour)
     {
         var record = new PvpBattleRecord
@@ -784,7 +721,6 @@ internal sealed class Harness
         LiveStore?.MarkRunAbandoned("drain-barrier-without-row", new RunLogAbandonment());
 }
 
-/// <summary>Collects every rendered BppLog line, the way a host's log exit receives it.</summary>
 internal sealed class ListLogSink(List<string> lines) : IBppLogSink
 {
     public void Write(BppLogSeverity severity, string message) => lines.Add(message);
@@ -854,7 +790,6 @@ internal sealed class ManualClock(DateTimeOffset start)
     }
 }
 
-/// <summary>The deferred-completion timer: callbacks fire when the clock passes their due time.</summary>
 internal sealed class ManualScheduler
 {
     private readonly ManualClock _clock;
@@ -873,7 +808,7 @@ internal sealed class ManualScheduler
         return entry;
     }
 
-    /// <summary>A one-shot timer may fire before the wall-clock deadline.</summary>
+    // A one-shot timer can fire before the wall-clock deadline.
     internal void FireEarly() => Fire(_ => true);
 
     private void Fire(Func<Scheduled, bool> due)

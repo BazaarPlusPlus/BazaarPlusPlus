@@ -12,8 +12,6 @@ pub fn should_compile_trampoline(
     }
 }
 
-/// Return whether `otool -l` reports the required minimum macOS version for a
-/// Mach-O image, read from its `LC_BUILD_VERSION` load command.
 pub fn has_macos_trampoline_deployment_target(otool_output: &str, expected_version: &str) -> bool {
     let mut load_command = None;
     let mut is_macos_platform = false;

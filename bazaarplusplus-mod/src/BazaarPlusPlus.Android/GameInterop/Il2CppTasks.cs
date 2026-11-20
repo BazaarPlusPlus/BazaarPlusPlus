@@ -2,16 +2,8 @@ using BazaarPlusPlus.Android.Host;
 
 namespace BazaarPlusPlus.Android.GameInterop;
 
-/// <summary>
-/// The one bridge from a game <c>Il2CppSystem.Threading.Tasks.Task</c> to a managed
-/// <see cref="Task"/>. Awaiting the IL2CPP task directly compiles (its awaiter implements
-/// <see cref="System.Runtime.CompilerServices.INotifyCompletion"/>) but resumes from an IL2CPP
-/// callback outside the main-thread pump, and every later managed <c>await</c> then lands on a
-/// pool thread. Here the task's state is polled once per frame on the main thread
-/// (<see cref="AndroidMainThread.WhenAsync"/>), with no delegate marshaled into IL2CPP, and a
-/// faulted task surfaces as <see cref="Il2CppTaskFaultedException"/> carrying the IL2CPP
-/// exception's message. Every await of a game async method in the host goes through here.
-/// </summary>
+// Direct awaits resume from an IL2CPP callback outside the pump, so later managed awaits can land
+// on a pool thread. Poll the game task through the Unity-thread pump instead.
 internal static class Il2CppTasks
 {
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
@@ -78,7 +70,6 @@ internal static class Il2CppTasks
     }
 }
 
-/// <summary>A game task that faulted; the IL2CPP exception itself stays in the game.</summary>
 internal sealed class Il2CppTaskFaultedException(string operation, string message)
     : Exception($"{operation} failed in the game: {message}")
 {

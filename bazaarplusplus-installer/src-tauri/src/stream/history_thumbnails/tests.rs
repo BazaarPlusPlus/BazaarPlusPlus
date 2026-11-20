@@ -14,7 +14,6 @@ use std::{
 };
 use tokio::sync::Notify;
 
-/// Adds a screenshot row and its image, creating the database on first use.
 fn add_screenshot(game_path: &Path, id: &str, capture_source: &str, color: [u8; 4]) -> PathBuf {
     let screenshots = crate::services::paths::screenshots_dir(game_path);
     std::fs::create_dir_all(&screenshots).unwrap();
@@ -63,7 +62,6 @@ fn history_router(
     )
 }
 
-/// The request path of an absolute service URL.
 fn route_of(url: &str) -> &str {
     url.strip_prefix(&server::origin())
         .unwrap_or_else(|| panic!("{url} is not on the service origin"))
@@ -177,7 +175,6 @@ async fn each_route_caches_one_installation_in_one_namespace() {
         std::slice::from_ref(&obs)
     );
     assert_eq!(files_in(&obs).len(), 2);
-    // Nothing is left at the root, where the sweep would not count it.
     assert_eq!(
         files_in(&cache_root),
         [
@@ -216,7 +213,6 @@ async fn repeated_strips_skip_the_database_until_their_image_is_gone() {
     }
     drop(lock);
 
-    // A remembered image that is gone is looked up again, not served as an error.
     std::fs::remove_file(image).unwrap();
     for uri in uris {
         assert_eq!(
@@ -245,7 +241,6 @@ async fn thumbnails_serve_a_primary_screenshot_whatever_its_capture_source() {
         image_pixel(router.clone(), route_of(&url(source, "manual-1"))).await,
         color
     );
-    // The OBS overlay still shows only end-of-run captures.
     assert_eq!(
         get(router, "/images/manual-1/strip").await.0,
         axum::http::StatusCode::NOT_FOUND
@@ -295,7 +290,6 @@ async fn a_cache_hit_marks_an_aging_entry_as_recently_used() {
         .unwrap();
     let modified = || std::fs::metadata(&entry).unwrap().modified().unwrap();
 
-    // A recently used entry is served without writing to it.
     let now = SystemTime::now();
     set_age(&entry, now, Duration::from_secs(60 * 60));
     let recent = modified();
@@ -369,7 +363,6 @@ async fn preparation_preserves_obs_and_isolates_sources_and_cached_pixels() {
     );
     assert_eq!(image_pixel(router.clone(), route_of(&url_a)).await, red);
     assert_eq!(image_pixel(router.clone(), route_of(&url_b)).await, blue);
-    // Cached requests, and the old A URL after B was registered, retain their source.
     assert_eq!(image_pixel(router.clone(), route_of(&url_b)).await, blue);
     assert_eq!(image_pixel(router.clone(), route_of(&url_a)).await, red);
     assert_eq!(image_pixel(router, "/images/shot-1/strip").await, red);
@@ -497,9 +490,7 @@ async fn history_preparation_keeps_start_errors_visible_to_stream_status() {
     );
 }
 
-/// One game per input of the #989 table for the stream callers: a screenshot
-/// row `shot-1` that stores `raw`, and every target file in its Screenshots
-/// directory.
+/// Distinct PNGs identify which path each stream caller resolved.
 struct StoredPathGames {
     temp: tempfile::TempDir,
     outside: PathBuf,
@@ -548,7 +539,6 @@ impl StoredPathGames {
         game_path
     }
 
-    /// The target `uri` serves for `game_path`, or `none` when it is not found.
     fn served(&self, game_path: &Path, thumbnails: &HistoryThumbnails, uri: &str) -> String {
         let router = history_router(&StreamRuntime::default(), thumbnails, game_path, game_path);
         let (status, bytes) = tokio::runtime::Builder::new_current_thread()
@@ -603,8 +593,6 @@ fn overlay_records_link_a_strip_for_each_stored_path_that_resolves() {
     );
 }
 
-/// `/images/{id}` and `/images/{id}/strip` both read the record's image path,
-/// so they must serve the same file.
 #[test]
 fn overlay_images_serve_the_file_each_stored_path_names() {
     let games = StoredPathGames::new();
