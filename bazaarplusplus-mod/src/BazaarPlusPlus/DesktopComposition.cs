@@ -252,8 +252,14 @@ internal sealed class DesktopComposition : IDisposable
         )
             GraphicsUpscalingSettingsDockEntry.RegisterAll(_settingsDockRegistry);
         _settingsDockRegistry.Register(AnimatedHeroPortraitsSettingsDockEntry.Create());
+        _settingsDockRegistry.Register(ClassicHeroSelectionSettingsDockEntry.Create());
 
         _mountables.Register(new UploadPumpMount());
+        _mountables.Register(
+            new ComponentMount<ClassicHeroSelectionController>(
+                (controller, services) => controller.Initialize(services.Config)
+            )
+        );
         if (
             UnityEngine.Application.platform
             is UnityEngine.RuntimePlatform.OSXPlayer
