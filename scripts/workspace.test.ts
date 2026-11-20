@@ -450,7 +450,14 @@ const cli = (f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}) =>
     [path.join(root, 'scripts/workspace.ts'), ...args],
     {
       cwd: f.scratch,
-      env: { ...process.env, BPP_CONFIG_HOME: f.home, ...env },
+      env: {
+        ...process.env,
+        BPP_CONFIG_HOME: f.home,
+        // Fail closed if a test forgets its gh stub.
+        BPP_GH_BIN: path.join(f.directory, 'missing-gh'),
+        GH_TOKEN: 'not-a-github-token',
+        ...env
+      },
       encoding: 'utf8'
     }
   );
@@ -587,13 +594,14 @@ if (args[1] === 'list') {
 }
 `
   );
+  const stub = path.join(bin, 'gh');
   fs.writeFileSync(
-    path.join(bin, 'gh'),
+    stub,
     `#!/usr/bin/env bash\nexec '${process.execPath}' '${script}' "$@"\n`,
     { mode: 0o755 }
   );
   return {
-    bin,
+    env: { BPP_GH_BIN: stub },
     calls: () =>
       fs.existsSync(log)
         ? fs
@@ -620,9 +628,7 @@ test('secrets check names what GitHub and the local configuration hold, never a 
   f.put(f.home, 'keys/tauri-updater.key', 'UPDATER-KEY');
   f.put(f.home, 'keys/AuthKey_K1.p8', 'P8-KEY');
   const gh = ghStub(f);
-  const result = cli(f, ['secrets', 'check'], {
-    PATH: `${gh.bin}${path.delimiter}${process.env.PATH}`
-  });
+  const result = cli(f, ['secrets', 'check'], gh.env);
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.equal(
     result.stdout,
@@ -677,8 +683,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   f.put(f.home, 'keys/steam-snapshot-login.json', 'STEAM-LOGIN');
   f.put(f.home, 'keys/steam-beta-passwords.json', 'STEAM-CODES');
   const gh = ghStub(f);
-  const env = { PATH: `${gh.bin}${path.delimiter}${process.env.PATH}` };
-  let result = cli(f, ['secrets', 'push', '--dependabot'], env);
+  const result = cli(f, ['secrets', 'push', '--dependabot'], gh.env);
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(
     result.stdout + result.stderr,
@@ -743,9 +748,7 @@ test('secrets refuses unknown arguments before calling gh', (t) => {
     ['secrets', 'check', '--prune'],
     ['secrets', 'push', '--force']
   ]) {
-    const result = cli(f, args, {
-      PATH: `${gh.bin}${path.delimiter}${process.env.PATH}`
-    });
+    const result = cli(f, args, gh.env);
     assert.equal(result.status, 1, args.join(' '));
   }
   assert.deepEqual(gh.calls(), []);
