@@ -232,12 +232,14 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
                 continue;
             if (AndroidGameIds.Unboxed(() => spawn.Section) != EInventorySection.Hand)
                 continue;
-            spawned.Add(
-                (
-                    AndroidGameIds.Unboxed(() => spawn.Socket) ?? EContainerSocketId.Socket_0,
-                    FromOpening(spawn.InstanceId, Update(data, spawn.InstanceId), spawn, null)
-                )
+            var socket = AndroidGameIds.Unboxed(() => spawn.Socket);
+            var card = FromOpening(
+                spawn.InstanceId,
+                Update(data, spawn.InstanceId),
+                spawn,
+                handSpawnSocket: socket
             );
+            spawned.Add((socket ?? EContainerSocketId.Socket_0, card));
         }
         return spawned.OrderBy(entry => entry.Socket).Select(entry => entry.Card).ToList();
     }
@@ -298,7 +300,8 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
         string instanceId,
         SimUpdateCard? update,
         GameSimEventCardSpawned? spawn,
-        ECardType? fallbackType
+        ECardType? fallbackType = null,
+        EContainerSocketId? handSpawnSocket = null
     )
     {
         var existing = ExistingCard(instanceId);
@@ -309,7 +312,9 @@ internal sealed class AndroidPvpBattleReads : IPvpBattleReads<INetMessage>
 
         var placement = update?.Placement;
         var section = placement != null ? AndroidGameIds.Unboxed(() => placement.Section) : null;
-        var socket = placement != null ? AndroidGameIds.Unboxed(() => placement.Socket) : null;
+        var socket =
+            handSpawnSocket
+            ?? (placement != null ? AndroidGameIds.Unboxed(() => placement.Socket) : null);
         var tier = update != null ? AndroidGameIds.Unboxed(() => update.Tier) : null;
         var enchantment = update != null ? AndroidGameIds.Unboxed(() => update.Enchantment) : null;
         var size = update != null ? AndroidGameIds.Unboxed(() => update.Size) : null;

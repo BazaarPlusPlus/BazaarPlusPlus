@@ -170,7 +170,8 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
                     message.Data.Cards.TryGetValue(entry.InstanceId, out var cardUpdate)
                         ? cardUpdate
                         : null,
-                    entry
+                    entry,
+                    handSpawnSocket: entry.Socket
                 )
             )
             .ToList();
@@ -229,7 +230,8 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
         string instanceId,
         SimUpdateCard? cardUpdate,
         GameSimEventCardSpawned? spawnedCard,
-        ECardType? fallbackType = null
+        ECardType? fallbackType = null,
+        EContainerSocketId? handSpawnSocket = null
     )
     {
         var existingCard = TryGetExistingCardSafe(instanceId);
@@ -254,7 +256,7 @@ internal sealed class DesktopPvpBattleReads : IPvpBattleReads<INetMessage>
                 cardUpdate?.Placement?.Section ?? existingCard?.Section
             ),
             Socket = DesktopCardFacets.CapturedSocket(
-                cardUpdate?.Placement?.Socket ?? existingCard?.LeftSocketId
+                handSpawnSocket ?? cardUpdate?.Placement?.Socket ?? existingCard?.LeftSocketId
             ),
             Name =
                 existingSkill?.Template?.Localization?.Title?.Text
