@@ -225,6 +225,27 @@ test('scoped environment only injects its section allowlist; explicit environmen
   );
 });
 
+test('the release profile exports the mainland mirror key file verbatim unless the environment names one', (t) => {
+  const f = fixture(t);
+  f.put(
+    f.home,
+    'config.toml',
+    tomlConfig({ cloudflare: 'CLOUDFLARE_ACCOUNT_ID=account\n' })
+  );
+  const env = (profile: string, given: NodeJS.ProcessEnv = {}) =>
+    withProfileEnvironment(profile, f.home, (env) => env, given, f.repository);
+  assert.deepEqual(env('release'), { CLOUDFLARE_ACCOUNT_ID: 'account' });
+  const key = '-----BEGIN OPENSSH PRIVATE KEY-----\nkey\n';
+  f.put(f.home, 'keys/mainland-mirror-ssh-key', key);
+  assert.equal(env('release').MAINLAND_MIRROR_SSH_KEY, key);
+  assert.equal(
+    env('release', { MAINLAND_MIRROR_SSH_KEY: 'explicit' })
+      .MAINLAND_MIRROR_SSH_KEY,
+    'explicit'
+  );
+  assert.deepEqual(env('mod'), {});
+});
+
 test('omitting analyzer settings still refreshes shared credentials before use', (t) => {
   const f = fixture(t);
   f.put(
@@ -640,6 +661,7 @@ STEAM_BETA_PASSWORDS        steam environment secret      GitHub MISSING  local 
 QQ_BOT_APP_ID               qqbot environment secret      GitHub MISSING  local MISSING (config.toml [qqbot] QQ_BOT_APP_ID)
 QQ_BOT_APP_SECRET           qqbot environment secret      GitHub MISSING  local MISSING (config.toml [qqbot] QQ_BOT_APP_SECRET)
 TAURI_SIGNING_PRIVATE_KEY   release environment secret    GitHub MISSING  local present (contents of keys/tauri-updater.key)
+MAINLAND_MIRROR_SSH_KEY     release environment secret    GitHub MISSING  local MISSING (contents of keys/mainland-mirror-ssh-key)
 ANDROID_KEYSTORE            release environment secret    GitHub MISSING  local MISSING (base64 of keys/android-release.p12)
 ANDROID_KEYSTORE_PASSWORD   release environment secret    GitHub MISSING  local MISSING (config.toml [signing] ANDROID_KEYSTORE_PASSWORD)
 ANDROID_KEY_ALIAS           release environment secret    GitHub MISSING  local MISSING (config.toml [signing] ANDROID_KEY_ALIAS)
@@ -649,7 +671,7 @@ APPLE_API_KEY               release environment variable  GitHub MISSING  local 
 APPLE_API_KEY_P8            release environment secret    GitHub MISSING  local present (contents of keys/AuthKey_<APPLE_API_KEY>.p8)
 APPLE_CERTIFICATE           release environment secret    GitHub MISSING  local MISSING (base64 of keys/developer-id.p12)
 APPLE_CERTIFICATE_PASSWORD  release environment secret    GitHub MISSING  local MISSING (config.toml [signing] APPLE_CERTIFICATE_PASSWORD)
-17 managed names: 17 missing on GitHub, 9 missing locally.
+18 managed names: 18 missing on GitHub, 10 missing locally.
 Dependabot secrets were not listed; pass --dependabot to include them.
 `
   );
@@ -682,12 +704,13 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   f.put(f.home, 'keys/android-release.p12', Buffer.from([0x30, 0x82, 0x0a]));
   f.put(f.home, 'keys/steam-snapshot-login.json', 'STEAM-LOGIN');
   f.put(f.home, 'keys/steam-beta-passwords.json', 'STEAM-CODES');
+  f.put(f.home, 'keys/mainland-mirror-ssh-key', 'MIRROR-KEY\n');
   const gh = ghStub(f);
   const result = cli(f, ['secrets', 'push', '--dependabot'], gh.env);
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.doesNotMatch(
     result.stdout + result.stderr,
-    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass|STEAM-LOGIN|STEAM-CODES|APP-SECRET/
+    /operator-token|UPDATER-KEY|P8-KEY|MIIA|issuer-id|ks-pass|STEAM-LOGIN|STEAM-CODES|APP-SECRET|MIRROR-KEY/
   );
   assert.match(
     result.stdout,
@@ -703,7 +726,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
   );
   assert.match(
     result.stdout,
-    /^Set 16 GitHub names; 1 without a local value\.$/m
+    /^Set 17 GitHub names; 1 without a local value\.$/m
   );
   const sets = gh.calls().filter(({ args }) => args[1] === 'set');
   const byName = Object.fromEntries(
@@ -722,6 +745,7 @@ test('secrets push copies each local value over stdin to its scope and skips abs
     'secret:QQ_BOT_APP_ID:--env qqbot': 'app-id',
     'secret:QQ_BOT_APP_SECRET:--env qqbot': 'APP-SECRET',
     'secret:TAURI_SIGNING_PRIVATE_KEY:--env release': 'UPDATER-KEY\n',
+    'secret:MAINLAND_MIRROR_SSH_KEY:--env release': 'MIRROR-KEY\n',
     'secret:ANDROID_KEYSTORE:--env release': Buffer.from([
       0x30, 0x82, 0x0a
     ]).toString('base64'),

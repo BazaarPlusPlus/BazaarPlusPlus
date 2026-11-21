@@ -23,15 +23,17 @@ import {
 import {
   uploadPlatform,
   recordMainlandMirror,
-  recordMainlandMirrors,
   promotePlatform,
   promoteRelease
 } from './publish.ts';
+import { MAINLAND_MIRROR, mainlandMirrorUrl } from './mirror.ts';
 import { putImmutable } from './r2-store.ts';
 import { ANDROID_SOURCES } from './snapshot-lock.ts';
 import { createArtifactManifest } from './artifact-manifest.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
 import { uploadAndroid } from './test-support/android-fixture.ts';
+import { mirrorNetwork } from './test-support/mirror-network.ts';
+import type { MirrorNetwork } from './test-support/mirror-network.ts';
 import {
   artifactPaths,
   writeArtifacts
@@ -50,12 +52,10 @@ import type {
   ReleasePlatformKey,
   TauriBuildPlatform
 } from './release-platforms.ts';
-import type { MirrorPage } from './mirror.ts';
 import type {
   PromotePlatformOptions,
   PromoteReleaseOptions,
-  RecordMainlandMirrorOptions,
-  RecordMainlandMirrorsOptions
+  RecordMainlandMirrorOptions
 } from './publish.ts';
 
 interface ReleaseFixture {
@@ -118,8 +118,6 @@ function commitFixture(
   return runFixtureGit(['rev-parse', 'HEAD'], { cwd: workspaceRoot }).trim();
 }
 
-const platformKey = (platform: string) =>
-  platform === 'windows' ? 'windows-x86_64' : 'darwin-aarch64';
 const installerName = (platform: string, version: string) =>
   platform === 'windows'
     ? `BazaarPlusPlus_${version}_x64-setup.exe`
@@ -155,43 +153,38 @@ async function upload(
   });
 }
 
-const sharePage = (fileName: string): MirrorPage => ({
-  status: 200,
-  html: `<html><head><title>${fileName} - 蓝奏云</title></head><body></body></html>`
-});
-const missingShare: MirrorPage = {
-  status: 200,
-  html: '<html><head><title></title></head><body>文件取消分享</body></html>'
-};
-const mirrorUrl = (platform: string, version: string) =>
-  `https://mirror.example/${platform}-${version}`;
+const apkName = (version: string) =>
+  `BazaarPlusPlus_${version}_android-aarch64.apk`;
+const mirrorUrl = (platform: BuildPlatform, version: string) =>
+  mainlandMirrorUrl(
+    version,
+    platform === 'android' ? apkName(version) : installerName(platform, version)
+  );
 
-function mirrorProbe(
-  version: string,
-  overrides: Record<string, MirrorPage> = {}
-) {
-  const pages: Record<string, MirrorPage> = {
-    [mirrorUrl('windows', version)]: sharePage(
-      installerName('windows', version)
-    ),
-    [mirrorUrl('macos', version)]: sharePage(installerName('macos', version)),
-    ...overrides
-  };
-  return vi.fn(async (url: string) => pages[url] ?? { status: 404, html: '' });
+// One mirror server per store, so pushes persist across records like on the real host.
+const networks = new WeakMap<MemoryStore, MirrorNetwork>();
+function networkOf(store: MemoryStore): MirrorNetwork {
+  const existing = networks.get(store);
+  if (existing) return existing;
+  const network = mirrorNetwork(store, baseUrl);
+  networks.set(store, network);
+  return network;
 }
 
 function record(
-  data: ReleaseFixture,
+  data: Pick<ReleaseFixture, 'version'>,
   store: MemoryStore,
-  platform: TauriBuildPlatform,
+  platform: BuildPlatform,
   extra: Partial<RecordMainlandMirrorOptions> = {}
 ) {
+  const network = networkOf(store);
   return recordMainlandMirror({
     version: data.version,
     platform,
-    url: mirrorUrl(platform, data.version),
     store,
-    probeMirror: mirrorProbe(data.version),
+    sshKey: 'mirror-key\n',
+    fetchImpl: network.fetchImpl,
+    runRsync: network.runRsync,
     ...extra
   });
 }
@@ -209,131 +202,89 @@ const promote = (
   extra: Partial<PromoteReleaseOptions> = {}
 ) => promoteRelease({ ...data, baseUrl, store, ...extra });
 
-const recordAll = (
-  data: ReleaseFixture,
-  store: MemoryStore,
-  extra: Partial<RecordMainlandMirrorsOptions> = {}
-) =>
-  recordMainlandMirrors({
-    version: data.version,
-    urls: {
-      windows: mirrorUrl('windows', data.version),
-      macos: mirrorUrl('macos', data.version)
-    },
-    baseUrl,
-    store,
-    probeMirror: mirrorProbe(data.version),
-    ...extra
-  });
+const mirrorWrites = (store: MemoryStore) =>
+  store.writes.filter((key) => key.includes('/mirror/'));
 
-test('the mirror stage requires both uploads and records both shares without publishing', async () => {
+test('recording a mirror pushes the uploaded installer, proves its bytes and records the derived address without publishing', async () => {
   const data = fixture();
   const store = new MemoryStore();
-  await upload(data, store, 'windows');
-  const probeMirror = mirrorProbe(data.version);
-  await expect(recordAll(data, store, { probeMirror })).rejects.toThrow(
-    /Missing darwin-aarch64/
-  );
-  expect(probeMirror).not.toHaveBeenCalled();
   await upload(data, store, 'macos');
+  const network = networkOf(store);
   const start = store.writes.length;
-  const records = await recordAll(data, store);
-  expect(records.map((record) => record.verified)).toEqual([true, true]);
+  const dmg = installerName('macos', data.version);
+  expect(await record(data, store, 'macos')).toEqual({
+    schemaVersion: 1,
+    version: data.version,
+    platform: 'darwin-aarch64',
+    url: `https://1.14.150.142/bazaarplusplus/${data.version}/${dmg}`,
+    fileName: dmg,
+    verified: true
+  });
+  expect(network.pushes.map(({ files }) => Object.keys(files))).toEqual([
+    [`${data.version}/${dmg}`]
+  ]);
   expect(store.writes.slice(start)).toEqual([
-    `${data.version}/windows-x86_64/mirror/mainland.json`,
     `${data.version}/darwin-aarch64/mirror/mainland.json`
   ]);
-  await recordAll(data, store);
-  expect(store.writes).toHaveLength(start + 2);
+  // A re-run before promotion pushes again; the mirror keeps its copy and the record is unchanged.
+  await record(data, store, 'macos');
+  expect(network.pushes).toHaveLength(2);
+  expect(store.writes).toHaveLength(start + 1);
   expect(await store.get('latest.json')).toBeNull();
-  const latest = await promote(data, store);
-  for (const platform of ['windows', 'macos'])
-    expect(latest.downloads[platformKey(platform)].mainlandUrl).toBe(
-      mirrorUrl(platform, data.version)
-    );
-  await expect(recordAll(data, store)).rejects.toThrow(/already published/);
+  expect(await store.get('latest/darwin-aarch64.json')).toBeNull();
 });
 
-test.each(['commit', 'missing', 'hash', 'share'])(
-  'the mirror stage writes nothing when the second platform fails %s validation',
+test.each(['commit', 'missing', 'hash'])(
+  'dual promotion writes nothing when the second platform fails %s validation',
   async (failure) => {
     const data = fixture();
     const store = new MemoryStore();
-    await upload(data, store, 'windows');
-    const mac = await upload(data, store, 'macos');
+    await stage(data, store);
     const fragmentKey = `${data.version}/darwin-aarch64/updater/platform-manifest.json`;
+    const object = store.objects.get(fragmentKey)!;
+    const mac = JSON.parse(object.bytes.toString());
     const installerKey = mac.installer.url.slice(baseUrl.length + 1);
     if (failure === 'commit') {
-      const object = store.objects.get(fragmentKey)!;
-      const fragment = JSON.parse(object.bytes.toString());
-      fragment.gitCommit = 'b'.repeat(40);
+      mac.gitCommit = 'b'.repeat(40);
       store.objects.set(fragmentKey, {
         ...object,
-        bytes: Buffer.from(JSON.stringify(fragment))
+        bytes: Buffer.from(JSON.stringify(mac))
       });
     } else if (failure === 'missing') {
       store.objects.delete(installerKey);
-    } else if (failure === 'hash') {
-      const object = store.objects.get(installerKey)!;
+    } else {
+      const installer = store.objects.get(installerKey)!;
       store.objects.set(installerKey, {
-        ...object,
-        bytes: Buffer.alloc(object.bytes.length)
+        ...installer,
+        bytes: Buffer.alloc(installer.bytes.length)
       });
     }
-    const probeMirror = mirrorProbe(
-      data.version,
-      failure === 'share'
-        ? { [mirrorUrl('macos', data.version)]: missingShare }
-        : {}
-    );
     const start = store.writes.length;
-    await expect(recordAll(data, store, { probeMirror })).rejects.toThrow(
-      failure === 'commit'
-        ? /commits differ/
-        : failure === 'share'
-          ? /share is missing/
-          : /artifact is missing or differs/
+    await expect(promote(data, store)).rejects.toThrow(
+      failure === 'commit' ? /commits differ/ : /artifact is missing or differs/
     );
     expect(store.writes).toHaveLength(start);
-    if (failure !== 'share') expect(probeMirror).not.toHaveBeenCalled();
   }
 );
 
-test('promotion during the second mirror probe prevents either record from changing', async () => {
-  const data = fixture();
-  const store = new MemoryStore();
-  await stage(data, store);
-  const start = store.writes.filter((key) => key.includes('/mirror/')).length;
-  await expect(
-    recordAll(data, store, {
-      probeMirror: async (url: string) => {
-        if (url === mirrorUrl('macos', data.version))
-          await promote(data, store);
-        return mirrorProbe(data.version)(url);
-      }
-    })
-  ).rejects.toThrow(/already published/);
-  expect(store.writes.filter((key) => key.includes('/mirror/'))).toHaveLength(
-    start
-  );
-});
-
-test('a failed second mirror write can be retried before promotion', async () => {
+test('a failed mirror write can be retried before promotion', async () => {
   const data = fixture();
   const store = new MemoryStore();
   await upload(data, store, 'windows');
   await upload(data, store, 'macos');
+  await record(data, store, 'windows');
   store.beforePut = async (key: string) => {
     if (key === `${data.version}/darwin-aarch64/mirror/mainland.json`)
       throw new Error('R2 unavailable');
   };
-  await expect(recordAll(data, store)).rejects.toThrow('R2 unavailable');
+  await expect(record(data, store, 'macos')).rejects.toThrow('R2 unavailable');
   expect(await store.get('latest.json')).toBeNull();
   await expect(promote(data, store)).rejects.toThrow(
     /Missing darwin-aarch64 mainland mirror/
   );
   store.beforePut = undefined;
-  await recordAll(data, store);
+  await record(data, store, 'macos');
+  expect(networkOf(store).served.size).toBe(2);
   expect((await promote(data, store)).version).toBe(data.version);
 });
 
@@ -644,45 +595,35 @@ test('same-version publication refuses changed release facts', async () => {
   ).toThrow(/differs/);
 });
 
-test('recording a mirror proves the share serves the uploaded installer; only an explicit override records an unverified one', async () => {
+test('recording refuses a mirror that does not serve the release bytes; only an explicit override records an unverified one', async () => {
   const data = fixture();
   const store = new MemoryStore();
   await upload(data, store, 'macos');
+  const network = networkOf(store);
   await expect(record(data, store, 'windows')).rejects.toThrow(
     /Missing windows-x86_64 platform fragment/
   );
-  await expect(
-    record(data, store, 'macos', {
-      probeMirror: mirrorProbe(data.version, {
-        [mirrorUrl('macos', data.version)]: missingShare
-      })
-    })
-  ).rejects.toThrow(/share is missing or cancelled/);
-  await expect(
-    record(data, store, 'macos', {
-      probeMirror: mirrorProbe(data.version, {
-        [mirrorUrl('macos', data.version)]: sharePage(
-          'BazaarPlusPlus_3.0.0_aarch64.dmg'
-        )
-      })
-    })
-  ).rejects.toThrow(
-    /serves BazaarPlusPlus_3\.0\.0_aarch64\.dmg, expected BazaarPlusPlus_3\.1\.1_aarch64\.dmg/
+  // rrsync never overwrites: a wrong file already on the mirror survives the push.
+  const file = `${data.version}/${installerName('macos', data.version)}`;
+  network.served.set(file, Buffer.from('another build'));
+  await expect(record(data, store, 'macos')).rejects.toThrow(
+    /missing-or-different .* \(serves 13 bytes, expected \d+\)/
   );
-  await expect(
-    record(data, store, 'macos', { url: 'http://mirror.example/insecure' })
-  ).rejects.toThrow(/Unsafe mainland mirror URL/);
-  expect(store.writes.filter((key) => key.includes('/mirror/'))).toEqual([]);
+  expect(network.pushes).toHaveLength(1);
+  expect(mirrorWrites(store)).toEqual([]);
+  network.served.delete(file);
   const log = vi.fn();
   const unverified = await record(data, store, 'macos', {
-    probeMirror: mirrorProbe(data.version, {
-      [mirrorUrl('macos', data.version)]: { status: 503, html: '' }
-    }),
+    fetchImpl: async (url, init) =>
+      url.startsWith(`${MAINLAND_MIRROR.baseUrl}/`)
+        ? new Response('', { status: 503 })
+        : network.fetchImpl(url, init),
     allowUnverified: true,
     log
   });
   expect(unverified).toMatchObject({
     platform: 'darwin-aarch64',
+    url: mirrorUrl('macos', data.version),
     fileName: 'BazaarPlusPlus_3.1.1_aarch64.dmg',
     verified: false
   });
@@ -696,34 +637,34 @@ test('recording a mirror proves the share serves the uploaded installer; only an
   ).toEqual(unverified);
 });
 
-test('a mirror record can be replaced until its version is published, never afterwards', async () => {
+test('recording stops before the push when the release artifact differs or the version is already published', async () => {
   const data = fixture();
   const store = new MemoryStore();
-  await upload(data, store, 'macos');
+  const mac = await upload(data, store, 'macos');
+  const runRsync = vi.fn(networkOf(store).runRsync);
+  const installerKey = mac.installer.url.slice(baseUrl.length + 1);
+  const installer = store.objects.get(installerKey)!;
+  store.objects.set(installerKey, {
+    ...installer,
+    bytes: Buffer.alloc(installer.bytes.length)
+  });
+  await expect(record(data, store, 'macos', { runRsync })).rejects.toThrow(
+    /the fragment records/
+  );
+  store.objects.set(installerKey, installer);
   await upload(data, store, 'windows');
   await record(data, store, 'macos');
-  const replaced = await record(data, store, 'macos', {
-    url: 'https://mirror.example/mac-reshared',
-    probeMirror: mirrorProbe(data.version, {
-      'https://mirror.example/mac-reshared': sharePage(
-        installerName('macos', data.version)
-      )
-    })
-  });
-  expect(replaced.url).toBe('https://mirror.example/mac-reshared');
   await record(data, store, 'windows');
-  const latest = await promote(data, store);
-  expect(latest.downloads['darwin-aarch64'].mainlandUrl).toBe(
-    'https://mirror.example/mac-reshared'
-  );
-  await expect(record(data, store, 'macos')).rejects.toThrow(
+  await promote(data, store);
+  await expect(record(data, store, 'macos', { runRsync })).rejects.toThrow(
     /already published[\s\S]*publish a new product version/
   );
   const older = fixture('3.0.0');
   await upload(older, store, 'macos');
-  await expect(record(older, store, 'macos')).rejects.toThrow(
+  await expect(record(older, store, 'macos', { runRsync })).rejects.toThrow(
     /already published/
   );
+  expect(runRsync).not.toHaveBeenCalled();
 });
 
 test('promotion requires every platform mirror unless explicitly waived, and a waived mirror cannot be added later', async () => {
@@ -909,7 +850,7 @@ test('one platform can run ahead once a lockstep release carries the per-platfor
   });
 });
 
-test('a mirror record cannot silently diverge from an address promoted during its probe', async () => {
+test('a promotion that lands during the mirror check refuses the record and keeps the published address', async () => {
   const data = fixture();
   const store = new MemoryStore();
   await stage(data, store);
@@ -917,40 +858,43 @@ test('a mirror record cannot silently diverge from an address promoted during it
   const next = fixture('3.1.2');
   await upload(next, store, 'windows');
   await record(next, store, 'windows');
-  const reshared = 'https://mirror.example/windows-3.1.2-reshared';
+  const network = networkOf(store);
+  const writes = mirrorWrites(store).length;
   await expect(
     record(next, store, 'windows', {
-      url: reshared,
-      probeMirror: async (url: string) => {
-        if (url === reshared) await promoteOne(next, store, 'windows');
-        return sharePage(installerName('windows', next.version));
+      fetchImpl: async (url, init) => {
+        if (url === mirrorUrl('windows', next.version))
+          await promoteOne(next, store, 'windows');
+        return network.fetchImpl(url, init);
       }
     })
   ).rejects.toThrow(/has already published 3\.1\.2/);
+  expect(mirrorWrites(store)).toHaveLength(writes);
   const published = JSON.parse(
     (await store.get('latest/windows-x86_64.json'))!.bytes.toString()
   );
   expect(published.downloads['windows-x86_64'].mainlandUrl).toBe(
     mirrorUrl('windows', next.version)
   );
+  // Once promoted, the published address wins over a record that changed after it.
   store.objects.set('3.1.2/windows-x86_64/mirror/mainland.json', {
     bytes: Buffer.from(
       JSON.stringify({
         schemaVersion: 1,
         version: '3.1.2',
         platform: 'windows-x86_64',
-        url: reshared,
+        url: 'https://mirror.example/windows-3.1.2-elsewhere',
         fileName: installerName('windows', next.version),
         verified: true
       })
     ),
     etag: '"stale"'
   });
-  const writes = store.writes.length;
+  const before = store.writes.length;
   expect((await promoteOne(next, store, 'windows')).platform.downloads).toEqual(
     published.downloads
   );
-  expect(store.writes).toHaveLength(writes);
+  expect(store.writes).toHaveLength(before);
 });
 
 test('re-running a platform promotion after both platforms aligned reports no advance', async () => {
@@ -1144,32 +1088,31 @@ test('an Android mirror serves the App APK, stays recordable after latest.json m
     `Missing ${ANDROID} mainland mirror for ${data.version}; run mirror for it or pass --without-mainland-mirror`
   );
   const url = mirrorUrl('android', data.version);
-  const recordAndroid = (page: MirrorPage) =>
-    recordMainlandMirror({
-      version: data.version,
-      platform: 'android',
-      url,
-      store,
-      probeMirror: mirrorProbe(data.version, { [url]: page })
-    });
-  await expect(
-    recordAndroid(sharePage(installerName('windows', data.version)))
-  ).rejects.toThrow(/missing-or-misnamed/);
+  const network = networkOf(store);
+  const file = `${data.version}/${apk}`;
+  network.served.set(file, Buffer.from('an older APK'));
+  await expect(record(data, store, 'android')).rejects.toThrow(
+    /missing-or-different/
+  );
   expect(await store.get(mirrorRecordKey(data.version, ANDROID))).toBeNull();
+  network.served.delete(file);
   // latest.json already names this version; it never freezes Android's mirror.
-  expect(await recordAndroid(sharePage(apk))).toMatchObject({
+  expect(await record(data, store, 'android')).toMatchObject({
     platform: ANDROID,
     url,
     fileName: apk,
     verified: true
   });
+  expect(network.served.get(file)).toEqual(
+    store.objects.get(fragment.app.url.slice(baseUrl.length + 1))!.bytes
+  );
   await promoteAndroid(data, store, { withoutMainlandMirror: false });
   const published = store.objects.get(`latest/${ANDROID}.json`)!.bytes;
   expect(JSON.parse(published.toString()).downloads[ANDROID].mainlandUrl).toBe(
     url
   );
   expect((await store.get(modManifestPath(ANDROID)))!.bytes).toEqual(published);
-  await expect(recordAndroid(sharePage(apk))).rejects.toThrow(
+  await expect(record(data, store, 'android')).rejects.toThrow(
     `latest/${ANDROID}.json has already published ${data.version}`
   );
   await promoteAndroid(data, store, { withoutMainlandMirror: false });

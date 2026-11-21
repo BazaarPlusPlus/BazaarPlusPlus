@@ -141,7 +141,7 @@ const releaseArgs = (command: string, ...args: string[]): string[] => {
   const profile =
     command === 'build'
       ? 'signing'
-      : ['upload', 'mirror', 'mirror-all', 'promote'].includes(command)
+      : ['upload', 'mirror', 'promote'].includes(command)
         ? 'release'
         : null;
   return [
@@ -180,7 +180,6 @@ const publishingVerbs = new Set<string | null>([
   'build',
   'upload',
   'mirror',
-  'mirror-all',
   'promote'
 ]);
 const releaseVerb = ({ tool, args }: RecordedCall): string | null => {
@@ -679,107 +678,29 @@ for (const [command, ...flags] of [
   });
 }
 
-test('release::mirror-all forwards both share URLs and optional flags', (t) => {
+test('release::mirror forwards the platform and optional flags', (t) => {
   const f = fixture(t);
+  assert.notEqual(f.run(['release::mirror']).status, 0);
+  assert.notEqual(f.run(['release::mirror', 'linux']).status, 0);
   assert.notEqual(f.run(['release::mirror-all']).status, 0);
-  assert.notEqual(
-    f.run(['release::mirror-all', 'https://mirror.example/win']).status,
-    0
-  );
   assert.deepEqual(f.calls(), []);
-  const windows = 'https://mirror.example/win?label=windows&key=1';
-  const macos = 'https://mirror.example/mac?label=mac%20os&key=2';
-  succeeded(
-    f.run(['release::mirror-all', windows, macos, '--allow-unverified-mirror'])
-  );
+  succeeded(f.run(['release::mirror', 'macos']));
+  succeeded(f.run(['release::mirror', 'windows', '--allow-unverified-mirror']));
+  succeeded(f.run(['release::mirror', 'android']));
   assert.deepEqual(f.calls(), [
+    call(f.dir, null, 'bun', ...releaseArgs('mirror', '--platform', 'macos')),
     call(
       f.dir,
       null,
       'bun',
       ...releaseArgs(
-        'mirror-all',
-        '--windows-url',
-        windows,
-        '--macos-url',
-        macos,
+        'mirror',
+        '--platform',
+        'windows',
         '--allow-unverified-mirror'
       )
-    )
-  ]);
-});
-
-test('release::mirror forwards the platform, the share URL and optional flags', (t) => {
-  const f = fixture(t);
-  assert.notEqual(f.run(['release::mirror']).status, 0);
-  assert.notEqual(f.run(['release::mirror', 'macos']).status, 0);
-  assert.notEqual(
-    f.run(['release::mirror', 'linux', 'https://mirror.example/x']).status,
-    0
-  );
-  assert.deepEqual(f.calls(), []);
-  succeeded(f.run(['release::mirror', 'macos', 'https://mirror.example/mac']));
-  succeeded(
-    f.run([
-      'release::mirror',
-      'windows',
-      'https://mirror.example/win',
-      '--allow-unverified-mirror'
-    ])
-  );
-  succeeded(
-    f.run(['release::mirror', 'android', 'https://mirror.example/apk'])
-  );
-  assert.deepEqual(f.calls(), [
-    call(
-      f.dir,
-      null,
-      'bun',
-      'scripts/workspace.ts',
-      'run',
-      'release',
-      '--',
-      'bun',
-      'release/cli.ts',
-      'mirror',
-      '--platform',
-      'macos',
-      '--url',
-      'https://mirror.example/mac'
     ),
-    call(
-      f.dir,
-      null,
-      'bun',
-      'scripts/workspace.ts',
-      'run',
-      'release',
-      '--',
-      'bun',
-      'release/cli.ts',
-      'mirror',
-      '--platform',
-      'windows',
-      '--url',
-      'https://mirror.example/win',
-      '--allow-unverified-mirror'
-    ),
-    call(
-      f.dir,
-      null,
-      'bun',
-      'scripts/workspace.ts',
-      'run',
-      'release',
-      '--',
-      'bun',
-      'release/cli.ts',
-      'mirror',
-      '--platform',
-      'android',
-      '--url',
-      'https://mirror.example/apk'
-    )
+    call(f.dir, null, 'bun', ...releaseArgs('mirror', '--platform', 'android'))
   ]);
 });
 
