@@ -1,3 +1,4 @@
+using System.Globalization;
 using BazaarPlusPlus.Android.Lobby;
 using BazaarPlusPlus.Core.Config;
 using BazaarPlusPlus.Game.ChineseTranslations;
@@ -27,7 +28,8 @@ internal sealed record AndroidSettingsDockHooks(
 internal sealed record AndroidSettingsDockSettings(
     ISetting<bool> UpgradePreview,
     ISetting<int> PreviewTextSize,
-    ISetting<bool> FrameRatePriority
+    ISetting<bool> FrameRatePriority,
+    ISetting<int> RenderScale
 );
 
 internal static class AndroidSettingsDock
@@ -63,6 +65,14 @@ internal static class AndroidSettingsDock
         "帧率优先",
         "幀率優先"
     );
+
+    public static readonly LocalizedTextSet RenderScaleLabel = new(
+        "Render scale",
+        "渲染比例",
+        "渲染比例"
+    );
+
+    private static readonly int[] RenderScaleLadder = { 100, 80, 67, 50 };
 
     public static void Install(
         BppSettings shared,
@@ -164,6 +174,19 @@ internal static class AndroidSettingsDock
                 _ => settings.FrameRatePriority.Value,
                 (_, enabled) => settings.FrameRatePriority.Value = enabled,
                 enabled => LogChanged("Graphics", "FrameRatePriority", enabled)
+            )
+        );
+        registry.Register(
+            new CyclingSettingsDockEntry<int>(
+                BppSettingsDockOrder.RenderScale,
+                "RenderScale",
+                languageCode => RenderScaleLabel.Resolve(languageCode, L.CurrentMode),
+                RenderScaleLadder,
+                _ => settings.RenderScale.Value,
+                (_, percent) => settings.RenderScale.Value = percent,
+                percent => percent != Game.AndroidRenderScale.NativePercent,
+                (percent, _) => percent.ToString(CultureInfo.InvariantCulture) + "%",
+                percent => LogChanged("Graphics", "RenderScale", percent)
             )
         );
     }

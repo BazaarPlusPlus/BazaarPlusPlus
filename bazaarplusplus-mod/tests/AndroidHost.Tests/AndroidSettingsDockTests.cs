@@ -31,6 +31,7 @@ public sealed class AndroidSettingsDockTests
                 "GameUpdate",
                 "FrameRatePriority",
                 "ChineseTranslationImprovements",
+                "RenderScale",
             },
             dock.Rows.Select(row => row.Key)
         );
@@ -48,6 +49,7 @@ public sealed class AndroidSettingsDockTests
                 BppSettingsControlKind.Action,
                 BppSettingsControlKind.Toggle,
                 BppSettingsControlKind.Toggle,
+                BppSettingsControlKind.Choice,
             },
             dock.Rows.Select(row => row.ControlKind)
         );
@@ -77,6 +79,7 @@ public sealed class AndroidSettingsDockTests
                 "PreviewTextSize",
                 "EnchantPreview",
                 "ChineseLocaleMode",
+                "RenderScale",
                 "GameHistory",
                 "GameUpdate",
             },
@@ -233,6 +236,24 @@ public sealed class AndroidSettingsDockTests
     }
 
     [Fact]
+    public void Render_scale_starts_native_and_writes_the_android_setting()
+    {
+        var dock = new Dock();
+        var row = dock.Row("RenderScale");
+        Assert.Equal("Render scale", row.ResolveLabel("en"));
+        Assert.Equal("渲染比例", row.ResolveLabel("zh-Hans"));
+        var state = row.ResolveChoiceState!("en");
+        Assert.Equal(new[] { "100%", "80%", "67%", "50%" }, state.Options);
+        Assert.Equal(0, state.SelectedIndex);
+
+        row.SelectStandardChoice!(3);
+
+        Assert.Equal(50, dock.Android.RenderScale.Value);
+        Assert.Equal(50, dock.Store.Int("Graphics", "RenderScale").Value);
+        Assert.Empty(dock.Calls);
+    }
+
+    [Fact]
     public void Chinese_locale_writes_the_shared_setting_and_tells_the_host()
     {
         var dock = new Dock();
@@ -355,7 +376,8 @@ public sealed class AndroidSettingsDockTests
                 new AndroidSettingsDockSettings(
                     TouchUpgradePreviewSetting.Bind(Store),
                     TouchPreviewTextSize.Bind(Store),
-                    Android.FrameRatePriority
+                    Android.FrameRatePriority,
+                    Android.RenderScale
                 ),
                 new AndroidSettingsDockHooks(
                     reason => Calls.Add($"release_upgrade_preview:{reason}"),

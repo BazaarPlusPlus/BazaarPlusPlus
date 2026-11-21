@@ -52,6 +52,7 @@ internal sealed class AndroidHostRuntime
     private AndroidUpdatePrompt? _updatePrompt;
     private AndroidCombatReplayRuntime? _replayRuntime;
     private Game.AndroidFrameRatePriority? _frameRate;
+    private Game.AndroidRenderScale? _renderScale;
     private Game.Screenshots.AndroidEndOfRunCapture? _endOfRunCapture;
     private TouchHistoryEntry? _historyPanel;
     private AndroidOverlayPanels? _overlayPanels;
@@ -81,6 +82,7 @@ internal sealed class AndroidHostRuntime
                 Encounter = () => AndroidPatchHost.Features?.EncounterPreview.Tick(),
                 EndOfRun = () => AndroidPatchHost.Features?.EndOfRunCapture?.Tick(),
                 FrameRate = () => _frameRate?.Tick(Time.unscaledTime),
+                RenderScale = () => _renderScale?.Tick(Time.unscaledTime),
                 Font = AndroidGameFont.Tick,
                 Settings = () => AndroidNativeSettingsSection.Tick(Time.unscaledTime),
                 Rental = AndroidCardRental.Tick,
@@ -243,6 +245,13 @@ internal sealed class AndroidHostRuntime
         _versionCheck?.Dispose();
         _versionCheck = null;
         _frameRate = null;
+        StopRenderScale();
+    }
+
+    private void StopRenderScale()
+    {
+        _renderScale?.Dispose();
+        _renderScale = null;
     }
 
     private void StopTouch()
@@ -284,6 +293,7 @@ internal sealed class AndroidHostRuntime
                 _frameRate = new Game.AndroidFrameRatePriority(() =>
                     android.FrameRatePriority.Value
                 );
+                _renderScale = new Game.AndroidRenderScale(() => android.RenderScale.Value);
                 var tooltipPreviewHost = new AndroidTooltipPreviewHost();
                 var previewSwitches = new TouchPreviewSwitches(tooltipPreviewHost);
                 questPreview = new Game.AndroidQuestPreview(shared);
@@ -357,7 +367,8 @@ internal sealed class AndroidHostRuntime
                     new AndroidSettingsDockSettings(
                         upgradePreview,
                         previewTextSize,
-                        android.FrameRatePriority
+                        android.FrameRatePriority,
+                        android.RenderScale
                     ),
                     new AndroidSettingsDockHooks(
                         ReleaseUpgradePreview: AndroidUpgradePreview.Release,
@@ -421,6 +432,7 @@ internal sealed class AndroidHostRuntime
                 _versionCheck = null;
                 _updatePrompt = null;
                 _frameRate = null;
+                StopRenderScale();
             },
             exception =>
             {
