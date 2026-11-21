@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import androidStatus from '../../release/fixtures/android-game-status.json';
 
 import {
   expectNoUnexpectedRequests,
@@ -12,7 +13,10 @@ import { settle } from './page';
 
 type Manifest = { downloads: Record<string, { mainlandUrl?: string }> };
 type AndroidManifest = {
-  downloads: Record<string, { app: { url: string; size: number } }>;
+  downloads: Record<
+    string,
+    { app: { url: string; size: number }; adaptations?: unknown }
+  >;
 };
 
 function androidFixture(): AndroidManifest {
@@ -84,7 +88,7 @@ async function describeCard(page: Page, title: string) {
   return {
     version: version?.trim(),
     adaptedGames: await adaptedGames(card),
-    onlineGame: await onlineGame(card),
+    onlineGame: await gameStatus(card, 'Online game'),
     primary: await describeLink(page, title, /^Download \./),
     mirror: await describeLink(page, title, `${title} mainland mirror`)
   };
@@ -103,16 +107,17 @@ async function fact(card: Locator, label: string) {
 async function adaptedGames(card: Locator) {
   const key = card.locator('dt', { hasText: 'Adapted game' });
   if ((await key.count()) === 0) return null;
-  const rows = key.locator('xpath=following-sibling::dd[1]/span/span');
+  const rows = key.locator('xpath=following-sibling::dd[1]/span');
   return (await rows.allTextContents()).map((row) => row.trim());
 }
 
-async function onlineGame(card: Locator) {
-  const key = card.locator('dt', { hasText: 'Online game' });
+async function gameStatus(card: Locator, label: string) {
+  const key = card.locator('dt', { hasText: label });
   if ((await key.count()) === 0) return null;
   const value = key.locator('xpath=following-sibling::dd[1]');
   return {
-    version: await text(value.locator('.tabular-nums')),
+    version:
+      (await value.locator('.tabular-nums').allTextContents())[0] ?? null,
     conclusion: await text(value.locator('.bpp-badge'))
   };
 }
@@ -128,8 +133,8 @@ async function describeAndroid(page: Page) {
     ),
     notice: await text(card.getByText(/^Features differ from desktop/)),
     version: await fact(card, 'Current version'),
-    adaptedGames: await adaptedGames(card),
-    onlineGame: await onlineGame(card),
+    publisher: await gameStatus(card, 'Publisher'),
+    play: await gameStatus(card, 'Google Play'),
     size: await fact(card, 'Size'),
     sha256: (await card.locator('details code').count())
       ? await text(card.locator('details code').last())
@@ -270,13 +275,13 @@ test.describe('Game Status', () => {
     const mac = platformCard(page, 'macOS');
     await expect(mac.locator('dt', { hasText: 'Online game' })).toBeVisible();
     await expect(
-      platformCard(page, 'Android').locator('dt', { hasText: 'Online game' })
+      platformCard(page, 'Android').locator('dt', { hasText: 'Google Play' })
     ).toBeVisible();
     const games = async (title: string) => {
       const card = platformCard(page, title);
       return {
         adapted: await adaptedGames(card),
-        online: await onlineGame(card)
+        online: await gameStatus(card, 'Online game')
       };
     };
     expect(await games('macOS')).toEqual({
@@ -287,10 +292,58 @@ test.describe('Game Status', () => {
       adapted: ['1.0.13057'],
       online: { version: '1.0.13082', conclusion: 'Not adapted yet' }
     });
-    expect(await games('Android')).toEqual({
-      adapted: ['1.0.12825 · Publisher', '1.0.6 · Google Play'],
-      online: { version: '1.0.12830', conclusion: 'Adapted' }
+    const android = platformCard(page, 'Android');
+    expect(await gameStatus(android, 'Publisher')).toEqual({
+      version: '1.0.12830',
+      conclusion: 'Adapted'
+    });
+    expect(await gameStatus(android, 'Google Play')).toEqual({
+      version: '1.0.6',
+      conclusion: 'Adapted'
     });
     expectNoUnexpectedRequests(routes);
+  });
+});
+
+test('a publisher update does not change Play compatibility', async ({
+  page
+}) => {
+  await installGoldenRoutes(
+    page,
+    goldenSources({
+      androidGameStatus: {
+        json: { ...androidStatus, metadataSha256: '0'.repeat(64) }
+      }
+    })
+  );
+  await page.goto('/download?lang=en');
+  const card = platformCard(page, 'Android');
+  await expect(card.getByText('Google Play', { exact: true })).toBeVisible();
+  await expect
+    .poll(() => gameStatus(card, 'Publisher'))
+    .toEqual({
+      version: androidStatus.gameVersion.split('-')[0],
+      conclusion: 'Not adapted yet'
+    });
+  expect(await gameStatus(card, 'Google Play')).toEqual({
+    version: '1.0.6',
+    conclusion: 'Adapted'
+  });
+});
+
+test('a publisher-only release shows Play as unsupported', async ({ page }) => {
+  const manifest = androidFixture();
+  for (const download of Object.values(manifest.downloads))
+    delete download.adaptations;
+  await installGoldenRoutes(
+    page,
+    goldenSources({ android: { json: manifest } })
+  );
+  await page.goto('/download?lang=en');
+  const card = platformCard(page, 'Android');
+  await expect(card.getByText('Google Play', { exact: true })).toBeVisible();
+  expect(await gameStatus(card, 'Google Play')).toEqual({
+    version: null,
+    conclusion: 'Not adapted yet'
   });
 });

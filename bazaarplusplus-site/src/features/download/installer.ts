@@ -17,6 +17,7 @@ import {
   type GameStatus
 } from '../../../../release/downloads';
 
+export { ANDROID_SOURCES } from '../../../../release/downloads';
 export type {
   AndroidDownload,
   AndroidGameStatus,

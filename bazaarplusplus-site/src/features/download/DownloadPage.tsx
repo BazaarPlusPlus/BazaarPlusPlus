@@ -13,6 +13,7 @@ import {
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import {
+  ANDROID_SOURCES,
   GITHUB_RELEASE_URL,
   gameReleaseNumber,
   loadAndroidGameStatus,
@@ -69,44 +70,28 @@ function PlatformHeader({
   );
 }
 
-function GameFacts({
-  copy,
-  adapted,
-  online,
-  same
+function GameStatusFact({
+  label,
+  version,
+  supported,
+  copy
 }: {
+  label: string;
+  version?: string;
+  supported: boolean;
   copy: DownloadPageCopy;
-  adapted: { gameVersion: string; source?: string }[];
-  online: { gameVersion: string } | undefined;
-  same: boolean;
 }) {
   return (
-    <>
-      <Fact label={copy.adaptedGameLabel}>
-        <span className="flex flex-col gap-1">
-          {adapted.map(({ gameVersion, source }) => (
-            <span key={source ?? gameVersion}>
-              <span className="tabular-nums">
-                {gameReleaseNumber(gameVersion)}
-              </span>
-              {source ? <span className="text-text-2"> · {source}</span> : null}
-            </span>
-          ))}
-        </span>
-      </Fact>
-      {online ? (
-        <Fact label={copy.onlineGameLabel}>
-          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="tabular-nums">
-              {gameReleaseNumber(online.gameVersion)}
-            </span>
-            <Badge tone={same ? 'neutral' : 'warn'} dot={!same}>
-              {same ? copy.adapted : copy.notAdapted}
-            </Badge>
-          </span>
-        </Fact>
-      ) : null}
-    </>
+    <Fact label={label}>
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+        {version && (
+          <span className="tabular-nums">{gameReleaseNumber(version)}</span>
+        )}
+        <Badge tone={supported ? 'neutral' : 'warn'} dot={!supported}>
+          {supported ? copy.adapted : copy.notAdapted}
+        </Badge>
+      </span>
+    </Fact>
   );
 }
 
@@ -155,12 +140,19 @@ function DownloadCard({
 
       {adapted ? (
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2">
-          <GameFacts
-            copy={copy}
-            adapted={[adapted]}
-            online={online}
-            same={online ? sameDesktopGame(adapted, online) : false}
-          />
+          <Fact label={copy.adaptedGameLabel}>
+            <span className="tabular-nums">
+              {gameReleaseNumber(adapted.gameVersion)}
+            </span>
+          </Fact>
+          {online && (
+            <GameStatusFact
+              label={copy.onlineGameLabel}
+              version={online.gameVersion}
+              supported={sameDesktopGame(adapted, online)}
+              copy={copy}
+            />
+          )}
         </dl>
       ) : null}
 
@@ -326,15 +318,24 @@ function AndroidCard({
             </Fact>
             {release && (
               <>
-                <GameFacts
-                  copy={copy}
-                  adapted={release.games.map(({ source, game }) => ({
-                    gameVersion: game.gameVersion,
-                    source: androidCopy.sources[source]
-                  }))}
-                  online={online}
-                  same={online ? sameAndroidGame(release.game, online) : false}
-                />
+                {ANDROID_SOURCES.map((source) => {
+                  const adapted = release.games.find(
+                    (entry) => entry.source === source
+                  )?.game;
+                  const game =
+                    source === 'publisher' ? (online ?? adapted) : adapted;
+                  return (
+                    <GameStatusFact
+                      key={source}
+                      label={androidCopy.sources[source]}
+                      version={game?.gameVersion}
+                      supported={
+                        !!adapted && !!game && sameAndroidGame(adapted, game)
+                      }
+                      copy={copy}
+                    />
+                  );
+                })}
                 <Fact label={androidCopy.sizeLabel}>
                   <span className="tabular-nums">
                     {formatFileSize(release.app.size, locale)}
