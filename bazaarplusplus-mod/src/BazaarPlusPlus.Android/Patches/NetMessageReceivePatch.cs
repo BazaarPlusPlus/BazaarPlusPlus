@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.CombatReplay;
+using BazaarPlusPlus.Android.GameInterop;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -42,6 +43,16 @@ internal static class NetMessageReceivePatch
         var composition = AndroidPatchHost.Composition;
         if (__0 == null || composition == null)
             return;
+        // A saved replay's messages never pass this seam, so what arrives during playback still
+        // belongs to the live run's stream.
+        try
+        {
+            AndroidRunMessageStream.OnReceived(composition.EventBus, __0);
+        }
+        catch (Exception exception)
+        {
+            AndroidPatchHost.ReportProbeError("message_stream", exception);
+        }
         try
         {
             var replayActive = AndroidReplayGuard.IsActive;
