@@ -8,6 +8,7 @@ namespace BazaarPlusPlus.Android.GameInterop;
 internal static class AndroidNativeHud
 {
     private static Il2CppTheBazaar.PopupManager? _popup;
+    private static float _nextPopupCheck;
 
     // One buffer for every read: main thread only, and GetWorldCorners overwrites all four.
     private static Il2CppStructArray<Vector3>? _corners;
@@ -16,8 +17,14 @@ internal static class AndroidNativeHud
     {
         get
         {
+            if (_popup != null)
+                return _popup;
+            var now = Time.unscaledTime;
+            if (now < _nextPopupCheck)
+                return null;
+            _popup = UnityEngine.Object.FindFirstObjectByType<Il2CppTheBazaar.PopupManager>();
             if (_popup == null)
-                _popup = UnityEngine.Object.FindFirstObjectByType<Il2CppTheBazaar.PopupManager>();
+                _nextPopupCheck = now + 0.5f;
             return _popup;
         }
     }
