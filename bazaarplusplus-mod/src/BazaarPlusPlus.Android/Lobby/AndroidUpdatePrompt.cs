@@ -50,6 +50,8 @@ internal sealed class AndroidUpdatePrompt
     private float? _menuSince;
     private volatile bool _gameRequiresUpdate;
     private bool _toldForGame;
+    private bool _askedVersionLoaded;
+    private string? _askedVersion;
 
     public AndroidUpdatePrompt(
         AndroidVersionCheck check,
@@ -196,9 +198,12 @@ internal sealed class AndroidUpdatePrompt
 
     private string? ReadAsked()
     {
+        if (_askedVersionLoaded)
+            return _askedVersion;
+        _askedVersionLoaded = true;
         try
         {
-            return File.Exists(_recordPath) ? File.ReadAllText(_recordPath).Trim() : null;
+            _askedVersion = File.Exists(_recordPath) ? File.ReadAllText(_recordPath).Trim() : null;
         }
         catch (Exception exception)
         {
@@ -207,8 +212,8 @@ internal sealed class AndroidUpdatePrompt
                 exception,
                 ("operation", "read")
             );
-            return null;
         }
+        return _askedVersion;
     }
 
     private void WriteAsked(string version)
@@ -217,6 +222,7 @@ internal sealed class AndroidUpdatePrompt
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_recordPath)!);
             File.WriteAllText(_recordPath, version);
+            _askedVersion = version.Trim();
         }
         catch (Exception exception)
         {
