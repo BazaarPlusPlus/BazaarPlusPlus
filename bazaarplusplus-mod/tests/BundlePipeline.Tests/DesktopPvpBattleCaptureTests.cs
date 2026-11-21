@@ -9,7 +9,9 @@ using BazaarPlusPlus.Core.Cards;
 using BazaarPlusPlus.Core.GameState;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.PvpBattles;
+using BazaarPlusPlus.TestSupport;
 using MessagePack;
 using Xunit;
 
@@ -126,6 +128,43 @@ public sealed class DesktopPvpBattleCaptureTests
         Check.That(
             p.OpponentRank == "Gold" && p.OpponentRating == 1500,
             "The other opponent fields are kept."
+        );
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(EContainerSocketId.Socket_0)]
+    public static void OpponentHandKeepsTheSpawnSocketInHistory(EContainerSocketId? updateSocket)
+    {
+        var corpus = new CombatReplayPayloadStore(
+            Path.Combine(TestInputs.RepoRoot, "tests", "CombatImpact.CorpusExport", "corpus")
+        );
+        var replay = corpus.Load("5137df9e62e64392bf2df72c6c8cf446")!;
+        var opening = MessagePackSerializer.Deserialize<NetMessageGameSim>(
+            replay.SpawnMessageBytes,
+            MessagePackConfig.Options
+        );
+        var ruby = opening
+            .Data.Events.OfType<GameSimEventCardSpawned>()
+            .Single(spawn => spawn.TemplateId == "37222f02-3767-44ef-a8ed-000c90d3330e");
+        Assert.Equal(EContainerSocketId.Socket_3, ruby.Socket);
+        var update = opening.Data.Cards[ruby.InstanceId];
+        if (updateSocket.HasValue)
+            update.Placement!.Socket = updateSocket;
+        else
+            update.Placement = null;
+
+        var hand = Capture(opening).Manifest.Snapshots.OpponentHand;
+        var saved = PvpBattleSnapshotsCodec.Deserialize(PvpBattleSnapshotsCodec.Serialize(hand));
+        var board = HistoryBoardProjection.Items(saved, _ => true, (_, _) => null, "opponent");
+
+        Assert.Equal(
+            3,
+            board.Cards.Single(card => card.InstanceId == ruby.InstanceId).DisplaySocketId
+        );
+        Assert.Equal(
+            CardSocket.Socket_3,
+            saved.Items.Single(card => card.InstanceId == ruby.InstanceId).Socket
         );
     }
 
