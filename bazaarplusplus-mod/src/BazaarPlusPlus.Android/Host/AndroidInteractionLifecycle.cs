@@ -38,6 +38,7 @@ internal sealed class AndroidInteractionLifecycle
         _operations.Guarded("encounter_preview", _operations.Encounter);
         _operations.Guarded("end_of_run_capture", _operations.EndOfRun);
         _operations.Guarded("frame_rate", _operations.FrameRate);
+        _operations.Guarded("render_scale", _operations.RenderScale);
         _operations.Font();
         _operations.Settings();
         _operations.Rental();
@@ -101,6 +102,7 @@ internal sealed record AndroidInteractionOperations
     public required Action Encounter { get; init; }
     public required Action EndOfRun { get; init; }
     public required Action FrameRate { get; init; }
+    public required Action RenderScale { get; init; }
     public required Action Font { get; init; }
     public required Action Settings { get; init; }
     public required Action Rental { get; init; }

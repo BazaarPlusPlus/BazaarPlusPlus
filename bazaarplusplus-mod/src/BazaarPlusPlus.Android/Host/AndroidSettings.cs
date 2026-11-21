@@ -19,9 +19,18 @@ internal sealed class AndroidSettings
             false,
             "Keep the game at its own frame-rate setting under load. The game then lowers only the render resolution, as it does without BazaarPlusPlus. Off leaves the game's own frame-rate scaling on."
         );
+        RenderScale = store.Bind(
+            "Graphics",
+            "RenderScale",
+            100,
+            "Resolution the game's cameras render at, as a percent of the screen per axis. Lower values draw fewer pixels and can raise the frame rate on a slow GPU. 100 leaves the game's own value.",
+            new SettingRange<int>(50, 100)
+        );
     }
 
     public ISetting<bool> FrameRatePriority { get; }
+
+    public ISetting<int> RenderScale { get; }
 
     public ISetting<int> DevReleaseManifestPort { get; }
 }

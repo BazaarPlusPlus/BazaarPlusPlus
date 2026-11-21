@@ -36,4 +36,5 @@ public static class BppSettingsDockOrder
     public const int FrameRatePriority = 25;
     public const int ChineseTranslationImprovements = 26;
     public const int ClassicHeroSelection = 27;
+    public const int RenderScale = 28;
 }
