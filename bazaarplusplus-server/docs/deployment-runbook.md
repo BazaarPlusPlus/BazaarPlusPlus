@@ -36,7 +36,7 @@ Create an R2 S3 API credential scoped to `bazaarplusplus-bundle-v6` with Object 
 
 ## 3. Configure rate limiting and secrets
 
-`[[ratelimits]].namespace_id` must be a positive integer unique in the account. V6 uses `1002`; `1001` is already taken in the account, and sharing an ID would merge two Workers' Ghost counters. Keep the threshold at 60 calls per 60 seconds.
+`[[ratelimits]].namespace_id` must be a positive integer unique in the account; sharing an ID would merge two limiters' counters. `1001` is already taken in the account. V6 uses `1002` for Ghost discovery (60 calls per 60 seconds) and `1003` for Bundle upload (120 calls per 60 seconds, far above one mod's three uploads per 180-second pump tick, so a shared NAT stays under it).
 
 Generate two independent service tokens for V6. They must differ from each other and from every other token:
 
@@ -87,7 +87,7 @@ Run this before 6.0.0 is promoted. Use a generated Bundle from the checked-in V6
 7. Download one URL twice with `GET`; both responses must equal the uploaded bytes.
 8. Change the URL object key, use `HEAD`, change `X-Amz-Expires`, and change one signature character. R2 must reject every modified request.
 9. Query a seeded eligible Ghost account. Confirm the five-day projection and direct R2 Bundle download.
-10. Exceed the Ghost limit from a controlled test address. Confirm `429`, `Retry-After: 60`, and no D1/presign activity in route logs.
+10. Exceed the Ghost limit from a controlled test address. Confirm `429`, `Retry-After: 60`, and no D1/presign activity in route logs. An upload burst over the upload limit returns the same `429` before any storage access.
 11. List the same window from `GET /bazaardb/bundles` with the BazaarDB token. Only the Screenshot-bearing Bundle appears, with its `run_id` and `sha256`; download it once and compare the digest.
 12. Inject a D1 commit failure after a valid R2 PUT, then repeat the original `POST /bundles` and confirm the idempotent retry commits the R2-only object while preserving its R2 upload time.
 13. Confirm logs contain no service token, R2 secret, Bundle body, projection JSON, Screenshot bytes, or complete presigned URL.

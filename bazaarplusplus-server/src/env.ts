@@ -2,6 +2,7 @@ export interface Env {
   DB: D1Database;
   BUNDLE_BUCKET: R2Bucket;
   GHOST_BATTLE_RATE_LIMITER: RateLimit;
+  BUNDLE_UPLOAD_RATE_LIMITER: RateLimit;
 
   R2_ACCOUNT_ID: string;
   R2_PRESIGN_ACCESS_KEY_ID: string;
