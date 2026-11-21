@@ -17,6 +17,7 @@ const values: Record<string, string> = {
   CLOUDFLARE_ACCOUNT_ID: 'value-account-id',
   CLOUDFLARE_API_TOKEN: 'value-operator-token',
   TAURI_SIGNING_PRIVATE_KEY: 'value-updater-key\nline two\n',
+  MAINLAND_MIRROR_SSH_KEY: 'value-mirror-key\n',
   APPLE_SIGNING_IDENTITY: 'Developer ID Application: Example (TEAMID)',
   APPLE_API_ISSUER: 'value-issuer',
   APPLE_API_KEY: 'KEYID1234',
@@ -111,6 +112,19 @@ test('a dry run needs only the operator token and the account id', () => {
   for (const platform of ['macos', 'windows', 'android']) {
     assert.equal(run(['check', platform, 'prepare'], secrets).status, 0);
     assert.equal(run(['check', platform, 'release'], secrets).status, 1);
+  }
+});
+
+test('every platform needs the mainland mirror key only to release', () => {
+  const secrets = { ...values, MAINLAND_MIRROR_SSH_KEY: '' };
+  for (const platform of ['macos', 'windows', 'android']) {
+    assert.equal(run(['check', platform, 'prepare'], secrets).status, 0);
+    const result = run(['check', platform, 'release'], secrets);
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stdout,
+      /::error title=Missing secret::MAINLAND_MIRROR_SSH_KEY is not set for this run; its value is: contents of keys\/mainland-mirror-ssh-key/
+    );
   }
 });
 

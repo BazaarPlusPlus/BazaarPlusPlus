@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,7 +14,14 @@ import { LOCKSTEP_PLATFORM_KEYS } from './release-platforms.ts';
 import type { TauriBuildPlatform } from './release-platforms.ts';
 import { GAME_LIBS_LOCK_PATH } from './snapshot-lock.ts';
 import { createArtifactManifest } from './artifact-manifest.ts';
+import {
+  buildMirrorRecord,
+  fragmentKey,
+  mirrorFileName,
+  mirrorRecordKey
+} from './manifest.ts';
 import { MemoryStore } from './test-support/memory-store.ts';
+import { mirrorNetwork } from './test-support/mirror-network.ts';
 import { writeArtifacts } from './test-support/artifact-fixture.ts';
 import { uploadAndroid } from './test-support/android-fixture.ts';
 import { runFixtureGit } from '../scripts/test-support/git-fixture.ts';
@@ -102,59 +110,20 @@ test.each([
   ['verify-mirror', '--allow-unverified-mirror'],
   ['mirror'],
   ['mirror-all'],
-  ['mirror-all', '--windows-url', 'https://mirror.example/win'],
-  ['mirror-all', '--macos-url', 'https://mirror.example/mac'],
   [
     'mirror-all',
     '--windows-url',
     'https://mirror.example/win',
     '--macos-url',
-    'http://mirror.example/mac'
-  ],
-  ['mirror-all', '--platform', 'macos'],
-  ['mirror-all', '--url', 'https://mirror.example/mac'],
-  ['mirror-all', '--latest'],
-  ['mirror-all', '--without-mainland-mirror'],
-  [
-    'mirror-all',
-    '--windows-url',
-    'https://mirror.example/win',
-    '--windows-url',
-    'https://mirror.example/win'
+    'https://mirror.example/mac'
   ],
   ['promote', '--windows-url', 'https://mirror.example/win'],
-  ['mirror', '--platform', 'macos'],
-  ['mirror', '--url', 'https://mirror.example/mac'],
-  ['mirror', '--platform', 'linux', '--url', 'https://mirror.example/mac'],
-  ['mirror', '--platform', 'macos', '--url', 'http://mirror.example/mac'],
-  ['mirror', '--platform', 'macos', '--url', 'not-a-url'],
-  ['mirror', '--platform', 'macos', '--url', 'https://u:p@mirror.example/m'],
-  [
-    'mirror',
-    '--platform',
-    'macos',
-    '--url',
-    'https://mirror.example/mac',
-    '--latest'
-  ],
-  [
-    'mirror',
-    '--platform',
-    'macos',
-    '--url',
-    'https://mirror.example/mac',
-    '--without-mainland-mirror'
-  ],
-  [
-    'mirror',
-    '--platform',
-    'macos',
-    '--url',
-    'https://mirror.example/mac',
-    '--',
-    managed
-  ],
-  ['upload', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
+  ['mirror', '--platform', 'linux'],
+  ['mirror', '--platform', 'macos', '--url', 'https://mirror.example/mac'],
+  ['mirror', '--platform', 'macos', '--latest'],
+  ['mirror', '--platform', 'macos', '--without-mainland-mirror'],
+  ['mirror', '--platform', 'macos', '--', managed],
+  ['upload', '--platform', 'macos', '--allow-unverified-mirror'],
   ['promote', '--latest'],
   ['promote', '--platform', 'linux'],
   ['prepare', '--platform', 'android', '--', managed],
@@ -209,13 +178,12 @@ test('android records, re-checks and may waive its mainland mirror like a deskto
       'mirror',
       '--platform',
       'android',
-      '--url',
-      'https://mirror.example/apk'
+      '--allow-unverified-mirror'
     ])
   ).toMatchObject({
     command: 'mirror',
     platform: 'android',
-    url: 'https://mirror.example/apk'
+    allowUnverifiedMirror: true
   });
   expect(
     parseReleaseArgs(['verify-mirror', '--platform', 'android'])
@@ -352,12 +320,23 @@ test('check catches stale Payload projection and platform overlays', async () =>
   );
 });
 
+const sha256 = (bytes: Buffer) =>
+  crypto.createHash('sha256').update(bytes).digest('hex');
+
+// The golden fixtures' downloads hash these bytes, which the pipeline test wrote.
+const fixtureDownloads: Record<string, Buffer> = {
+  'windows-x86_64': Buffer.from('windows installer 3.1.2\n'),
+  'darwin-aarch64': Buffer.from('macos installer 3.1.1\n'),
+  'android-aarch64': Buffer.from('android apk 1.0.12825 with 3.1.2\n')
+};
+
 function publicOrigin(version: string) {
   const files = new Map();
-  const pages = new Map();
+  const mirrors = new Map<string, Buffer>();
   for (const key of LOCKSTEP_PLATFORM_KEYS) {
     const base = `${RELEASE_BASE_URL}/${version}/${key}`;
     const fileName = `BazaarPlusPlus_${version}_${key}.bin`;
+    const installer = Buffer.from(`${key} installer ${version}\n`);
     const record = (category: string, name: string) => ({
       url: `${base}/${category}/${name}`,
       size: 1,
@@ -368,7 +347,11 @@ function publicOrigin(version: string) {
       version,
       platform: key,
       gitCommit: 'a'.repeat(40),
-      installer: record('installer', fileName),
+      installer: {
+        url: `${base}/installer/${fileName}`,
+        size: installer.length,
+        sha256: sha256(installer)
+      },
       updater: { ...record('updater', fileName), signature: 'signature' },
       signatureFile: record('updater', `${fileName}.sig`),
       managedPayload: {
@@ -388,7 +371,9 @@ function publicOrigin(version: string) {
       fileName,
       verified: true
     });
-    pages.set(mirror, fileName);
+    mirrors.set(mirror, installer);
+  }
+  for (const [key, bytes] of Object.entries(fixtureDownloads)) {
     const published = JSON.parse(
       fs.readFileSync(
         path.join(import.meta.dirname, 'fixtures', `latest/${key}.json`),
@@ -396,29 +381,15 @@ function publicOrigin(version: string) {
       )
     );
     files.set(`${RELEASE_BASE_URL}/latest/${key}.json`, published);
-    const { url, mainlandUrl } = published.downloads[key];
-    pages.set(mainlandUrl, decodeURIComponent(url.split('/').at(-1)));
+    mirrors.set(published.downloads[key].mainlandUrl, bytes);
   }
-  const android = 'android-aarch64';
-  const published = JSON.parse(
-    fs.readFileSync(
-      path.join(import.meta.dirname, 'fixtures', `latest/${android}.json`),
-      'utf8'
-    )
-  );
-  files.set(`${RELEASE_BASE_URL}/latest/${android}.json`, published);
-  const { app, mainlandUrl } = published.downloads[android];
-  if (mainlandUrl)
-    pages.set(mainlandUrl, decodeURIComponent(app.url.split('/').at(-1)));
   return vi.fn(async (url: string) => {
     if (files.has(url))
       return new Response(JSON.stringify(files.get(url)), { status: 200 });
-    if (pages.has(url))
-      return new Response(
-        `<html><head><title>${pages.get(url)} - 蓝奏云</title></head></html>`,
-        { status: 200 }
-      );
-    return new Response('', { status: 404 });
+    const bytes = mirrors.get(url);
+    return bytes
+      ? new Response(new Uint8Array(bytes), { status: 200 })
+      : new Response('', { status: 404 });
   });
 }
 
@@ -447,6 +418,9 @@ test('verify-mirror is read-only: no store, no source alignment, VERSION only wi
   await main(['verify-mirror', '--latest'], options);
   expect(options.log).toHaveBeenLastCalledWith(
     'Mainland mirror verified for 3.1.2 / 3.1.1'
+  );
+  expect(options.log).toHaveBeenCalledWith(
+    expect.stringMatching(/^android-aarch64: verified https:/)
   );
   await main(['verify-mirror', '--latest', '--platform', 'macos'], options);
   expect(options.log).toHaveBeenLastCalledWith(
@@ -499,13 +473,6 @@ const goldenFiles = [
   'latest/windows-x86_64.json',
   'latest/android-aarch64.json'
 ];
-const anchorMirrors: Record<string, string> = {
-  'https://cauyxy.lanzout.com/bppwin311': 'BazaarPlusPlus_3.1.1_x64-setup.exe',
-  'https://cauyxy.lanzout.com/bppmac311': 'BazaarPlusPlus_3.1.1_aarch64.dmg',
-  'https://cauyxy.lanzout.com/bppwin312': 'BazaarPlusPlus_3.1.2_x64-setup.exe',
-  'https://cauyxy.lanzout.com/bppapk312':
-    'BazaarPlusPlus_3.1.2_android-aarch64.apk'
-};
 
 function commitFixture(cwd: string, message: string) {
   runFixtureGit(['add', '-A'], { cwd });
@@ -533,12 +500,27 @@ test('publish pipeline reproduces the shared fixtures', async () => {
       workspaceRoot,
       log: () => {},
       createStore: () => store,
-      probeMirror: async (url: string) => ({
-        status: 200,
-        html: `<html><head><title>${anchorMirrors[url]} - 蓝奏云</title></head></html>`
-      }),
       ...extra
     });
+  // The fixtures keep the share-page addresses their consumers pin, which
+  // mirror no longer produces: it derives the address from the mirror host.
+  const recordMirror = async (version: string, key: string, url: string) => {
+    const fragment = JSON.parse(
+      (await store.get(fragmentKey(version, key)))!.bytes.toString()
+    );
+    const record = buildMirrorRecord({
+      version,
+      platform: key,
+      url,
+      fileName: mirrorFileName(fragment),
+      verified: true
+    });
+    await store.put(
+      mirrorRecordKey(version, key),
+      Buffer.from(JSON.stringify(record)),
+      { ifNoneMatch: true }
+    );
+  };
   const release = async (version: string) => {
     fs.writeFileSync(path.join(workspaceRoot, 'VERSION'), `${version}\n`);
     await run(['sync']);
@@ -583,13 +565,16 @@ test('publish pipeline reproduces the shared fixtures', async () => {
   });
   await run(['upload', '--platform', 'windows']);
   await run(['upload', '--platform', 'macos']);
-  await run([
-    'mirror-all',
-    '--windows-url',
-    'https://cauyxy.lanzout.com/bppwin311',
-    '--macos-url',
+  await recordMirror(
+    '3.1.1',
+    'windows-x86_64',
+    'https://cauyxy.lanzout.com/bppwin311'
+  );
+  await recordMirror(
+    '3.1.1',
+    'darwin-aarch64',
     'https://cauyxy.lanzout.com/bppmac311'
-  ]);
+  );
   await run(['promote'], { now: new Date('2026-09-19T00:00:00.000Z') });
 
   const aheadCommit = await release('3.1.2');
@@ -598,13 +583,11 @@ test('publish pipeline reproduces the shared fixtures', async () => {
     signature: 'windows-signature-3.1.2\n'
   });
   await run(['upload', '--platform', 'windows']);
-  await run([
-    'mirror',
-    '--platform',
-    'windows',
-    '--url',
+  await recordMirror(
+    '3.1.2',
+    'windows-x86_64',
     'https://cauyxy.lanzout.com/bppwin312'
-  ]);
+  );
   await run(['promote', '--platform', 'windows'], {
     now: new Date('2026-09-20T00:00:00.000Z')
   });
@@ -614,13 +597,11 @@ test('publish pipeline reproduces the shared fixtures', async () => {
     gitCommit: aheadCommit,
     baseUrl: RELEASE_BASE_URL
   });
-  await run([
-    'mirror',
-    '--platform',
-    'android',
-    '--url',
+  await recordMirror(
+    '3.1.2',
+    'android-aarch64',
     'https://cauyxy.lanzout.com/bppapk312'
-  ]);
+  );
   const latestBefore = (await store.get('latest.json'))!.bytes;
   await run(['promote', '--platform', 'android'], {
     now: new Date('2026-09-21T00:00:00.000Z')
@@ -648,6 +629,53 @@ test('publish pipeline reproduces the shared fixtures', async () => {
       fs.writeFileSync(golden, produced);
     expect(produced, file).toBe(fs.readFileSync(golden, 'utf8'));
   }
+});
+
+test('mirror pushes the uploaded App APK, records the derived address once, and promote publishes it', async () => {
+  const options = fixture();
+  const version = readProductVersion(options.workspaceRoot);
+  const store = new MemoryStore();
+  const network = mirrorNetwork(store, RELEASE_BASE_URL);
+  const runRsync = vi.fn(network.runRsync);
+  const run = (args: string[]) =>
+    main(args, {
+      ...options,
+      createStore: () => store,
+      fetchImpl: network.fetchImpl,
+      runRsync
+    });
+  const { fragment } = await uploadAndroid(store, {
+    version,
+    gitCommit: 'a'.repeat(40),
+    baseUrl: RELEASE_BASE_URL
+  });
+  vi.stubEnv('MAINLAND_MIRROR_SSH_KEY', '');
+  await expect(run(['mirror', '--platform', 'android'])).rejects.toThrow(
+    /mirror requires MAINLAND_MIRROR_SSH_KEY/
+  );
+  expect(runRsync).not.toHaveBeenCalled();
+  vi.stubEnv('MAINLAND_MIRROR_SSH_KEY', 'mirror-key\n');
+  await run(['mirror', '--platform', 'android']);
+  const apk = `BazaarPlusPlus_${version}_android-aarch64.apk`;
+  const url = `https://1.14.150.142/bazaarplusplus/${version}/${apk}`;
+  expect(options.log).toHaveBeenLastCalledWith(
+    `Recorded android mainland mirror for ${version}: ${url}`
+  );
+  expect(network.pushes[0].files).toEqual({
+    [`${version}/${apk}`]: store.objects.get(
+      fragment.app.url.slice(RELEASE_BASE_URL.length + 1)
+    )!.bytes
+  });
+  await run(['promote', '--platform', 'android']);
+  const published = JSON.parse(
+    (await store.get('latest/android-aarch64.json'))!.bytes.toString()
+  );
+  expect(published.downloads['android-aarch64'].mainlandUrl).toBe(url);
+  runRsync.mockClear();
+  await expect(run(['mirror', '--platform', 'android'])).rejects.toThrow(
+    /has already published/
+  );
+  expect(runRsync).not.toHaveBeenCalled();
 });
 
 test('internal ownership dispatch requires a live build lock and does not run product alignment', async () => {

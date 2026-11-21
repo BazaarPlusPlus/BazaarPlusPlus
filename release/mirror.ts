@@ -1,6 +1,15 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { sha256File } from './android-apk.ts';
 import {
   fragmentKey,
   installerFileName,
+  mirrorArtifact,
   mirrorFileName,
   mirrorRecordKey,
   platformManifestPath,
@@ -11,7 +20,8 @@ import {
 import type {
   MirrorRecord,
   PlatformFragment,
-  PlatformManifest
+  PlatformManifest,
+  ReleaseArtifact
 } from './manifest.ts';
 import { assertProductVersion } from './product.ts';
 import type { ProductVersion } from './product.ts';
@@ -23,13 +33,20 @@ import {
 } from './release-platforms.ts';
 import type { ReleasePlatformKey } from './release-platforms.ts';
 
-export type MirrorPage =
-  | { status: number; html: string; error?: undefined }
-  | { error: Error; status?: undefined; html?: undefined };
+// The self-hosted Mainland Mirror (docs/adr/0002-mainland-mirror-check.md).
+// Its authorized_keys forces `rrsync -wo -no-del -no-overwrite` on the served
+// root: remote paths are relative to it, and an existing file is skipped while
+// rsync still exits 0, so only the byte check after a push catches a wrong one.
+export const MAINLAND_MIRROR = Object.freeze({
+  baseUrl: 'https://1.14.150.142/bazaarplusplus',
+  sshTarget: 'bpp-mirror@1.14.150.142',
+  hostKey:
+    '1.14.150.142 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII5gPFM50Rx1AaeL5aic3VbTeYintL6QefTEUMX6c0Dj'
+});
 
 export type MirrorOutcome =
   | 'verified'
-  | 'missing-or-misnamed'
+  | 'missing-or-different'
   | 'unverifiable'
   | 'waived';
 
@@ -46,18 +63,22 @@ export interface MirrorCheckResult {
   detail: string;
 }
 
-export type ProbeMirror = (url: string) => Promise<MirrorPage>;
+export type RunRsync = (args: readonly string[]) => Promise<void> | void;
 
-export interface FetchMirrorPageOptions {
+export interface PushMainlandMirrorOptions {
+  version: ProductVersion;
+  fragment: PlatformFragment;
+  sshKey: string;
   fetchImpl?: FetchImpl;
-  timeoutMs?: number;
+  runRsync?: RunRsync;
 }
 
 export interface CheckMainlandMirrorOptions {
   platform: string;
   url: string;
   fileName: string;
-  probeMirror: ProbeMirror;
+  artifact: Pick<ReleaseArtifact, 'size' | 'sha256'>;
+  fetchImpl?: FetchImpl;
 }
 
 export interface AssertMainlandMirrorsOptions {
@@ -72,7 +93,6 @@ export interface VerifyMainlandMirrorsOptions {
   platform?: string;
   latest?: boolean;
   fetchImpl?: FetchImpl;
-  probeMirror?: ProbeMirror;
   log?: (line: string) => void;
 }
 
@@ -81,95 +101,146 @@ export interface MirrorVerification {
   results: MirrorCheckResult[];
 }
 
-type MirrorTarget =
-  | { platform: string; url: string; fileName: string }
-  | { platform: string; url: null; fileName: string };
-
-// Lanzou returns HTTP 200 for missing shares too. Use a desktop user agent to get the file title or missing-share marker.
-const MISSING_MARKER = '文件取消分享';
-const TITLE_SUFFIX = ' - 蓝奏云';
-export const MIRROR_USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-const PAGE_TIMEOUT_MS = 20_000;
-const PAGE_MAX_BYTES = 512 * 1024;
-
-function decodeEntities(text: string): string {
-  return text
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&#39;', "'")
-    .replaceAll('&amp;', '&');
+interface MirrorTarget {
+  platform: string;
+  url: string | null;
+  fileName: string;
+  artifact: ReleaseArtifact;
 }
 
-export function classifyMirrorPage(
-  page: MirrorPage,
+const JSON_TIMEOUT_MS = 20_000;
+const JSON_MAX_BYTES = 512 * 1024;
+// The mirror serves about 4 Mbit/s: the 67 MB Android App APK takes 2-3 minutes.
+const TRANSFER_TIMEOUT_MS = 10 * 60_000;
+
+export function mainlandMirrorUrl(
+  version: ProductVersion,
   fileName: string
-): MirrorClassification {
-  if (page.error)
-    return {
-      outcome: 'unverifiable',
-      detail: `request failed: ${page.error.message}`
-    };
-  if (page.status !== 200)
-    return { outcome: 'unverifiable', detail: `HTTP ${page.status}` };
-  const html = page.html ?? '';
-  if (html.includes(MISSING_MARKER))
-    return {
-      outcome: 'missing-or-misnamed',
-      detail: `share is missing or cancelled (${MISSING_MARKER})`
-    };
-  const match = /<title>([^<]*)<\/title>/i.exec(html);
-  if (!match) return { outcome: 'unverifiable', detail: 'page has no <title>' };
-  const title = decodeEntities(match[1]).trim();
-  if (!title.endsWith(TITLE_SUFFIX))
-    return {
-      outcome: 'unverifiable',
-      detail: `unexpected page title ${JSON.stringify(title)}`
-    };
-  const served = title.slice(0, -TITLE_SUFFIX.length).trim();
-  if (served !== fileName)
-    return {
-      outcome: 'missing-or-misnamed',
-      detail: `share serves ${served}, expected ${fileName}`
-    };
-  return { outcome: 'verified', detail: `share serves ${fileName}` };
+): string {
+  return `${MAINLAND_MIRROR.baseUrl}/${version}/${encodeURIComponent(fileName)}`;
 }
 
-async function readBounded(
-  response: Response,
-  maxBytes: number
-): Promise<string> {
-  if (!response.body) return '';
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of response.body) {
-    size += chunk.length;
-    if (size > maxBytes) throw new Error('mirror page exceeds expected size');
-    chunks.push(Buffer.from(chunk));
+function runRsync(args: readonly string[]): void {
+  const result = spawnSync('rsync', args, { stdio: 'inherit' });
+  if (result.error)
+    throw new Error(`Cannot start rsync: ${result.error.message}`);
+  if (result.status !== 0)
+    throw new Error(
+      `rsync to the mainland mirror failed (${result.signal ?? `exit ${result.status}`})`
+    );
+}
+
+async function download(
+  artifact: ReleaseArtifact,
+  file: string,
+  fetchImpl: FetchImpl
+): Promise<void> {
+  const response = await fetchImpl(artifact.url, {
+    headers: {},
+    signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS)
+  });
+  if (response.status !== 200 || !response.body) {
+    await response.body?.cancel();
+    throw new Error(`${artifact.url} responded with HTTP ${response.status}`);
   }
-  return Buffer.concat(chunks).toString('utf8');
+  await pipeline(Readable.fromWeb(response.body), fs.createWriteStream(file));
+  const size = fs.statSync(file).size;
+  const sha256 = await sha256File(file);
+  if (size !== artifact.size || sha256 !== artifact.sha256)
+    throw new Error(
+      `${artifact.url} is ${size} bytes with sha256 ${sha256}; the fragment records ${artifact.size} bytes with sha256 ${artifact.sha256}`
+    );
 }
 
-export async function fetchMirrorPage(
+// Downloads the release artifact, proves it is the uploaded one, and pushes it
+// as <version>/<fileName>; the key and known_hosts live only for the push.
+export async function pushMainlandMirror({
+  version,
+  fragment,
+  sshKey,
+  fetchImpl = fetch,
+  runRsync: run = runRsync
+}: PushMainlandMirrorOptions): Promise<void> {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-mirror-'));
+  try {
+    const staging = path.join(work, 'staging', version);
+    fs.mkdirSync(staging, { recursive: true });
+    await download(
+      mirrorArtifact(fragment),
+      path.join(staging, mirrorFileName(fragment)),
+      fetchImpl
+    );
+    const key = path.join(work, 'key');
+    const knownHosts = path.join(work, 'known_hosts');
+    // OpenSSH refuses a private key without its final newline.
+    fs.writeFileSync(key, sshKey.endsWith('\n') ? sshKey : `${sshKey}\n`, {
+      mode: 0o600
+    });
+    fs.writeFileSync(knownHosts, `${MAINLAND_MIRROR.hostKey}\n`);
+    // openrsync rejects --chmod; without -p the server creates 0644 files.
+    await run([
+      '-rt',
+      '-e',
+      `ssh -i ${key} -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes`,
+      staging,
+      `${MAINLAND_MIRROR.sshTarget}:`
+    ]);
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+async function classifyMirror(
   url: string,
-  {
-    fetchImpl = fetch,
-    timeoutMs = PAGE_TIMEOUT_MS
-  }: FetchMirrorPageOptions = {}
-): Promise<MirrorPage> {
+  { size, sha256 }: Pick<ReleaseArtifact, 'size' | 'sha256'>,
+  fetchImpl: FetchImpl
+): Promise<MirrorClassification> {
   try {
     const response = await fetchImpl(url, {
-      headers: { 'user-agent': MIRROR_USER_AGENT, accept: 'text/html' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs)
+      headers: {},
+      signal: AbortSignal.timeout(TRANSFER_TIMEOUT_MS)
     });
+    if (response.status !== 200) {
+      await response.body?.cancel();
+      return response.status === 404
+        ? { outcome: 'missing-or-different', detail: 'HTTP 404' }
+        : { outcome: 'unverifiable', detail: `HTTP ${response.status}` };
+    }
+    const length = response.headers.get('content-length');
+    if (length !== null && Number(length) !== size) {
+      await response.body?.cancel();
+      return {
+        outcome: 'missing-or-different',
+        detail: `serves ${length} bytes, expected ${size}`
+      };
+    }
+    const hash = crypto.createHash('sha256');
+    let served = 0;
+    if (response.body)
+      for await (const chunk of response.body) {
+        served += chunk.length;
+        hash.update(chunk);
+      }
+    const digest = hash.digest('hex');
+    if (served !== size)
+      return {
+        outcome: 'missing-or-different',
+        detail: `serves ${served} bytes, expected ${size}`
+      };
+    if (digest !== sha256)
+      return {
+        outcome: 'missing-or-different',
+        detail: `serves sha256 ${digest}, expected ${sha256}`
+      };
     return {
-      status: response.status,
-      html: await readBounded(response, PAGE_MAX_BYTES)
+      outcome: 'verified',
+      detail: `serves ${size} bytes with sha256 ${sha256}`
     };
   } catch (error) {
-    return { error: error instanceof Error ? error : new Error(String(error)) };
+    return {
+      outcome: 'unverifiable',
+      detail: `request failed: ${error instanceof Error ? error.message : String(error)}`
+    };
   }
 }
 
@@ -177,19 +248,25 @@ export async function checkMainlandMirror({
   platform,
   url,
   fileName,
-  probeMirror
+  artifact,
+  fetchImpl = fetch
 }: CheckMainlandMirrorOptions): Promise<MirrorCheckResult> {
-  const page = await probeMirror(url);
-  return { platform, url, fileName, ...classifyMirrorPage(page, fileName) };
+  return {
+    platform,
+    url,
+    fileName,
+    ...(await classifyMirror(url, artifact, fetchImpl))
+  };
 }
 
 export function describeMirrorResult(result: MirrorCheckResult): string {
   return `${result.platform}: ${result.outcome} ${result.url} (${result.detail})`;
 }
 
-const RECORD_REMEDY = 'fix the share or pass --allow-unverified-mirror';
+const RECORD_REMEDY =
+  're-run mirror once the server serves the release bytes (it never overwrites a file; remove a wrong one by hand), or pass --allow-unverified-mirror';
 export const VERIFY_REMEDY =
-  'fix or re-upload the share and re-run mirror before promotion, or publish a new product version';
+  'make the mirror server serve the release bytes at that address (it never overwrites a file; remove a wrong one by hand), and re-run mirror if the version is not promoted yet';
 
 export function assertMainlandMirrors(
   results: MirrorCheckResult[],
@@ -215,6 +292,21 @@ export function assertMainlandMirrors(
   return results;
 }
 
+async function readBounded(
+  response: Response,
+  maxBytes: number
+): Promise<string> {
+  if (!response.body) return '';
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of response.body) {
+    size += chunk.length;
+    if (size > maxBytes) throw new Error('response exceeds expected size');
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 async function fetchJson(
   url: string,
   fetchImpl: FetchImpl,
@@ -223,7 +315,7 @@ async function fetchJson(
 ): Promise<unknown> {
   const response = await fetchImpl(url, {
     headers: { accept: 'application/json' },
-    signal: AbortSignal.timeout(PAGE_TIMEOUT_MS)
+    signal: AbortSignal.timeout(JSON_TIMEOUT_MS)
   });
   if (response.status === 404) {
     await response.body?.cancel();
@@ -234,7 +326,7 @@ async function fetchJson(
     throw new Error(`${description} responded with HTTP ${response.status}`);
   }
   try {
-    return JSON.parse(await readBounded(response, PAGE_MAX_BYTES));
+    return JSON.parse(await readBounded(response, JSON_MAX_BYTES));
   } catch {
     throw new Error(`Invalid JSON in ${description}`);
   }
@@ -249,13 +341,13 @@ function platformKeysFor(
   return latest ? RELEASE_PLATFORM_KEYS : LOCKSTEP_PLATFORM_KEYS;
 }
 
+// Checks the recorded address, whatever its host: 6.4.3 was promoted with a mirror on another server.
 export async function verifyMainlandMirrors({
   baseUrl,
   version = null,
   platform = undefined,
   latest = false,
   fetchImpl = fetch,
-  probeMirror = (url) => fetchMirrorPage(url, { fetchImpl }),
   log = () => {}
 }: VerifyMainlandMirrorsOptions): Promise<MirrorVerification> {
   const origin = baseUrl.replace(/\/$/, '');
@@ -273,12 +365,12 @@ export async function verifyMainlandMirrors({
       );
       versions.push(manifest.version);
       const download = manifest.downloads[key];
+      const artifact = download.app === undefined ? download : download.app;
       targets.push({
         platform: key,
         url: download.mainlandUrl ?? null,
-        fileName: installerFileName(
-          download.app === undefined ? download.url : download.app.url
-        )
+        fileName: installerFileName(artifact.url),
+        artifact
       });
     }
     target = [...new Set(versions)].join(' / ');
@@ -303,16 +395,23 @@ export async function verifyMainlandMirrors({
         key,
         fileName
       );
-      targets.push({ platform: key, url: record.url, fileName });
+      targets.push({
+        platform: key,
+        url: record.url,
+        fileName,
+        artifact: mirrorArtifact(fragment)
+      });
     }
   }
   const results: MirrorCheckResult[] = [];
-  for (const entry of targets)
+  for (const { url, ...entry } of targets)
     results.push(
-      entry.url
-        ? await checkMainlandMirror({ ...entry, probeMirror })
+      url
+        ? await checkMainlandMirror({ ...entry, url, fetchImpl })
         : {
-            ...entry,
+            platform: entry.platform,
+            url,
+            fileName: entry.fileName,
             outcome: 'waived',
             detail: 'promoted without a mainland mirror'
           }

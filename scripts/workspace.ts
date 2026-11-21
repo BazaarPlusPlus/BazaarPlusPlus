@@ -86,7 +86,7 @@ Configuration: BPP_CONFIG_HOME or ~/.config/bazaarplusplus (outside checkouts).
   config.toml     every value, one section per purpose:
 ${sectionHelp()}
   keys/          tauri-updater.key, tauri-updater.key.pub, AuthKey_<APPLE_API_KEY>.p8,
-                 developer-id.p12, android-release.p12
+                 developer-id.p12, android-release.p12, mainland-mirror-ssh-key
 A relative APPLE_API_KEY_PATH resolves against the configuration directory.
 Any other file in the directory is yours; tooling neither reads nor writes it.
 
@@ -99,7 +99,8 @@ Duplicate keys, unknown sections and nested values are rejected without echoing
 credential values. The analyzer section is optional; only state location and
 resource overrides belong there. Fixed source and publication settings live in code.
 server/analyzer profiles refresh managed projections before running the command.
-release exports [cloudflare] CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; the R2
+release exports [cloudflare] CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, and
+MAINLAND_MIRROR_SSH_KEY from its keys/ file in release/github-secrets.json; the R2
 S3 pair every store needs is derived from the token (release/r2-store.ts).
 signing stages [signing] and keys/ into a private temporary BPP_SIGNING_SECRETS_DIR
 removed after the command; an exported BPP_SIGNING_SECRETS_DIR is used as given.

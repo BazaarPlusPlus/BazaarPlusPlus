@@ -19,3 +19,5 @@ mod 对游戏的全部构建期依赖是 `Managed/` 目录下的程序集，`Man
 2026-11-05 修订：[ADR 0015](0015-steam-snapshot-capture.md) 重开了上文否决的 CI 自动采集：桌面六个条目都可以从 Steam depot 自动采集。锁只通过 PR 更新的决定不变。
 
 2026-11-07 细化：按 mod ADR 0012 已有的 Host 边界，只有桌面 Host C# 的改动不再选择 Android 检查。Android 项目的源码依赖来自 Core 与 Mobile，不编译桌面 Host C#；桌面目录里被 Android 链接的资源和 JSON、共享源码、测试与构建输入仍按原规则选择。Windows 触发、手动完整验证、发布验证和不可靠 diff 的全量回退不变。路径判定仍由 `classifyChanges` 维护。
+
+2026-11-21 注：上文代价里"蓝奏云镜像上传仍是手动步骤"不再成立：大陆镜像改为自建服务器，由发版工作流推送，见 [ADR 0002](0002-mainland-mirror-check.md) 的 2026-11-21 注。

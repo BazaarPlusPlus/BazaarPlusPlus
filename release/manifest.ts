@@ -260,10 +260,13 @@ export function installerFileName(installerUrl: string): string {
   return fileName;
 }
 
+// The download the Mainland Mirror serves: the desktop installer or the Android App APK.
+export function mirrorArtifact(fragment: PlatformFragment): ReleaseArtifact {
+  return fragment.kind === 'android-app' ? fragment.app : fragment.installer;
+}
+
 export function mirrorFileName(fragment: PlatformFragment): string {
-  return installerFileName(
-    fragment.kind === 'android-app' ? fragment.app.url : fragment.installer.url
-  );
+  return installerFileName(mirrorArtifact(fragment).url);
 }
 
 export function assertMirrorUrl(value: string): string {
