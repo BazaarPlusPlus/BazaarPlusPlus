@@ -41,11 +41,14 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGames": [
-        "1.0.12825 · Publisher",
-        "1.0.6 · Google Play"
-      ],
-      "onlineGame": null,
+      "publisher": {
+        "version": "1.0.12825",
+        "conclusion": "Adapted"
+      },
+      "play": {
+        "version": "1.0.6",
+        "conclusion": "Adapted"
+      },
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -122,11 +125,14 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGames": [
-        "1.0.12825 · Publisher",
-        "1.0.6 · Google Play"
-      ],
-      "onlineGame": null,
+      "publisher": {
+        "version": "1.0.12825",
+        "conclusion": "Adapted"
+      },
+      "play": {
+        "version": "1.0.6",
+        "conclusion": "Adapted"
+      },
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -205,11 +211,14 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGames": [
-        "1.0.12825 · Publisher",
-        "1.0.6 · Google Play"
-      ],
-      "onlineGame": null,
+      "publisher": {
+        "version": "1.0.12825",
+        "conclusion": "Adapted"
+      },
+      "play": {
+        "version": "1.0.6",
+        "conclusion": "Adapted"
+      },
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -284,11 +293,14 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGames": [
-        "1.0.12825 · Publisher",
-        "1.0.6 · Google Play"
-      ],
-      "onlineGame": null,
+      "publisher": {
+        "version": "1.0.12825",
+        "conclusion": "Adapted"
+      },
+      "play": {
+        "version": "1.0.6",
+        "conclusion": "Adapted"
+      },
       "size": "33 byte",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
@@ -370,8 +382,8 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
-      "adaptedGames": null,
-      "onlineGame": null,
+      "publisher": null,
+      "play": null,
       "size": null,
       "sha256": null,
       "download": {
@@ -450,8 +462,8 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "Unavailable",
-      "adaptedGames": null,
-      "onlineGame": null,
+      "publisher": null,
+      "play": null,
       "size": null,
       "sha256": null,
       "download": {
@@ -530,11 +542,14 @@
       "requirements": "Android 11+ · arm64",
       "notice": "Features differ from desktop, and undiscovered issues may remain.",
       "version": "v3.1.2",
-      "adaptedGames": [
-        "1.0.12825 · Publisher",
-        "1.0.6 · Google Play"
-      ],
-      "onlineGame": null,
+      "publisher": {
+        "version": "1.0.12825",
+        "conclusion": "Adapted"
+      },
+      "play": {
+        "version": "1.0.6",
+        "conclusion": "Adapted"
+      },
       "size": "2.8 GB",
       "sha256": "984288b806422b6f3f5882e4f69083148e63da7651384cd0691521aa493e7fb0",
       "download": {
