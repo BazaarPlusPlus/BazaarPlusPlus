@@ -3,6 +3,7 @@ import { type OpenedBundle, openBundle } from '../bundle/open';
 import { BUNDLE_CONTENT_TYPE, BUNDLE_VERSION } from '../bundle/prefix';
 import type { Env } from '../env';
 import { apiError, HttpError } from '../errors';
+import { clientRateLimitKey } from '../http/request';
 import type { BundleReceipt } from '../http/schemas';
 import { MAX_BUNDLE_BYTES } from '../limits';
 import { logError, logEvent } from '../observability';
@@ -169,6 +170,20 @@ export async function ingestBundle(
   env: Env,
   requestId: string
 ): Promise<{ status: 200 | 201; receipt: BundleReceipt }> {
+  // Counted before any header or body is read, so a flood costs one limiter call each.
+  let rateLimit: RateLimitOutcome;
+  try {
+    rateLimit = await env.BUNDLE_UPLOAD_RATE_LIMITER.limit({
+      key: clientRateLimitKey(request)
+    });
+  } catch {
+    throw apiError('storage_unavailable', 'Upload rate limiter is unavailable');
+  }
+  if (!rateLimit.success) {
+    throw apiError('rate_limited', 'Bundle upload rate exceeded', {
+      headers: { 'Retry-After': '60' }
+    });
+  }
   // Workers advance Date.now() only across I/O, so these timings omit CPU work.
   const startedAt = Date.now();
   if (request.headers.get('Content-Type') !== BUNDLE_CONTENT_TYPE) {

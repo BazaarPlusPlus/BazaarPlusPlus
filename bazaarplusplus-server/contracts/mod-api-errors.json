@@ -124,7 +124,7 @@
       "code": "rate_limited",
       "status": 429,
       "retryable": true,
-      "meaning": "Ghost request rate exceeded"
+      "meaning": "Upload or Ghost request rate exceeded"
     },
     {
       "code": "internal_error",

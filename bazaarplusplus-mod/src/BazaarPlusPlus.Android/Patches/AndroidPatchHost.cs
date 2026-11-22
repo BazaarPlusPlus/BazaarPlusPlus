@@ -74,6 +74,30 @@ internal static class AndroidPatchHost
             }
         }
         InstallCombatSpeedDetour();
+        if (composition != null)
+            InstallMessageStreamDetour();
+    }
+
+    private static void InstallMessageStreamDetour()
+    {
+        try
+        {
+            var bodies = RunMessageStreamCommandDetour.Install();
+            BppLog.InfoEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.patch.installed"),
+                ("patch_type", typeof(RunMessageStreamCommandDetour).FullName),
+                ("targets", "Il2CppNetworking.HttpGameClient.SendCommand"),
+                ("native_bodies", bodies)
+            );
+        }
+        catch (Exception exception)
+        {
+            BppLog.ErrorEvent(
+                new BppLogEvent(BppLogFeatureScope.Android, "android.patch.failed"),
+                exception,
+                ("patch_type", typeof(RunMessageStreamCommandDetour).FullName)
+            );
+        }
     }
 
     private static void InstallCombatSpeedDetour()
@@ -166,6 +190,7 @@ internal static class AndroidPatchHost
             ("replay_guard_messages", AndroidReplayGuard.IntakeMessages),
             ("replay_guard_capture_skips", AndroidReplayGuard.CaptureSkips),
             .. AndroidReplayPatchCounters.Summary(),
+            .. AndroidRunMessageStream.Summary(),
             ("messages", MessageSummary()),
         ];
 

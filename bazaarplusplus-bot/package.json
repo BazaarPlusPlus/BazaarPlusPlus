@@ -19,15 +19,15 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.23.0",
-    "@cloudflare/workers-types": "5.20261110.1",
+    "@cloudflare/workers-types": "5.20261114.1",
     "@types/node": "^26.6.6",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.92.0",
     "oxlint-tsgolint": "^7.0.2005",
-    "playwright": "1.65.0",
+    "playwright": "1.65.1",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12",
-    "wrangler": "4.159.0"
+    "wrangler": "4.162.0"
   },
   "overrides": {
     "miniflare": {

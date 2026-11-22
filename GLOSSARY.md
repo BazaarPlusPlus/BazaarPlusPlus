@@ -124,7 +124,7 @@ The immutable unit of upload, storage, and delivery: exactly one Run and zero or
 The immutable facts, battles, card state, and replay inputs of one completed game run, carried inside a Bundle. It excludes the Screenshot.
 
 **Run Message Stream**:
-The messages the game received and the commands it sent during one run, as the game's own bytes and in order. The desktop mod records it and the Run carries it (`bazaarplusplus-mod/docs/adr/0028-record-the-run-message-stream.md`).
+The messages the game received and the commands it sent during one run, as the game's own bytes and in order. Both mod Hosts record it and the Run carries it (`bazaarplusplus-mod/docs/adr/0028-record-the-run-message-stream.md`).
 _Avoid_: event stream, replay (a replay is one battle)
 
 **Empty Run**:

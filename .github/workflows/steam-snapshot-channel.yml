@@ -51,7 +51,7 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
         with:
           tool: just@1.58.0
       # Only the two Steam steps read the login and the access codes. A rejected
@@ -181,7 +181,7 @@ jobs:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
         with:
           tool: just@1.58.0
       # Every project resolves the online entry; mod::matrix fetches its own channel.

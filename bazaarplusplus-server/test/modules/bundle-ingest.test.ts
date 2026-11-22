@@ -181,3 +181,62 @@ describe('POST /bundles', () => {
     await expectGolden(duplicate, 'ingest-screenshot-duplicate');
   });
 });
+
+describe('POST /bundles rate limit', () => {
+  function untouchedStorage(limit: (options: { key: string }) => unknown) {
+    return {
+      ...env,
+      BUNDLE_UPLOAD_RATE_LIMITER: { limit },
+      DB: {
+        prepare() {
+          throw new Error('D1 must not be touched');
+        }
+      },
+      BUNDLE_BUCKET: {
+        put() {
+          throw new Error('R2 must not be touched');
+        }
+      }
+    } as unknown as Cloudflare.Env;
+  }
+
+  test('limits each client before reading headers, the body, or storage', async () => {
+    const keys: string[] = [];
+    const response = await worker.fetch(
+      new Request('https://mod-api-v6.bazaarplusplus.com/bundles', {
+        method: 'POST',
+        headers: {
+          'CF-Connecting-IP': '2001:db8:a:b:1:2:3:4',
+          'Content-Type': 'text/plain'
+        },
+        body: 'not a Bundle'
+      }),
+      untouchedStorage(async ({ key }) => {
+        keys.push(key);
+        return { success: false };
+      })
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(await response.json()).toMatchObject({
+      error: { code: 'rate_limited', retryable: true }
+    });
+    expect(keys).toEqual(['2001:db8:a:b::/64']);
+  });
+
+  test('fails closed with a retryable error when the limiter is unavailable', async () => {
+    const fixture = await makeBundleFixture();
+    const response = await worker.fetch(
+      uploadRequest(fixture.body, fixture.headers),
+      untouchedStorage(async () => {
+        throw new Error('limiter unavailable');
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'storage_unavailable', retryable: true }
+    });
+  });
+});

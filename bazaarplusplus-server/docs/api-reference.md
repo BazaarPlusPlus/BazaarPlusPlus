@@ -11,9 +11,9 @@ The Worker exposes exactly these routes:
 | Method | Path | Authentication |
 |---|---|---|
 | `GET` | `/health` | None |
-| `POST` | `/bundles` | None; uploader identity is a caller assertion |
+| `POST` | `/bundles` | None; per-client rate limited; uploader identity is a caller assertion |
 | `GET` | `/bundles` | `BUNDLE_SYNC_TOKEN` |
-| `GET` | `/ghost-battles` | None; per-IP rate limited |
+| `GET` | `/ghost-battles` | None; per-client rate limited |
 | `GET` | `/bazaardb/bundles` | `BAZAARDB_DELIVERY_TOKEN` |
 | `GET` | `/bot/players` | `BOT_STATS_TOKEN` |
 | `GET` | `/bot/bundles` | `BOT_STATS_TOKEN` |
@@ -33,6 +33,8 @@ X-Request-Id: <CF-Ray or server UUID>
 ```
 
 Error responses preserve route-specific headers such as `Allow` and `Retry-After`.
+
+`POST /bundles` and `GET /ghost-battles` each call their own rate-limit binding first, before any other header, query, body, D1, R2, or signing work. Both count one client key: `CF-Connecting-IP` for IPv4, its `/64` prefix for IPv6 (a client can rotate addresses inside its prefix), and the fixed `unknown` key without the header. A denied request returns `429 rate_limited` with `Retry-After: 60`; a limiter failure returns `503 storage_unavailable`. The thresholds live in `wrangler.toml`.
 
 A known path with an unsupported method returns `405` with the path's methods in `Allow`. An unknown path returns `404 not_found`. No route sends CORS headers or answers `OPTIONS`: every client is a native program, not a browser.
 
@@ -78,7 +80,7 @@ The machine-readable owner is [`contracts/mod-api-errors.json`](../contracts/mod
 | 422 | `bundle_digest_mismatch` | `false` | Complete digest mismatch |
 | 422 | `segment_digest_mismatch` | `false` | Run or Screenshot digest mismatch |
 | 422 | `run_without_battles` | `false` | Bundle has no Battle projection |
-| 429 | `rate_limited` | `true` | Ghost request rate exceeded |
+| 429 | `rate_limited` | `true` | Upload or Ghost request rate exceeded |
 | 500 | `internal_error` | `true` | Unclassified server error or invalid service configuration |
 | 503 | `storage_unavailable` | `true` | Storage, signing, or rate limiter unavailable |
 
@@ -206,7 +208,7 @@ Response `200`:
 
 ## `POST /bundles`
 
-Public ingest for one sealed Bundle. `run.player_account_id` is not authenticated and must never be treated as an authorization fact.
+Public ingest for one sealed Bundle. `run.player_account_id` is not authenticated and must never be treated as an authorization fact. The upload is [rate limited per client](#common-http-behavior) before any header or body is read; the mod treats `429` as a temporary outage, keeps the Bundle queued, and retries after `Retry-After`.
 
 Required headers:
 
@@ -297,7 +299,7 @@ Public directional Ghost projection discovery:
 GET /ghost-battles?player_account_id=account-id&limit=200
 ```
 
-The rate-limit binding is called before business query parsing or D1 access, using `CF-Connecting-IP` or the fixed `unknown` key. A denied request returns `429 rate_limited` with `Retry-After: 60` and performs no D1 query or signing.
+The route is [rate limited per client](#common-http-behavior) before business query parsing or D1 access; a denied request performs no D1 query or signing.
 
 `player_account_id` is required. `limit` defaults to 200 and accepts 1–200. Both may appear only once; unknown parameters are invalid. The server lookback is exactly five days.
 

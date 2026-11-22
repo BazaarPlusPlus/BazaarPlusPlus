@@ -155,7 +155,8 @@ export const ROUTES = [
       tags: ['Ingest'],
       summary: 'Upload one sealed Bundle',
       description:
-        'Public and unauthenticated: `run.player_account_id` is a caller assertion. The body ' +
+        'Public and unauthenticated: `run.player_account_id` is a caller assertion. Per-client ' +
+        'rate limited before any header or body is read. The body ' +
         'is the Bundle V6 binary (prefix, manifest, Run, optional Screenshot), streamed into R2 ' +
         'while length and digests are validated. Stable `invalid_bundle.details.reason` values ' +
         'are listed in `docs/api-reference.md`.',
@@ -198,6 +199,7 @@ export const ROUTES = [
         'bundle_digest_mismatch',
         'segment_digest_mismatch',
         'run_without_battles',
+        'rate_limited',
         'storage_unavailable'
       ]
     }
@@ -217,7 +219,7 @@ export const ROUTES = [
       tags: ['Discovery'],
       summary: 'Discover Ghost Battles against a player',
       description:
-        'Per-IP rate limited before parsing. Looks back exactly five days. An unknown account ' +
+        'Per-client rate limited before parsing. Looks back exactly five days. An unknown account ' +
         'returns an empty list.',
       requestParams: { query: GhostQuery },
       responses: {

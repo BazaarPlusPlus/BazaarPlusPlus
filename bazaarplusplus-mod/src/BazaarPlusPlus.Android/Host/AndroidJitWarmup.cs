@@ -35,6 +35,8 @@ internal sealed class AndroidJitWarmup
         typeof(AndroidGameIds),
         typeof(AndroidCardFacets),
         typeof(AndroidReplayMessages),
+        typeof(AndroidRunMessageStream),
+        typeof(RunMessageStreamCommandDetour),
         typeof(AndroidClientCache),
         typeof(NetMessageGameSim),
         typeof(NetMessageCombatSim),

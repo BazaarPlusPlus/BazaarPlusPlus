@@ -591,7 +591,7 @@
           "Ingest"
         ],
         "summary": "Upload one sealed Bundle",
-        "description": "Public and unauthenticated: `run.player_account_id` is a caller assertion. The body is the Bundle V6 binary (prefix, manifest, Run, optional Screenshot), streamed into R2 while length and digests are validated. Stable `invalid_bundle.details.reason` values are listed in `docs/api-reference.md`.",
+        "description": "Public and unauthenticated: `run.player_account_id` is a caller assertion. Per-client rate limited before any header or body is read. The body is the Bundle V6 binary (prefix, manifest, Run, optional Screenshot), streamed into R2 while length and digests are validated. Stable `invalid_bundle.details.reason` values are listed in `docs/api-reference.md`.",
         "parameters": [
           {
             "in": "header",
@@ -773,6 +773,30 @@
               }
             }
           },
+          "429": {
+            "description": "- `rate_limited` (retryable): Upload or Ghost request rate exceeded",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
             "headers": {
@@ -818,7 +842,7 @@
           "Discovery"
         ],
         "summary": "Discover Ghost Battles against a player",
-        "description": "Per-IP rate limited before parsing. Looks back exactly five days. An unknown account returns an empty list.",
+        "description": "Per-client rate limited before parsing. Looks back exactly five days. An unknown account returns an empty list.",
         "parameters": [
           {
             "in": "query",
@@ -880,7 +904,7 @@
             }
           },
           "429": {
-            "description": "- `rate_limited` (retryable): Ghost request rate exceeded",
+            "description": "- `rate_limited` (retryable): Upload or Ghost request rate exceeded",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
