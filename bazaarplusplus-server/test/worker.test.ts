@@ -36,10 +36,10 @@ test('GET /health reports liveness without dependency access', async () => {
   expect(response.headers.get('cache-control')).toBe('no-store');
   expect(response.headers.get('x-request-id')).toBeTruthy();
 
-  const body = (await response.json()) as {
+  const body = await response.json<{
     status: string;
     server_time_ms: number;
-  };
+  }>();
   expect(body).toMatchObject({ status: 'ok' });
   expect(Number.isSafeInteger(body.server_time_ms)).toBe(true);
 });

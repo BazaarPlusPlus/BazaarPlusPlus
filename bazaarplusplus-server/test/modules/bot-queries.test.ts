@@ -86,16 +86,16 @@ test('account pages preserve the fixed window and equal-timestamp cursor without
   await seed('pages', 7, FROM - 1);
   const firstResponse = await request('/bot/bundles?account_id=pages');
   expect(firstResponse.status).toBe(200);
-  const first = (await firstResponse.json()) as BotBundlesResponse;
+  const first = await firstResponse.json<BotBundlesResponse>();
   expect(first.items).toHaveLength(100);
   expect(first.window).toEqual({ stored_from_ms: FROM, stored_before_ms: NOW });
   expect(first.items[0].download_url).toContain('X-Amz-Signature=');
   const last = first.next_after!;
-  const second = (await (
+  const second = await (
     await request(
       `/bot/bundles?account_id=pages&stored_from_ms=${FROM}&stored_before_ms=${NOW}&after_stored_at_ms=${last.stored_at_ms}&after_bundle_id=${last.bundle_id}`
     )
-  ).json()) as BotBundlesResponse;
+  ).json<BotBundlesResponse>();
   expect(second.items).toHaveLength(3);
   expect(second.next_after).toBeNull();
   expect(

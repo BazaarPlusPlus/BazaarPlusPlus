@@ -68,10 +68,10 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
     collectionRequest(`01J9${String(1948).padStart(22, '0')}`),
     env
   );
-  const page = (await response.json()) as {
+  const page = await response.json<{
     items: unknown[];
     next_after: { available_at_ms: number; bundle_id: string } | null;
-  };
+  }>();
   expect(page.items).toHaveLength(50);
   expect(page.next_after).toEqual({
     available_at_ms: AVAILABLE,
@@ -89,10 +89,10 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
     ),
     env
   );
-  const feedPage = (await feedResponse.json()) as {
+  const feedPage = await feedResponse.json<{
     items: Array<{ bundle_id: string }>;
     next_after: { available_at_ms: number; bundle_id: string } | null;
-  };
+  }>();
   expect(feedPage.items).toHaveLength(50);
   expect(feedPage.items[0].bundle_id).toBe(
     `01J9${String(1800).padStart(22, '0')}`
