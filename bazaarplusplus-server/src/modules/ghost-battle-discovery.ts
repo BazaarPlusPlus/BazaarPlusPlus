@@ -2,7 +2,7 @@ import { toHex } from '../bundle/hex';
 import { validIdentifier } from '../bundle/manifest';
 import type { Env } from '../env';
 import { apiError } from '../errors';
-import { oneQueryValue } from '../http/request';
+import { clientRateLimitKey, oneQueryValue } from '../http/request';
 import type {
   GhostBattleSummary,
   GhostDiscoveryResponse
@@ -50,11 +50,10 @@ export async function discoverGhostBattles(
   requestId: string
 ): Promise<GhostDiscoveryResponse> {
   const startedAt = Date.now();
-  const rateLimitKey = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   let rateLimit: RateLimitOutcome;
   try {
     rateLimit = await env.GHOST_BATTLE_RATE_LIMITER.limit({
-      key: rateLimitKey
+      key: clientRateLimitKey(request)
     });
   } catch {
     throw apiError('storage_unavailable', 'Ghost rate limiter is unavailable');

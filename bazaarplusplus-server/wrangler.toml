@@ -43,3 +43,12 @@ namespace_id = "1002"
 [ratelimits.simple]
 limit = 60
 period = 60
+
+[[ratelimits]]
+name = "BUNDLE_UPLOAD_RATE_LIMITER"
+# Unique in the account, like the Ghost limiter's.
+namespace_id = "1003"
+
+[ratelimits.simple]
+limit = 120
+period = 60

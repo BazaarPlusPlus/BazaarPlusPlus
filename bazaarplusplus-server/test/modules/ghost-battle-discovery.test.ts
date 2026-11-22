@@ -216,6 +216,36 @@ describe('GET /ghost-battles', () => {
     expect(databaseTouched).toBe(false);
   });
 
+  test.each([
+    ['198.51.100.7', '198.51.100.7'],
+    ['2001:db8:a:b:1:2:3:4', '2001:db8:a:b::/64'],
+    ['2001:DB8:0a:00b::1', '2001:db8:a:b::/64'],
+    ['2001:db8::1', '2001:db8:0:0::/64'],
+    ['::ffff:198.51.100.7', '0:0:0:0::/64'],
+    ['1::2:3:4:5:6:7', '1:0:2:3::/64'],
+    ['not::an::address', 'not::an::address'],
+    [null, 'unknown']
+  ])('counts client %s as %s', async (address, expected) => {
+    let key = '';
+    await worker.fetch(
+      new Request(
+        'https://mod-api-v6.bazaarplusplus.com/ghost-battles?player_account_id=x',
+        { headers: address === null ? {} : { 'CF-Connecting-IP': address } }
+      ),
+      {
+        ...env,
+        GHOST_BATTLE_RATE_LIMITER: {
+          async limit(options: { key: string }) {
+            key = options.key;
+            return { success: false };
+          }
+        }
+      }
+    );
+
+    expect(key).toBe(expected);
+  });
+
   test('preserves the first cross-Bundle projection for one uploader and battle ID', async () => {
     const account = 'ghost-duplicate-uploader';
     const first = await makeBundleFixture({
