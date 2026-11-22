@@ -90,7 +90,7 @@ describe('GET /bundles', () => {
       env
     );
     expect(first.status).toBe(200);
-    const firstBody = (await first.json()) as {
+    const firstBody = await first.json<{
       window: { available_from_ms: number; available_before_ms: number };
       items: Array<{
         bundle_id: string;
@@ -99,7 +99,7 @@ describe('GET /bundles', () => {
         download_expires_at_ms: number;
       }>;
       next_after: { available_at_ms: number; bundle_id: string } | null;
-    };
+    }>();
     expect(firstBody.window).toEqual({
       available_from_ms: start,
       available_before_ms: before
@@ -128,10 +128,10 @@ describe('GET /bundles', () => {
       env
     );
     expect(second.status).toBe(200);
-    const secondBody = (await second.json()) as {
+    const secondBody = await second.json<{
       items: Array<{ bundle_id: string }>;
       next_after: null;
-    };
+    }>();
     expect(secondBody.items.map(({ bundle_id }) => bundle_id)).toEqual([
       ids[2]
     ]);
@@ -197,10 +197,10 @@ describe('GET /bazaardb/bundles', () => {
 
     const window = `available_from_ms=${start}&available_before_ms=${before}&limit=1`;
     const first = await worker.fetch(bazaarDbRequest(window), env);
-    const firstBody = (await first.json()) as {
+    const firstBody = await first.json<{
       items: Array<{ bundle_id: string }>;
       next_after: { available_at_ms: number; bundle_id: string } | null;
-    };
+    }>();
     expect(firstBody.items.map(({ bundle_id }) => bundle_id)).toEqual([
       '01J00000000000000000000211'
     ]);
@@ -215,10 +215,10 @@ describe('GET /bazaardb/bundles', () => {
       ),
       env
     );
-    const secondBody = (await second.json()) as {
+    const secondBody = await second.json<{
       items: Array<{ bundle_id: string }>;
       next_after: null;
-    };
+    }>();
     expect(secondBody.items.map(({ bundle_id }) => bundle_id)).toEqual([
       '01J00000000000000000000213'
     ]);

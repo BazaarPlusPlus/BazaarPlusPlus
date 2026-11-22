@@ -26,9 +26,9 @@ async function errorFor(
   reason?: string;
 }> {
   const response = await worker.fetch(uploadRequest(body, headers), workerEnv);
-  const payload = (await response.json()) as {
+  const payload = await response.json<{
     error: { code: string; details?: { reason?: string } };
-  };
+  }>();
   return {
     status: response.status,
     code: payload.error.code,

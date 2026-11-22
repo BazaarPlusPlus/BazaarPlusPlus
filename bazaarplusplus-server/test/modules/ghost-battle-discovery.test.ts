@@ -39,13 +39,13 @@ describe('GET /ghost-battles', () => {
       ),
       env
     );
-    const { battles } = (await response.json()) as {
+    const { battles } = await response.json<{
       battles: Array<{
         download_url: string;
         download_expires_at_ms: number;
         opponent: Record<string, unknown>;
       }>;
-    };
+    }>();
 
     expect(battles).toHaveLength(2);
     expect(battles[0].opponent).toMatchObject({
@@ -152,9 +152,9 @@ describe('GET /ghost-battles', () => {
       env
     );
     expect(response.status).toBe(200);
-    const body = (await response.json()) as {
+    const body = await response.json<{
       battles: Array<Record<string, unknown>>;
-    };
+    }>();
     expect(body.battles.map(({ battle_id }) => battle_id)).toEqual([
       'battle-a-fresh',
       'battle-001'
@@ -284,9 +284,9 @@ describe('GET /ghost-battles', () => {
       ),
       env
     );
-    const body = (await response.json()) as {
+    const body = await response.json<{
       battles: Array<{ bundle_id: string }>;
-    };
+    }>();
     expect(body.battles).toHaveLength(1);
     expect(body.battles[0].bundle_id).toBe('01J00000000000000000000211');
   });
@@ -333,9 +333,9 @@ describe('GET /ghost-battles', () => {
       ),
       env
     );
-    const body = (await response.json()) as {
+    const body = await response.json<{
       battles: Array<{ battle_id: string }>;
-    };
+    }>();
     expect(body.battles).toHaveLength(200);
     expect(body.battles[0].battle_id).toBe('ghost-cap-000');
     expect(body.battles.at(-1)?.battle_id).toBe('ghost-cap-199');
@@ -420,9 +420,9 @@ describe('GET /ghost-battles', () => {
       failingEnv
     );
     expect(response.status).toBe(503);
-    const body = (await response.json()) as {
+    const body = await response.json<{
       error: { code: string; retryable: boolean; request_id: string };
-    };
+    }>();
     expect(body.error).toMatchObject({
       code: 'storage_unavailable',
       retryable: true
