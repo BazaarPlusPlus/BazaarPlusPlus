@@ -109,7 +109,7 @@ it is not a retry state.
 
 Key `8` holds what the game received and sent during the Run, in the order the mod observed it
 (ADR-0028): the game's own messages, for following the Run step by step. It is null when nothing
-was recorded (the Android Host, or a Run before the key existed), and dropped whole when the segment
+was recorded (a Run before the key existed, or an Android Run from mod 6.4.5 or older), and dropped whole when the segment
 is over the size limit (`message_stream_omitted` below). `RunMessageFrameV6` uses keys `0..5`; each
 frame sets exactly one of `Message` and `Command`:
 
