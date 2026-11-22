@@ -62,7 +62,7 @@ The Payload files the Android Host loads from `MelonLoader/Mods/` and `MelonLoad
 _Avoid_: Mods zip
 
 **Mainland Mirror**:
-A manually uploaded share page of one platform's download (the desktop installer or the Android App APK) for mainland-China networks. Its address is an explicit operator input, checked against the uploaded file and recorded per platform before that platform's Release Promotion, then published in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
+A copy of one platform's download (the desktop installer or the Android App APK) on a self-hosted server reachable from mainland-China networks. `mirror` pushes it, proves the served bytes match the release artifact, and records its address per platform before that platform's Release Promotion, which publishes the address in its Platform Release Manifest; consumers read it and never derive it. It is a manual download fallback, never a second release source or an updater endpoint.
 
 ## Game assemblies
 

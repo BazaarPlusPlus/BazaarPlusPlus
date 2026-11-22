@@ -29,14 +29,10 @@ build platform *args:
 upload platform:
     bun scripts/workspace.ts run release -- bun release/cli.ts upload --platform "$1"
 
-# Verify one platform's mainland mirror share page and record it for this version.
+# Push one platform's uploaded download to the mainland mirror, check the served bytes and record it for this version.
 [arg('platform', pattern='macos|windows|android')]
-mirror platform url *args:
-    bun scripts/workspace.ts run release -- bun release/cli.ts mirror --platform "$1" --url "$2" "${@:3}"
-
-# After both uploads, verify both platforms and record their mainland share pages.
-mirror-all windows-url macos-url *args:
-    bun scripts/workspace.ts run release -- bun release/cli.ts mirror-all --windows-url "$1" --macos-url "$2" "${@:3}"
+mirror platform *args:
+    bun scripts/workspace.ts run release -- bun release/cli.ts mirror --platform "$1" "${@:2}"
 
 # Re-check the recorded mainland mirrors read-only; no credentials.
 verify-mirror *args:

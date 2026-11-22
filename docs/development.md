@@ -18,7 +18,7 @@ just doctor
 - `config.toml` 按用途组织为 TOML table（如 `[server]`，字段写作 `KEY = "value"`），所有值都是单行字符串，数字标识符和空值也要加引号。`analyzer` 分区可以省略：程序提供默认状态目录和运行参数，只在需要覆盖机器路径、运行预算、内存或线程数时填写。已有状态目录要保留 `BPP_DATA_ROOT` 覆盖或先迁移数据；仅恢复配置不会恢复分析数据。
 - 只改 `config.toml`。server 与 bot 的 `.dev.vars` 和 analyzer 的 `.env` 是它的受管理副本；改完配置运行 `just setup --skip-deps`，或者直接用会自动刷新副本的 `just server::dev`、`just bot::dev`、`just analyzer::cli <command>`。直接跑 bun/uv 命令读到的是当前副本，不会刷新。
 - Cloudflare 只有一把 token：操作员 token（`[cloudflare] CLOUDFLARE_API_TOKEN`），必须是 Account API Token（`release/r2-store.ts` 和 analyzer 的 `object_store.py` 只在 `/accounts/{account_id}/tokens/verify` 校验），权限是 R2 读写所有桶，加 Wrangler 部署需要的权限。本机发版、部署都用它；GitHub 上它是一个仓库级 secret，`release.yml`、`checks.yml`、`analyzer.yml` 和 `deploy-site.yml` 共用，Dependabot 也注册同一份。Dependabot PR 会在 CI 里执行依赖更新带进来的代码，并能拿到这把可写 token；为了只维护一把 token，接受这个风险。R2 的 S3 密钥对不单独保存：Access Key ID 是 token 的 id，Secret Access Key 是 token 值的 SHA-256，`release/r2-store.ts` 与 analyzer 的 `object_store.py` 自己推导。账号 ID 不是 secret，本地唯一来源是 `[cloudflare] CLOUDFLARE_ACCOUNT_ID`。
-- GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token 和导出证书，见[产品发布](release.md#github-actions-发版)。
+- GitHub secrets 和变量按 `release/github-secrets.json` 同步：`just secrets-check` 只列名字，`just secrets-sync` 把本地有值的项通过 `gh` 写上去（值走 stdin，不打印）；人工步骤只剩造 token、导出证书和放入镜像服务器的 SSH 私钥，见[产品发布](release.md#github-actions-发版)。
 - `doctor` 只是清单：退出成功不代表远端权限、签名密码或服务可用。
 
 ### 游戏程序集

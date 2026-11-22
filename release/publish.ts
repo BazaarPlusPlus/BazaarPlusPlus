@@ -7,7 +7,6 @@ import { putImmutable, putImmutableFile, putReplaceable } from './r2-store.ts';
 import {
   ANDROID_RELEASE_SIGNER_SHA256,
   RELEASE_MANIFEST_PATH,
-  assertMirrorUrl,
   buildAndroidFragment,
   buildLatestManifest,
   buildMirrorRecord,
@@ -18,6 +17,7 @@ import {
   androidManagedPayloadKey,
   managedPayloadKey,
   mergeReleaseManifest,
+  mirrorArtifact,
   mirrorFileName,
   mirrorRecordKey,
   modManifestPath,
@@ -37,10 +37,15 @@ import type {
   ReleaseArtifact,
   ReleaseManifest
 } from './manifest.ts';
-import { assertMainlandMirrors, checkMainlandMirror } from './mirror.ts';
-import type { ProbeMirror } from './mirror.ts';
+import {
+  assertMainlandMirrors,
+  checkMainlandMirror,
+  mainlandMirrorUrl,
+  pushMainlandMirror
+} from './mirror.ts';
+import type { RunRsync } from './mirror.ts';
 import type { ProductVersion } from './product.ts';
-import type { ObjectStore, StoredObject } from './r2-store.ts';
+import type { FetchImpl, ObjectStore, StoredObject } from './r2-store.ts';
 import {
   LOCKSTEP_PLATFORM_KEYS,
   RELEASE_PLATFORM_KEYS,
@@ -79,19 +84,10 @@ export interface UploadAndroidPlatformOptions {
 export interface RecordMainlandMirrorOptions {
   version: ProductVersion;
   platform: string;
-  url: string;
   store: ObjectStore;
-  probeMirror?: ProbeMirror;
-  allowUnverified?: boolean;
-  log?: (line: string) => void;
-}
-
-export interface RecordMainlandMirrorsOptions {
-  version: ProductVersion;
-  urls: Readonly<Record<string, string>>;
-  baseUrl: string;
-  store: ObjectStore;
-  probeMirror?: ProbeMirror;
+  sshKey: string;
+  fetchImpl?: FetchImpl;
+  runRsync?: RunRsync;
   allowUnverified?: boolean;
   log?: (line: string) => void;
 }
@@ -127,15 +123,6 @@ type MirrorRecords = Partial<Record<string, MirrorRecord>>;
 interface ReadMirrorsOptions {
   withoutMainlandMirror: boolean;
   confirming: (platform: string) => boolean;
-  log: (line: string) => void;
-}
-
-interface PrepareMirrorRecordOptions {
-  version: ProductVersion;
-  fragment: PlatformFragment;
-  url: string;
-  probeMirror: ProbeMirror;
-  allowUnverified: boolean;
   log: (line: string) => void;
 }
 
@@ -559,58 +546,42 @@ async function assertMirrorRecordable(
   }
 }
 
+// Push, prove the served bytes, then record: the address is derived from the
+// mirror host, the version and the file name, never typed by an operator.
 export async function recordMainlandMirror({
   version,
   platform,
-  url,
   store,
-  probeMirror,
+  sshKey,
+  fetchImpl = fetch,
+  runRsync,
   allowUnverified = false,
   log = () => {}
 }: RecordMainlandMirrorOptions): Promise<MirrorRecord> {
   const key = releasePlatform(platform).key;
-  if (typeof probeMirror !== 'function')
-    throw new Error('Recording a mainland mirror requires a page probe');
-  assertMirrorUrl(url);
   const fragment = await readFragment(store, version, key);
   await assertMirrorRecordable(store, version, key);
-  const record = await prepareMirrorRecord({
-    version,
-    fragment,
-    url,
-    probeMirror,
-    allowUnverified,
-    log
-  });
-  await writeMirrorRecord(store, record);
-  return record;
-}
-
-async function prepareMirrorRecord({
-  version,
-  fragment,
-  url,
-  probeMirror,
-  allowUnverified,
-  log
-}: PrepareMirrorRecordOptions): Promise<MirrorRecord> {
-  const key = fragment.platform;
+  await pushMainlandMirror({ version, fragment, sshKey, fetchImpl, runRsync });
   const fileName = mirrorFileName(fragment);
+  const url = mainlandMirrorUrl(version, fileName);
   const result = await checkMainlandMirror({
     platform: key,
     url,
     fileName,
-    probeMirror
+    artifact: mirrorArtifact(fragment),
+    fetchImpl
   });
   log(`Mainland mirror ${key}: ${result.outcome} (${result.detail})`);
   assertMainlandMirrors([result], { allowUnverified, log });
-  return buildMirrorRecord({
+  const record = buildMirrorRecord({
     version,
     platform: key,
     url,
     fileName,
     verified: result.outcome === 'verified'
   });
+  await writeMirrorRecord(store, record);
+  return record;
 }
 
 async function writeMirrorRecord(
@@ -618,8 +589,8 @@ async function writeMirrorRecord(
   record: MirrorRecord
 ): Promise<void> {
   const { version, platform: key, url } = record;
-  // The probe took time; a promotion may have published the previous record
-  // meanwhile. The published address wins, so re-check before and after.
+  // The push and check took minutes; a promotion may have published the
+  // previous record meanwhile. The published address wins, so re-check before and after.
   await assertMirrorRecordable(store, version, key);
   await putReplaceable(
     store,
@@ -635,50 +606,6 @@ async function writeMirrorRecord(
     throw new Error(
       `${key} ${version} was promoted while recording; the published mainland mirror ${published.downloads[key].mainlandUrl} stays authoritative and this record is stale`
     );
-}
-
-// R2 cannot update both mirror objects transactionally. The conditional writes are retryable.
-export async function recordMainlandMirrors({
-  version,
-  urls,
-  baseUrl,
-  store,
-  probeMirror,
-  allowUnverified = false,
-  log = () => {}
-}: RecordMainlandMirrorsOptions): Promise<MirrorRecord[]> {
-  if (typeof probeMirror !== 'function')
-    throw new Error('Recording mainland mirrors requires a page probe');
-  const lockstep = LOCKSTEP_PLATFORM_KEYS.map(releasePlatformByKey);
-  for (const { buildPlatform } of lockstep)
-    assertMirrorUrl(urls?.[buildPlatform]);
-  const fragments = await Promise.all(
-    lockstep.map(({ key }) =>
-      readFragment<DesktopPlatformFragment>(store, version, key)
-    )
-  );
-  buildLatestManifest({ version, fragments, existingLatest: null });
-  for (const fragment of fragments) {
-    await assertArtifactsStored(store, fragment, baseUrl);
-    await assertMirrorRecordable(store, version, fragment.platform);
-  }
-  const records: MirrorRecord[] = [];
-  for (const [index, fragment] of fragments.entries()) {
-    records.push(
-      await prepareMirrorRecord({
-        version,
-        fragment,
-        url: urls[lockstep[index].buildPlatform],
-        probeMirror,
-        allowUnverified,
-        log
-      })
-    );
-  }
-  for (const record of records)
-    await assertMirrorRecordable(store, version, record.platform);
-  for (const record of records) await writeMirrorRecord(store, record);
-  return records;
 }
 
 async function writePlatformManifest(

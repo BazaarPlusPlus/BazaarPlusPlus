@@ -12,13 +12,13 @@ just release::check
 just release::prepare macos
 just release::build macos
 just release::upload macos
-just release::mirror-all <Windows大陆分享页地址> <macOS大陆分享页地址>
+just release::mirror macos
 just release::verify-mirror
 just release::promote
 just release::promote --platform macos
 ```
 
-Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror-all` 在双平台上传齐备后统一核对并记录大陆镜像地址；`mirror` 用于单平台发布；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror` 把一个平台已上传的下载推到大陆镜像，核对字节后记录地址，默认由工作流在上传后执行；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
 
 `release/projections.ts` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（七个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
@@ -32,14 +32,14 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 2. 两个平台分别执行 `prepare`。游戏程序集来自本平台的 online 锁条目，构建记录会写入这个条目；本机执行前先 `just mod::fetch <platform> online`，让条目在本机可解析。online 条目尚未采集时，本机只能显式传 `-p:ManagedPath=...` 指向一个哈希到其他锁条目（如 staging）的 Managed，`prepare` 和后续 `build` 传同一个值，日志会带非 online 告警。如果 native 输入锁或受版本管理的预构建资源变化，审阅并提交这些变化；把两个平台需要的更新汇入同一个提交。
 3. 两个平台在这个相同提交上分别执行 `build`，托管 runner 或各自的原生宿主均可。发布相关源码必须干净；不相关的 site/analyzer 工作不会污染产品构建身份。若 `prepare` 又改变了跟踪的 native 输入，先汇入提交，再重新构建。
 4. 在执行 `build` 的同一台机器上执行 `upload`，保存同一个版本、同一个 Git commit 的平台产物和 fragment。
-5. 两个平台上传完成后，单独执行大陆镜像阶段：把两个安装包原样上传到蓝奏云，拿到各自分享页地址后执行 `mirror-all`。它先验证双平台产物齐备、版本和提交一致，再核对两个分享页并记录地址，见[中国大陆镜像](#中国大陆镜像)。
+5. 每个平台上传后执行 `mirror <platform>`：把该平台的下载推到大陆镜像，核对字节，记录地址，见[中国大陆镜像](#中国大陆镜像)。
 6. 任一发布机执行 `promote`。两个平台未齐、提交不一致、远端产物缺失或校验不符、任一平台没有镜像记录时均拒绝写入。它先为每个平台依次写安装器入口和 mod 入口的 Platform Release Manifest，再写 `latest.json`。
 
-一个平台先发、另一个平台稍后跟上时，第 5 步仍用 `mirror <platform> <分享页地址>` 记录该平台的镜像，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
+一个平台先发、另一个平台稍后跟上时，第 6 步用 `promote --platform <platform>`，见[按平台发布](#按平台发布)。
 
 各平台 `promote` 之后，用 `/qq-announce <版本>` 把更新公告和三个安装包发到 QQ 群，先发测试群确认，再发正式群。群列表、公告模板和步骤见 `.agents/skills/qq-announce/`；Bot 凭据在 `config.toml` 的 `[qqbot]`；GitHub 的 `qqbot` 环境另存一份，供 `daily-report.yml` 使用。
 
-第 2 到第 4 步默认由 [GitHub Actions 发版工作流](#github-actions-发版)执行：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同；本机执行是 runner 不可用或要调试打包时的备用路径。第 5、6 步只在本机执行。
+第 2 到第 5 步默认由 [GitHub Actions 发版工作流](#github-actions-发版)执行：两个托管 runner 各跑一遍 `prepare`、`build`、`upload`，输入与本机相同，之后 `mainland-mirror` job 逐平台执行 `mirror`；本机执行是 runner 不可用或要调试打包时的备用路径。第 6 步只在本机手动执行。
 
 ## GitHub Actions 发版
 
@@ -49,21 +49,24 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.ts` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
 
-每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret 与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个 job 的 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `bun scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
+每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret、大陆镜像的 SSH 私钥与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个平台构建 job 先用 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `bun scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
 
 | 名字 | GitHub 作用域 | 本地来源 | 用途 |
 |---|---|---|---|
 | `CLOUDFLARE_ACCOUNT_ID` | 仓库变量 | `config.toml` `[cloudflare]` | 所有 R2 桶和 site Workers 的账号 |
 | `CLOUDFLARE_API_TOKEN` | 仓库 secret（Dependabot 另注册一份） | `config.toml` `[cloudflare]`，操作员 token | `mod::fetch`、`release::upload`；也给 `checks.yml` 的 mod lane、`analyzer.yml` 和 `deploy-site.yml` |
 | `TAURI_SIGNING_PRIVATE_KEY` | `release` 环境 secret | `keys/tauri-updater.key` 的内容 | updater 签名，两平台；三个平台的 Managed Payload zip 及其清单也用它（minisign） |
+| `MAINLAND_MIRROR_SSH_KEY` | `release` 环境 secret | `keys/mainland-mirror-ssh-key` 的内容（OpenSSH 私钥） | `mirror` 用它把下载推到大陆镜像；本机由 `release` profile 原样导出 |
 | `ANDROID_KEYSTORE` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` | `release` 环境 secret | `keys/android-release.p12`（推送时转 base64）与 `config.toml` `[signing]` 的同名两项 | Android 发布密钥，签 Android App APK 和 interop 声明，永不轮换，见 [ADR 0009](adr/0009-android-release-key.md) |
 | `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` | `release` 环境变量 | `config.toml` `[signing]` | macOS 签名与公证 |
 | `APPLE_API_KEY_P8` | `release` 环境 secret | `keys/AuthKey_<APPLE_API_KEY>.p8` 的内容 | macOS 公证 |
 | `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` | `release` 环境 secret | `keys/developer-id.p12`（从 Keychain Access 导出的 Developer ID Application 证书含私钥，推送时转 base64）与 `config.toml` `[signing] APPLE_CERTIFICATE_PASSWORD` | 导入 runner 的临时 keychain；`bundle.sh` 在 Tauri 打包前就要 codesign 内嵌资源，所以不能交给 Tauri 自己导入 |
 
-发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时给 Dependabot 注册操作员 token）。只有三件事要人工做：在 Cloudflare dashboard 造操作员 token（`release/r2-store.ts` 只接受 Account API Token）填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
+发版前置条件：`just secrets-check` 的清单两边都不缺。它只列名字；`just secrets-sync` 把本地有值的项写到 GitHub（`--dependabot` 同时给 Dependabot 注册操作员 token）。只有四件事要人工做：在 Cloudflare dashboard 造操作员 token（`release/r2-store.ts` 只接受 Account API Token）填进 `[cloudflare]`，从 Keychain Access 导出证书到 `keys/developer-id.p12` 并把导出密码填进 `[signing]`，把镜像服务器授权的 SSH 私钥放进 `keys/mainland-mirror-ssh-key`。环境 secret 会覆盖同名的仓库 secret，所以不要在任何环境里再建仓库 secret 的副本。
 
-`promote` 不进工作流：它要求两个平台都有大陆镜像记录（或显式豁免），而蓝奏云上传是手动步骤，分享页地址只有上传后才存在，`mirror-all` 必须在 `promote` 之前拿到它们。所以两平台 job 成功后仍按[发布顺序](#发布顺序)第 5、6 步在本机执行 `mirror-all` 与 `promote`，这两步只需要 `[cloudflare]` 的操作员 token。
+大陆镜像是单独的 `mainland-mirror` job：`needs: platform`，在 `ubuntu-latest` 上按同一组平台各跑一次 `just release::mirror <platform>`，只用操作员 token、账号 ID 和 `MAINLAND_MIRROR_SSH_KEY`。它不在构建 job 里，是为了失败后能单独重跑：重新构建出的字节会被 R2 的不可变上传拒绝。job 级的 `if:` 读不到构建 job 的 `STAGE`，所以按同一规则重算：标签推送时运行，手动触发时只在 `dry_run` 与 `build_only` 都关闭时运行。构建 job 的 secret 检查在正式构建时就要求这把私钥，缺了在构建之前失败。
+
+`promote` 不进工作流，仍按[发布顺序](#发布顺序)第 6 步在本机手动执行，只需要 `[cloudflare]` 的操作员 token：发布哪些平台、何时发布由人决定。
 
 本机执行时，构建依赖 Bun、.NET、Rust、快照锁 online 条目解析出的 Managed 程序集（[开发命令](development.md#游戏程序集)）、平台 native 工具链和 bootstrap 资源。准备阶段会抓取并验证 Build Seed Fetch 数据。macOS 正式打包另需 Developer ID、公证和 Tauri updater 签名材料，具体本机约定见 [installer 发布文档](../bazaarplusplus-installer/docs/release.md)。源代码验证无需这些签名凭据。
 
@@ -105,15 +108,15 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 - `CLOUDFLARE_API_TOKEN`：必须是该账号的 Account API Token，User API Token 会被拒绝
 - `CLOUDFLARE_ACCOUNT_ID`
 
-S3 密钥对由 `release/r2-store.ts` 从 token 推导（一次 `GET /accounts/{account_id}/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `mirror-all` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
+S3 密钥对由 `release/r2-store.ts` 从 token 推导（一次 `GET /accounts/{account_id}/tokens/verify` 取 token id 作 Access Key ID，token 值的 SHA-256 作 Secret），每个进程只验证一次。它们只由 `upload` / `mirror` / `promote` 读取；不要放入 Git。此流程不使用 Wrangler 登录态，因为该 CLI 没有提供这里需要的 ETag 条件写。
 
-对应的 just 命令通过 `scripts/workspace.ts` 的 `release` profile 从 `[cloudflare]` 接入这两个变量；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `bun release/cli.ts` 仍要求调用者提供环境。
+对应的 just 命令通过 `scripts/workspace.ts` 的 `release` profile 从 `[cloudflare]` 接入这两个变量，并按 `release/github-secrets.json` 原样导出 `keys/` 里的 `MAINLAND_MIRROR_SSH_KEY`；`build` 通过临时签名目录接入 `[signing]` 与 `keys/`。配置初始化、已有环境变量的优先级和本机状态检查见[开发命令](development.md#新-clone-与本地配置)。直接执行 `bun release/cli.ts` 仍要求调用者提供环境。
 
 版本目录中的产物和 platform fragment 不可变：相同 bytes 的重试成功，不同 bytes 必须发布新版本。上传先固定所有本地文件内容并复查 hashes，避免并发本机构建污染远端版本路径。读取失败、权限错误和服务错误都不是“文件不存在”。
 
 `promote` 验证完整安装器及 Managed Payload 的完整性，然后以 ETag compare-and-swap 依次写入各平台的安装器入口 `latest/<平台键>.json`、mod 入口 `latest/mod/<平台键>.json`，最后写入 `latest.json`。两个平台入口使用同一份 Platform Release Manifest，包括版本、提交、发布时间与下载地址；没有单独推进 mod 版本的命令。有其他发布者抢先写入时重新检查版本，不能用旧版本覆盖新版本。重复发布同版本只能确认已有事实，不能替换它们。回退产品行为需要发布一个更高版本号的修复版本。多个清单的写入不是原子事务：中途失败时命令报错，重跑同一次 `promote` 补齐 mod 入口，即使 `latest.json` 已是该版本也会补齐；确认旧 lockstep 版本不会回退已经领先的平台。首次发布的新入口尚未写成时，mod 检查可能暂时失败，补齐后重新启动游戏再检查。
 
-`release/downloads.ts` 是浏览器可消费的发布事实入口，统一发布 origin、平台键、安装器与 mod 清单路径（`platformManifestPath`、`modManifestPath`）、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.ts` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload、mirror 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store，执行 `mirror --platform android` 与 `promote --platform android`，最后把 manifest 与样例逐字节比对，并检查 mod 入口与对应安装器入口的字节相同，其中提交哈希换成样例里的合成值。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 bun run vp test run release/cli.test.ts` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
+`release/downloads.ts` 是浏览器可消费的发布事实入口，统一发布 origin、平台键、安装器与 mod 清单路径（`platformManifestPath`、`modManifestPath`）、updater endpoint 列表，读取大陆镜像地址的 `decodeMainlandDownloadUrl`，以及读取 Android 平台清单的 `decodeAndroidDownload`。共享样例有两组：`release/fixtures/latest.json` 是双平台的 Release Manifest，由发布 writer 测试、mod 更新检查和 Tauri updater 字段校验消费；`release/fixtures/latest/<平台键>.json` 是各平台的 Platform Release Manifest，三个平台版本不全相同，由官网测试、mod 测试和 writer 测试消费。这四份样例是发布流水线的产物：`release/cli.test.ts` 的 `publish pipeline reproduces the shared fixtures` 在临时 git 仓库里用真实的 `main()` 跑完双平台 3.1.1、Windows 单平台 3.1.2 的 upload 与 promote，再把同一提交的 Android 3.1.2 产物与 fragment 放进内存 store，执行 `promote --platform android`，最后把 manifest 与样例逐字节比对，并检查 mod 入口与对应安装器入口的字节相同，其中提交哈希换成样例里的合成值。镜像记录由测试直接写入：样例保留各消费者钉住的蓝奏云时期地址，而 `mirror` 从镜像主机推导地址，产生不了它们；`mirror` 本身由同一文件的 `mirror pushes the uploaded App APK…` 经 `main()` 验证。更新样例只有一个办法：`BPP_UPDATE_GOLDENS=1 bun run vp test run release/cli.test.ts` 重新生成，并在同一个 PR 里跑 `just site::test mod::test`。
 
 lockstep 平台（Windows 与 macOS）的 Platform Release Manifest（`latest/<平台键>.json`）和双平台的 Release Manifest（`latest.json`）形状相同：保留 Tauri updater 的 `platforms` 字段，并在 `downloads` 中提供该平台真实的安装器地址和大陆镜像地址 `mainlandUrl`。Android 的平台清单没有 `platforms` 字段，大陆镜像地址同样在 `downloads["android-aarch64"].mainlandUrl`，见 [Android 发布](#android-发布)。官网不再猜测主下载文件名，也不再拼接镜像地址；部署新版官网前先发布新 manifest，否则官网会使用已有的 GitHub 下载入口。
 
@@ -177,7 +180,7 @@ just with-config release just mod::fetch android play
 just release::prepare android
 just release::build android
 just release::upload android
-just release::mirror android <Android大陆分享页地址>
+just release::mirror android
 just release::promote --platform android
 ```
 
@@ -193,22 +196,22 @@ just release::promote --platform android
 
    步骤与工具查找见 `release/android-release.ts` 的 `buildAndroidRelease` 与 `resolveBuildTools`。签名材料的来源见上面的 secret 表。所有输出都在工作区根的 `target/android/`：APK，每个来源的 `<sha256>.zip` 与它的 `.statement` 和 `.statement.sig`、Managed Payload zip 与 `.sig`，以及构建回执 `android-aarch64.json`。
 4. `upload` 在同一台机器上用流式条件写依次上传 Android App APK、每个来源的 Interop Package 与 Managed Payload zip，再写每个 `.sig`，最后写 fragment。Interop Package 的键已有相同字节时不再上传，字节不同时拒绝。`selfUpdatable` 比较已提升的平台清单，与桌面相同。上传停在 fragment 之前时，用同一次构建再跑 `upload` 即可续传；重新构建得到的 APK 字节不同，会被已上传的对象拒绝，这时升版本。
-5. 把 Android App APK 原样上传到蓝奏云，用 `mirror android <分享页地址>` 记录镜像。
+5. `mirror android`：把 Android App APK 推到大陆镜像，核对字节并记录地址。
 6. `promote --platform android`。
 
-`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，先按工具链锁装 JDK 与 SDK 包，标签推送只构建桌面两平台。`dry_run` 只跑到 `prepare`。构建回执和产物（Android App APK，每个来源的 Interop Package 及其声明与签名、Managed Payload zip 及其签名）都留作 Actions 产物；`build_only` 不上传 R2，用于在干净的 AVD 上验收。
+`.github/workflows/release.yml` 的 `platform: android` 在 `ubuntu-latest` 上跑第 1 到 4 步，`mainland-mirror` job 再跑第 5 步；构建前先按工具链锁装 JDK 与 SDK 包，标签推送只构建桌面两平台。`dry_run` 只跑到 `prepare`。构建回执和产物（Android App APK，每个来源的 Interop Package 及其声明与签名、Managed Payload zip 及其签名）都留作 Actions 产物；`build_only` 不上传 R2，用于在干净的 AVD 上验收。
 
 ## 中国大陆镜像
 
-Mainland Mirror 是手工上传到蓝奏云的安装包或 Android App APK 的分享页，只作为大陆网络下手动下载的兜底，不是第二个发布来源，也不能充当 updater endpoint：蓝奏云只提供分享页，不提供可校验签名的直链。
+Mainland Mirror 是自建服务器上的安装包或 Android App APK 副本，只作为大陆网络下手动下载的兜底，不是第二个发布来源，也不能充当 updater endpoint。镜像主机、SSH 目标和钉住的主机公钥由 `release/mirror.ts` 的 `MAINLAND_MIRROR` 定义；6.4.3 的记录在另一台服务器上，不受它影响。决策记录见 [ADR 0002](adr/0002-mainland-mirror-check.md)。
 
-镜像地址是发布者显式提供的输入，不由版本号拼接。`mirror` 读取该平台已上传的 fragment，抓取分享页核对标题里的文件名等于这个平台发布的文件名（桌面是安装包，Android 是 Android App APK，见 `mirrorFileName`），然后把地址写入 `<版本>/<平台键>/mirror/mainland.json`；`promote` 把记录组装成 `downloads[平台键].mainlandUrl`。官网和 installer 只从 manifest 读取这个地址，manifest 里没有就不显示大陆入口。决策记录见 [ADR 0002](adr/0002-mainland-mirror-check.md)。
+`mirror --platform <platform>` 依次：读取该平台已上传的 fragment；该平台已发布这个版本或更新的版本时拒绝，不推送；从 R2 公开地址下载发布的文件（桌面是安装包，Android 是 Android App APK，见 `release/manifest.ts` 的 `mirrorArtifact`），大小或 sha256 与 fragment 不符就停止；用 `rsync` 经 SSH 把 `<版本>/<文件名>` 推到镜像；再从这个文件在镜像上的 https 地址（`mainlandMirrorUrl`）完整读回，比较大小和 sha256；最后把这个地址写入 `<版本>/<平台键>/mirror/mainland.json`。`promote` 把记录组装成 `downloads[平台键].mainlandUrl`。地址仍记录在 manifest 里：官网和 installer 只从 manifest 读取，manifest 里没有就不显示大陆入口。
 
-双平台发布使用 `mirror-all`。预检包括两个平台 fragment 的版本与提交、R2 产物的大小和 hash、平台是否已发布，以及两个分享页的文件名。任一预检失败都不会写镜像记录；全部通过后分别以条件写入保存两份记录。两次写入不构成跨对象事务，网络中断可能只留下第一份记录，修复后重跑同一命令即可。`mirror-all` 成功后再执行 `promote`；它本身不会上传蓝奏云文件或修改任何 latest 清单。Android 不进 `mirror-all`，用 `mirror android <分享页地址>` 单独记录。不要并发运行镜像阶段和 `promote`。
+SSH 用临时 `known_hosts`（只有钉住的那一行）和临时私钥文件，结束即删。私钥来自 `MAINLAND_MIRROR_SSH_KEY`：工作流从 `release` 环境 secret 取，本机由 `release` profile 从 `keys/` 导出。服务器的 `authorized_keys` 把这把钥匙限制为只写、不删、不覆盖：已有的同名文件被跳过而 `rsync` 仍然成功，所以服务器上留着一个错误文件时，只有推送后的字节核对能发现，要人工删掉它再重跑。不要给 `rsync` 加 `-p` 或 `--chmod`：macOS 自带的 openrsync 不认 `--chmod`，不带 `-p` 时服务器按 0644 创建文件，nginx 正好需要。
 
-上传约定：文件名必须与 R2 上 `installer` 目录（Android 是 `app` 目录）里的文件名完全一致，不改名；分享地址随意。蓝奏云对单个文件有大小上限，6.3.2 的 67 MB APK 能上传；APK 超过上限时，Android 用 `--without-mainland-mirror` 提升。核对结果分三类：`verified`、`missing-or-misnamed`（分享不存在、被取消或文件名不符，修正分享后重跑 `mirror` 即可覆盖记录）、`unverifiable`（超时、非 200 或页面格式不认识）；`--allow-unverified-mirror` 把未通过的地址记录为 `verified: false` 并打印警告。核对只比文件名，不比 hash，也只能证明核对那一刻分享存在。
+核对结果分三类：`verified`、`missing-or-different`（404，或大小、sha256 不符；`Content-Length` 与产物大小不符时不读正文直接判定）、`unverifiable`（网络错误、超时或其他 HTTP 状态）。镜像带宽约 4 Mbit/s，读回 67 MB 的 APK 要 2 到 3 分钟，超时按分钟计。`--allow-unverified-mirror` 只放宽这一步：把未通过的地址记录为 `verified: false` 并打印警告；R2 产物不符或推送失败始终是错误。核对只能证明核对那一刻服务器上的字节。
 
-记录在该平台提升前可以覆盖，提升后 `mirror` 拒绝再写，写入前后都会复查，提升与记录撞车时以已发布的地址为准：已发布的镜像地址和其他已发布事实一样，修改需要新版本。`promote` 缺少任一平台的记录时拒绝写入，`--without-mainland-mirror` 显式跳过并打印警告，跳过的平台这个版本不能再补上；确认已发布的版本不需要记录。`verify-mirror` 不需要 R2 凭据：默认复核 VERSION 下 Windows 与 macOS 已记录的镜像，`--platform` 只看一个平台，Android 要用 `--platform android`；`--latest` 逐平台复核线上三个 `latest/<平台键>.json` 里的地址，也可加 `--platform`；显式跳过镜像的平台报告为 `waived`，不算失败。发布后的例行核对用 `--latest`，因为 VERSION 通常已经提前推进。
+记录在该平台提升前可以重写，提升前重跑 `mirror` 无害；提升后 `mirror` 拒绝再写，写入前后都会复查，提升与记录撞车时以已发布的地址为准。`promote` 缺少任一平台的记录时拒绝写入，`--without-mainland-mirror` 显式跳过并打印警告，跳过的平台这个版本不能再补上；确认已发布的版本不需要记录。`verify-mirror` 不需要 R2 凭据，用同样的字节核对：默认复核 VERSION 下 Windows 与 macOS 已记录的镜像，`--platform` 只看一个平台，Android 要用 `--platform android`；`--latest` 逐平台复核线上三个 `latest/<平台键>.json` 里的地址，不限主机，也可加 `--platform`；显式跳过镜像的平台报告为 `waived`，不算失败。发布后的例行核对用 `--latest`，因为 VERSION 通常已经提前推进。
 
 ## 验证
 

@@ -23,13 +23,13 @@ import {
   uploadPlatform,
   uploadAndroidPlatform,
   recordMainlandMirror,
-  recordMainlandMirrors,
   promotePlatform,
   promoteRelease
 } from './publish.ts';
-import { fetchMirrorPage, verifyMainlandMirrors } from './mirror.ts';
-import { assertMirrorUrl } from './manifest.ts';
+import { verifyMainlandMirrors } from './mirror.ts';
+import type { RunRsync } from './mirror.ts';
 import { r2StoreFromEnvironment } from './r2-store.ts';
+import type { FetchImpl } from './r2-store.ts';
 import { gameLibsStoreFromEnvironment } from './game-assembly-snapshot.ts';
 import type { ManagedLockProvenance } from './game-assembly-snapshot.ts';
 import {
@@ -42,7 +42,7 @@ import {
   releasePlatform,
   resolveBuildPlatform
 } from './release-platforms.ts';
-import type { BuildPlatform, TauriBuildPlatform } from './release-platforms.ts';
+import type { BuildPlatform } from './release-platforms.ts';
 import type { ObjectStore } from './r2-store.ts';
 import type { PayloadBuildRecord } from './payload.ts';
 
@@ -53,7 +53,6 @@ export type ReleaseCommand =
   | 'build'
   | 'upload'
   | 'mirror'
-  | 'mirror-all'
   | 'verify-mirror'
   | 'promote'
   | 'assert-build-owner';
@@ -61,8 +60,6 @@ export type ReleaseCommand =
 export interface ReleaseInvocation {
   command: ReleaseCommand;
   platform: BuildPlatform | undefined;
-  url: string | undefined;
-  urls: Record<TauriBuildPlatform, string> | undefined;
   msbuildArgs: string[];
   latest: boolean;
   allowUnverifiedMirror: boolean;
@@ -72,8 +69,6 @@ export interface ReleaseInvocation {
 export interface ReleaseHelp {
   command: 'help';
   platform?: undefined;
-  url?: undefined;
-  urls?: undefined;
   msbuildArgs?: undefined;
   latest?: undefined;
   allowUnverifiedMirror?: undefined;
@@ -87,7 +82,9 @@ export interface ReleaseMainOptions {
   hostPlatform?: string;
   createStore?: () => ObjectStore;
   createGameLibsStore?: typeof gameLibsStoreFromEnvironment;
-  probeMirror?: typeof fetchMirrorPage;
+  /** Downloads the release artifact for mirror and checks every mirror. */
+  fetchImpl?: FetchImpl;
+  runRsync?: RunRsync;
   log?: (message: string) => void;
   now?: Date;
 }
@@ -104,10 +101,8 @@ const usage = `Product release commands (run from any directory):
                                                     interop statement
   bun release/cli.ts upload --platform android     Stream the Android App, the Interop Package, the Managed
                                                     Payload zip and the fragment to R2
-  bun release/cli.ts mirror-all --windows-url <share-url> --macos-url <share-url>
-                                                    Verify both uploaded platforms and record both mainland mirrors
-  bun release/cli.ts mirror --platform android --url <share-url>
-                                                    Verify and record one platform's mainland mirror page
+  bun release/cli.ts mirror --platform macos       Push the uploaded installer (android: the App APK) to the
+                                                    mainland mirror, check the served bytes and record it
   bun release/cli.ts verify-mirror [--platform android]
                                                     Re-check the recorded mainland mirrors of VERSION
                                                     (Windows and macOS unless --platform names one)
@@ -123,15 +118,14 @@ Use windows on the Windows build host. Prepare/build accept -- -p:ManagedPath=<p
 android accepts -- -p:InteropPath=<dir> -p:LemonLoaderPath=<dir> instead, and its
 build needs the Android App's JDK and SDK build-tools, openssl, and the Android
 release keystore in BPP_SIGNING_SECRETS_DIR.
-mirror refuses a share page that does not serve the uploaded installer (Android:
-the App APK) unless --allow-unverified-mirror is passed; promote refuses a
-platform without a recorded mirror unless --without-mainland-mirror is passed.
-mirror-all requires both platforms uploaded at the same version and commit
-before recording either mirror.
-Only upload, mirror, mirror-all, promote and build --platform android access R2,
-and require CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived
-from the token); prepare --platform android reads the private snapshot store only
-when the Interop Snapshot is not under game-libs/. No command changes VERSION.
+mirror pushes over rsync with the SSH key in MAINLAND_MIRROR_SSH_KEY and refuses
+to record a mirror whose served size or sha256 differs from the release artifact
+unless --allow-unverified-mirror is passed; promote refuses a platform without a
+recorded mirror unless --without-mainland-mirror is passed.
+Only upload, mirror, promote and build --platform android access R2, and require
+CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (the S3 pair is derived from the
+token); prepare --platform android reads the private snapshot store only when the
+Interop Snapshot is not under game-libs/. No command changes VERSION.
 `;
 
 export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
@@ -148,7 +142,6 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
       'build',
       'upload',
       'mirror',
-      'mirror-all',
       'verify-mirror',
       'promote',
       'assert-build-owner'
@@ -162,9 +155,6 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
     tokens: true,
     options: {
       platform: { type: 'string' },
-      url: { type: 'string' },
-      'windows-url': { type: 'string' },
-      'macos-url': { type: 'string' },
       latest: { type: 'boolean' },
       'allow-unverified-mirror': { type: 'boolean' },
       'without-mainland-mirror': { type: 'boolean' }
@@ -214,37 +204,10 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
   } else if (platform !== undefined) {
     throw new Error(`${command} is a product-wide operation`);
   }
-  if (command === 'mirror') {
-    if (!values.url) throw new Error('mirror requires --url <share-url>');
-    assertMirrorUrl(values.url);
-  } else if (values.url !== undefined) {
-    throw new Error('--url is only valid for mirror');
-  }
-  let urls: Record<TauriBuildPlatform, string> | undefined;
-  if (command === 'mirror-all') {
-    const windows = values['windows-url'];
-    const macos = values['macos-url'];
-    if (!windows || !macos)
-      throw new Error('mirror-all requires --windows-url and --macos-url');
-    urls = { windows, macos };
-    for (const url of Object.values(urls)) assertMirrorUrl(url);
-  } else if (
-    values['windows-url'] !== undefined ||
-    values['macos-url'] !== undefined
-  ) {
-    throw new Error(
-      '--windows-url and --macos-url are only valid for mirror-all'
-    );
-  }
   if (values.latest && command !== 'verify-mirror')
     throw new Error('--latest is only valid for verify-mirror');
-  if (
-    values['allow-unverified-mirror'] &&
-    !['mirror', 'mirror-all'].includes(command)
-  )
-    throw new Error(
-      '--allow-unverified-mirror is only valid for mirror or mirror-all'
-    );
+  if (values['allow-unverified-mirror'] && command !== 'mirror')
+    throw new Error('--allow-unverified-mirror is only valid for mirror');
   if (values['without-mainland-mirror'] && command !== 'promote')
     throw new Error('--without-mainland-mirror is only valid for promote');
   assertReleaseBuildArgs(positionals, platform);
@@ -253,8 +216,6 @@ export function parseReleaseArgs(args: readonly string[]): ReleaseArgs {
   return {
     command: releaseCommand,
     platform,
-    url: values.url,
-    urls,
     msbuildArgs: positionals,
     latest: values.latest ?? false,
     allowUnverifiedMirror: values['allow-unverified-mirror'] ?? false,
@@ -290,7 +251,8 @@ export async function main(
     hostPlatform = process.platform,
     createStore = r2StoreFromEnvironment,
     createGameLibsStore = gameLibsStoreFromEnvironment,
-    probeMirror = fetchMirrorPage,
+    fetchImpl = fetch,
+    runRsync,
     log = console.log,
     now = new Date()
   }: ReleaseMainOptions = {}
@@ -298,8 +260,6 @@ export async function main(
   const {
     command,
     platform,
-    url,
-    urls,
     msbuildArgs,
     latest,
     allowUnverifiedMirror,
@@ -336,6 +296,7 @@ export async function main(
       version: latest ? null : readProductVersion(workspaceRoot),
       platform,
       latest,
+      fetchImpl,
       log
     });
     log(`Mainland mirror verified for ${verified.version}`);
@@ -417,7 +378,7 @@ export async function main(
       log
     });
     log(
-      `Uploaded android ${version}. Upload the App APK to the mainland mirror and run mirror --platform android, then promote --platform android.`
+      `Uploaded android ${version}. Run mirror --platform android, then promote --platform android.`
     );
   } else if (command === 'upload') {
     if (platform === undefined || platform === 'android')
@@ -429,34 +390,28 @@ export async function main(
       store
     });
     log(
-      `Uploaded ${platform} ${version}. Once both platforms are uploaded, run mirror-all, then promote. For a single-platform release, run mirror, then promote --platform ${platform}.`
+      `Uploaded ${platform} ${version}. Run mirror --platform ${platform}; once both platforms are mirrored, promote, or promote --platform ${platform} for a single-platform release.`
     );
   } else if (command === 'mirror') {
-    if (platform === undefined || url === undefined)
-      throw new Error('mirror needs --platform and --url');
-    await recordMainlandMirror({
+    if (platform === undefined) throw new Error('mirror needs --platform');
+    const sshKey = process.env.MAINLAND_MIRROR_SSH_KEY;
+    if (!sshKey?.trim())
+      throw new Error(
+        'mirror requires MAINLAND_MIRROR_SSH_KEY; release/github-secrets.json names its local source'
+      );
+    const record = await recordMainlandMirror({
       version,
       platform,
-      url,
       store,
-      probeMirror,
+      sshKey,
+      fetchImpl,
+      runRsync,
       allowUnverified: allowUnverifiedMirror,
       log
     });
-    log(`Recorded ${platform} mainland mirror for ${version}`);
-  } else if (command === 'mirror-all') {
-    if (urls === undefined)
-      throw new Error('mirror-all needs --windows-url and --macos-url');
-    await recordMainlandMirrors({
-      version,
-      urls,
-      baseUrl: RELEASE_BASE_URL,
-      store,
-      probeMirror,
-      allowUnverified: allowUnverifiedMirror,
-      log
-    });
-    log(`Recorded both mainland mirrors for ${version}. Ready to promote.`);
+    log(
+      `Recorded ${platform} mainland mirror for ${version}: ${record.url}${record.verified ? '' : ' (unverified)'}`
+    );
   } else if (platform) {
     const result = await promotePlatform({
       version,

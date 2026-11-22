@@ -8,9 +8,12 @@ name: Delivery / Product release
 # the Android release keystore (docs/adr/0009-android-release-key.md) and
 # streams the App, the Interop Package and the Managed Payload zip to R2
 # (docs/adr/0012-android-app.md).
-# promote is not here: the Mainland Mirror is uploaded to Lanzou by hand and
-# recorded with mirror-all (Android: mirror --platform android) before
-# promote, so promote stays a local command.
+# The mainland-mirror job then runs release::mirror for each uploaded
+# platform: it pushes the R2 download to the Mainland Mirror host over rsync,
+# checks the served bytes and records the address (docs/adr/0002-mainland-mirror-check.md).
+# It is a separate job so a failed push can be re-run alone: a rebuild would
+# produce bytes the immutable R2 upload refuses. promote is not here: it stays
+# a local, manual command once every platform's mirror is recorded.
 # Signing secrets and variables live in the `release` GitHub Environment; the
 # repository variable CLOUDFLARE_ACCOUNT_ID and the repository secret
 # CLOUDFLARE_API_TOKEN (the operator token) are shared with other workflows;
@@ -96,6 +99,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          MAINLAND_MIRROR_SSH_KEY: ${{ secrets.MAINLAND_MIRROR_SSH_KEY }}
           APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ vars.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ vars.APPLE_API_KEY }}
@@ -325,3 +329,42 @@ jobs:
           if [[ -n "${BPP_RELEASE_KEYCHAIN:-}" ]]; then
             security delete-keychain "$BPP_RELEASE_KEYCHAIN" || true
           fi
+
+  mainland-mirror:
+    name: Mainland mirror ${{ matrix.platform }}
+    needs: platform
+    # A job-level if cannot read the platform job's STAGE; this is the same
+    # condition as its upload step: a tag push, or a dispatch that uploads.
+    if: github.event_name == 'push' || (inputs.dry_run != true && inputs.build_only != true)
+    runs-on: ubuntu-latest
+    # The mirror serves about 4 Mbit/s: the byte check alone reads the 67 MB
+    # Android App APK for 2 to 3 minutes, after the push.
+    timeout-minutes: 30
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(inputs.platform == 'macos' && '["macos"]' || inputs.platform == 'windows' && '["windows"]' || inputs.platform == 'android' && '["android"]' || '["macos","windows"]') }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: just@1.58.0
+      - name: Push, check and record the mainland mirror
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          MAINLAND_MIRROR_SSH_KEY: ${{ secrets.MAINLAND_MIRROR_SSH_KEY }}
+        run: |
+          just release::mirror "$RELEASE_PLATFORM" | tee "$RUNNER_TEMP/mirror.log"
+          grep -E '^Recorded ' "$RUNNER_TEMP/mirror.log" >> "$GITHUB_STEP_SUMMARY" || true

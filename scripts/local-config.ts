@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { loadGithubSecrets } from '../release/github-secrets.ts';
 
 // Load after setup installs root dependencies; --help works on a fresh clone.
 const require = createRequire(import.meta.url);
@@ -33,6 +34,8 @@ export interface SectionSpec {
   projected?: ProjectedKey[];
   keys?: string[];
   inject?: string[];
+  /** release/github-secrets.json items whose keys/ file the profile exports as is. */
+  injectFiles?: string[];
   stage?: Record<string, string>;
   optional?: true | string[];
   required?: Record<string, string[]>;
@@ -133,6 +136,7 @@ export const sections: SectionTable = {
     profile: 'release',
     keys: cloudflareKeys,
     inject: cloudflareKeys,
+    injectFiles: ['MAINLAND_MIRROR_SSH_KEY'],
     required: { release: cloudflareKeys }
   },
   bot: {
@@ -593,6 +597,16 @@ export function withProfileEnvironment<T>(
   if (!inject) throw new Error(`[${name}] needs exactly one delivery`);
   for (const key of inject) {
     if (!result[key] && values[key]) result[key] = values[key];
+  }
+  for (const name of spec.injectFiles || []) {
+    if (result[name]) continue;
+    const file = loadGithubSecrets(repository).items.find(
+      (item) => item.name === name
+    )?.local.file;
+    if (!file) throw new Error(`${name} names no keys/ file`);
+    const source = ownedPath(home, file);
+    // Verbatim: OpenSSH rejects a private key without its final newline.
+    if (regularFile(source)) result[name] = fs.readFileSync(source, 'utf8');
   }
   return use(result);
 }
