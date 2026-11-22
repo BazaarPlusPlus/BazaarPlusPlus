@@ -28,7 +28,7 @@
     "@types/node": "^26.6.6",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
-    "oxlint-tsgolint": "^7.0.2005",
+    "oxlint-tsgolint": "^7.0.2007",
     "typescript": "^7.0.2",
     "vitest": "^4.1.12",
     "wrangler": "4.162.0"
