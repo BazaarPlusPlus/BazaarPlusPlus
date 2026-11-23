@@ -85,7 +85,7 @@ consumer data.
 
 **Daily Highlights**:
 One Complete Source Day's player count and runs by hour, the players with
-the most Ten-Win Runs and Perfect Runs, the most frequent items, skills and
-enchantments on Ten-Win final boards, and the day's records, printed by
+the most Perfect Runs, each hero's most frequent final items and skills in
+Ten-Win Runs, and the day's records, printed by
 `bazaarlens highlights` for the QQ daily report. They name players,
 so they are never published as consumer data.
