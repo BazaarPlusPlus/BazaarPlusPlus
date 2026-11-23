@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import duckdb
 import httpx
 import pytest
 
@@ -10,7 +11,7 @@ from bazaarlens.bundle_source import BundleSource
 from bazaarlens.driver import PipelineDriver
 from bazaarlens.durable import canonical_json
 from bazaarlens.facts.store import FactStore
-from bazaarlens.highlights import HighlightsError, build_highlights
+from bazaarlens.highlights import HighlightsError, _hero_picks, build_highlights
 from tests.pipeline_fixtures import (
     API_BASE_URL,
     CONTRACT_FIXTURES,
@@ -82,7 +83,39 @@ def test_one_bundle_day_reproduces_the_committed_snapshots_and_run_report(
     resources = AnalysisResources("1GB", 1)
     highlights = build_highlights(store, "2026-08-10", resources)
     assert highlights["ten_win_runs"] >= 1
-    assert highlights["ten_win_leaders"]
+    assert (
+        sum(hero["ten_win_runs"] for hero in highlights["hero_picks"]) == highlights["ten_win_runs"]
+    )
     assert_golden(TEST_FIXTURES / "pipeline-golden.highlights.json", canonical_json(highlights))
     with pytest.raises(HighlightsError):
         build_highlights(store, "2026-08-11", resources)
+
+
+def test_highlight_picks_rank_distinct_runs_within_hero_and_card_set() -> None:
+    with duckdb.connect(config={"threads": "1"}) as connection:
+        connection.execute(
+            """
+            CREATE VIEW day_runs AS SELECT * FROM (VALUES
+              ('Dooley', true), ('Dooley', true), ('Mak', true), ('Vanessa', false)
+            ) AS runs(hero, ten_win);
+            CREATE VIEW ten_win_boards AS SELECT * FROM (VALUES
+              ('Dooley', 'player_hand', 'D', 'b1', 'r1'),
+              ('Dooley', 'player_hand', 'D', 'b2', 'r2'),
+              ('Dooley', 'player_hand', 'C', 'b1', 'r1'),
+              ('Dooley', 'player_hand', 'C', 'b1', 'r1'),
+              ('Dooley', 'player_hand', 'B', 'b1', 'r1'),
+              ('Dooley', 'player_hand', 'A', 'b1', 'r1'),
+              ('Dooley', 'player_skills', 'C', 'b1', 'r1'),
+              ('Dooley', 'player_skills', 'B', 'b1', 'r1'),
+              ('Dooley', 'player_skills', 'A', 'b1', 'r1')
+            ) AS boards(hero, card_set_label, card, bundle_id, run_id);
+            """
+        )
+        dooley, mak = _hero_picks(connection)
+    assert dooley == {
+        "hero": "Dooley",
+        "ten_win_runs": 2,
+        "cards": [{"name": "D", "runs": 2}, {"name": "A", "runs": 1}, {"name": "B", "runs": 1}],
+        "skills": [{"name": "A", "runs": 1}, {"name": "B", "runs": 1}],
+    }
+    assert mak == {"hero": "Mak", "ten_win_runs": 1, "cards": [], "skills": []}

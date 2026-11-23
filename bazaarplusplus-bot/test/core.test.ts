@@ -140,3 +140,18 @@ test('rendering escapes user text and labels partial reports', () => {
   expect(html).toContain('BazaarPlusPlus');
   expect(html).toContain('不完整统计');
 });
+
+test.each(['Master', 'Masters'])('renders %s as 大师', (rank) => {
+  const run = { ...sample, rank, rating: null, initialRating: null };
+  expect(accepted(run)).toBe(true);
+  const html = statsHtml({
+    name: 'Fixture',
+    runs: [run],
+    names,
+    from: sample.ended! - 1,
+    before: sample.ended! + 1,
+    art: {},
+    skipped: 0
+  });
+  expect(html).toContain('<b>大师</b><small>段位</small>');
+});

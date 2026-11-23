@@ -6,11 +6,7 @@ from bazaarlens.analysis import AnalysisResources, AnalysisWindow, open_analysis
 from bazaarlens.facts.admission import LEGEND_RANK
 from bazaarlens.facts.store import FactStore, parse_source_day
 
-LEADERS = 10
 PERFECT_LEADERS = 5
-CARDS = 10
-SKILLS = 5
-ENCHANTMENTS = 5
 
 _NAMES = """
 CREATE TEMP VIEW player_names AS
@@ -32,7 +28,7 @@ WHERE r.source_day = {day}
 _BOARDS = """
 CREATE TEMP VIEW ten_win_boards AS
 SELECT r.run_id, r.bundle_id, r.player_account_id, r.name, r.hero, r.ended_at_utc,
-       c.card_set_label, c.template_id, c.name AS card, c.tier, c.enchantment
+       c.card_set_label, c.name AS card, c.tier, c.enchantment
 FROM day_runs r
 JOIN battle_cards_fact c
   ON c.bundle_id=r.bundle_id AND c.run_id=r.run_id AND c.battle_id=r.final_battle_id
@@ -73,19 +69,32 @@ def _first(connection, sql: str) -> dict[str, Any] | None:
     return {**rows[0], "value": int(rows[0]["value"])}
 
 
-def _popular(connection, label: str, column: str, limit: int) -> list[dict[str, Any]]:
-    key = "template_id" if column == "card" else column
+def _hero_picks(connection) -> list[dict[str, Any]]:
     return _rows(
         connection,
-        f"""
-        SELECT mode({column} ORDER BY {column}) AS name,
-               mode(hero ORDER BY hero) AS hero,
-               count(DISTINCT bundle_id || '/' || run_id) AS runs
-        FROM ten_win_boards
-        WHERE card_set_label={sql_string(label)} AND coalesce({column}, '') <> ''
-        GROUP BY {key}
-        ORDER BY runs DESC, name
-        LIMIT {limit}
+        """
+        WITH hero_runs AS (
+          SELECT hero, count(*) AS ten_win_runs
+          FROM day_runs WHERE ten_win
+          GROUP BY hero
+        ), ranked AS (
+          SELECT hero, card_set_label, card AS name,
+                 count(DISTINCT (bundle_id, run_id)) AS runs,
+                 row_number() OVER (
+                   PARTITION BY hero, card_set_label ORDER BY runs DESC, card
+                 ) AS pick_rank
+          FROM ten_win_boards
+          GROUP BY hero, card_set_label, card
+        )
+        SELECT hero, ten_win_runs,
+               coalesce(list({name: name, runs: runs} ORDER BY pick_rank)
+                 FILTER (WHERE card_set_label='player_hand' AND pick_rank <= 3), []) AS cards,
+               coalesce(list({name: name, runs: runs} ORDER BY pick_rank)
+                 FILTER (WHERE card_set_label='player_skills' AND pick_rank <= 2), []) AS skills
+        FROM hero_runs
+        LEFT JOIN ranked USING (hero)
+        GROUP BY hero, ten_win_runs
+        ORDER BY hero
         """,
     )
 
@@ -161,21 +170,6 @@ def build_highlights(store: FactStore, day: str, resources: AnalysisResources) -
                 """
             ).fetchall()
         )
-        leaders = _rows(
-            connection,
-            f"""
-            SELECT name,
-                   count(*) FILTER (WHERE ten_win) AS ten_wins,
-                   count(*) AS runs,
-                   count(*) FILTER (WHERE victories=10 AND losses=0) AS perfect,
-                   mode(hero ORDER BY hero) FILTER (WHERE ten_win) AS hero
-            FROM day_runs
-            GROUP BY player_account_id, name
-            HAVING ten_wins > 0
-            ORDER BY ten_wins DESC, runs, perfect DESC, name, player_account_id
-            LIMIT {LEADERS}
-            """,
-        )
         perfect_leaders = _rows(
             connection,
             f"""
@@ -208,17 +202,12 @@ def build_highlights(store: FactStore, day: str, resources: AnalysisResources) -
                 connection, "count(*) FILTER (WHERE coalesce(enchantment, '') <> '')", "DESC"
             ),
         }
-        cards = _popular(connection, "player_hand", "card", CARDS)
-        skills = _popular(connection, "player_skills", "card", SKILLS)
-        enchantments = _popular(connection, "player_hand", "enchantment", ENCHANTMENTS)
+        hero_picks = _hero_picks(connection)
     return {
         "day": source_day.isoformat(),
         **{key: int(value) for key, value in summary.items()},
         "hourly_runs": [int(by_hour.get(hour, 0)) for hour in range(24)],
-        "ten_win_leaders": leaders,
         "perfect_leaders": perfect_leaders,
-        "ten_win_cards": cards,
-        "ten_win_skills": skills,
-        "ten_win_enchantments": enchantments,
+        "hero_picks": hero_picks,
         "records": records,
     }

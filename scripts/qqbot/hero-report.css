@@ -139,28 +139,36 @@ h2 {
 }
 
 .chart {
-  display: flex;
-  height: 168px;
-  align-items: flex-end;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: var(--space-12);
-  padding: var(--space-16);
+  padding: var(--space-24) var(--space-16) var(--space-16);
 }
 .day {
-  display: flex;
-  height: 100%;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-6);
-  color: var(--text-3);
+  display: grid;
+  gap: var(--space-4);
+  color: var(--text-2);
   font-size: 13px;
   line-height: 1.2;
+  text-align: center;
+}
+.day-plot {
+  position: relative;
+  height: 108px;
 }
 .day .bar {
+  position: absolute;
+  bottom: 0;
   width: 100%;
   border-radius: var(--r-inner) var(--r-inner) 0 0;
   background: var(--bg-selected);
+}
+.bar-count {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-4));
+  left: 0;
 }
 .day.today {
   color: var(--text-1);
@@ -181,6 +189,10 @@ h2 {
   gap: var(--space-4);
   padding: var(--space-16);
   border-left: 3px solid var(--hero-color);
+}
+.callout.flat {
+  justify-content: center;
+  border-left: 1px solid var(--line);
 }
 .callout .label {
   color: var(--text-2);
@@ -252,32 +264,6 @@ td {
   font-weight: 500;
   text-overflow: ellipsis;
 }
-.rank {
-  width: 56px;
-  color: var(--text-3);
-  font-weight: 600;
-}
-.rank.top {
-  color: var(--on-accent);
-}
-.medal {
-  display: inline-flex;
-  width: 26px;
-  height: 26px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--r-pill);
-  font-size: 14px;
-}
-.rank-1 .medal {
-  background: var(--accent);
-}
-.rank-2 .medal {
-  background: var(--tier-silver);
-}
-.rank-3 .medal {
-  background: var(--tier-bronze);
-}
 .meter {
   display: flex;
   align-items: center;
@@ -341,13 +327,38 @@ footer {
   height: 16px;
 }
 
-.split {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-12);
+.picks-table {
+  table-layout: fixed;
 }
-.split section {
+.picks-table th:first-child {
+  width: 23%;
+}
+.picks-table th[scope='row'],
+.picks-table td {
+  height: auto;
+  padding: var(--space-8) var(--space-16);
+}
+.picks-table th[scope='row'] {
+  color: var(--text-1);
+}
+.picks-table tr:last-child th[scope='row'] {
+  border-bottom: 0;
+}
+.pick-list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
   padding: 0;
+  list-style: none;
+}
+.pick-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.pick-list li > span:first-child {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .records {

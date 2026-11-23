@@ -34,6 +34,8 @@ const RANKS: Record<string, string> = {
   Silver: '白银',
   Gold: '黄金',
   Diamond: '钻石',
+  Master: '大师',
+  Masters: '大师',
   Legendary: '传奇'
 };
 const TIERS = ['Bronze', 'Silver', 'Gold', 'Diamond', 'Legendary'];
@@ -168,6 +170,8 @@ export function heroHtml(
     label(hero, names),
     `${snapshot.window.start} 至 ${snapshot.window.end.slice(5)} · UTC`,
     head,
-    rows || '<p class="note">暂无热门十胜阵容</p>'
+    rows
+      ? `<h2 class="note">稳定十胜阵容</h2>${rows}`
+      : '<p class="note">暂无稳定十胜阵容</p>'
   );
 }
