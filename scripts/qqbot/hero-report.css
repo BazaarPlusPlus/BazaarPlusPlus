@@ -315,7 +315,14 @@ footer {
   font-size: 13px;
   line-height: 1.2;
 }
+.hour-plot {
+  position: relative;
+  width: 100%;
+  flex: 1;
+}
 .hour .bar {
+  position: absolute;
+  bottom: 0;
   width: 100%;
   border-radius: 2px 2px 0 0;
   background: var(--bg-selected);

@@ -132,6 +132,15 @@ test('compares all segments to pooled counts and displays only significant chang
     null,
     2
   );
-  expect(noRisingHero).toContain('各英雄 10胜率与前 2 日持平');
+  expect(noRisingHero).toContain('暂无英雄 10胜率显著上升');
   expect(noRisingHero).not.toContain('进步最快');
+});
+
+test('an empty day shows no average and no peak hour', () => {
+  const report = buildReport(snapshot);
+  const empty = { ...highlights, players: 0, hourly_runs: Array(24).fill(0) };
+  const overview = renderOverview(report, empty, 3);
+  expect(overview).toContain('人均 — 局');
+  expect(overview).not.toContain('NaN');
+  expect(overview).not.toContain('高峰');
 });

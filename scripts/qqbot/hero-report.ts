@@ -259,15 +259,18 @@ function hours(hourly: number[]): string {
     runs: hourly[i]
   }));
   const max = Math.max(...hourly);
-  const peak = beijing.find((h) => h.runs === max);
+  const peak = max ? beijing.find((h) => h.runs === max) : undefined;
   const bars = beijing
     .map(
       (h) =>
-        `<div class="hour${h === peak ? ' peak' : ''}"><span class="bar" style="height: ${max ? (h.runs / max) * 100 : 0}%"></span><span class="tick">${h.hour % 4 === 0 ? h.hour : ''}</span></div>`
+        `<div class="hour${h === peak ? ' peak' : ''}"><div class="hour-plot"><span class="bar" style="height: ${max ? (h.runs / max) * 100 : 0}%"></span></div><span class="tick">${h.hour % 4 === 0 ? h.hour : ''}</span></div>`
     )
     .join('');
+  const note = peak
+    ? `北京时间，高峰 ${peak.hour}:00–${(peak.hour + 1) % 24}:00`
+    : '北京时间';
   return `<section>
-  <div class="head"><h2>对局时段</h2><span class="note">北京时间，高峰 ${peak?.hour ?? '—'}:00–${((peak?.hour ?? 0) + 1) % 24}:00</span></div>
+  <div class="head"><h2>对局时段</h2><span class="note">${note}</span></div>
   <div class="panel hours">${bars}</div>
 </section>`;
 }
@@ -290,7 +293,9 @@ export function renderOverview(
       ? tile(
           '玩家',
           count(highlights.players),
-          `人均 ${(report.runs / highlights.players).toFixed(1)} 局`
+          highlights.players
+            ? `人均 ${(report.runs / highlights.players).toFixed(1)} 局`
+            : '人均 — 局'
         )
       : tile('10胜率', tenWinRate, '全部英雄'),
     tile('十胜', count(report.tenWins), `10胜率 ${tenWinRate}`),
@@ -334,7 +339,7 @@ export function renderOverview(
           rising.hero,
           `10胜率 ${trend(rising.tenWinDelta, ' 个百分点')}`
         )
-      : `<div class="panel callout flat"><span class="value">${report.baselineDays ? `各英雄 10胜率与前 ${report.baselineDays} 日持平` : '暂无历史数据'}</span></div>`
+      : `<div class="panel callout flat"><span class="value">${report.baselineDays ? '暂无英雄 10胜率显著上升' : '暂无历史数据'}</span></div>`
   ].join('');
   return fill('hero-report.html', {
     date: date(report.day),
