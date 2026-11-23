@@ -5,16 +5,15 @@ name: Operations / Daily report
 # hero snapshot published even when the hourly analyzer runs were dropped,
 # then renders three images from the public heroes/latest.json and the Daily
 # Highlights that run returns, and sends them to the QQ groups `heroReport`
-# names in scripts/qqbot/groups.json. A manual dispatch renders the same images
-# and sends them nowhere, to the test group, or to every report group. The QQ
-# Bot credentials live in the `qqbot` GitHub Environment
-# (release/github-secrets.json).
+# names in scripts/qqbot/groups.json. The QQ Bot credentials live in the
+# `qqbot` GitHub Environment (release/github-secrets.json).
 #
-# GitHub may start a scheduled run late or drop it; a dropped day is not sent.
+# GitHub started its own schedule for this workflow six to eight hours late,
+# so the Mod API Worker's `50 1 * * *` Cron Trigger dispatches it with
+# send=report instead (bazaarplusplus-server/docs/adr/0005-workflow-dispatch.md).
+# A manual dispatch renders the same images and sends them nowhere, to the
+# test group, or to every report group.
 on:
-  schedule:
-    # 09:50 Beijing time, so the analyzer run ends near 10:00.
-    - cron: '50 1 * * *'
   workflow_dispatch:
     inputs:
       send:
@@ -70,7 +69,7 @@ jobs:
         env:
           DAY: ${{ needs.analyze.outputs.day }}
           HIGHLIGHTS: ${{ needs.analyze.outputs.highlights }}
-          SEND: ${{ github.event_name == 'schedule' && 'report' || inputs.send }}
+          SEND: ${{ inputs.send }}
           QQ_BOT_APP_ID: ${{ secrets.QQ_BOT_APP_ID }}
           QQ_BOT_APP_SECRET: ${{ secrets.QQ_BOT_APP_SECRET }}
         run: |

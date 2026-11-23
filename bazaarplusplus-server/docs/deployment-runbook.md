@@ -70,7 +70,13 @@ bun run wrangler secret put BAZAARDB_DELIVERY_TOKEN
 
 Until they are set, signing and protected routes fail closed (`500 internal_error` or `503 storage_unavailable`). No released mod points at V6 before 6.0.0, so this window has no player traffic.
 
-Verify the custom domain resolves only to `bazaarplusplus-mod-api-v6` and that the Worker has the `*/15 * * * *` Cron Trigger from `wrangler.toml`, which runs D1 retention. Allow up to 15 minutes for trigger configuration to propagate.
+Set `GITHUB_DISPATCH_TOKEN` too: a fine-grained GitHub token for `BazaarPlusPlus/BazaarPlusPlus` only, with Actions read and write ([ADR 0005](adr/0005-workflow-dispatch.md)). Note its expiry date and rotate it before then; an expired token stops the daily report.
+
+```sh
+bun run wrangler secret put GITHUB_DISPATCH_TOKEN
+```
+
+Verify the custom domain resolves only to `bazaarplusplus-mod-api-v6` and that the Worker has every Cron Trigger from `wrangler.toml`: `*/15 * * * *` runs D1 retention, `0 1 * * *` and `0 12 * * *` dispatch `analyzer.yml`, and `50 1 * * *` dispatches `daily-report.yml`. Allow up to 15 minutes for trigger configuration to propagate.
 
 Then hand the V6 base URL and tokens to their consumers: the analyzer's repository `.env` (`BPP_API_BASE_URL` and `BPP_BUNDLE_SYNC_TOKEN`), and BazaarDB, which reads `GET /bazaardb/bundles` with the V6 delivery token: send them the [BazaarDB integration guide](bazaardb-integration.md) and, separately, the token.
 
@@ -116,6 +122,7 @@ Suggested starting thresholds; tune against real traffic.
 | Ghost 429 rate | `event = "ghost.discovery" AND limited = true` | > 100 in 5 min |
 | Ingest orphan objects | `event = "bundle.ingest.orphan" OR event = "bundle.orphan.invalid"` | ≥ 1 in 15 min |
 | D1 cleanup failure | `event = "d1.retention.failed"` | ≥ 1 in 15 min |
+| Workflow not started | `event = "workflow.dispatch.failed"` | ≥ 1 in 1 day |
 | D1 cleanup backlog | `event = "d1.retention" AND has_more = true` | Four consecutive runs |
 | D1 cleanup stopped | No successful `d1.retention` event / failed Cron invocations | No success for 45 min |
 

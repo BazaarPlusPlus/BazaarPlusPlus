@@ -4,7 +4,7 @@ Cloudflare Worker for the BazaarPlusPlus V6 Bundle pipeline, served at `mod-api-
 
 A Bundle is the immutable unit of upload, storage, and delivery — exactly one Run plus at most one optional Screenshot. Three properties shape everything else:
 
-- **Bounded maintenance.** The only maintenance is a scheduled handler that prunes old Bundle metadata from D1 in bounded batches ([ADR 0002](docs/adr/0002-d1-retention.md)). Uploader assertions remain deployment-lifetime state.
+- **Bounded maintenance.** The only maintenance is a scheduled handler that prunes old Bundle metadata from D1 in bounded batches ([ADR 0002](docs/adr/0002-d1-retention.md)). The other triggers only start the analyzer and the QQ daily report workflows on GitHub ([ADR 0005](docs/adr/0005-workflow-dispatch.md)). Uploader assertions remain deployment-lifetime state.
 - **Streaming, not buffering.** Ingest buffers only the fixed prefix and the bounded manifest; Run and Screenshot bytes stream through incremental digest validation into a single conditional R2 PUT and are never decompressed.
 - **No download proxy.** Every consumer downloads the same complete Bundle directly from R2 through a seven-day presigned `GET` URL, inside an 8-day R2 lifecycle window.
 
@@ -47,5 +47,7 @@ Provisioning, migration, lifecycle, deploy, and smoke-test commands are in [docs
 ## License
 
 Released under the [MIT License](LICENSE).
+
+The optional `GITHUB_DISPATCH_TOKEN` lets the dispatch Cron Triggers start `analyzer.yml` and `daily-report.yml` ([ADR 0005](docs/adr/0005-workflow-dispatch.md)); without it those triggers fail and log `workflow.dispatch.failed`.
 
 The optional `BOT_STATS_TOKEN` enables the Bot query routes. Apply migration `0003_bot_queries.sql` before deploying these routes, and set the same token on the Bot consumer. Existing consumers do not require this token.

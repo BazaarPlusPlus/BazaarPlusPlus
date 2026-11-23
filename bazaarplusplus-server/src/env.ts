@@ -11,4 +11,5 @@ export interface Env {
   BUNDLE_SYNC_TOKEN: string;
   BAZAARDB_DELIVERY_TOKEN: string;
   BOT_STATS_TOKEN?: string;
+  GITHUB_DISPATCH_TOKEN?: string;
 }
