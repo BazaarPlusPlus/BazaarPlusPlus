@@ -111,7 +111,8 @@ servers `http://localhost:3000`, `:4173`, `:5173`, `http://127.0.0.1:3000` and
 Production runs are `.github/workflows/analyzer.yml` on a GitHub-hosted runner,
 plus manual dispatch with an optional `--no-publish`. Its hourly `schedule`
 is best-effort: GitHub drops many of those events, and the next run that fires
-ingests every settled hour since the last one. A runner starts
+ingests every settled hour since the last one. The Mod API Worker also
+dispatches it at 01:00 and 12:00 UTC. A runner starts
 empty, so the Data Root lives under `analyzer-state/` in the private Bundle
 bucket `bazaarplusplus-bundle-v6` (whose 8-day lifecycle rule covers only
 `bundles/`) and `.github/scripts/analyzer-state.sh`
@@ -158,8 +159,11 @@ Environment, listed in `release/github-secrets.json`; its R2 token reaches only
 the V6 metrics and state buckets.
 
 `.github/workflows/daily-report.yml` calls `analyzer.yml` once a day at
-about 10:00 Beijing time (02:00 UTC), so the previous UTC day is sealed and
-published even when hourly runs were dropped. That run also returns the
+about 10:00 Beijing time (02:00 UTC). The Mod API Worker's Cron Triggers
+dispatch it at 01:50 UTC and `analyzer.yml` at 01:00 and 12:00 UTC, because
+GitHub started its schedules hours late or dropped them
+(`bazaarplusplus-server/docs/adr/0005-workflow-dispatch.md`). The call
+seals and publishes the previous UTC day even when hourly runs were dropped. That run also returns the
 `window.end` it analyzed and the Daily Highlights `bazaarlens highlights`
 prints for it from the restored facts; the report job renders three images
 from the public `heroes/latest.json` and the Daily Highlights and sends them to

@@ -14,7 +14,9 @@ name: Operations / Analyzer
 # these hourly events. A dropped hour is not lost: the next run that fires
 # ingests every settled Source Hour since the last one, so collection only
 # arrives in larger batches, and snapshots still advance once per Complete
-# Source Day.
+# Source Day. The Mod API Worker also dispatches this workflow at 01:00 and
+# 12:00 UTC, so the run daily-report.yml calls at 01:50 has little left to
+# ingest (bazaarplusplus-server/docs/adr/0005-workflow-dispatch.md).
 #
 # daily-report.yml calls this workflow before its report and reads two
 # outputs: `day`, the window.end this run analyzed, and `highlights`, that

@@ -4,8 +4,11 @@ compatibility_date = "2026-08-02"
 workers_dev = false
 
 [triggers]
-# */15 runs D1 retention.
-crons = ["*/15 * * * *"]
+# */15 runs D1 retention. The others dispatch GitHub workflows, keyed by
+# WORKFLOW_DISPATCHES in src/modules/workflow-dispatch.ts: the analyzer at
+# 01:00 and 12:00 UTC, and the QQ daily report at 01:50 UTC so it reaches the
+# groups near 10:00 Beijing time (docs/adr/0005-workflow-dispatch.md).
+crons = ["*/15 * * * *", "0 1 * * *", "50 1 * * *", "0 12 * * *"]
 
 [placement]
 region = "aws:ap-east-1"
