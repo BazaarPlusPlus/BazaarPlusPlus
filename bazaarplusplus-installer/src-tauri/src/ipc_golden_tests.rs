@@ -40,7 +40,17 @@ impl Fixture {
     }
 
     fn json(&self, value: &impl serde::Serialize) -> String {
-        json(value, &[(&self.game, GAME), (&self.steam, STEAM)])
+        json(
+            value,
+            &[
+                (
+                    &crate::services::paths::bpp_data_dir(&self.game),
+                    "<DATA_ROOT>",
+                ),
+                (&self.game, GAME),
+                (&self.steam, STEAM),
+            ],
+        )
     }
 }
 
@@ -54,6 +64,7 @@ fn snapshot(fixture: &Fixture, installed_version: Option<&str>) -> InstallEnviro
         steam_path: Some(fixture.steam.to_string_lossy().into_owned()),
         game_path: Some(fixture.game.to_string_lossy().into_owned()),
         game_path_valid: true,
+        tempo_migration_pending: false,
         bepinex_installed: installed_version.is_some(),
         bpp_version: installed_version.map(str::to_owned),
         bundled_bpp_version: Some("1.2.3".into()),
@@ -75,6 +86,7 @@ fn get_install_state() {
         steam_path: None,
         game_path: None,
         game_path_valid: false,
+        tempo_migration_pending: false,
         bepinex_installed: false,
         bpp_version: None,
         bundled_bpp_version: Some("1.2.3".into()),
@@ -244,7 +256,7 @@ fn seed_history(fixture: &Fixture) {
 }
 
 fn history(fixture: &Fixture) -> History {
-    History::at_with(Some(fixture.game.clone()), || false).unwrap()
+    History::at_with(Some(fixture.game.clone()), |_| false).unwrap()
 }
 
 #[test]

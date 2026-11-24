@@ -24,6 +24,7 @@ pub(crate) struct InstallEnvironmentSnapshot {
     pub steam_path: Option<String>,
     pub game_path: Option<String>,
     pub game_path_valid: bool,
+    pub tempo_migration_pending: bool,
     pub bepinex_installed: bool,
     pub bpp_version: Option<String>,
     pub bundled_bpp_version: Option<String>,
@@ -94,6 +95,9 @@ pub fn detect_for_install(
 
     Ok(InstallEnvironmentSnapshot {
         steam_path: steam_path.map(|path| path.to_string_lossy().into_owned()),
+        tempo_migration_pending: game_path
+            .as_deref()
+            .is_some_and(crate::services::paths::tempo_migration_pending),
         game_path: game_path.map(|path| path.to_string_lossy().into_owned()),
         game_path_valid,
         bepinex_installed,

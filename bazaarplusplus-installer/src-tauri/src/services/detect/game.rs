@@ -20,6 +20,15 @@ pub(crate) fn is_bepinex_installed(game_path: &Path) -> bool {
 }
 
 pub(crate) fn read_installed_bpp_version(game_path: &Path) -> Option<String> {
+    // Tempo restores BepInEx, including its version marker, after a redownload.
+    // The native recorder under TheBazaar_Data must also be present for this
+    // version of the Payload to count as installed.
+    #[cfg(target_os = "windows")]
+    if crate::services::tempo::library(game_path).is_some()
+        && !crate::services::bepinex::windows_native_payload_present(game_path)
+    {
+        return None;
+    }
     let version_path = game_path.join("BepInEx/plugins/BazaarPlusPlus.version");
     let version = std::fs::read_to_string(version_path).ok()?;
     let version = version.trim();

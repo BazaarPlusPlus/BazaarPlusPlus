@@ -533,6 +533,7 @@ mod tests {
             &DataMaintenanceLock::default(),
             &crate::stream::runtime::StreamRuntime::default(),
             game.path().to_string_lossy().into_owned(),
+            crate::services::paths::bpp_data_dir(game.path()),
             stopped,
         )
         .await

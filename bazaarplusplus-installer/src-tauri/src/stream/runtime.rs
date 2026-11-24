@@ -122,13 +122,19 @@ impl StreamRuntime {
         .await
     }
 
-    pub(crate) async fn exclusive_maintenance<T, F, Fut>(&self, operation: F) -> anyhow::Result<T>
+    pub(crate) async fn exclusive_maintenance<T, F, Fut>(
+        &self,
+        game_path: &Path,
+        operation: F,
+    ) -> anyhow::Result<T>
     where
         F: FnOnce() -> Fut,
         Fut: Future<Output = anyhow::Result<T>>,
     {
         let _lifecycle = self.lifecycle.lock().await;
-        self.stop_locked().await?;
+        if self.is_running_for_game_path(game_path) {
+            self.stop_locked().await?;
+        }
         operation().await
     }
 
@@ -152,11 +158,8 @@ impl StreamRuntime {
     where
         A: StreamServerAdapter + ?Sized,
     {
-        if self.is_running_for_game_path(installation.game_path.as_deref()) {
-            return Ok(self.snapshot());
-        }
         if self.snapshot().running {
-            self.stop_locked().await?;
+            return Ok(self.snapshot());
         }
 
         self.clear_error();
@@ -245,16 +248,20 @@ impl StreamRuntime {
         Ok(self.set_active_window(active_from, active_window_offset))
     }
 
-    fn is_running_for_game_path(&self, requested_game_path: Option<&Path>) -> bool {
+    fn is_running_for_game_path(&self, game_path: &Path) -> bool {
         let inner = self.inner.lock().expect("stream runtime poisoned");
-        if !inner.status.running {
-            return false;
-        }
-
-        match requested_game_path {
-            Some(path) => inner.active_installation_path.as_deref() == Some(path),
-            None => true,
-        }
+        inner.status.running
+            && inner
+                .active_installation_path
+                .as_deref()
+                .is_some_and(|active| {
+                    active == game_path
+                        || active
+                            .canonicalize()
+                            .ok()
+                            .zip(game_path.canonicalize().ok())
+                            .is_some_and(|(a, b)| a == b)
+                })
     }
 
     fn set_running(&self, started: StartedStream) {
@@ -332,15 +339,10 @@ where
 fn resolve_installation(app: &tauri::AppHandle) -> StreamInstallation {
     let selected_installation = app.state::<SelectedGameInstallationState>();
     let game_resolution = selected_installation.resolve(app, None, GamePathAcceptance::Any);
-    let record_resolution = game_resolution
-        .as_ref()
-        .filter(|resolution| resolution.database_path.is_some())
-        .cloned()
-        .or_else(|| selected_installation.resolve(app, None, GamePathAcceptance::DatabaseExists));
-
+    let game_path = game_resolution.map(|resolution| resolution.game_path);
     StreamInstallation {
-        game_path: game_resolution.map(|resolution| resolution.game_path),
-        record_game_path: record_resolution.map(|resolution| resolution.game_path),
+        record_game_path: game_path.clone(),
+        game_path,
     }
 }
 
@@ -521,6 +523,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn an_active_overlay_keeps_its_installation_until_restart() {
+        let runtime = StreamRuntime::default();
+        let server = TestServer::default();
+        runtime
+            .ensure_with(&server, installation("/Steam"))
+            .await
+            .unwrap();
+        runtime
+            .ensure_with(&server, installation("/Tempo"))
+            .await
+            .unwrap();
+        runtime
+            .exclusive_maintenance(std::path::Path::new("/Tempo"), || async { Ok(()) })
+            .await
+            .unwrap();
+        assert!(runtime.is_running_for_game_path(std::path::Path::new("/Steam")));
+        assert_eq!(server.stops.load(Ordering::SeqCst), 0);
+        runtime
+            .restart_with(&server, installation("/Tempo"))
+            .await
+            .unwrap();
+        assert!(runtime.is_running_for_game_path(std::path::Path::new("/Tempo")));
+        runtime.stop().await.unwrap();
+    }
+
+    #[tokio::test]
     async fn stream_runtime_failed_start_leaves_an_idle_runtime_without_a_task() {
         let runtime = StreamRuntime::default();
         let server = TestServer::failing("bind failed");
@@ -555,7 +583,7 @@ mod tests {
         let maintenance_release = release.clone();
         let maintenance = tokio::spawn(async move {
             maintenance_runtime
-                .exclusive_maintenance(|| async move {
+                .exclusive_maintenance(std::path::Path::new("/Games/The Bazaar"), || async move {
                     maintenance_entered.notify_one();
                     maintenance_release.notified().await;
                     Ok(())

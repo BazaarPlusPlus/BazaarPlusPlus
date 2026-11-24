@@ -4,7 +4,7 @@ use tauri::Manager;
 
 use super::plan::{plan_install, InstallEffect};
 use super::{build_install_state_raw, install_action_problem, InstallState};
-use crate::problem::{run_blocking, SemanticProblem};
+use crate::problem::SemanticProblem;
 use crate::services::{
     action_error::ActionError,
     bepinex::{self, install_bepinex},
@@ -22,14 +22,25 @@ pub(crate) async fn install(
     app: tauri::AppHandle,
     request: InstallRequest,
 ) -> Result<InstallState, SemanticProblem> {
-    run_blocking(
-        |error| install_action_problem("install", error),
-        move || {
-            install_on_blocking_thread(&app, request.game_path)
-                .map_err(|error| install_action_problem("install", error))
-        },
-    )
-    .await
+    let lock = app
+        .state::<crate::services::data_maintenance::DataMaintenanceLock>()
+        .inner()
+        .clone();
+    let game = std::path::PathBuf::from(&request.game_path);
+    let runtime = app
+        .state::<crate::stream::runtime::StreamRuntime>()
+        .inner()
+        .clone();
+    let install = move || install_on_blocking_thread(&app, request.game_path);
+    let result = if crate::services::paths::tempo_migration_pending(&game) {
+        lock.run_blocking_with_overlay_stopped(&runtime, &game, install)
+            .await
+    } else {
+        lock.run_blocking(install).await
+    };
+    result
+        .map_err(|error| install_action_problem("install", error))?
+        .map_err(|error| install_action_problem("install", error))
 }
 
 fn install_on_blocking_thread(
@@ -88,6 +99,10 @@ impl InstallEffects for ProductionInstallEffects {
                 game,
                 crate::services::game_process::GameStoppedOperation::Install,
             )?,
+            InstallEffect::MigrateTempoData => {
+                bepinex::ensure_valid_game_path(game)?;
+                crate::services::paths::migrate_tempo_data(game)?;
+            }
             InstallEffect::CloseSteam => prepare_steam_for_config_update(steam)?,
             InstallEffect::InstallBepInEx => install_bepinex(&self.resource_dir, game)?,
             InstallEffect::InstallTrampoline => {
@@ -142,6 +157,7 @@ mod tests {
             steam_path: Some("steam".into()),
             game_path: None,
             game_path_valid: false,
+            tempo_migration_pending: false,
             bepinex_installed: payload_current,
             bpp_version: payload_current.then(|| "6.0.0.prod".into()),
             bundled_bpp_version: Some("6.0.0.prod".into()),
@@ -306,6 +322,7 @@ mod fresh_install_acceptance {
             steam_path: Some(steam.to_string_lossy().into_owned()),
             game_path: Some(game.to_string_lossy().into_owned()),
             game_path_valid: true,
+            tempo_migration_pending: false,
             bepinex_installed: false,
             bpp_version: None,
             bundled_bpp_version: Some("6.0.0.prod".into()),

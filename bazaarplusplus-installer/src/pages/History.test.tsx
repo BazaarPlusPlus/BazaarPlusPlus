@@ -312,12 +312,12 @@ describe('history pagination', () => {
     await render('/history');
     vi.mocked(listHistoryRuns).mockRejectedValueOnce({
       code: 'history_read_blocked_by_game',
-      params: {},
+      params: { game_path: '/game' },
       diagnostic: null
     });
     await click('刷新');
     await click('结束游戏进程');
-    expect(endGameProcess).toHaveBeenCalledOnce();
+    expect(endGameProcess).toHaveBeenCalledWith('/game');
     await click('下一页');
     expect(
       container.querySelector('.bpp-history-run-card')?.getAttribute('href')
@@ -348,7 +348,7 @@ describe('history pagination', () => {
     await render('/history', true);
     vi.mocked(listHistoryRuns).mockRejectedValueOnce({
       code: 'history_read_blocked_by_game',
-      params: {},
+      params: { game_path: '/game' },
       diagnostic: null
     });
     await click('刷新');

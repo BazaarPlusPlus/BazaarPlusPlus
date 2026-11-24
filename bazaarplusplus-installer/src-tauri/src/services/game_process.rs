@@ -5,34 +5,24 @@ use crate::problem::{SemanticProblem, SemanticProblemCode};
 #[cfg(target_os = "windows")]
 const BAZAAR_PROCESS_NAME: &str = "TheBazaar.exe";
 
-#[cfg(target_os = "windows")]
-fn is_bazaar_running() -> anyhow::Result<bool> {
-    crate::services::process_snapshot::process_is_running(BAZAAR_PROCESS_NAME)
-}
-
 /// Best-effort History diagnostic only. Destructive operations require `ensure_game_stopped`.
-pub(crate) fn is_bazaar_running_best_effort() -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        is_bazaar_running().unwrap_or(false)
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        false
-    }
+pub(crate) fn is_bazaar_running_best_effort(game_path: &Path) -> bool {
+    cfg!(target_os = "windows")
+        && SystemGameProcessProbe
+            .is_running(game_path)
+            .unwrap_or(false)
 }
 
 /// The game can keep the mod database open after its window closes.
-pub(crate) fn terminate_game() -> anyhow::Result<bool> {
+pub(crate) fn terminate_game(game_path: &Path) -> anyhow::Result<bool> {
     #[cfg(target_os = "windows")]
     {
-        crate::services::process_snapshot::terminate_processes(BAZAAR_PROCESS_NAME)
-            .map(|terminated| terminated > 0)
+        crate::services::process_snapshot::inspect_game(&game_path.join(BAZAAR_PROCESS_NAME), true)
     }
 
     #[cfg(not(target_os = "windows"))]
     {
+        let _ = game_path;
         Err(anyhow::anyhow!(
             "Ending the game process is not supported on this platform."
         ))
@@ -146,8 +136,10 @@ impl GameProcessProbe for SystemGameProcessProbe {
         }
         #[cfg(target_os = "windows")]
         {
-            let _ = game_path;
-            is_bazaar_running()
+            crate::services::process_snapshot::inspect_game(
+                &game_path.join(BAZAAR_PROCESS_NAME),
+                false,
+            )
         }
         // The game ships no build for other platforms, so no process of it can
         // run here.

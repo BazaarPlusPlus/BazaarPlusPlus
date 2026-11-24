@@ -13,6 +13,8 @@ pub mod process_snapshot;
 pub mod selected_game_installation;
 pub mod startup;
 pub mod steam;
+#[cfg(target_os = "windows")]
+pub(crate) mod tempo;
 pub mod vdf;
 
 macro_rules! debug_log {

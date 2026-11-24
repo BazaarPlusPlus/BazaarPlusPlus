@@ -220,7 +220,7 @@ export default function Install() {
           <ResetDataConfirmModal
             busy={confirmationRunning}
             acknowledged={resetDataAcknowledged}
-            targetPath={confirmation.target.gamePath}
+            targetPath={confirmation.target.dataRootPath}
             problem={confirmationFailed}
             failurePaths={resetFailurePaths}
             onAcknowledgedChange={setResetDataAcknowledged}

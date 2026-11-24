@@ -45,67 +45,38 @@ pub(crate) fn resolve_game_path_core(
     candidates: impl Fn() -> Vec<PathBuf>,
     probe: impl Fn(GamePathProbe, &Path) -> bool,
 ) -> Option<GamePathResolution> {
-    let mut memo: Option<Vec<PathBuf>> = None;
-
-    for (game_path, source) in [
+    let accept = |game_path: PathBuf, source| {
+        if acceptance == GamePathAcceptance::DetectionPick {
+            return Some(GamePathResolution {
+                game_path,
+                database_path: None,
+                source,
+            });
+        }
+        let resolved = with_probed_db(game_path, source, &probe);
+        (acceptance == GamePathAcceptance::Any || resolved.database_path.is_some())
+            .then_some(resolved)
+    };
+    for (path, source) in [
         (inputs.requested, GamePathSource::Explicit),
         (inputs.selected, GamePathSource::Selected),
         (inputs.startup, GamePathSource::Startup),
     ] {
-        let Some(game_path) = game_path else {
-            continue;
-        };
-        match acceptance {
-            GamePathAcceptance::DetectionPick => {
-                return Some(GamePathResolution {
-                    game_path,
-                    database_path: None,
-                    source,
-                });
-            }
-            GamePathAcceptance::Any => {
-                return Some(with_probed_db(game_path, source, &probe));
-            }
-            GamePathAcceptance::DatabaseExists => {
-                if probe(GamePathProbe::DatabaseFile, &game_path) {
-                    return Some(GamePathResolution {
-                        database_path: Some(paths::database_path(&game_path)),
-                        game_path,
-                        source,
-                    });
-                }
-            }
+        if let Some(path) = path {
+            return accept(path, source);
         }
     }
-
-    if acceptance != GamePathAcceptance::DatabaseExists {
-        if let Some(game_path) = memo
-            .get_or_insert_with(&candidates)
-            .iter()
-            .find(|path| probe(GamePathProbe::GameInstalled, path))
-            .cloned()
-        {
-            return Some(match acceptance {
-                GamePathAcceptance::DetectionPick => GamePathResolution {
-                    game_path,
-                    database_path: None,
-                    source: GamePathSource::Fallback,
-                },
-                GamePathAcceptance::Any => {
-                    with_probed_db(game_path, GamePathSource::Fallback, &probe)
-                }
-                GamePathAcceptance::DatabaseExists => {
-                    unreachable!("the enclosing branch excludes DatabaseExists")
-                }
-            });
-        }
+    let candidates = candidates();
+    if let Some(path) = candidates
+        .iter()
+        .find(|path| probe(GamePathProbe::GameInstalled, path))
+    {
+        return accept(path.clone(), GamePathSource::Fallback);
     }
-
     if acceptance == GamePathAcceptance::DetectionPick {
         return None;
     }
-
-    memo.get_or_insert_with(&candidates)
+    candidates
         .iter()
         .find(|path| probe(GamePathProbe::DatabaseFile, path))
         .map(|path| GamePathResolution {
@@ -132,7 +103,7 @@ fn with_probed_db(
 pub(crate) fn fs_probe(probe: GamePathProbe, path: &Path) -> bool {
     match probe {
         GamePathProbe::GameInstalled => crate::services::detect::is_valid_game_path(path),
-        GamePathProbe::DatabaseFile => paths::database_path(path).exists(),
+        GamePathProbe::DatabaseFile => paths::database_path(path).is_file(),
     }
 }
 
@@ -143,7 +114,9 @@ pub(crate) fn find_existing_fallback_game_path() -> Option<PathBuf> {
         "[detect::steam] probing common Windows candidates count={}",
         candidates.len()
     );
-    candidates.into_iter().find(|path| path.exists())
+    candidates
+        .into_iter()
+        .find(|path| crate::services::detect::is_valid_game_path(path))
 }
 
 pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
@@ -180,6 +153,9 @@ pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
 
         for candidate in STEAM_LIBRARY_FALLBACK_CANDIDATES {
             push_unique(&mut candidates, PathBuf::from(candidate));
+        }
+        if let Some(game) = super::tempo::default_game_path() {
+            push_unique(&mut candidates, game);
         }
     }
 
@@ -449,7 +425,7 @@ mod resolve_tests {
             expect_candidate_calls: 0,
         },
         Row {
-            name: "database gate falls through explicit to startup",
+            name: "explicit installation owns its empty history",
             requested: Some("/r"),
             startup: Some("/s"),
             selected: None,
@@ -457,13 +433,13 @@ mod resolve_tests {
             game_installed: &[],
             has_db: &["/s"],
             acceptance: GamePathAcceptance::DatabaseExists,
-            expect: Some(("/s", GamePathSource::Startup, true)),
-            expect_probe_log: &["db:/r", "db:/s"],
+            expect: None,
+            expect_probe_log: &["db:/r"],
             expect_candidate_calls: 0,
         },
         Row {
             name: "startup wins without rebuilding fallback candidates",
-            requested: Some("/r"),
+            requested: None,
             startup: Some("/s"),
             selected: None,
             fallback: &["/s"],
@@ -471,11 +447,11 @@ mod resolve_tests {
             has_db: &["/s"],
             acceptance: GamePathAcceptance::DatabaseExists,
             expect: Some(("/s", GamePathSource::Startup, true)),
-            expect_probe_log: &["db:/r", "db:/s"],
+            expect_probe_log: &["db:/s"],
             expect_candidate_calls: 0,
         },
         Row {
-            name: "database gate permits session rescue",
+            name: "explicit path takes precedence even without a database",
             requested: Some("/r"),
             startup: None,
             selected: Some("/sess"),
@@ -483,21 +459,21 @@ mod resolve_tests {
             game_installed: &[],
             has_db: &["/sess"],
             acceptance: GamePathAcceptance::DatabaseExists,
-            expect: Some(("/sess", GamePathSource::Selected, true)),
-            expect_probe_log: &["db:/r", "db:/sess"],
+            expect: None,
+            expect_probe_log: &["db:/r"],
             expect_candidate_calls: 0,
         },
         Row {
             name: "database tail preserves candidate order",
-            requested: Some("/r"),
+            requested: None,
             startup: None,
-            selected: Some("/sess"),
+            selected: None,
             fallback: &["/f1", "/f2"],
             game_installed: &[],
             has_db: &["/f2"],
             acceptance: GamePathAcceptance::DatabaseExists,
             expect: Some(("/f2", GamePathSource::Fallback, true)),
-            expect_probe_log: &["db:/r", "db:/sess", "db:/f1", "db:/f2"],
+            expect_probe_log: &["exe:/f1", "exe:/f2", "db:/f1", "db:/f2"],
             expect_candidate_calls: 1,
         },
         Row {
@@ -510,7 +486,7 @@ mod resolve_tests {
             has_db: &[],
             acceptance: GamePathAcceptance::DatabaseExists,
             expect: None,
-            expect_probe_log: &["db:/f1"],
+            expect_probe_log: &["exe:/f1", "db:/f1"],
             expect_candidate_calls: 1,
         },
     ];

@@ -1,3 +1,7 @@
+---
+superseded-by: 0011-windows-tempo-launcher.md
+---
+
 # Steam-Only Launch
 
 ## Context

@@ -1,3 +1,5 @@
+#[cfg(target_os = "windows")]
+use anyhow::Context as _;
 use std::path::{Path, PathBuf};
 
 use crate::config::{
@@ -9,7 +11,81 @@ const OVERLAY_CACHE_DIRECTORY: &str = "stream-overlay-cache";
 const OVERLAY_SETTINGS_FILE_NAME: &str = "stream-overlay-crop.json";
 
 pub fn bpp_data_dir(game_path: &Path) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    if let Some(library) = super::tempo::library(game_path) {
+        let stable = library.join(BAZAAR_DATA_DIRECTORY);
+        let old = game_path.join(BAZAAR_DATA_DIRECTORY);
+        if !stable.is_dir() && (old.is_dir() || stable.is_file()) {
+            return old;
+        }
+        return stable;
+    }
     game_path.join(BAZAAR_DATA_DIRECTORY)
+}
+
+fn existing_directory(path: &Path) -> anyhow::Result<bool> {
+    let entry = match std::fs::symlink_metadata(path) {
+        Ok(entry) => entry,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(err) => return Err(err.into()),
+    };
+    anyhow::ensure!(
+        entry.is_dir() && !entry.file_type().is_symlink(),
+        "Expected a data directory at {}",
+        path.display()
+    );
+    Ok(true)
+}
+
+/// Verify the physical target again immediately before migration or Reset.
+pub(crate) fn checked_data_root(game: &Path) -> anyhow::Result<PathBuf> {
+    let original = game.join(BAZAAR_DATA_DIRECTORY);
+    let original_exists = existing_directory(&original)?;
+    #[cfg(target_os = "windows")]
+    if let Some(library) = super::tempo::library(game) {
+        let stable = library.join(BAZAAR_DATA_DIRECTORY);
+        let stable_exists = existing_directory(&stable)?;
+        anyhow::ensure!(!(stable_exists && original_exists),
+            "Both {} and {} exist. Back up and consolidate the two Tempo data directories before retrying.",
+            stable.display(), original.display());
+        if !original_exists {
+            return Ok(stable);
+        }
+    }
+    let _ = original_exists;
+    Ok(original)
+}
+
+pub(crate) fn tempo_migration_pending(game: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    if let Some(library) = super::tempo::library(game) {
+        return game
+            .join(BAZAAR_DATA_DIRECTORY)
+            .try_exists()
+            .unwrap_or(true)
+            || existing_directory(&library.join(BAZAAR_DATA_DIRECTORY)).is_err();
+    }
+    let _ = game;
+    false
+}
+
+pub(crate) fn migrate_tempo_data(game: &Path) -> anyhow::Result<()> {
+    #[cfg(target_os = "windows")]
+    if let Some(library) = super::tempo::library(game) {
+        let source = checked_data_root(game)?;
+        let stable = library.join(BAZAAR_DATA_DIRECTORY);
+        if source != stable {
+            std::fs::rename(&source, &stable).with_context(|| {
+                format!(
+                    "Could not move {} to {}",
+                    source.display(),
+                    stable.display()
+                )
+            })?;
+        }
+    }
+    let _ = game;
+    Ok(())
 }
 
 pub fn database_path(game_path: &Path) -> PathBuf {

@@ -87,7 +87,7 @@ Operational logging is written at the call site: `BppLog.*Event(new BppLogEvent(
 
 ## Data And File Locations
 
-The Data Root is `<GameRoot>/BazaarPlusPlusV6/` on desktop (`BepInExPathProvider`); `AndroidPaths` places it beside MelonLoader under the app's external files directory ([Android Host](architecture/android-host.md)). All storage derives paths from that root; no runtime cache uses the process temporary directory.
+The Data Root sits inside a Steam install, beside a Windows Tempo build, or beside MelonLoader on [Android](architecture/android-host.md). Storage and runtime caches derive their paths from it.
 
 The V6 database starts a new schema at `user_version` 1 with no migration path: `EnsureInitialized` creates an empty database or opens one already at 1 and refuses any other version, including a V5 database. Every instant is a Unix-millisecond `*_at_ms` integer; `RunPayloadComposer` copies them unchanged into the V6 Run segment. Beyond run facts, events, battles, snapshots, screenshots, and replay-video metadata it holds `bundle_seal_jobs` and a non-FK `bundle_outbox`; ghost rows carry remote bundle identity, presigned URL and expiry, and replay state (`src/BazaarPlusPlus.Storage/RunLog/RunLogSchema.cs`).
 

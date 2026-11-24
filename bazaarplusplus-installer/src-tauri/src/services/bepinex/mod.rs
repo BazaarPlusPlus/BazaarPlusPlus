@@ -6,6 +6,8 @@ mod trampoline;
 mod zip_archive;
 
 pub(crate) use managed_payload::installed_version_is_current;
+#[cfg(target_os = "windows")]
+pub(crate) use payload::windows_native_payload_present;
 pub(crate) use payload::{ensure_valid_game_path, remove_dir_with_retry};
 pub(crate) use trampoline::{
     install_trampoline, is_current_trampoline, obsolete_macos_artifacts_present,
@@ -32,7 +34,7 @@ pub(crate) fn repair_deployed_game(game_path: &Path, stub: &Path) -> anyhow::Res
 }
 
 use anyhow::{anyhow, Context as _};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::services::action_error::ActionError;
 use crate::services::data_maintenance::DataMaintenanceLock;
@@ -47,11 +49,13 @@ pub async fn reset_bpp_data(
     maintenance: &DataMaintenanceLock,
     stream_runtime: &StreamRuntime,
     game_path: String,
+    expected_root: PathBuf,
 ) -> Result<bool, ActionError> {
     reset_bpp_data_with(
         maintenance,
         stream_runtime,
         game_path,
+        expected_root,
         SystemGameProcessProbe,
     )
     .await
@@ -63,25 +67,33 @@ pub(crate) async fn reset_bpp_data_with(
     maintenance: &DataMaintenanceLock,
     stream_runtime: &StreamRuntime,
     game_path: String,
+    expected_root: PathBuf,
     probe: impl GameProcessProbe + Send + 'static,
 ) -> Result<bool, ActionError> {
+    let target_game = PathBuf::from(&game_path);
     maintenance
-        .run_blocking_with_overlay_stopped(stream_runtime, move || {
-            reset_bpp_data_blocking_with(Path::new(&game_path), &probe)
+        .run_blocking_with_overlay_stopped(stream_runtime, &target_game, move || {
+            reset_bpp_data_blocking_with(Path::new(&game_path), &expected_root, &probe)
         })
         .await?
 }
 
 fn reset_bpp_data_blocking_with(
     game_path: &Path,
+    expected_root: &Path,
     probe: &impl GameProcessProbe,
 ) -> Result<bool, ActionError> {
     payload::ensure_valid_game_path(game_path)?;
     ensure_game_stopped_with(probe, game_path, GameStoppedOperation::Reset)?;
 
-    let data_dir = crate::services::paths::bpp_data_dir(game_path);
-    let had_resettable_data = data_dir.exists();
-    let report = payload::cleanup_bpp_data_directory(game_path);
+    let data_dir = crate::services::paths::checked_data_root(game_path)?;
+    if data_dir != expected_root {
+        return Err(ActionError::Failed(
+            "The data directory changed. Refresh and confirm the new path.".into(),
+        ));
+    }
+    let had_resettable_data = data_dir.try_exists().map_err(anyhow::Error::from)?;
+    let report = remove_dir_with_retry(&data_dir);
     if !report.is_empty() {
         return Err(ActionError::PartialFailure(report.failed));
     }
@@ -290,10 +302,50 @@ mod tests {
         std::fs::create_dir_all(&data_dir).unwrap();
         std::fs::write(data_dir.join("stale.dll"), b"dll").unwrap();
 
-        let removed_data = reset_bpp_data_blocking_with(tmp.path(), &stopped).unwrap();
+        let removed_data = reset_bpp_data_blocking_with(
+            tmp.path(),
+            &crate::services::paths::bpp_data_dir(tmp.path()),
+            &stopped,
+        )
+        .unwrap();
 
         assert!(removed_data);
         assert!(!data_dir.exists());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn tempo_migration_and_reset_preserve_the_other_installation() {
+        use crate::config::BAZAAR_DATA_DIRECTORY;
+        use crate::services::paths;
+        let steam = make_valid_game_dir();
+        let steam_data = paths::bpp_data_dir(steam.path());
+        std::fs::create_dir(&steam_data).unwrap();
+        std::fs::write(steam_data.join("history"), b"steam").unwrap();
+
+        let library = tempfile::tempdir().unwrap();
+        let game = library.path().join("game/buildx64");
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join("TheBazaar.exe"), b"exe").unwrap();
+        let old = game.join(BAZAAR_DATA_DIRECTORY);
+        let stable = game.parent().unwrap().join(BAZAAR_DATA_DIRECTORY);
+        std::fs::create_dir(&old).unwrap();
+        std::fs::write(old.join("history"), b"tempo").unwrap();
+        assert!(paths::tempo_migration_pending(&game));
+        paths::migrate_tempo_data(&game).unwrap();
+        assert!(!paths::tempo_migration_pending(&game));
+        assert!(reset_bpp_data_blocking_with(&game, &old, &stopped).is_err());
+
+        std::fs::create_dir(&old).unwrap();
+        assert!(paths::migrate_tempo_data(&game).is_err());
+        assert!(reset_bpp_data_blocking_with(&game, &stable, &stopped).is_err());
+        assert_eq!(std::fs::read(stable.join("history")).unwrap(), b"tempo");
+        std::fs::remove_dir(&old).unwrap();
+        assert!(reset_bpp_data_blocking_with(&game, &stable, &stopped).unwrap());
+        std::fs::write(&stable, b"file").unwrap();
+        assert!(reset_bpp_data_blocking_with(&game, &stable, &stopped).is_err());
+        assert_eq!(std::fs::read(&stable).unwrap(), b"file");
+        assert_eq!(std::fs::read(steam_data.join("history")).unwrap(), b"steam");
     }
 
     #[test]
@@ -302,7 +354,12 @@ mod tests {
         let data_dir = tmp.path().join(crate::config::BAZAAR_DATA_DIRECTORY);
         assert!(!data_dir.exists());
 
-        let removed_data = reset_bpp_data_blocking_with(tmp.path(), &stopped).unwrap();
+        let removed_data = reset_bpp_data_blocking_with(
+            tmp.path(),
+            &crate::services::paths::bpp_data_dir(tmp.path()),
+            &stopped,
+        )
+        .unwrap();
 
         assert!(!removed_data);
         assert!(!data_dir.exists());
@@ -366,7 +423,12 @@ mod tests {
             std::fs::create_dir_all(&plugins).unwrap();
             std::fs::write(plugins.join("BazaarPlusPlus.dll"), b"bpp").unwrap();
 
-            let reset = reset_bpp_data_blocking_with(tmp.path(), &refusing).unwrap_err();
+            let reset = reset_bpp_data_blocking_with(
+                tmp.path(),
+                &crate::services::paths::bpp_data_dir(tmp.path()),
+                &refusing,
+            )
+            .unwrap_err();
             let bepinex_reset =
                 reset_bepinex_folder_blocking_with(tmp.path(), &refusing).unwrap_err();
 
@@ -396,6 +458,7 @@ mod tests {
             &lock,
             &StreamRuntime::default(),
             game_path.clone(),
+            crate::services::paths::bpp_data_dir(Path::new(&game_path)),
             |_: &Path| Ok(true),
         )
         .await

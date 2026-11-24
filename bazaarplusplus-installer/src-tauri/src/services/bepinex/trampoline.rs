@@ -968,6 +968,7 @@ mod tests {
                 steam_path: None,
                 game_path: Some(game.path().to_string_lossy().into_owned()),
                 game_path_valid: crate::services::detect::is_valid_game_path(game.path()),
+                tempo_migration_pending: false,
                 bepinex_installed: crate::services::detect::is_bepinex_installed(game.path()),
                 bpp_version: crate::services::detect::read_installed_bpp_version(game.path()),
                 bundled_bpp_version: Some(bundled_version.trim().to_owned()),

@@ -34,7 +34,7 @@ export type InstallPrimaryAction = {
 
 export type InstallConfirmationTarget =
   | { kind: 'install'; gamePath: string }
-  | { kind: 'reset-data'; gamePath: string }
+  | { kind: 'reset-data'; gamePath: string; dataRootPath: string }
   | { kind: 'reset-bepinex'; gamePath: string }
   | { kind: 'uninstall'; gamePath: string };
 
@@ -278,9 +278,10 @@ class DefaultInstallWorkflow implements InstallWorkflow {
   private requestResetData(): boolean {
     if (!this.canOpenConfirmation()) return false;
     const data = this.readyData();
-    if (!data?.selected_game_path) return false;
+    if (!data?.selected_game_path || !data.data_root_path) return false;
     return this.confirmation.request({
       kind: 'reset-data',
+      dataRootPath: data.data_root_path,
       gamePath: data.selected_game_path
     });
   }
@@ -342,7 +343,9 @@ class DefaultInstallWorkflow implements InstallWorkflow {
     const lifecycle = this.lifecycleEpoch;
     this.beginOperation('launch');
     try {
-      await this.ports.commands.launchGame();
+      const gamePath = this.state.resource.data.selected_game_path;
+      if (!gamePath) return false;
+      await this.ports.commands.launchGame(gamePath);
       return this.isCurrentLifecycle(lifecycle);
     } catch (caught) {
       if (this.isCurrentLifecycle(lifecycle)) {
@@ -382,7 +385,8 @@ class DefaultInstallWorkflow implements InstallWorkflow {
             return { ok: true };
           }
           const result = await this.ports.commands.resetBppData(
-            target.gamePath
+            target.gamePath,
+            target.dataRootPath
           );
           if (!this.isCurrentLifecycle(lifecycle)) return { ok: true };
           this.applyReadyData(result.state);

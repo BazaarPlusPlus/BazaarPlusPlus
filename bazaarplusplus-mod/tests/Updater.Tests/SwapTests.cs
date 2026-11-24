@@ -26,6 +26,37 @@ public sealed class SwapTests : IDisposable
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     [Fact]
+    public void Tempo_history_survives_replacing_the_windows_build()
+    {
+        var build = Path.Combine(InstallRoot, "buildx64");
+        var old = Path.Combine(build, UpdaterRun.DataRootDirectoryName);
+        Directory.CreateDirectory(old);
+        File.WriteAllText(Path.Combine(old, "history"), "existing");
+
+        Assert.Equal(old, DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, false));
+        var stable = DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, true);
+        Directory.Delete(build, recursive: true);
+        Directory.CreateDirectory(build);
+        Assert.Equal(
+            stable,
+            DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, true)
+        );
+        Assert.Equal("existing", TestInputs.Scratch(Path.Combine(stable, "history")));
+    }
+
+    [Fact]
+    public void A_file_at_the_Tempo_destination_preserves_the_existing_history()
+    {
+        var build = Path.Combine(InstallRoot, "buildx64");
+        var old = Path.Combine(build, UpdaterRun.DataRootDirectoryName);
+        Directory.CreateDirectory(old);
+        File.WriteAllText(Path.Combine(old, "history"), "old");
+        File.WriteAllText(Path.Combine(InstallRoot, UpdaterRun.DataRootDirectoryName), "occupied");
+        Assert.Equal(old, DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, true));
+        Assert.Equal("old", TestInputs.Scratch(Path.Combine(old, "history")));
+    }
+
+    [Fact]
     public void Swaps_in_a_newer_payload_and_removes_only_managed_residue()
     {
         Install("6.0.0", ("A.dll", "a-old"), ("B.dll", "b-old"));

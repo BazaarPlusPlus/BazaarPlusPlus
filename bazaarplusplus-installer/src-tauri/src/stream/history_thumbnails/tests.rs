@@ -442,7 +442,7 @@ async fn preparation_waits_for_maintenance_and_then_resumes() {
     let releasing = release.clone();
     let maintenance = tokio::spawn(async move {
         worker
-            .exclusive_maintenance(|| async move {
+            .exclusive_maintenance(std::path::Path::new("/A"), || async move {
                 entering.notify_one();
                 releasing.notified().await;
                 Ok(())

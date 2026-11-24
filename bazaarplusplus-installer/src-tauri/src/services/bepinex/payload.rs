@@ -76,6 +76,21 @@ fn owned_paths(ownership: &str) -> impl Iterator<Item = &'static str> + '_ {
         .map(|entry| entry.path.as_str())
 }
 
+#[cfg(target_os = "windows")]
+pub(crate) fn windows_native_payload_present(game: &Path) -> bool {
+    inventory()
+        .files
+        .iter()
+        .filter(|entry| {
+            entry.producer == "native"
+                && entry
+                    .platforms
+                    .as_ref()
+                    .is_none_or(|platforms| platforms.iter().any(|p| p == "windows"))
+        })
+        .all(|entry| game.join(&entry.path).is_file())
+}
+
 pub(super) fn installed_managed_manifest_path() -> &'static str {
     let mut entries = inventory()
         .files
@@ -458,10 +473,6 @@ pub(super) fn restore_preserved_file(
         .with_context(|| format!("Cannot restore {}", path.display()))
 }
 
-pub(super) fn cleanup_bpp_data_directory(game_path: &Path) -> RemovalReport {
-    remove_dir_with_retry(&crate::services::paths::bpp_data_dir(game_path))
-}
-
 /// Both loaders fall through to the real game when the target assembly is absent, so keep the bootstrap.
 pub(super) fn reset_bepinex_directory(game_path: &Path) -> RemovalReport {
     remove_dir_with_retry(&game_path.join("BepInEx"))
@@ -474,8 +485,8 @@ mod tests {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     use super::prepare_install_target;
     use super::{
-        cleanup_bpp_data_directory, ensure_valid_game_path, remove_bootstrap_files,
-        restore_preserved_file, uninstall_payload, PreservedFile, BPP_CONFIG_RELATIVE_PATH,
+        ensure_valid_game_path, remove_bootstrap_files, restore_preserved_file, uninstall_payload,
+        PreservedFile, BPP_CONFIG_RELATIVE_PATH,
     };
 
     #[test]
@@ -902,7 +913,8 @@ mod tests {
         std::fs::write(data_dir.join(DATABASE_FILE_NAME), b"db").unwrap();
         std::fs::write(nested.join("auth.json"), b"auth").unwrap();
 
-        let report = cleanup_bpp_data_directory(tmp.path());
+        let report =
+            super::remove_dir_with_retry(&crate::services::paths::bpp_data_dir(tmp.path()));
 
         assert!(
             report.is_empty(),
@@ -930,7 +942,8 @@ mod tests {
         std::fs::set_permissions(&unwritable_subdir, std::fs::Permissions::from_mode(0o500))
             .unwrap();
 
-        let report = cleanup_bpp_data_directory(tmp.path());
+        let report =
+            super::remove_dir_with_retry(&crate::services::paths::bpp_data_dir(tmp.path()));
 
         // Restore permissions so the tempdir cleanup succeeds even if the test fails.
         let _ =

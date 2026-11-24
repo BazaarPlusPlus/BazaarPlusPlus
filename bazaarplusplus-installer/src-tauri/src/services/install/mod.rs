@@ -72,11 +72,17 @@ pub async fn run_reset_bpp_data(
     app: tauri::AppHandle,
     stream_runtime: tauri::State<'_, StreamRuntime>,
     game_path: String,
+    data_root_path: String,
 ) -> Result<ResetBppDataResult, SemanticProblem> {
     let maintenance = app.state::<DataMaintenanceLock>().inner().clone();
-    let removed_data = reset_bpp_data(&maintenance, &stream_runtime, game_path.clone())
-        .await
-        .map_err(|diagnostic| install_action_problem("reset_bpp_data", diagnostic))?;
+    let removed_data = reset_bpp_data(
+        &maintenance,
+        &stream_runtime,
+        game_path.clone(),
+        data_root_path.into(),
+    )
+    .await
+    .map_err(|diagnostic| install_action_problem("reset_bpp_data", diagnostic))?;
     let state = detect_install_state(app, Some(game_path)).await?;
     Ok(ResetBppDataResult {
         state,
@@ -171,7 +177,12 @@ pub async fn run_uninstall(
     .await
 }
 
-pub fn launch_game_via_steam() -> anyhow::Result<()> {
+pub fn launch_selected_game(game: &Path) -> anyhow::Result<()> {
+    crate::services::bepinex::ensure_valid_game_path(game)?;
+    #[cfg(target_os = "windows")]
+    if crate::services::tempo::library(game).is_some() {
+        return crate::services::tempo::open_launcher();
+    }
     open_url(STEAM_BAZAAR_URL)
 }
 
@@ -183,7 +194,12 @@ pub(crate) fn install_state_from_snapshot(
     let installed = env.bepinex_installed;
     let ready = plan::plan_install(&env).is_empty();
     let can_launch = game_found && env.game_path_valid;
-    let has_resettable_data = has_resettable_bpp_data(env.game_path.as_deref());
+    let data_root = env
+        .game_path
+        .as_deref()
+        .map(Path::new)
+        .map(crate::services::paths::bpp_data_dir);
+    let has_resettable_data = data_root.as_deref().is_some_and(Path::is_dir);
     let has_bepinex_files = has_bepinex_directory(env.game_path.as_deref());
     let warnings = install_warnings(&env);
 
@@ -201,6 +217,7 @@ pub(crate) fn install_state_from_snapshot(
             can_uninstall: can_launch && installed,
             can_launch,
         },
+        data_root_path: data_root.map(|path| path.to_string_lossy().into_owned()),
         has_resettable_data,
         has_bepinex_files,
         warnings,
@@ -262,13 +279,6 @@ pub(crate) fn install_action_problem(
     error.into().into_problem(operation)
 }
 
-fn has_resettable_bpp_data(game_path: Option<&str>) -> bool {
-    game_path
-        .map(Path::new)
-        .map(|path| crate::services::paths::bpp_data_dir(path).exists())
-        .unwrap_or(false)
-}
-
 fn has_bepinex_directory(game_path: Option<&str>) -> bool {
     game_path
         .map(Path::new)
@@ -318,6 +328,7 @@ mod tests {
             steam_path: None,
             game_path: Some("game".into()),
             game_path_valid: true,
+            tempo_migration_pending: false,
             bepinex_installed: false,
             bpp_version: None,
             bundled_bpp_version: None,
