@@ -147,30 +147,21 @@ public static class HistoryPanelViewModelBuilder
                 : string.Empty;
         var bppFormPrompt = state.BppAccountPhase switch
         {
-            BppAccountFlowPhase.EnterEmail => HistoryPanelText.BppAccount.Step1Prompt(bppLocalName),
-            BppAccountFlowPhase.EnterCode => HistoryPanelText.BppAccount.Step2Prompt(
-                state.BppAccountPendingEmailMasked ?? string.Empty,
-                state.BppAccountPendingUserName ?? bppLocalName
-            ),
-            BppAccountFlowPhase.ConfirmActivateDevice => HistoryPanelText.BppAccount.ActivatePrompt(
-                state.BppAccountPendingEmailMasked
-            ),
+            BppAccountFlowPhase.EnterBindCode => HistoryPanelText.BppAccount.BindCodePrompt(),
+            BppAccountFlowPhase.ConfirmActivateDevice =>
+                HistoryPanelText.BppAccount.ActivatePrompt(),
             _ => string.Empty,
         };
         var bppNoticeText = state.BppAccountPhase
-            is BppAccountFlowPhase.EnterEmail
+            is BppAccountFlowPhase.EnterBindCode
                 or BppAccountFlowPhase.ConfirmActivateDevice
             ? HistoryPanelText.BppAccount.CredentialNotice()
             : string.Empty;
-        var bppSubmitText = state.BppAccountInProgress
-            ? HistoryPanelText.BppAccount.Working()
-            : state.BppAccountPhase switch
-            {
-                BppAccountFlowPhase.EnterCode => HistoryPanelText.BppAccount.ConfirmCodeButton(),
-                BppAccountFlowPhase.ConfirmActivateDevice =>
-                    HistoryPanelText.BppAccount.ConfirmActivateButton(),
-                _ => HistoryPanelText.BppAccount.SendCodeButton(),
-            };
+        var bppSubmitText =
+            state.BppAccountInProgress ? HistoryPanelText.BppAccount.Working()
+            : state.BppAccountPhase == BppAccountFlowPhase.ConfirmActivateDevice
+                ? HistoryPanelText.BppAccount.ConfirmActivateButton()
+            : HistoryPanelText.BppAccount.BindSubmitButton();
 
         var archiveStatus = ArchiveStatus(state, coordinator, playerBoard, opponentBoard);
         var showsBothBoards = ShowsBothBoards(state);
@@ -267,18 +258,10 @@ public static class HistoryPanelViewModelBuilder
                 && !state.BppAccountInProgress,
             BppAccountFormVisible = bppFormVisible,
             BppAccountInputVisible =
-                bppFormVisible
-                && state.BppAccountPhase
-                    is BppAccountFlowPhase.EnterEmail
-                        or BppAccountFlowPhase.EnterCode,
+                bppFormVisible && state.BppAccountPhase == BppAccountFlowPhase.EnterBindCode,
             BppAccountFormPromptText = bppFormPrompt,
             BppAccountNoticeText = bppNoticeText,
-            BppAccountInputPlaceholder =
-                state.BppAccountPhase == BppAccountFlowPhase.EnterCode
-                    ? HistoryPanelText.BppAccount.CodePlaceholder()
-                    : HistoryPanelText.BppAccount.EmailPlaceholder(),
-            BppAccountInputMaxLength =
-                state.BppAccountPhase == BppAccountFlowPhase.EnterCode ? 6 : 254,
+            BppAccountInputPlaceholder = HistoryPanelText.BppAccount.BindCodePlaceholder(),
             BppAccountSubmitText = bppSubmitText,
             BppAccountControlsEnabled = hasAccount && !state.BppAccountInProgress,
             BppAccountPhase = state.BppAccountPhase,

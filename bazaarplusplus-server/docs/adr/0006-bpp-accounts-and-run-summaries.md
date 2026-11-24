@@ -1,3 +1,7 @@
+---
+superseded-by: 0007-site-first-accounts.md
+---
+
 # ADR 0006：游戏令牌校验的 BPP 账号与长期每局摘要
 
 状态：已接受

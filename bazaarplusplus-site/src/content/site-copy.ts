@@ -7,6 +7,25 @@ import type {
   SpaPage
 } from '../app/router';
 
+export type RunOutcomeTier =
+  | 'misfortune'
+  | 'bronze'
+  | 'silver'
+  | 'gold'
+  | 'diamond';
+
+export type AccountErrorKey =
+  | 'invalid_credentials'
+  | 'invalid_verification_code'
+  | 'invalid_password'
+  | 'password_mismatch'
+  | 'email_already_registered'
+  | 'game_account_already_bound'
+  | 'rate_limited'
+  | 'captcha_failed'
+  | 'captcha_unavailable'
+  | 'request_failed';
+
 type PrimaryNavCopy = Record<PrimaryNavigationPage, string>;
 
 type SecondaryNavCopy = Record<SecondaryNavigationPage, string>;
@@ -222,25 +241,102 @@ type LocalizedSiteCopy = {
   common: CommonCopy;
   account: {
     email: string;
+    password: string;
+    newPassword: string;
+    confirmPassword: string;
     code: string;
-    send: string;
-    sent: string;
-    change: string;
-    error: string;
-    invalid: string;
+    login: string;
+    register: string;
+    forgot: string;
+    sendCode: string;
+    changeEmail: string;
+    registerSent: string;
+    resetSent: string;
+    savePassword: string;
+    errors: Record<AccountErrorKey, string>;
+    game: string;
+    unlinked: string;
+    generateCode: string;
+    regenerateCode: string;
+    copy: string;
+    copied: string;
+    expiresIn: string;
+    expired: string;
+    bindSteps: string;
+    linkedAt: string;
+    unlink: string;
+    unlinkWarning: string;
     logout: string;
-    unbind: string;
-    warning: string;
+    deleteAccount: string;
+    deleteWarning: string;
     cancel: string;
-    empty: string;
-    more: string;
     loading: string;
+    loadError: string;
+    retry: string;
+    statRuns: string;
+    statVictories: string;
+    statTenWins: string;
     hero: string;
-    result: string;
-    rank: string;
+    heroRuns: string;
+    avgVictories: string;
+    bestVictories: string;
     rating: string;
-    ended: string;
-    mode: string;
+    ratingChart: string;
+    noRuns: string;
+    allRecords: string;
+    more: string;
+    outcomes: Record<RunOutcomeTier, string>;
+    winLoss: string;
+    tiers: Record<string, string>;
+    day: string;
+    pvp: string;
+    pve: string;
+    win: string;
+    loss: string;
+    notRecorded: string;
+    emptyBoard: string;
+    skills: string;
+    added: string;
+    left: string;
+    tierUp: string;
+    noDetail: string;
+    detailError: string;
+    notFound: string;
+    path: {
+      hour: string;
+      verbs: Record<
+        | 'start'
+        | 'reconnect'
+        | 'chose'
+        | 'bought'
+        | 'picked'
+        | 'sold'
+        | 'rerolled'
+        | 'moved'
+        | 'skill'
+        | 'upgraded'
+        | 'enchanted'
+        | 'committed'
+        | 'left'
+        | 'other',
+        string
+      >;
+      offered: string;
+      free: string;
+      gold: string;
+      net: string;
+      health: string;
+      reroll: string;
+      attempted: string;
+      noResponse: string;
+      update: string;
+      undecoded: string;
+      rawFrames: string;
+      downloadBytes: string;
+      downloadAll: string;
+      omitted: string;
+      error: string;
+    };
   };
   primaryNav: PrimaryNavCopy;
   secondaryNav: SecondaryNavCopy;
@@ -292,27 +388,128 @@ const zh: LocalizedSiteCopy = {
     noValueLabel: '暂无数值'
   },
   account: {
-    email: '绑定邮箱',
-    code: '六位验证码',
-    send: '发送验证码',
-    sent: '如果此邮箱已绑定游戏账号，你将收到登录验证码。',
-    change: '更换邮箱',
-    error: '请求失败，请重试。',
-    invalid: '请检查验证码或重新获取。',
+    email: '邮箱',
+    password: '密码',
+    newPassword: '新密码',
+    confirmPassword: '确认密码',
+    code: '验证码',
+    login: '登录',
+    register: '注册',
+    forgot: '忘记密码',
+    sendCode: '发送验证码',
+    changeEmail: '更换邮箱',
+    registerSent:
+      '如果 {email} 还没有注册，验证码已发到这个邮箱，10 分钟内有效。',
+    resetSent: '如果 {email} 已经注册，验证码已发到这个邮箱，10 分钟内有效。',
+    savePassword: '保存新密码',
+    errors: {
+      invalid_credentials: '邮箱或密码不正确。',
+      invalid_verification_code: '验证码不正确或已过期。',
+      invalid_password: '密码需要 8 到 128 个字符。',
+      password_mismatch: '两次输入的密码不一致。',
+      email_already_registered: '这个邮箱已经注册。',
+      game_account_already_bound: '已经绑定了游戏账号。',
+      rate_limited: '尝试次数过多。请稍后再试。',
+      captcha_failed: '未能完成人机验证。请重试。',
+      captcha_unavailable: '未能加载人机验证。请稍后再试。',
+      request_failed: '请求失败。请重试。'
+    },
+    game: '游戏账号',
+    unlinked: '未绑定',
+    generateCode: '生成绑定码',
+    regenerateCode: '重新生成',
+    copy: '复制',
+    copied: '已复制',
+    expiresIn: '{time} 后过期',
+    expired: '绑定码已过期',
+    bindSteps: '在游戏内打开 对局历史 → BPP 账号，输入此码。',
+    linkedAt: '绑定于 {date}',
+    unlink: '解绑',
+    unlinkWarning:
+      '解绑会永久删除网站上保存的战绩，游戏内的 BPP 账号也会退出。游戏的本地数据保留。',
     logout: '退出登录',
-    unbind: '解绑账号',
-    warning: '解绑将永久删除已保存的每局摘要，并让已绑定的设备退出登录。',
+    deleteAccount: '删除账号',
+    deleteWarning:
+      '删除账号会永久删除邮箱、密码和网站上保存的战绩。游戏的本地数据保留。',
     cancel: '取消',
-    empty:
-      '使用新版 Mod 在游戏的历史面板绑定邮箱后，完成符合条件的对局即可在这里查看战绩。',
-    more: '加载更多',
-    loading: '正在读取战绩…',
+    loading: '正在读取…',
+    loadError: '未能读取。',
+    retry: '重试',
+    statRuns: '对局',
+    statVictories: '胜场',
+    statTenWins: '十胜',
     hero: '英雄',
-    result: '胜 / 负',
-    rank: '最终段位',
-    rating: '评分（变化）',
-    ended: '结束时间',
-    mode: '游戏模式'
+    heroRuns: '对局',
+    avgVictories: '平均胜场',
+    bestVictories: '最高胜场',
+    rating: '分数',
+    ratingChart: '最近 {count} 局的分数',
+    noRuns: '绑定游戏账号后，完成的对局会出现在这里。',
+    allRecords: '全部战绩',
+    more: '加载更多',
+    outcomes: {
+      misfortune: '惨淡旅程',
+      bronze: '青铜胜利',
+      silver: '白银胜利',
+      gold: '黄金胜利',
+      diamond: '钻石胜利'
+    },
+    winLoss: '{wins} 胜 {losses} 负',
+    tiers: {
+      Bronze: '青铜',
+      Silver: '白银',
+      Gold: '黄金',
+      Diamond: '钻石',
+      Legendary: '传奇'
+    },
+    day: '第 {day} 天',
+    pvp: 'PvP',
+    pve: 'PvE',
+    win: '胜',
+    loss: '负',
+    notRecorded: '未记录阵容',
+    emptyBoard: '空阵容',
+    skills: '技能',
+    added: '新增',
+    left: '离场',
+    tierUp: '升级',
+    noDetail: '这局没有保存战斗详情。',
+    detailError: '未能读取这局的战斗详情。',
+    notFound: '找不到这局。',
+    path: {
+      hour: '第 {hour} 小时',
+      verbs: {
+        start: '开局',
+        reconnect: '重新连接',
+        chose: '选择',
+        bought: '购买',
+        picked: '获得',
+        sold: '出售',
+        rerolled: '刷新',
+        moved: '移动',
+        skill: '技能',
+        upgraded: '升级',
+        enchanted: '附魔',
+        committed: '提交',
+        left: '离开',
+        other: '指令'
+      },
+      offered: '可选',
+      free: '免费',
+      gold: '{n} 金币',
+      net: '净 {n} 金币',
+      health: '{n} 生命',
+      reroll: '刷新 {cost} 金币，剩 {left} 次',
+      attempted: '未生效',
+      noResponse: '无响应',
+      update: '状态更新',
+      undecoded: '无法读取的消息',
+      rawFrames: '原始消息',
+      downloadBytes: '下载字节',
+      downloadAll: '下载全部消息',
+      omitted: '这局的消息流过大，没有上传。',
+      error: '未能读取这局的消息流。'
+    }
   },
   primaryNav: {
     heroes: '统计'
@@ -325,7 +522,11 @@ const zh: LocalizedSiteCopy = {
   },
   pageTitles: {
     records: '我的战绩',
+    run: '对局详情',
     login: '登录',
+    register: '注册',
+    reset: '重置密码',
+    account: '我的账号',
     heroes: '统计',
     tutorial: '教程',
     download: '下载',
@@ -655,28 +856,130 @@ const en: LocalizedSiteCopy = {
     noValueLabel: 'No value'
   },
   account: {
-    email: 'Bound email address',
-    code: 'Six-digit code',
-    send: 'Send code',
-    sent: 'If this email is bound to a game account, a sign-in code is on its way.',
-    change: 'Use another email',
-    error: 'The request failed. Please try again.',
-    invalid: 'Check the code or request a new one.',
+    email: 'Email',
+    password: 'Password',
+    newPassword: 'New password',
+    confirmPassword: 'Confirm password',
+    code: 'Verification code',
+    login: 'Sign in',
+    register: 'Create account',
+    forgot: 'Forgot password',
+    sendCode: 'Send code',
+    changeEmail: 'Use another email',
+    registerSent:
+      'If {email} is not registered yet, a code is on its way. It expires in 10 minutes.',
+    resetSent:
+      'If {email} is registered, a code is on its way. It expires in 10 minutes.',
+    savePassword: 'Save new password',
+    errors: {
+      invalid_credentials: 'The email or password is incorrect.',
+      invalid_verification_code: 'The code is incorrect or expired.',
+      invalid_password: 'Use 8 to 128 characters.',
+      password_mismatch: 'The passwords don’t match.',
+      email_already_registered: 'This email is already registered.',
+      game_account_already_bound: 'A game account is already linked.',
+      rate_limited: 'Too many attempts. Try again later.',
+      captcha_failed: 'Couldn’t complete the human check. Try again.',
+      captcha_unavailable: 'Couldn’t load the human check. Try again later.',
+      request_failed: 'The request failed. Try again.'
+    },
+    game: 'Game account',
+    unlinked: 'Not linked',
+    generateCode: 'Generate bind code',
+    regenerateCode: 'Generate again',
+    copy: 'Copy',
+    copied: 'Copied',
+    expiresIn: 'Expires in {time}',
+    expired: 'The bind code expired',
+    bindSteps:
+      'In the game, open Game History → BPP Account and enter this code.',
+    linkedAt: 'Linked {date}',
+    unlink: 'Unlink',
+    unlinkWarning:
+      'Unlinking permanently deletes the runs stored on the website and signs out the BPP Account in the game. Local data in the game is kept.',
     logout: 'Sign out',
-    unbind: 'Unbind account',
-    warning:
-      'Unbinding permanently deletes your stored run summaries and signs out your devices.',
+    deleteAccount: 'Delete account',
+    deleteWarning:
+      'Deleting your account permanently deletes your email, password and the runs stored on the website. Local data in the game is kept.',
     cancel: 'Cancel',
-    empty:
-      'Records appear after you bind your email in the game’s History panel with the updated mod and complete an eligible run.',
-    more: 'Load more',
-    loading: 'Loading records…',
+    loading: 'Loading…',
+    loadError: 'Couldn’t load this page.',
+    retry: 'Retry',
+    statRuns: 'Runs',
+    statVictories: 'Wins',
+    statTenWins: '10 wins',
     hero: 'Hero',
-    result: 'Wins / losses',
-    rank: 'Final rank',
-    rating: 'Rating (change)',
-    ended: 'Ended',
-    mode: 'Game mode'
+    heroRuns: 'Runs',
+    avgVictories: 'Avg wins',
+    bestVictories: 'Best',
+    rating: 'Rating',
+    ratingChart: 'Rating over the last {count} runs',
+    noRuns: 'Link a game account and your finished runs appear here.',
+    allRecords: 'All runs',
+    more: 'Load more',
+    outcomes: {
+      misfortune: 'Misfortune journey',
+      bronze: 'Bronze victory',
+      silver: 'Silver victory',
+      gold: 'Gold victory',
+      diamond: 'Diamond victory'
+    },
+    winLoss: '{wins}–{losses}',
+    tiers: {
+      Bronze: 'Bronze',
+      Silver: 'Silver',
+      Gold: 'Gold',
+      Diamond: 'Diamond',
+      Legendary: 'Legendary'
+    },
+    day: 'Day {day}',
+    pvp: 'PvP',
+    pve: 'PvE',
+    win: 'Win',
+    loss: 'Loss',
+    notRecorded: 'Board not recorded',
+    emptyBoard: 'Empty board',
+    skills: 'Skills',
+    added: 'New',
+    left: 'Left the board',
+    tierUp: 'Upgraded',
+    noDetail: 'No battle details were stored for this run.',
+    detailError: 'Couldn’t load the battle details of this run.',
+    notFound: 'This run wasn’t found.',
+    path: {
+      hour: 'Hour {hour}',
+      verbs: {
+        start: 'Started',
+        reconnect: 'Reconnected',
+        chose: 'Chose',
+        bought: 'Bought',
+        picked: 'Took',
+        sold: 'Sold',
+        rerolled: 'Rerolled',
+        moved: 'Moved',
+        skill: 'Skill',
+        upgraded: 'Upgraded',
+        enchanted: 'Enchanted',
+        committed: 'Committed',
+        left: 'Left',
+        other: 'Command'
+      },
+      offered: 'Offered',
+      free: 'Free',
+      gold: '{n} gold',
+      net: 'net {n} gold',
+      health: '{n} health',
+      reroll: 'Reroll {cost} gold, {left} left',
+      attempted: 'Not applied',
+      noResponse: 'No response',
+      update: 'Update',
+      undecoded: 'Unreadable message',
+      rawFrames: 'Raw frames',
+      downloadBytes: 'Download bytes',
+      downloadAll: 'Download all frames',
+      omitted: 'This run’s message stream was too large to upload.',
+      error: 'Couldn’t read this run’s message stream.'
+    }
   },
   primaryNav: {
     heroes: 'Stats'
@@ -689,7 +992,11 @@ const en: LocalizedSiteCopy = {
   },
   pageTitles: {
     records: 'My records',
+    run: 'Run',
     login: 'Sign in',
+    register: 'Create account',
+    reset: 'Reset password',
+    account: 'My account',
     heroes: 'Hero stats',
     tutorial: 'Tutorial',
     download: 'Download',
@@ -1004,6 +1311,16 @@ const messages: Record<Locale, LocalizedSiteCopy> = { zh, en };
 
 export function getSiteCopy(locale: Locale): LocalizedSiteCopy {
   return messages[locale];
+}
+
+/** Fills named `{placeholder}` values into a copy string. */
+export function fillCopy(
+  template: string,
+  values: Record<string, string | number>
+): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in values ? String(values[key]) : match
+  );
 }
 
 export function getPageTitle(page: PageTitleKey, locale: Locale): string {

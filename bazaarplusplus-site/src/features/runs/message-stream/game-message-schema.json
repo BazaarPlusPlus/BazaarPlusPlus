@@ -1,0 +1,5565 @@
+{
+  "format": 1,
+  "root": "BazaarGameShared.Infra.Messages.INetMessage",
+  "sources": [
+    {
+      "id": "android-13113",
+      "gameVersion": "1.0.13113-production-android-c0ecfda3",
+      "platform": "android",
+      "layout": "inferred"
+    },
+    {
+      "id": "android-13250",
+      "gameVersion": "1.0.9",
+      "platform": "android",
+      "layout": "inferred"
+    },
+    {
+      "id": "android-13269",
+      "gameVersion": "1.0.13269-production-android-337a7d86",
+      "platform": "android",
+      "layout": "inferred"
+    },
+    {
+      "id": "macos-13176",
+      "gameVersion": "1.0.13176-prod-macos-arm64-2b11c7ea",
+      "platform": "macos",
+      "layout": "keyed"
+    },
+    {
+      "id": "macos-13257",
+      "gameVersion": "1.0.13257-staging-macos-arm64-959c7245",
+      "platform": "macos",
+      "layout": "keyed"
+    },
+    {
+      "id": "macos-13295",
+      "gameVersion": "1.0.13295-staging-macos-arm64-710bc150",
+      "platform": "macos",
+      "layout": "keyed"
+    }
+  ],
+  "types": {
+    "BazaarGameShared.Domain.Core.InstanceId": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Value",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardAttributeType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Ammo",
+          "value": "0"
+        },
+        {
+          "name": "AmmoMax",
+          "value": "1"
+        },
+        {
+          "name": "ReloadAmount",
+          "value": "2"
+        },
+        {
+          "name": "ReloadTargets",
+          "value": "3"
+        },
+        {
+          "name": "Cooldown",
+          "value": "4"
+        },
+        {
+          "name": "CooldownMax",
+          "value": "5"
+        },
+        {
+          "name": "ChargeAmount",
+          "value": "6"
+        },
+        {
+          "name": "ChargeTargets",
+          "value": "7"
+        },
+        {
+          "name": "Haste",
+          "value": "9"
+        },
+        {
+          "name": "HasteAmount",
+          "value": "10"
+        },
+        {
+          "name": "HasteTargets",
+          "value": "11"
+        },
+        {
+          "name": "Slow",
+          "value": "12"
+        },
+        {
+          "name": "SlowAmount",
+          "value": "13"
+        },
+        {
+          "name": "SlowTargets",
+          "value": "14"
+        },
+        {
+          "name": "Freeze",
+          "value": "15"
+        },
+        {
+          "name": "FreezeAmount",
+          "value": "16"
+        },
+        {
+          "name": "FreezeTargets",
+          "value": "17"
+        },
+        {
+          "name": "BurnApplyAmount",
+          "value": "18"
+        },
+        {
+          "name": "BurnRemoveAmount",
+          "value": "19"
+        },
+        {
+          "name": "PoisonApplyAmount",
+          "value": "20"
+        },
+        {
+          "name": "PoisonRemoveAmount",
+          "value": "21"
+        },
+        {
+          "name": "Multicast",
+          "value": "24"
+        },
+        {
+          "name": "Lifesteal",
+          "value": "25"
+        },
+        {
+          "name": "CritChance",
+          "value": "26"
+        },
+        {
+          "name": "DamageAmount",
+          "value": "27"
+        },
+        {
+          "name": "DamageCrit",
+          "value": "28"
+        },
+        {
+          "name": "HealAmount",
+          "value": "29"
+        },
+        {
+          "name": "HealCrit",
+          "value": "30"
+        },
+        {
+          "name": "JoyApplyAmount",
+          "value": "31"
+        },
+        {
+          "name": "JoyRemoveAmount",
+          "value": "32"
+        },
+        {
+          "name": "JoyCrit",
+          "value": "33"
+        },
+        {
+          "name": "ShieldApplyAmount",
+          "value": "34"
+        },
+        {
+          "name": "ShieldRemoveAmount",
+          "value": "35"
+        },
+        {
+          "name": "ShieldCrit",
+          "value": "36"
+        },
+        {
+          "name": "BuyPrice",
+          "value": "37"
+        },
+        {
+          "name": "SellPrice",
+          "value": "38"
+        },
+        {
+          "name": "Counter",
+          "value": "39"
+        },
+        {
+          "name": "Custom_0",
+          "value": "40"
+        },
+        {
+          "name": "Custom_1",
+          "value": "41"
+        },
+        {
+          "name": "Custom_2",
+          "value": "42"
+        },
+        {
+          "name": "Custom_3",
+          "value": "43"
+        },
+        {
+          "name": "Custom_4",
+          "value": "44"
+        },
+        {
+          "name": "Custom_5",
+          "value": "45"
+        },
+        {
+          "name": "Custom_6",
+          "value": "46"
+        },
+        {
+          "name": "Custom_7",
+          "value": "47"
+        },
+        {
+          "name": "Custom_8",
+          "value": "48"
+        },
+        {
+          "name": "ForceUseTargets",
+          "value": "49"
+        },
+        {
+          "name": "EnchantTargets",
+          "value": "50"
+        },
+        {
+          "name": "UpgradeTargets",
+          "value": "51"
+        },
+        {
+          "name": "DisableTargets",
+          "value": "52"
+        },
+        {
+          "name": "BurnCrit",
+          "value": "53"
+        },
+        {
+          "name": "PoisonCrit",
+          "value": "54"
+        },
+        {
+          "name": "DestroyTargets",
+          "value": "55"
+        },
+        {
+          "name": "RegenApplyAmount",
+          "value": "56"
+        },
+        {
+          "name": "RegenRemoveAmount",
+          "value": "57"
+        },
+        {
+          "name": "RegenCrit",
+          "value": "58"
+        },
+        {
+          "name": "TransformTargets",
+          "value": "59"
+        },
+        {
+          "name": "FlatCooldownReduction",
+          "value": "60"
+        },
+        {
+          "name": "PercentCooldownReduction",
+          "value": "61"
+        },
+        {
+          "name": "EnchantRemoveTargets",
+          "value": "62"
+        },
+        {
+          "name": "Flying",
+          "value": "63"
+        },
+        {
+          "name": "FlyingTargets",
+          "value": "64"
+        },
+        {
+          "name": "PercentChargeReduction",
+          "value": "65"
+        },
+        {
+          "name": "PercentHasteReduction",
+          "value": "66"
+        },
+        {
+          "name": "PercentSlowReduction",
+          "value": "67"
+        },
+        {
+          "name": "PercentFreezeReduction",
+          "value": "68"
+        },
+        {
+          "name": "DestroyImmunity",
+          "value": "69"
+        },
+        {
+          "name": "QuestCompletedCount",
+          "value": "70"
+        },
+        {
+          "name": "Quest_1",
+          "value": "71"
+        },
+        {
+          "name": "Quest_2",
+          "value": "72"
+        },
+        {
+          "name": "Quest_3",
+          "value": "73"
+        },
+        {
+          "name": "Quest_4",
+          "value": "74"
+        },
+        {
+          "name": "Quest_5",
+          "value": "75"
+        },
+        {
+          "name": "Quest_6",
+          "value": "76"
+        },
+        {
+          "name": "Quest_7",
+          "value": "77"
+        },
+        {
+          "name": "Quest_8",
+          "value": "78"
+        },
+        {
+          "name": "Quest_9",
+          "value": "79"
+        },
+        {
+          "name": "Quest_10",
+          "value": "80"
+        },
+        {
+          "name": "Quest_11",
+          "value": "81"
+        },
+        {
+          "name": "Quest_12",
+          "value": "82"
+        },
+        {
+          "name": "Heated",
+          "value": "90"
+        },
+        {
+          "name": "Chilled",
+          "value": "91"
+        },
+        {
+          "name": "RageApplyAmount",
+          "value": "92"
+        },
+        {
+          "name": "RageRemoveAmount",
+          "value": "93"
+        },
+        {
+          "name": "RepairTargets",
+          "value": "99"
+        },
+        {
+          "name": "CooldownDisabled",
+          "value": "100"
+        },
+        {
+          "name": "TempoCost",
+          "value": "101"
+        },
+        {
+          "name": "FlatTempoCostReduction",
+          "value": "102"
+        },
+        {
+          "name": "PercentTempoCostReduction",
+          "value": "103"
+        },
+        {
+          "name": "TempoApplyAmount",
+          "value": "104"
+        },
+        {
+          "name": "TempoRemoveAmount",
+          "value": "105"
+        },
+        {
+          "name": "Tiny",
+          "value": "106"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardDisposalReason": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Cleared",
+          "value": "0"
+        },
+        {
+          "name": "Sold",
+          "value": "1"
+        },
+        {
+          "name": "Destroyed",
+          "value": "2"
+        },
+        {
+          "name": "Consumed",
+          "value": "3"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardSize": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Small",
+          "value": "1"
+        },
+        {
+          "name": "Medium",
+          "value": "2"
+        },
+        {
+          "name": "Large",
+          "value": "3"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardState": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Alive",
+          "value": "0"
+        },
+        {
+          "name": "Casting",
+          "value": "1"
+        },
+        {
+          "name": "Disabled",
+          "value": "2"
+        },
+        {
+          "name": "Transformed",
+          "value": "3"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardStats": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "DamageDone",
+          "value": "0"
+        },
+        {
+          "name": "ShieldAdded",
+          "value": "1"
+        },
+        {
+          "name": "HealAdded",
+          "value": "2"
+        },
+        {
+          "name": "JoyAdded",
+          "value": "3"
+        },
+        {
+          "name": "PoisonAdded",
+          "value": "4"
+        },
+        {
+          "name": "BurnAdded",
+          "value": "5"
+        },
+        {
+          "name": "HastedCardsCount",
+          "value": "6"
+        },
+        {
+          "name": "SlowedCardsCount",
+          "value": "7"
+        },
+        {
+          "name": "FrozenCardsCount",
+          "value": "8"
+        },
+        {
+          "name": "UseCount",
+          "value": "9"
+        },
+        {
+          "name": "RegenAdded",
+          "value": "10"
+        },
+        {
+          "name": "RageAdded",
+          "value": "11"
+        },
+        {
+          "name": "TempoAdded",
+          "value": "12"
+        },
+        {
+          "name": "TempoSpent",
+          "value": "13"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardTag": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Weapon",
+          "value": "0"
+        },
+        {
+          "name": "Property",
+          "value": "1"
+        },
+        {
+          "name": "Food",
+          "value": "2"
+        },
+        {
+          "name": "Potion",
+          "value": "3"
+        },
+        {
+          "name": "Tool",
+          "value": "4"
+        },
+        {
+          "name": "Vehicle",
+          "value": "5"
+        },
+        {
+          "name": "Aquatic",
+          "value": "6"
+        },
+        {
+          "name": "Friend",
+          "value": "7"
+        },
+        {
+          "name": "Core",
+          "value": "8"
+        },
+        {
+          "name": "Unsellable",
+          "value": "9"
+        },
+        {
+          "name": "Unstashable",
+          "value": "10"
+        },
+        {
+          "name": "Merchant",
+          "value": "11"
+        },
+        {
+          "name": "Event",
+          "value": "12"
+        },
+        {
+          "name": "Combat",
+          "value": "13"
+        },
+        {
+          "name": "Loot",
+          "value": "14"
+        },
+        {
+          "name": "Ray",
+          "value": "15"
+        },
+        {
+          "name": "Dinosaur",
+          "value": "16"
+        },
+        {
+          "name": "Apparel",
+          "value": "17"
+        },
+        {
+          "name": "Toy",
+          "value": "18"
+        },
+        {
+          "name": "Tech",
+          "value": "19"
+        },
+        {
+          "name": "Dragon",
+          "value": "20"
+        },
+        {
+          "name": "Ingredient",
+          "value": "21"
+        },
+        {
+          "name": "Relic",
+          "value": "22"
+        },
+        {
+          "name": "Reagent",
+          "value": "23"
+        },
+        {
+          "name": "Map",
+          "value": "24"
+        },
+        {
+          "name": "Key",
+          "value": "25"
+        },
+        {
+          "name": "Drone",
+          "value": "26"
+        },
+        {
+          "name": "Sigil",
+          "value": "27"
+        },
+        {
+          "name": "Trap",
+          "value": "28"
+        },
+        {
+          "name": "Instrument",
+          "value": "29"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECardType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Item",
+          "value": "0"
+        },
+        {
+          "name": "Skill",
+          "value": "1"
+        },
+        {
+          "name": "CombatEncounter",
+          "value": "2"
+        },
+        {
+          "name": "EncounterStep",
+          "value": "3"
+        },
+        {
+          "name": "EventEncounter",
+          "value": "4"
+        },
+        {
+          "name": "PedestalEncounter",
+          "value": "5"
+        },
+        {
+          "name": "PvpEncounter",
+          "value": "6"
+        },
+        {
+          "name": "SocketEffect",
+          "value": "7"
+        },
+        {
+          "name": "PlayerEffect",
+          "value": "8"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ECombatantId": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Player",
+          "value": "0"
+        },
+        {
+          "name": "Opponent",
+          "value": "1"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EContainerSocketId": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Socket_0",
+          "value": "0"
+        },
+        {
+          "name": "Socket_1",
+          "value": "1"
+        },
+        {
+          "name": "Socket_2",
+          "value": "2"
+        },
+        {
+          "name": "Socket_3",
+          "value": "3"
+        },
+        {
+          "name": "Socket_4",
+          "value": "4"
+        },
+        {
+          "name": "Socket_5",
+          "value": "5"
+        },
+        {
+          "name": "Socket_6",
+          "value": "6"
+        },
+        {
+          "name": "Socket_7",
+          "value": "7"
+        },
+        {
+          "name": "Socket_8",
+          "value": "8"
+        },
+        {
+          "name": "Socket_9",
+          "value": "9"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EDamageType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Damage",
+          "value": "0"
+        },
+        {
+          "name": "Burn",
+          "value": "1"
+        },
+        {
+          "name": "Poison",
+          "value": "2"
+        },
+        {
+          "name": "Sandstorm",
+          "value": "3"
+        },
+        {
+          "name": "Heal",
+          "value": "4"
+        },
+        {
+          "name": "Shield",
+          "value": "5"
+        },
+        {
+          "name": "Joy",
+          "value": "6"
+        },
+        {
+          "name": "Regen",
+          "value": "7"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EEnchantmentType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Deadly",
+          "value": "0"
+        },
+        {
+          "name": "Ethereal",
+          "value": "1"
+        },
+        {
+          "name": "Fiery",
+          "value": "2"
+        },
+        {
+          "name": "Golden",
+          "value": "3"
+        },
+        {
+          "name": "Heavy",
+          "value": "4"
+        },
+        {
+          "name": "Icy",
+          "value": "5"
+        },
+        {
+          "name": "Mystical",
+          "value": "6"
+        },
+        {
+          "name": "Obsidian",
+          "value": "7"
+        },
+        {
+          "name": "Radiant",
+          "value": "8"
+        },
+        {
+          "name": "Restorative",
+          "value": "9"
+        },
+        {
+          "name": "Shielded",
+          "value": "10"
+        },
+        {
+          "name": "Shiny",
+          "value": "11"
+        },
+        {
+          "name": "Tiny",
+          "value": "12"
+        },
+        {
+          "name": "Toxic",
+          "value": "13"
+        },
+        {
+          "name": "Turbo",
+          "value": "14"
+        },
+        {
+          "name": "Mossy",
+          "value": "15"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EExperienceType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Cheat",
+          "value": "0"
+        },
+        {
+          "name": "Combat",
+          "value": "1"
+        },
+        {
+          "name": "Hour",
+          "value": "2"
+        },
+        {
+          "name": "Item",
+          "value": "3"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EHero": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Common",
+          "value": "0"
+        },
+        {
+          "name": "Pygmalien",
+          "value": "1"
+        },
+        {
+          "name": "Vanessa",
+          "value": "2"
+        },
+        {
+          "name": "Stelle",
+          "value": "3"
+        },
+        {
+          "name": "Jules",
+          "value": "4"
+        },
+        {
+          "name": "Dooley",
+          "value": "5"
+        },
+        {
+          "name": "Mak",
+          "value": "6"
+        },
+        {
+          "name": "Karnok",
+          "value": "7"
+        },
+        {
+          "name": "Hero8",
+          "value": "8"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EHiddenTag": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Damage",
+          "value": "0"
+        },
+        {
+          "name": "Heal",
+          "value": "1"
+        },
+        {
+          "name": "Burn",
+          "value": "2"
+        },
+        {
+          "name": "Poison",
+          "value": "3"
+        },
+        {
+          "name": "Freeze",
+          "value": "4"
+        },
+        {
+          "name": "Prestige",
+          "value": "5"
+        },
+        {
+          "name": "Health",
+          "value": "6"
+        },
+        {
+          "name": "Joy",
+          "value": "7"
+        },
+        {
+          "name": "Shield",
+          "value": "8"
+        },
+        {
+          "name": "Strength",
+          "value": "9"
+        },
+        {
+          "name": "Toughness",
+          "value": "10"
+        },
+        {
+          "name": "Speed",
+          "value": "11"
+        },
+        {
+          "name": "Gold",
+          "value": "12"
+        },
+        {
+          "name": "Income",
+          "value": "13"
+        },
+        {
+          "name": "HealthRegen",
+          "value": "14"
+        },
+        {
+          "name": "Slow",
+          "value": "15"
+        },
+        {
+          "name": "Cooldown",
+          "value": "16"
+        },
+        {
+          "name": "BuyPrice",
+          "value": "17"
+        },
+        {
+          "name": "SellPrice",
+          "value": "18"
+        },
+        {
+          "name": "Ammo",
+          "value": "19"
+        },
+        {
+          "name": "Haste",
+          "value": "20"
+        },
+        {
+          "name": "Multicast",
+          "value": "21"
+        },
+        {
+          "name": "Lifesteal",
+          "value": "22"
+        },
+        {
+          "name": "NonWeapon",
+          "value": "23"
+        },
+        {
+          "name": "Active",
+          "value": "24"
+        },
+        {
+          "name": "Passive",
+          "value": "25"
+        },
+        {
+          "name": "HealBonus",
+          "value": "26"
+        },
+        {
+          "name": "PoisonBonus",
+          "value": "27"
+        },
+        {
+          "name": "BurnBonus",
+          "value": "28"
+        },
+        {
+          "name": "SlowBonus",
+          "value": "29"
+        },
+        {
+          "name": "FreezeBonus",
+          "value": "30"
+        },
+        {
+          "name": "HasteBonus",
+          "value": "31"
+        },
+        {
+          "name": "JoyBonus",
+          "value": "32"
+        },
+        {
+          "name": "DamageScalar",
+          "value": "33"
+        },
+        {
+          "name": "ShieldScalar",
+          "value": "34"
+        },
+        {
+          "name": "HealScalar",
+          "value": "35"
+        },
+        {
+          "name": "JoyScalar",
+          "value": "36"
+        },
+        {
+          "name": "Level",
+          "value": "37"
+        },
+        {
+          "name": "Experience",
+          "value": "38"
+        },
+        {
+          "name": "BurnMerchant",
+          "value": "39"
+        },
+        {
+          "name": "PoisonMerchant",
+          "value": "40"
+        },
+        {
+          "name": "FreezeMerchant",
+          "value": "41"
+        },
+        {
+          "name": "SlowMerchant",
+          "value": "42"
+        },
+        {
+          "name": "HasteMerchant",
+          "value": "43"
+        },
+        {
+          "name": "SpeedMerchant",
+          "value": "44"
+        },
+        {
+          "name": "ToughnessMerchant",
+          "value": "45"
+        },
+        {
+          "name": "StrengthMerchant",
+          "value": "46"
+        },
+        {
+          "name": "HealMerchant",
+          "value": "47"
+        },
+        {
+          "name": "EconomyMerchant",
+          "value": "48"
+        },
+        {
+          "name": "ShieldMerchant",
+          "value": "49"
+        },
+        {
+          "name": "HealthMerchant",
+          "value": "50"
+        },
+        {
+          "name": "JoyMerchant",
+          "value": "51"
+        },
+        {
+          "name": "FlyingMerchant",
+          "value": "52"
+        },
+        {
+          "name": "Crit",
+          "value": "53"
+        },
+        {
+          "name": "DamageReference",
+          "value": "54"
+        },
+        {
+          "name": "HealReference",
+          "value": "55"
+        },
+        {
+          "name": "BurnReference",
+          "value": "56"
+        },
+        {
+          "name": "PoisonReference",
+          "value": "57"
+        },
+        {
+          "name": "JoyReference",
+          "value": "58"
+        },
+        {
+          "name": "ShieldReference",
+          "value": "59"
+        },
+        {
+          "name": "RegenReference",
+          "value": "60"
+        },
+        {
+          "name": "HealthReference",
+          "value": "61"
+        },
+        {
+          "name": "FreezeReference",
+          "value": "62"
+        },
+        {
+          "name": "HasteReference",
+          "value": "63"
+        },
+        {
+          "name": "SlowReference",
+          "value": "64"
+        },
+        {
+          "name": "Value",
+          "value": "65"
+        },
+        {
+          "name": "EconomyReference",
+          "value": "66"
+        },
+        {
+          "name": "CooldownReference",
+          "value": "67"
+        },
+        {
+          "name": "Charge",
+          "value": "68"
+        },
+        {
+          "name": "Regen",
+          "value": "69"
+        },
+        {
+          "name": "AmmoReference",
+          "value": "70"
+        },
+        {
+          "name": "CritReference",
+          "value": "71"
+        },
+        {
+          "name": "Merchant",
+          "value": "72"
+        },
+        {
+          "name": "Reload",
+          "value": "73"
+        },
+        {
+          "name": "Unsellable",
+          "value": "74"
+        },
+        {
+          "name": "PotionReference",
+          "value": "75"
+        },
+        {
+          "name": "TechReference",
+          "value": "76"
+        },
+        {
+          "name": "Quest",
+          "value": "77"
+        },
+        {
+          "name": "QuestReference",
+          "value": "78"
+        },
+        {
+          "name": "CanCrit",
+          "value": "79"
+        },
+        {
+          "name": "Flying",
+          "value": "80"
+        },
+        {
+          "name": "FlyingReference",
+          "value": "81"
+        },
+        {
+          "name": "AbsorbDestroy",
+          "value": "82"
+        },
+        {
+          "name": "AbsorbFreeze",
+          "value": "83"
+        },
+        {
+          "name": "AbsorbSlow",
+          "value": "84"
+        },
+        {
+          "name": "Ticket",
+          "value": "85"
+        },
+        {
+          "name": "Rage",
+          "value": "86"
+        },
+        {
+          "name": "RageReference",
+          "value": "87"
+        },
+        {
+          "name": "Heated",
+          "value": "88"
+        },
+        {
+          "name": "HeatedReference",
+          "value": "89"
+        },
+        {
+          "name": "Chilled",
+          "value": "90"
+        },
+        {
+          "name": "ChilledReference",
+          "value": "91"
+        },
+        {
+          "name": "EnragedToggle",
+          "value": "92"
+        },
+        {
+          "name": "EnragedActive",
+          "value": "93"
+        },
+        {
+          "name": "Tempo",
+          "value": "94"
+        },
+        {
+          "name": "TempoReference",
+          "value": "95"
+        },
+        {
+          "name": "Package",
+          "value": "96"
+        },
+        {
+          "name": "SpawnMusicNote",
+          "value": "97"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EInventorySection": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Hand",
+          "value": "0"
+        },
+        {
+          "name": "Stash",
+          "value": "1"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EPlayerAttributeType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Burn",
+          "value": "0"
+        },
+        {
+          "name": "CritChance",
+          "value": "1"
+        },
+        {
+          "name": "DamageCrit",
+          "value": "2"
+        },
+        {
+          "name": "Experience",
+          "value": "3"
+        },
+        {
+          "name": "Gold",
+          "value": "4"
+        },
+        {
+          "name": "Income",
+          "value": "5"
+        },
+        {
+          "name": "Joy",
+          "value": "6"
+        },
+        {
+          "name": "JoyCrit",
+          "value": "8"
+        },
+        {
+          "name": "Prestige",
+          "value": "9"
+        },
+        {
+          "name": "Health",
+          "value": "10"
+        },
+        {
+          "name": "HealthMax",
+          "value": "11"
+        },
+        {
+          "name": "HealthRegen",
+          "value": "12"
+        },
+        {
+          "name": "HealAmount",
+          "value": "13"
+        },
+        {
+          "name": "HealCrit",
+          "value": "14"
+        },
+        {
+          "name": "Level",
+          "value": "15"
+        },
+        {
+          "name": "Poison",
+          "value": "16"
+        },
+        {
+          "name": "RerollCostModifier",
+          "value": "17"
+        },
+        {
+          "name": "Shield",
+          "value": "19"
+        },
+        {
+          "name": "ShieldCrit",
+          "value": "21"
+        },
+        {
+          "name": "FlatDamageReduction",
+          "value": "22"
+        },
+        {
+          "name": "PercentDamageReduction",
+          "value": "23"
+        },
+        {
+          "name": "Custom_0",
+          "value": "24"
+        },
+        {
+          "name": "Custom_1",
+          "value": "25"
+        },
+        {
+          "name": "Custom_2",
+          "value": "26"
+        },
+        {
+          "name": "Custom_3",
+          "value": "27"
+        },
+        {
+          "name": "Custom_4",
+          "value": "28"
+        },
+        {
+          "name": "Custom_5",
+          "value": "29"
+        },
+        {
+          "name": "Custom_6",
+          "value": "30"
+        },
+        {
+          "name": "Custom_7",
+          "value": "31"
+        },
+        {
+          "name": "Custom_8",
+          "value": "32"
+        },
+        {
+          "name": "Custom_9",
+          "value": "33"
+        },
+        {
+          "name": "Rage",
+          "value": "34"
+        },
+        {
+          "name": "RageMax",
+          "value": "35"
+        },
+        {
+          "name": "Enraged",
+          "value": "36"
+        },
+        {
+          "name": "EnragedDuration",
+          "value": "37"
+        },
+        {
+          "name": "EnragedDurationMax",
+          "value": "38"
+        },
+        {
+          "name": "Tempo",
+          "value": "39"
+        },
+        {
+          "name": "TempoGainCooldownMax",
+          "value": "40"
+        },
+        {
+          "name": "FlatTempoGainCooldownReduction",
+          "value": "41"
+        },
+        {
+          "name": "PercentTempoGainCooldownReduction",
+          "value": "42"
+        },
+        {
+          "name": "Custom_10",
+          "value": "43"
+        },
+        {
+          "name": "Custom_11",
+          "value": "44"
+        },
+        {
+          "name": "Custom_12",
+          "value": "45"
+        },
+        {
+          "name": "Custom_13",
+          "value": "46"
+        },
+        {
+          "name": "Custom_14",
+          "value": "47"
+        },
+        {
+          "name": "Custom_15",
+          "value": "48"
+        },
+        {
+          "name": "Custom_16",
+          "value": "49"
+        },
+        {
+          "name": "Custom_17",
+          "value": "50"
+        },
+        {
+          "name": "Custom_18",
+          "value": "51"
+        },
+        {
+          "name": "Custom_19",
+          "value": "52"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.EPlayerHealthChangeType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Health",
+          "value": "0"
+        },
+        {
+          "name": "Joy",
+          "value": "1"
+        },
+        {
+          "name": "Shield",
+          "value": "2"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Core.Types.ETier": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Bronze",
+          "value": "0"
+        },
+        {
+          "name": "Silver",
+          "value": "1"
+        },
+        {
+          "name": "Gold",
+          "value": "2"
+        },
+        {
+          "name": "Diamond",
+          "value": "3"
+        },
+        {
+          "name": "Legendary",
+          "value": "4"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Effect.EActionCommandType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "None",
+          "value": "0"
+        },
+        {
+          "name": "CardAddTags",
+          "value": "1"
+        },
+        {
+          "name": "CardRemoveTags",
+          "value": "2"
+        },
+        {
+          "name": "CardBeginSandstorm",
+          "value": "3"
+        },
+        {
+          "name": "CardCharge",
+          "value": "4"
+        },
+        {
+          "name": "CardDestroy",
+          "value": "5"
+        },
+        {
+          "name": "CardDisable",
+          "value": "6"
+        },
+        {
+          "name": "CardForceUse",
+          "value": "7"
+        },
+        {
+          "name": "CardFreeze",
+          "value": "8"
+        },
+        {
+          "name": "CardHaste",
+          "value": "9"
+        },
+        {
+          "name": "CardModifyAttribute",
+          "value": "10"
+        },
+        {
+          "name": "CardReload",
+          "value": "11"
+        },
+        {
+          "name": "CardSlow",
+          "value": "12"
+        },
+        {
+          "name": "CardEnchant",
+          "value": "13"
+        },
+        {
+          "name": "CardTransform",
+          "value": "14"
+        },
+        {
+          "name": "CardUpgrade",
+          "value": "15"
+        },
+        {
+          "name": "GameDealCards",
+          "value": "16"
+        },
+        {
+          "name": "GameModifyTime",
+          "value": "17"
+        },
+        {
+          "name": "GameScheduleEncounter",
+          "value": "18"
+        },
+        {
+          "name": "GameSpawnCards",
+          "value": "19"
+        },
+        {
+          "name": "GameStartCombat",
+          "value": "20"
+        },
+        {
+          "name": "GameUnscheduleEncounter",
+          "value": "21"
+        },
+        {
+          "name": "PlayerBurnApply",
+          "value": "22"
+        },
+        {
+          "name": "PlayerBurnRemove",
+          "value": "23"
+        },
+        {
+          "name": "PlayerDamage",
+          "value": "24"
+        },
+        {
+          "name": "PlayerGoldSteal",
+          "value": "25"
+        },
+        {
+          "name": "PlayerHeal",
+          "value": "26"
+        },
+        {
+          "name": "PlayerJoyApply",
+          "value": "27"
+        },
+        {
+          "name": "PlayerJoyRemove",
+          "value": "28"
+        },
+        {
+          "name": "PlayerMaxHealthDecrease",
+          "value": "29"
+        },
+        {
+          "name": "PlayerMaxHealthIncrease",
+          "value": "30"
+        },
+        {
+          "name": "PlayerModifyAttribute",
+          "value": "31"
+        },
+        {
+          "name": "PlayerPoisonApply",
+          "value": "32"
+        },
+        {
+          "name": "PlayerPoisonRemove",
+          "value": "33"
+        },
+        {
+          "name": "PlayerRegenApply",
+          "value": "34"
+        },
+        {
+          "name": "PlayerRegenRemove",
+          "value": "35"
+        },
+        {
+          "name": "PlayerShieldApply",
+          "value": "36"
+        },
+        {
+          "name": "PlayerShieldRemove",
+          "value": "37"
+        },
+        {
+          "name": "ExitReplacementSet",
+          "value": "38"
+        },
+        {
+          "name": "CardEnchantRemove",
+          "value": "39"
+        },
+        {
+          "name": "FlyingStart",
+          "value": "40"
+        },
+        {
+          "name": "FlyingStop",
+          "value": "41"
+        },
+        {
+          "name": "CardRepair",
+          "value": "42"
+        },
+        {
+          "name": "CardTransformDestroyed",
+          "value": "43"
+        },
+        {
+          "name": "CardAddTagsRandom",
+          "value": "44"
+        },
+        {
+          "name": "PlayerPortraitNext",
+          "value": "45"
+        },
+        {
+          "name": "PlayerPortraitReset",
+          "value": "46"
+        },
+        {
+          "name": "PlayerRageApply",
+          "value": "47"
+        },
+        {
+          "name": "PlayerRageRemove",
+          "value": "48"
+        },
+        {
+          "name": "GameReroll",
+          "value": "49"
+        },
+        {
+          "name": "PlayerTempoApply",
+          "value": "50"
+        },
+        {
+          "name": "PlayerTempoRemove",
+          "value": "51"
+        },
+        {
+          "name": "GameAddToExclusionSet",
+          "value": "52"
+        },
+        {
+          "name": "GameRemoveFromExclusionSet",
+          "value": "53"
+        },
+        {
+          "name": "GameSetNextHourSpawnContext",
+          "value": "54"
+        },
+        {
+          "name": "CardTiny",
+          "value": "55"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Runs.ERunState": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Choice",
+          "value": "0"
+        },
+        {
+          "name": "Combat",
+          "value": "1"
+        },
+        {
+          "name": "Encounter",
+          "value": "2"
+        },
+        {
+          "name": "EndRunDefeat",
+          "value": "3"
+        },
+        {
+          "name": "EndRunVictory",
+          "value": "4"
+        },
+        {
+          "name": "LevelUp",
+          "value": "5"
+        },
+        {
+          "name": "Loot",
+          "value": "6"
+        },
+        {
+          "name": "NewRun",
+          "value": "7"
+        },
+        {
+          "name": "Pedestal",
+          "value": "8"
+        },
+        {
+          "name": "PVPCombat",
+          "value": "9"
+        },
+        {
+          "name": "Shutdown",
+          "value": "10"
+        },
+        {
+          "name": "TournamentWaitingRoom",
+          "value": "13",
+          "sources": [
+            "macos-13295"
+          ]
+        },
+        {
+          "name": "TournamentPvpChoice",
+          "value": "14",
+          "sources": [
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Runs.RerollRules": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "TotalAllowedRerolls",
+          "type": "System.Nullable<System.Int32>"
+        },
+        {
+          "key": 1,
+          "name": "CostIncrease",
+          "type": "System.Nullable<System.Int32>"
+        },
+        {
+          "key": 2,
+          "name": "StartingCost",
+          "type": "System.Nullable<System.Int32>"
+        },
+        {
+          "key": 3,
+          "name": "CostMax",
+          "type": "System.Nullable<System.Int32>"
+        }
+      ]
+    },
+    "BazaarGameShared.Domain.Runs.TSelectionContextRules": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "CanSelectMultiple",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 1,
+          "name": "SelectionIsFree",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 2,
+          "name": "CanExit",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 3,
+          "name": "RerollRules",
+          "type": "BazaarGameShared.Domain.Runs.RerollRules"
+        },
+        {
+          "key": 4,
+          "name": "WillAutoSellOnExit",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 5,
+          "name": "NextEncounterOnExit",
+          "type": "System.Nullable<System.Guid>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CardSnapshotDTO": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "TemplateId",
+          "type": "System.Guid"
+        },
+        {
+          "key": 2,
+          "name": "Attributes",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.ECardAttributeType,System.Int32>"
+        },
+        {
+          "key": 3,
+          "name": "Enchantment",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EEnchantmentType>"
+        },
+        {
+          "key": 4,
+          "name": "Heroes",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EHero>"
+        },
+        {
+          "key": 5,
+          "name": "HiddenTags",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EHiddenTag>"
+        },
+        {
+          "key": 6,
+          "name": "Tags",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.ECardTag>"
+        },
+        {
+          "key": 7,
+          "name": "Tier",
+          "type": "BazaarGameShared.Domain.Core.Types.ETier"
+        },
+        {
+          "key": 8,
+          "name": "Type",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardType"
+        },
+        {
+          "key": 9,
+          "name": "Size",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardSize"
+        },
+        {
+          "key": 10,
+          "name": "Owner",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ECombatantId>"
+        },
+        {
+          "key": 11,
+          "name": "Socket",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EContainerSocketId>"
+        },
+        {
+          "key": 12,
+          "name": "Section",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EInventorySection>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSim": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Frames",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimFrame>"
+        },
+        {
+          "key": 1,
+          "name": "Winner",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 2,
+          "name": "Loser",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 3,
+          "name": "OpponentHealthThresholdsForGold",
+          "type": "System.Collections.Generic.List<System.Single>"
+        },
+        {
+          "key": 4,
+          "name": "OpponentHealthThresholdsForXp",
+          "type": "System.Collections.Generic.List<System.Single>"
+        },
+        {
+          "key": 5,
+          "name": "CardStats",
+          "type": "System.Collections.Generic.Dictionary<System.String,System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.ECardStats,System.Int32>>"
+        },
+        {
+          "key": 6,
+          "name": "VfxKeys",
+          "type": "System.Collections.Generic.List<System.String>"
+        },
+        {
+          "key": 7,
+          "name": "PortraitKeys",
+          "type": "System.Collections.Generic.List<System.String>"
+        },
+        {
+          "key": 8,
+          "name": "IsDraw",
+          "type": "System.Boolean",
+          "sources": [
+            "macos-13295"
+          ]
+        }
+      ],
+      "unkeyed": [
+        {
+          "name": "CurrentFrame",
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimFrame",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "_portraitMap",
+          "type": "System.Collections.Generic.Dictionary<System.String,System.Int32>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "_vfxMap",
+          "type": "System.Collections.Generic.Dictionary<System.String,System.Int32>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimCardAttributeUpdate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "AttributeType",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardAttributeType"
+        },
+        {
+          "key": 1,
+          "name": "PreviousValue",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "CurrentValue",
+          "type": "System.Int32"
+        }
+      ],
+      "unkeyed": [
+        {
+          "name": "Delta",
+          "type": "System.Int32",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "IsGain",
+          "type": "System.Boolean",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "IsLoss",
+          "type": "System.Boolean",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimCardStateUpdate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "PreviousValue",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardState"
+        },
+        {
+          "key": 1,
+          "name": "CurrentValue",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardState"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimCardUpdate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "CardInstanceId",
+          "type": "BazaarGameShared.Domain.Core.InstanceId"
+        },
+        {
+          "key": 1,
+          "name": "Attributes",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.ECardAttributeType,BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimCardAttributeUpdate>"
+        },
+        {
+          "key": 2,
+          "name": "Enchantment",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EEnchantmentType>"
+        },
+        {
+          "key": 3,
+          "name": "Heroes",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EHero>"
+        },
+        {
+          "key": 4,
+          "name": "HiddenTags",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EHiddenTag>"
+        },
+        {
+          "key": 5,
+          "name": "Placement",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.CardDeltaPlacement"
+        },
+        {
+          "key": 6,
+          "name": "Size",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ECardSize>"
+        },
+        {
+          "key": 7,
+          "name": "Tags",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.ECardTag>"
+        },
+        {
+          "key": 8,
+          "name": "Tier",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ETier>"
+        },
+        {
+          "key": 9,
+          "name": "State",
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimCardStateUpdate"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardActionCostSpent": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutingCard",
+          "type": "BazaarGameShared.Domain.Core.InstanceId"
+        },
+        {
+          "key": 1,
+          "name": "PlayerAttributeSpent",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EPlayerAttributeType>"
+        },
+        {
+          "key": 2,
+          "name": "CardAttributeSpent",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ECardAttributeType>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardAttributeDeleted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "BazaarGameShared.Domain.Core.InstanceId"
+        },
+        {
+          "key": 1,
+          "name": "AttributeType",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardAttributeType"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardEnchanted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EnchantmentType",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EEnchantmentType>"
+        },
+        {
+          "key": 2,
+          "name": "IsReverted",
+          "type": "System.Boolean"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardQuestCompleted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "QuestGroupIndex",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "QuestEntryIndex",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardQuestUpdated": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "QuestGroupIndex",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "QuestEntryIndex",
+          "type": "System.Int32"
+        },
+        {
+          "key": 3,
+          "name": "OldProgress",
+          "type": "System.Int32"
+        },
+        {
+          "key": 4,
+          "name": "NewProgress",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardTransformReverted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "OriginalCard",
+          "type": "BazaarGameShared.Infra.Messages.Shared.SimEventCardTransformation"
+        },
+        {
+          "key": 1,
+          "name": "TransformedCardInstanceIds",
+          "type": "System.Collections.Generic.List<System.String>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardTransformed": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "OriginalInstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "TransformedCards",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.Shared.SimEventCardTransformation>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCombatantDied": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "CombatantId",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventEffectAuraExecuted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EffectId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Source",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 3,
+          "name": "TriggerSource",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 4,
+          "name": "AppliedTo",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Infra.Messages.Shared.IEffectTarget>"
+        },
+        {
+          "key": 5,
+          "name": "RemovedFrom",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Infra.Messages.Shared.IEffectTarget>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventEffectExecuted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EffectId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "ActionType",
+          "type": "BazaarGameShared.Domain.Effect.EActionCommandType"
+        },
+        {
+          "key": 3,
+          "name": "VfxIndex",
+          "type": "System.Nullable<System.Int32>"
+        },
+        {
+          "key": 4,
+          "name": "Source",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 5,
+          "name": "TriggerSource",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 6,
+          "name": "Target",
+          "type": "BazaarGameShared.Infra.Messages.Shared.IEffectTarget"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventEffectTriggered": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EffectId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Source",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 3,
+          "name": "TriggerSource",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 4,
+          "name": "Targets",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.Shared.IEffectTarget>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventMonsterGoldReceived": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "HealthAmount",
+          "type": "System.Single"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventMonsterXpReceived": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "HealthAmount",
+          "type": "System.Single"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventSandstormCountdownStarted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": []
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventSandstormStarted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": []
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimFrame": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Events",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.CombatSimEvents.ICombatSimEvent>"
+        },
+        {
+          "key": 1,
+          "name": "PlayerUpdates",
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerUpdate"
+        },
+        {
+          "key": 2,
+          "name": "OpponentUpdates",
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerUpdate"
+        },
+        {
+          "key": 3,
+          "name": "CardUpdates",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.InstanceId,BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimCardUpdate>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerAttributeUpdate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "AttributeType",
+          "type": "BazaarGameShared.Domain.Core.Types.EPlayerAttributeType"
+        },
+        {
+          "key": 1,
+          "name": "PreviousValue",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "CurrentValue",
+          "type": "System.Int32"
+        }
+      ],
+      "unkeyed": [
+        {
+          "name": "Delta",
+          "type": "System.Int32",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "IsGain",
+          "type": "System.Boolean",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "IsLoss",
+          "type": "System.Boolean",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerHealthAdjustment": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "DamageType",
+          "type": "BazaarGameShared.Domain.Core.Types.EDamageType"
+        },
+        {
+          "key": 1,
+          "name": "AttributeChanged",
+          "type": "BazaarGameShared.Domain.Core.Types.EPlayerHealthChangeType"
+        },
+        {
+          "key": 2,
+          "name": "Amount",
+          "type": "System.Int32"
+        },
+        {
+          "key": 3,
+          "name": "IsCrit",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 4,
+          "name": "IsDamageReduced",
+          "type": "System.Boolean"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerPortraitUpdate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Index",
+          "type": "System.Nullable<System.Int32>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerUpdate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "IsPlayerDead",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 1,
+          "name": "HealthAdjustments",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerHealthAdjustment>"
+        },
+        {
+          "key": 2,
+          "name": "Attributes",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.EPlayerAttributeType,BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerAttributeUpdate>"
+        },
+        {
+          "key": 3,
+          "name": "Portrait",
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimPlayerPortraitUpdate"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.CombatSimEvents.ICombatSimEvent": {
+      "kind": "union",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "cases": [
+        {
+          "tag": 1,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCombatantDied",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 2,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventSandstormCountdownStarted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 3,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventSandstormStarted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 4,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventMonsterGoldReceived",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 5,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventEffectExecuted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 6,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventEffectTriggered",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 7,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventEffectAuraExecuted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 8,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardEnchanted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 9,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardTransformed",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 10,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardTransformReverted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 11,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardQuestCompleted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 12,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardQuestUpdated",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 13,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventMonsterXpReceived",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 14,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardActionCostSpent",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 15,
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSimEventCardAttributeDeleted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.EResponseErrorType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Error",
+          "value": "0"
+        },
+        {
+          "name": "NotFound",
+          "value": "1"
+        },
+        {
+          "name": "NotAllowed",
+          "value": "2"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.AttributeDelta": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "DeltaType",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.EAttributeDeltaType"
+        },
+        {
+          "key": 1,
+          "name": "Value",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.CardDeltaPlacement": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Owner",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ECombatantId>"
+        },
+        {
+          "key": 1,
+          "name": "Socket",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EContainerSocketId>"
+        },
+        {
+          "key": 2,
+          "name": "Section",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EInventorySection>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.EAttributeDeltaType": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Update",
+          "value": "0"
+        },
+        {
+          "name": "Delete",
+          "value": "1"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSim": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Events",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.GameSimEvents.IGameSimEvent>"
+        },
+        {
+          "key": 1,
+          "name": "Player",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdatePlayer"
+        },
+        {
+          "key": 2,
+          "name": "Opponent",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdatePlayer"
+        },
+        {
+          "key": 3,
+          "name": "Cards",
+          "type": "System.Collections.Generic.Dictionary<System.String,BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdateCard>"
+        },
+        {
+          "key": 4,
+          "name": "Run",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdateRun"
+        },
+        {
+          "key": 5,
+          "name": "CurrentState",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdateRunState"
+        },
+        {
+          "key": 6,
+          "name": "VfxKeys",
+          "type": "System.Collections.Generic.List<System.String>"
+        }
+      ],
+      "unkeyed": [
+        {
+          "name": "_enchantedCards",
+          "type": "System.Collections.Generic.Dictionary<System.String,BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardEnchanted>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "_fusedCards",
+          "type": "System.Collections.Generic.HashSet<System.String>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "_vfxMap",
+          "type": "System.Collections.Generic.Dictionary<System.String,System.Int32>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventBoardOverridden": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Board",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "Presentation",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardDealt": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "TemplateId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Type",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardType"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardDisposed": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "Reason",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardDisposalReason"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardEnchanted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EnchantmentType",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EEnchantmentType>"
+        },
+        {
+          "key": 2,
+          "name": "IsReverted",
+          "type": "System.Boolean"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardFused": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "SelectedInstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "FusedInstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "NewTier",
+          "type": "BazaarGameShared.Domain.Core.Types.ETier"
+        },
+        {
+          "key": 3,
+          "name": "EnchantmentType",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EEnchantmentType>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardMoved": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "Owner",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 2,
+          "name": "ToInventory",
+          "type": "BazaarGameShared.Domain.Core.Types.EInventorySection"
+        },
+        {
+          "key": 3,
+          "name": "ToSocket",
+          "type": "BazaarGameShared.Domain.Core.Types.EContainerSocketId"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardPurchased": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "BuyPrice",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 2,
+          "name": "LeftSocketId",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EContainerSocketId>"
+        },
+        {
+          "key": 3,
+          "name": "Section",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EInventorySection>"
+        },
+        {
+          "key": 4,
+          "name": "CombatantId",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ECombatantId>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardQuestCompleted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "QuestGroupIndex",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "QuestEntryIndex",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardQuestUpdated": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "QuestGroupIndex",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "QuestEntryIndex",
+          "type": "System.Int32"
+        },
+        {
+          "key": 3,
+          "name": "OldProgress",
+          "type": "System.Int32"
+        },
+        {
+          "key": 4,
+          "name": "NewProgress",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardSold": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "SellPrice",
+          "type": "System.UInt32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardSpawned": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "TemplateId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Type",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardType"
+        },
+        {
+          "key": 3,
+          "name": "CombatantId",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 4,
+          "name": "Section",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EInventorySection>"
+        },
+        {
+          "key": 5,
+          "name": "Socket",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EContainerSocketId>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardTransformReverted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "OriginalCard",
+          "type": "BazaarGameShared.Infra.Messages.Shared.SimEventCardTransformation"
+        },
+        {
+          "key": 1,
+          "name": "TransformedCardInstanceIds",
+          "type": "System.Collections.Generic.List<System.String>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardTransformed": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "OriginalInstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "TransformedCards",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.Shared.SimEventCardTransformation>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardUpgraded": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "NewTier",
+          "type": "BazaarGameShared.Domain.Core.Types.ETier"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventEffectAuraExecuted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EffectId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Source",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 3,
+          "name": "TriggerSource",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 4,
+          "name": "AppliedTo",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Infra.Messages.Shared.IEffectTarget>"
+        },
+        {
+          "key": 5,
+          "name": "RemovedFrom",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Infra.Messages.Shared.IEffectTarget>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventEffectExecuted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExecutionContextId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "EffectId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "ActionType",
+          "type": "BazaarGameShared.Domain.Effect.EActionCommandType"
+        },
+        {
+          "key": 3,
+          "name": "VfxIndex",
+          "type": "System.Nullable<System.Int32>"
+        },
+        {
+          "key": 4,
+          "name": "Source",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 5,
+          "name": "TriggerSource",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.InstanceId>"
+        },
+        {
+          "key": 6,
+          "name": "Target",
+          "type": "BazaarGameShared.Infra.Messages.Shared.IEffectTarget"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventInterruptStateEntered": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "EnteredState",
+          "type": "BazaarGameShared.Domain.Runs.ERunState"
+        },
+        {
+          "key": 1,
+          "name": "IsInterrupt",
+          "type": "System.Boolean"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventInterruptStateExited": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ExitedState",
+          "type": "BazaarGameShared.Domain.Runs.ERunState"
+        },
+        {
+          "key": 1,
+          "name": "IsInterrupt",
+          "type": "System.Boolean"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPedestalActivated": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": []
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerExperienceGained": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Amount",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 1,
+          "name": "ExperienceType",
+          "type": "BazaarGameShared.Domain.Core.Types.EExperienceType"
+        },
+        {
+          "key": 2,
+          "name": "SourceInstanceId",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerIncomeGained": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Amount",
+          "type": "System.UInt32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerInitialized": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "CombatantId",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 1,
+          "name": "Hero",
+          "type": "BazaarGameShared.Domain.Core.Types.EHero"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerPrestigeChanged": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Delta",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerSkillEquipped": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "Owner",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunCompleted": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Rewards",
+          "type": "BazaarGameShared.TempoNet.Responses.CompleteRunResult"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunDayChanged": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "NewDay",
+          "type": "System.UInt32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunHourChanged": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "NewHour",
+          "type": "System.UInt32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunRerollCostChanged": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "NewCost",
+          "type": "System.UInt32"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventSocketsUnlocked": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "UnlockedSockets",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EContainerSocketId>"
+        },
+        {
+          "key": 1,
+          "name": "UnlockedSocketsBitmask",
+          "type": "System.UInt16"
+        },
+        {
+          "key": 2,
+          "name": "Section",
+          "type": "BazaarGameShared.Domain.Core.Types.EInventorySection"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventStateTransitioned": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "ToState",
+          "type": "BazaarGameShared.Domain.Runs.ERunState"
+        },
+        {
+          "key": 1,
+          "name": "CurrentEncounterId",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.IGameSimEvent": {
+      "kind": "union",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "cases": [
+        {
+          "tag": 1,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardDealt",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 2,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardDisposed",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 3,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardEnchanted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 4,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardFused",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 5,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardMoved",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 6,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardPurchased",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 7,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardSold",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 8,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardSpawned",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 9,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardUpgraded",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 10,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventEffectExecuted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 11,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventInterruptStateEntered",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 12,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventInterruptStateExited",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 13,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPedestalActivated",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 14,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerExperienceGained",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 15,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerIncomeGained",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 16,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerPrestigeChanged",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 17,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunDayChanged",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 18,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunHourChanged",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 19,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventSocketsUnlocked",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 20,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventStateTransitioned",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 21,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerSkillEquipped",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 22,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventPlayerInitialized",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 23,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventEffectAuraExecuted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 24,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunCompleted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 25,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardTransformed",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 26,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardTransformReverted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 27,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardQuestCompleted",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 28,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventCardQuestUpdated",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 29,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventBoardOverridden",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 30,
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSimEventRunRerollCostChanged",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.SimPvpOpponent": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Name",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "TitlePrefix",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "TitleSuffix",
+          "type": "System.String"
+        },
+        {
+          "key": 3,
+          "name": "Rank",
+          "type": "System.Nullable<BazaarGameShared.TempoNet.Enums.ERank>"
+        },
+        {
+          "key": 4,
+          "name": "Rating",
+          "type": "System.Int32"
+        },
+        {
+          "key": 5,
+          "name": "Division",
+          "type": "System.Int32"
+        },
+        {
+          "key": 6,
+          "name": "Victories",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 7,
+          "name": "Prestige",
+          "type": "System.Int32"
+        },
+        {
+          "key": 8,
+          "name": "Level",
+          "type": "System.Int32"
+        },
+        {
+          "key": 9,
+          "name": "Hero",
+          "type": "BazaarGameShared.Domain.Core.Types.EHero"
+        },
+        {
+          "key": 10,
+          "name": "PlayerLoadout",
+          "type": "BazaarGameShared.TempoNet.Models.BazaarCollectionLoadout"
+        },
+        {
+          "key": 11,
+          "name": "PlayerCollection",
+          "type": "System.Collections.Generic.List<BazaarGameShared.TempoNet.Responses.CollectionItemInstanceResponse>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdateCard": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "Attributes",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.ECardAttributeType,BazaarGameShared.Infra.Messages.GameSimEvents.AttributeDelta>"
+        },
+        {
+          "key": 2,
+          "name": "Enchantment",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EEnchantmentType>"
+        },
+        {
+          "key": 3,
+          "name": "Heroes",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EHero>"
+        },
+        {
+          "key": 4,
+          "name": "HiddenTags",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.EHiddenTag>"
+        },
+        {
+          "key": 5,
+          "name": "Placement",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.CardDeltaPlacement"
+        },
+        {
+          "key": 6,
+          "name": "Size",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ECardSize>"
+        },
+        {
+          "key": 7,
+          "name": "Tags",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Domain.Core.Types.ECardTag>"
+        },
+        {
+          "key": 8,
+          "name": "Tier",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.ETier>"
+        },
+        {
+          "key": 9,
+          "name": "State",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardState"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdatePlayer": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "CombatantId",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 1,
+          "name": "Attributes",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.EPlayerAttributeType,System.Int32>"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdateRun": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Day",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 1,
+          "name": "Hour",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 2,
+          "name": "Victories",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 3,
+          "name": "Defeats",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 4,
+          "name": "HasVisitedFates",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 5,
+          "name": "CurrentHourXP",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 6,
+          "name": "DataVersion",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameSimEvents.SimUpdateRunState": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "StateName",
+          "type": "BazaarGameShared.Domain.Runs.ERunState"
+        },
+        {
+          "key": 1,
+          "name": "CurrentEncounterId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "RerollCost",
+          "type": "System.Nullable<System.UInt32>"
+        },
+        {
+          "key": 3,
+          "name": "RerollsRemaining",
+          "type": "System.Nullable<System.UInt32>"
+        },
+        {
+          "key": 4,
+          "name": "SelectionSet",
+          "type": "System.Collections.Generic.List<System.String>"
+        },
+        {
+          "key": 5,
+          "name": "PvpOpponent",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.SimPvpOpponent"
+        },
+        {
+          "key": 6,
+          "name": "SelectionContextRules",
+          "type": "BazaarGameShared.Domain.Runs.TSelectionContextRules"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.GameStateSnapshotDTO": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Run",
+          "type": "BazaarGameShared.Infra.Messages.RunSnapshotDTO"
+        },
+        {
+          "key": 1,
+          "name": "CurrentState",
+          "type": "BazaarGameShared.Infra.Messages.RunStateSnapshotDTO"
+        },
+        {
+          "key": 2,
+          "name": "Player",
+          "type": "BazaarGameShared.Infra.Messages.PlayerSnapshotDTO"
+        },
+        {
+          "key": 3,
+          "name": "Cards",
+          "type": "System.Collections.Generic.HashSet<BazaarGameShared.Infra.Messages.CardSnapshotDTO>"
+        }
+      ],
+      "unkeyed": [
+        {
+          "name": "GetPlayerHandCards",
+          "type": "System.Collections.Generic.IEnumerable<BazaarGameShared.Infra.Messages.CardSnapshotDTO>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "GetPlayerSkillsCards",
+          "type": "System.Collections.Generic.IEnumerable<BazaarGameShared.Infra.Messages.CardSnapshotDTO>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        },
+        {
+          "name": "GetPlayerStashCards",
+          "type": "System.Collections.Generic.IEnumerable<BazaarGameShared.Infra.Messages.CardSnapshotDTO>",
+          "sources": [
+            "android-13113",
+            "android-13250",
+            "android-13269"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.INetMessage": {
+      "kind": "union",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "cases": [
+        {
+          "tag": 1,
+          "type": "BazaarGameShared.Infra.Messages.NetMessageError",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 2,
+          "type": "BazaarGameShared.Infra.Messages.NetMessageCombatSim",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 3,
+          "type": "BazaarGameShared.Infra.Messages.NetMessageGameSim",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 4,
+          "type": "BazaarGameShared.Infra.Messages.NetMessageGameStateSync",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 5,
+          "type": "BazaarGameShared.Infra.Messages.NetMessageRunInitialized",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 6,
+          "type": "BazaarGameShared.Infra.Messages.NetMessageAggregate",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.NetMessageAggregate": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Messages",
+          "type": "System.Collections.Generic.List<BazaarGameShared.Infra.Messages.INetMessage>"
+        },
+        {
+          "key": 1,
+          "name": "MessageId",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.NetMessageCombatSim": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Data",
+          "type": "BazaarGameShared.Infra.Messages.CombatSimEvents.CombatSim"
+        },
+        {
+          "key": 1,
+          "name": "MessageId",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.NetMessageError": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "MessageId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "ErrorType",
+          "type": "BazaarGameShared.Infra.Messages.EResponseErrorType"
+        },
+        {
+          "key": 2,
+          "name": "Message",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.NetMessageGameSim": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Data",
+          "type": "BazaarGameShared.Infra.Messages.GameSimEvents.GameSim"
+        },
+        {
+          "key": 1,
+          "name": "MessageId",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.NetMessageGameStateSync": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Data",
+          "type": "BazaarGameShared.Infra.Messages.GameStateSnapshotDTO"
+        },
+        {
+          "key": 1,
+          "name": "MessageId",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.NetMessageRunInitialized": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "RunId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "BuildId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Environment",
+          "type": "System.String"
+        },
+        {
+          "key": 3,
+          "name": "PlayMode",
+          "type": "System.String"
+        },
+        {
+          "key": 4,
+          "name": "MessageId",
+          "type": "System.String"
+        },
+        {
+          "key": 7,
+          "name": "TournamentSessionId",
+          "type": "System.Nullable<System.Guid>",
+          "sources": [
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.PlayerSnapshotDTO": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Hero",
+          "type": "BazaarGameShared.Domain.Core.Types.EHero"
+        },
+        {
+          "key": 1,
+          "name": "Attributes",
+          "type": "System.Collections.Generic.Dictionary<BazaarGameShared.Domain.Core.Types.EPlayerAttributeType,System.Int32>"
+        },
+        {
+          "key": 2,
+          "name": "UnlockedSlots",
+          "type": "System.UInt16"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.RunSnapshotDTO": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "GameModeId",
+          "type": "System.Guid"
+        },
+        {
+          "key": 1,
+          "name": "Day",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 2,
+          "name": "Hour",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 3,
+          "name": "Victories",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 4,
+          "name": "Defeats",
+          "type": "System.UInt32"
+        },
+        {
+          "key": 5,
+          "name": "HasVisitedFates",
+          "type": "System.Boolean"
+        },
+        {
+          "key": 6,
+          "name": "DataVersion",
+          "type": "System.String"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.RunStateSnapshotDTO": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "StateName",
+          "type": "BazaarGameShared.Domain.Runs.ERunState"
+        },
+        {
+          "key": 1,
+          "name": "CurrentEncounterId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Board",
+          "type": "System.String"
+        },
+        {
+          "key": 3,
+          "name": "RerollCost",
+          "type": "System.Nullable<System.UInt32>"
+        },
+        {
+          "key": 4,
+          "name": "RerollsRemaining",
+          "type": "System.Nullable<System.UInt32>"
+        },
+        {
+          "key": 5,
+          "name": "SelectionSet",
+          "type": "System.Collections.Generic.List<System.String>"
+        },
+        {
+          "key": 6,
+          "name": "SelectionContextRules",
+          "type": "BazaarGameShared.Domain.Runs.TSelectionContextRules"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.Shared.EffectTargetCard": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Target",
+          "type": "BazaarGameShared.Domain.Core.InstanceId"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.Shared.EffectTargetPlayer": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Target",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.Shared.IEffectTarget": {
+      "kind": "union",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "cases": [
+        {
+          "tag": 1,
+          "type": "BazaarGameShared.Infra.Messages.Shared.EffectTargetCard",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "tag": 2,
+          "type": "BazaarGameShared.Infra.Messages.Shared.EffectTargetPlayer",
+          "sources": [
+            "macos-13176",
+            "macos-13257",
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.Infra.Messages.Shared.SimEventCardTransformation": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "InstanceId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "TemplateId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "Type",
+          "type": "BazaarGameShared.Domain.Core.Types.ECardType"
+        },
+        {
+          "key": 3,
+          "name": "CombatantId",
+          "type": "BazaarGameShared.Domain.Core.Types.ECombatantId"
+        },
+        {
+          "key": 4,
+          "name": "Section",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EInventorySection>"
+        },
+        {
+          "key": 5,
+          "name": "Socket",
+          "type": "System.Nullable<BazaarGameShared.Domain.Core.Types.EContainerSocketId>"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Enums.ERank": {
+      "kind": "enum",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "underlying": "System.Int32",
+      "flags": false,
+      "values": [
+        {
+          "name": "Bronze",
+          "value": "0"
+        },
+        {
+          "name": "Silver",
+          "value": "1"
+        },
+        {
+          "name": "Gold",
+          "value": "2"
+        },
+        {
+          "name": "Diamond",
+          "value": "3"
+        },
+        {
+          "name": "Legendary",
+          "value": "4"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Models.BazaarCollectionLoadout": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "accountId",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "boardId",
+          "type": "System.String"
+        },
+        {
+          "key": 2,
+          "name": "carpetId",
+          "type": "System.String"
+        },
+        {
+          "key": 3,
+          "name": "cardBackId",
+          "type": "System.String"
+        },
+        {
+          "key": 4,
+          "name": "toyId",
+          "type": "System.String"
+        },
+        {
+          "key": 5,
+          "name": "stashId",
+          "type": "System.String"
+        },
+        {
+          "key": 6,
+          "name": "bankId",
+          "type": "System.String"
+        },
+        {
+          "key": 7,
+          "name": "albumId",
+          "type": "System.String"
+        },
+        {
+          "key": 8,
+          "name": "heroSkinIds",
+          "type": "System.String[]"
+        },
+        {
+          "key": 9,
+          "name": "cardSkinIds",
+          "type": "System.String[]"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Responses.Chest": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Id",
+          "type": "System.Guid"
+        },
+        {
+          "key": 1,
+          "name": "OwnerId",
+          "type": "System.Nullable<System.Guid>"
+        },
+        {
+          "key": 2,
+          "name": "SeasonId",
+          "type": "System.Int32"
+        },
+        {
+          "key": 3,
+          "name": "Currencies",
+          "type": "System.Collections.Generic.List<BazaarGameShared.TempoNet.Responses.CurrencyValue>"
+        },
+        {
+          "key": 4,
+          "name": "Item",
+          "type": "BazaarGameShared.TempoNet.Responses.Item"
+        },
+        {
+          "key": 5,
+          "name": "ParentId",
+          "type": "System.Nullable<System.Guid>"
+        },
+        {
+          "key": 6,
+          "name": "Children",
+          "type": "System.Collections.Generic.List<System.Guid>"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Responses.CollectionItemInstanceResponse": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Id",
+          "type": "System.Guid"
+        },
+        {
+          "key": 1,
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "key": 2,
+          "name": "MintNumber",
+          "type": "System.Nullable<System.Int32>"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Responses.CompleteRunResult": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Chests",
+          "type": "System.Collections.Generic.IReadOnlyList<BazaarGameShared.TempoNet.Responses.Chest>"
+        },
+        {
+          "key": 1,
+          "name": "ChestCount",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "CompletedDailyChallengeIds",
+          "type": "System.Collections.Generic.IReadOnlyList<System.Int32>"
+        },
+        {
+          "key": 3,
+          "name": "CompletedWeeklyChallengeIds",
+          "type": "System.Collections.Generic.IReadOnlyList<System.Int32>"
+        },
+        {
+          "key": 4,
+          "name": "SeasonRankRewards",
+          "type": "System.Collections.Generic.IReadOnlyCollection<System.Int32>"
+        },
+        {
+          "key": 5,
+          "name": "XpEarned",
+          "type": "System.Int32"
+        },
+        {
+          "key": 6,
+          "name": "GemsEarned",
+          "type": "System.Int32",
+          "sources": [
+            "macos-13257",
+            "macos-13295"
+          ]
+        },
+        {
+          "key": 7,
+          "name": "TournamentEndRun",
+          "type": "BazaarGameShared.TempoNet.Responses.TournamentEndRunPayload",
+          "sources": [
+            "macos-13295"
+          ]
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Responses.CurrencyValue": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "CurrencyType",
+          "type": "System.String"
+        },
+        {
+          "key": 1,
+          "name": "Amount",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Responses.Item": {
+      "kind": "object",
+      "sources": [
+        "android-13113",
+        "android-13250",
+        "android-13269",
+        "macos-13176",
+        "macos-13257",
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "Id",
+          "type": "System.Guid"
+        },
+        {
+          "key": 1,
+          "name": "ItemId",
+          "type": "System.Guid"
+        },
+        {
+          "key": 2,
+          "name": "MintNumber",
+          "type": "System.Nullable<System.Int32>"
+        }
+      ]
+    },
+    "BazaarGameShared.TempoNet.Responses.TournamentEndRunPayload": {
+      "kind": "object",
+      "sources": [
+        "macos-13295"
+      ],
+      "members": [
+        {
+          "key": 0,
+          "name": "TournamentSessionId",
+          "type": "System.Guid"
+        },
+        {
+          "key": 1,
+          "name": "Place",
+          "type": "System.Int32"
+        },
+        {
+          "key": 2,
+          "name": "TotalPlayers",
+          "type": "System.Int32"
+        },
+        {
+          "key": 3,
+          "name": "IsChampion",
+          "type": "System.Boolean"
+        }
+      ]
+    }
+  }
+}

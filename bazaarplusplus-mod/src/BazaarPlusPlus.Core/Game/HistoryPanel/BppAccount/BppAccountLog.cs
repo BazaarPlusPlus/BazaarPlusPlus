@@ -6,8 +6,7 @@ namespace BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 
 public enum BppAccountAction
 {
-    BindStart,
-    BindConfirm,
+    Bind,
     ActivateDevice,
     RefreshMe,
 }
@@ -23,9 +22,8 @@ public enum BppAccountLogReason
     GameTokenRejected,
     GameApiUnavailable,
     AccountNotBound,
-    EmailAlreadyBound,
     GameAccountAlreadyBound,
-    InvalidVerificationCode,
+    InvalidBindCode,
     RateLimited,
     Unauthorized,
     RequestTimeout,
@@ -34,7 +32,7 @@ public enum BppAccountLogReason
     UnexpectedException,
 }
 
-/// <summary>Keep game tokens, device tokens, emails, verification codes, account IDs, and response bodies out of logs.</summary>
+/// <summary>Keep game tokens, device tokens, bind codes, emails, account IDs, and response bodies out of logs.</summary>
 public static class BppAccountLog
 {
     internal static void Succeeded(string requestId, BppAccountAction action) =>
@@ -92,9 +90,8 @@ public static class BppAccountLog
             "game_token_rejected" => BppAccountLogReason.GameTokenRejected,
             "game_api_unavailable" => BppAccountLogReason.GameApiUnavailable,
             "account_not_bound" => BppAccountLogReason.AccountNotBound,
-            "email_already_bound" => BppAccountLogReason.EmailAlreadyBound,
             "game_account_already_bound" => BppAccountLogReason.GameAccountAlreadyBound,
-            "invalid_verification_code" => BppAccountLogReason.InvalidVerificationCode,
+            "invalid_bind_code" => BppAccountLogReason.InvalidBindCode,
             "rate_limited" => BppAccountLogReason.RateLimited,
             "unauthorized" => BppAccountLogReason.Unauthorized,
             "request_timeout" => BppAccountLogReason.RequestTimeout,

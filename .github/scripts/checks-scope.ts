@@ -173,13 +173,13 @@ export const SHARED_INPUTS: [string, string[]][] = [
     'bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md',
     ['site', 'mod', 'installer', 'bot']
   ],
-  ['bazaarplusplus-mod/docs/contracts/', ['server', 'analyzer', 'bot']],
+  ['bazaarplusplus-mod/docs/contracts/', ['server', 'analyzer', 'bot', 'site']],
   // Launch Record (AGENTS.md): the mod's Android Host and Updater read the
   // Android App's golden.
   ['bazaarplusplus-android/contracts/', ['mod']],
   [
     'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/',
-    ['server', 'analyzer', 'bot']
+    ['server', 'analyzer', 'bot', 'site']
   ],
   [
     'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/',
@@ -203,7 +203,10 @@ export const SHARED_INPUTS: [string, string[]][] = [
     'bazaarplusplus-mod/src/BazaarPlusPlus.Storage/BazaarPlusPlus.history-database.json',
     ['installer', 'release', 'android']
   ],
-  ['bazaarplusplus-mod/build/game-libs.lock.json', ['release']],
+  // The site's Game Message Schema generator takes its default snapshots from the lock.
+  ['bazaarplusplus-mod/build/game-libs.lock.json', ['release', 'site']],
+  // Untracked snapshots that the site's Game Message Schema generator reads.
+  ['bazaarplusplus-mod/game-libs/', ['site']],
   // release/snapshot-lock.test.ts pins GAME_VERSION_PATTERN to the first and
   // release/game-libs-interop.test.ts evaluates the second against a captured
   // lock.

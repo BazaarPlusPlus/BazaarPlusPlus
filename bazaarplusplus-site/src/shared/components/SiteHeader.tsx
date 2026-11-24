@@ -1,5 +1,9 @@
 import { getSiteCopy } from '../../content/site-copy';
-import type { Locale, ResolvedSpaLocation } from '../../app/router';
+import {
+  navigationPage,
+  type Locale,
+  type ResolvedSpaLocation
+} from '../../app/router';
 import { pageContainerClassName } from './page-container';
 
 type SiteHeaderProps = {
@@ -48,7 +52,7 @@ export default function SiteHeader({ location }: SiteHeaderProps) {
           className="order-3 -mx-1 flex w-full min-w-0 items-center gap-0.5 overflow-x-auto sm:order-2 sm:mx-0 sm:w-auto sm:flex-1"
         >
           {location.navigation.items.map((item) => {
-            const active = item.page === location.route.page;
+            const active = item.page === navigationPage(location.route.page);
             const label =
               item.group === 'primary'
                 ? copy.primaryNav[item.page as 'heroes']

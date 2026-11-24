@@ -15,7 +15,11 @@ export default defineConfig({
       '**/*.md',
       'e2e/__snapshots__/**',
       'test-results/**',
-      'playwright-report/**'
+      'playwright-report/**',
+      // Written by tools/message-schema/generate.ts, whose check compares the exact bytes.
+      'src/features/runs/message-stream/game-message-schema.json',
+      // Goldens and fixtures the tests compare byte for byte.
+      'test/fixtures/run-stream.*'
     ]
   },
   lint: {

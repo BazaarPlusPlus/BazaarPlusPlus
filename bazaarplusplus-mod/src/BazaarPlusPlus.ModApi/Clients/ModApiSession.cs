@@ -77,28 +77,22 @@ public sealed class ModApiSession : IDisposable
     public Task<ModApiHealthProbeResult> ProbeHealthAsync(CancellationToken cancellationToken) =>
         _health.ProbeAsync(cancellationToken);
 
-    public Task<BppAccountBindStartResult> StartBppAccountBindAsync(
-        string email,
+    public Task<BppAccountDeviceResult> BindBppAccountAsync(
+        string bindCode,
         string gameToken,
         string gameAccountId,
         string platform,
         string flavor,
         CancellationToken cancellationToken
     ) =>
-        _accounts.StartBindAsync(
-            email,
+        _accounts.BindAsync(
+            bindCode,
             gameToken,
             gameAccountId,
             platform,
             flavor,
             cancellationToken
         );
-
-    public Task<BppAccountDeviceResult> ConfirmBppAccountBindAsync(
-        string pendingId,
-        string code,
-        CancellationToken cancellationToken
-    ) => _accounts.ConfirmBindAsync(pendingId, code, cancellationToken);
 
     public Task<BppAccountDeviceResult> IssueBppAccountDeviceTokenAsync(
         string gameToken,

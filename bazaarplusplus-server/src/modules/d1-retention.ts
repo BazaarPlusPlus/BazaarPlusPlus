@@ -12,20 +12,18 @@ export async function pruneExpiredAuthState(
   scheduledAtMs: number
 ): Promise<void> {
   const challengeCutoff = scheduledAtMs - AUTH_CHALLENGE_RETENTION_MS;
-  // Prune expired ephemeral sessions and stale verification challenges.
-  // bpp_accounts, bpp_device_tokens, and run_summaries are never pruned here.
+  // Prunes expired web sessions and Bind Codes, and email challenges expired
+  // for 24 hours. Accounts, Device Tokens, and run_summaries are never pruned here.
   await db.batch([
     db
       .prepare(`DELETE FROM bpp_web_sessions WHERE expires_at_ms < ?1`)
       .bind(scheduledAtMs),
     db
-      .prepare(
-        `DELETE FROM bpp_account_bind_challenges WHERE expires_at_ms < ?1`
-      )
+      .prepare(`DELETE FROM bpp_email_challenges WHERE expires_at_ms < ?1`)
       .bind(challengeCutoff),
     db
-      .prepare(`DELETE FROM bpp_web_login_challenges WHERE expires_at_ms < ?1`)
-      .bind(challengeCutoff)
+      .prepare(`DELETE FROM bpp_bind_codes WHERE expires_at_ms < ?1`)
+      .bind(scheduledAtMs)
   ]);
 }
 

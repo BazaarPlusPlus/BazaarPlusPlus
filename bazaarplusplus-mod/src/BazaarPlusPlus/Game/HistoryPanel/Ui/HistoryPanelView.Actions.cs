@@ -196,9 +196,9 @@ internal sealed partial class HistoryPanelView
         _bppAccountNotice = Wrapped(kit.Text(bppForm, string.Empty, KitTextRole.Caption));
         var bppLine = Line(bppForm, "InputLine", InGameSizes.Space8);
         var bppInput = Flexible(
-            kit.Field(bppLine.transform, HistoryPanelText.BppAccount.EmailPlaceholder())
+            kit.Field(bppLine.transform, HistoryPanelText.BppAccount.BindCodePlaceholder())
         );
-        bppInput.characterLimit = 254;
+        bppInput.characterLimit = HistoryPanelViewModel.BppAccountBindCodeMaxLength;
         bppInput.onValueChanged.AddListener(value => _bppAccountText = value);
         bppInput.onSelect.AddListener(_ => UpdateInputFocus());
         bppInput.onDeselect.AddListener(_ => ReleaseInputFocus());
@@ -316,7 +316,6 @@ internal sealed partial class HistoryPanelView
         if (_bppAccountInput != null)
         {
             _bppAccountInput.gameObject.SetActive(m.BppAccountInputVisible);
-            _bppAccountInput.characterLimit = m.BppAccountInputMaxLength;
             _bppAccountInput.interactable = m.BppAccountControlsEnabled;
             if (_bppAccountInput.placeholder is TextMeshProUGUI placeholder)
                 placeholder.text = m.BppAccountInputPlaceholder;

@@ -18,10 +18,10 @@ test('the completed migrations leave only the domain tables', async () => {
   ).all<{ name: string }>();
 
   expect(result.results.map(({ name }) => name)).toEqual([
-    'bpp_account_bind_challenges',
     'bpp_accounts',
+    'bpp_bind_codes',
     'bpp_device_tokens',
-    'bpp_web_login_challenges',
+    'bpp_email_challenges',
     'bpp_web_sessions',
     'bundle_uploaders',
     'bundles',

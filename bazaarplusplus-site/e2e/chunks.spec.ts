@@ -11,6 +11,14 @@ import {
   readOrWriteGolden,
   siteRoot
 } from './golden';
+import {
+  LINKED_ME,
+  SAMPLE_RUN_ID,
+  mockAccountApi,
+  mockCardArt,
+  runDetailHandlers,
+  runSummary
+} from './account-api';
 import { settle } from './page';
 
 // Public icon byte budgets. Raise one only with the reason in the pull request.
@@ -25,7 +33,11 @@ const ROUTES: Record<string, string> = {
   download: '/download',
   heroes: '/heroes',
   login: '/login',
+  register: '/register',
+  reset: '/reset',
+  account: '/account',
   records: '/records',
+  run: `/records/${SAMPLE_RUN_ID}`,
   'not-found': '/unknown'
 };
 
@@ -50,18 +62,12 @@ test.describe.configure({ mode: 'serial' });
 for (const [route, href] of Object.entries(ROUTES)) {
   test(`${route} transfers`, async ({ page }) => {
     const routes = await installGoldenRoutes(page);
-    if (route === 'records') {
-      await page.route('**/api/me', (intercept) =>
-        intercept.fulfill({
-          json: {
-            user_name: 'Player',
-            email_masked: 'p***',
-            runs: [],
-            next_cursor: null
-          }
-        })
-      );
-    }
+    await mockAccountApi(page, {
+      'GET me': () => ({ json: LINKED_ME }),
+      'GET runs': () => ({ json: { runs: [runSummary()], next_cursor: null } }),
+      ...runDetailHandlers()
+    });
+    await mockCardArt(page, []);
     const entry: RouteReport = { scripts: {}, external: [], icons: {} };
     const pending: Array<Promise<void>> = [];
     page.on('requestfinished', (request) => {

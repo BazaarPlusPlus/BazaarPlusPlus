@@ -31,6 +31,8 @@ export interface CardArtSource {
 
 interface CardArtIndex {
   game?: Partial<CardArtSource>;
+  /** TemplateId → English title; an index from before it existed is republished. */
+  names?: Record<string, string>;
 }
 
 const defaultRunner = () =>
@@ -65,7 +67,8 @@ export async function cardArtStale(
   return {
     stale:
       published.game?.buildid !== String(buildid) ||
-      published.game?.gameData !== gameData,
+      published.game?.gameData !== gameData ||
+      published.names === undefined,
     buildid: String(buildid),
     gameData
   };

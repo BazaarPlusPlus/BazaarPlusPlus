@@ -43,6 +43,7 @@ Use exactly these words. A term not listed here gets added before it ships.
 | 对局 | run | One game from hero pick to the end. Counted "{n} 局" / "{n} runs". |
 | 战斗 | battle | One fight inside a run. |
 | 回放 | replay | A recorded battle. Not 回放视频 or 战斗回放视频. |
+| 消息流 | message stream | The Run Message Stream: what the game received and sent during a run, read on the run page. Its single frames are 原始消息 / raw frames. |
 | 截图 | screenshot | The end-of-run board image. |
 | 英雄 | hero | A playable character. |
 | 排位 / 匹配 / 普通 | Ranked / Unranked / Normal | Run modes. |

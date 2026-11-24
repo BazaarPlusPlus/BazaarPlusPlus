@@ -297,8 +297,8 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             "BppAccountInput",
             layout.BppAccountInput,
             layout.ButtonFont,
-            HistoryPanelText.BppAccount.EmailPlaceholder(),
-            254,
+            HistoryPanelText.BppAccount.BindCodePlaceholder(),
+            HistoryPanelViewModel.BppAccountBindCodeMaxLength,
             multiLine: false
         );
         _bppSubmit = TouchHistoryUi.Button(
@@ -435,7 +435,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         _bppPrompt.text = m.BppAccountFormPromptText;
         _bppNotice.text = m.BppAccountNoticeText;
         TouchHistoryUi.SetActive(_bppInput.gameObject, m.BppAccountInputVisible);
-        _bppInput.characterLimit = m.BppAccountInputMaxLength;
         _bppInput.interactable = m.BppAccountControlsEnabled;
         if (_bppInput.placeholder is TextMeshProUGUI bppPlaceholder)
             bppPlaceholder.text = m.BppAccountInputPlaceholder;

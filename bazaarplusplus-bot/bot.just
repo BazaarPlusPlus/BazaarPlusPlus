@@ -5,7 +5,7 @@ set positional-arguments
 check:
     bun run check
 
-# Exercise the Bot with local Workers and D1.
+# Exercise the Bot with local Workers and D1, then the Card Art index shape (stdlib Python).
 test:
     bun run test
 

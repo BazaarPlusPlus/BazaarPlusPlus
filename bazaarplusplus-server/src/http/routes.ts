@@ -2,10 +2,9 @@ import { z } from 'zod';
 import { BUNDLE_CONTENT_TYPE } from '../bundle/prefix';
 import { MAX_BUNDLE_BYTES } from '../limits';
 import {
-  confirmAccountBind,
+  bindGameAccount,
   getAccountMe,
-  issueAccountDeviceToken,
-  startAccountBind
+  issueAccountDeviceToken
 } from '../modules/account-service';
 import {
   collectBazaarDbBundles,
@@ -17,10 +16,8 @@ import { discoverGhostBattles } from '../modules/ghost-battle-discovery';
 import { buildOpenApiDocument, scalarPage } from './openapi';
 import type { RouteDefinition } from './route-shell';
 import {
-  AccountBindConfirmRequest,
-  AccountBindConfirmResponse,
-  AccountBindStartRequest,
-  AccountBindStartResponse,
+  AccountBindRequest,
+  AccountBindResponse,
   AccountDevicesRequest,
   AccountDevicesResponse,
   AccountMeResponse,
@@ -273,72 +270,40 @@ export const ROUTES = [
     }
   },
   {
-    path: '/account/bind/start',
+    path: '/account/bind',
     method: 'POST',
     handler: async (context) => ({
       status: 200,
-      body: await startAccountBind(context.request, context.env)
+      body: await bindGameAccount(context.request, context.env)
     }),
     docs: {
       tags: ['Account'],
-      summary: 'Start binding a game account to an email address',
+      summary: 'Link a game account to a BPP Account with a Bind Code',
       description:
-        'Verifies the official game token against the read-only official account summary ' +
-        'endpoint, enforces 1:1 email/game-account binding, and emails a 6-digit verification code.',
+        'The player creates the BPP Account and its Bind Code on bazaarplusplus.com. The Worker ' +
+        'verifies the official game token against the read-only official account summary ' +
+        'endpoint, links the game account in one D1 batch that consumes the code, and issues ' +
+        'a Device Token. A game account linked to another BPP Account leaves the code unused.',
       requestBody: {
         required: true,
         content: {
-          'application/json': { schema: AccountBindStartRequest }
+          'application/json': { schema: AccountBindRequest }
         }
       },
       responses: {
         '200': {
-          description: 'Verification email sent',
-          content: { 'application/json': { schema: AccountBindStartResponse } }
+          description: 'Game account linked and Device Token issued',
+          content: { 'application/json': { schema: AccountBindResponse } }
         }
       },
       errors: [
         'invalid_body',
+        'invalid_bind_code',
         'game_token_rejected',
         'account_mismatch',
-        'email_already_bound',
         'game_account_already_bound',
         'rate_limited',
         'game_api_unavailable',
-        'storage_unavailable'
-      ]
-    }
-  },
-  {
-    path: '/account/bind/confirm',
-    method: 'POST',
-    handler: async (context) => ({
-      status: 200,
-      body: await confirmAccountBind(context.request, context.env)
-    }),
-    docs: {
-      tags: ['Account'],
-      summary: 'Confirm email binding and issue a device token',
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': { schema: AccountBindConfirmRequest }
-        }
-      },
-      responses: {
-        '200': {
-          description: 'Account bound and device token issued',
-          content: {
-            'application/json': { schema: AccountBindConfirmResponse }
-          }
-        }
-      },
-      errors: [
-        'invalid_body',
-        'invalid_verification_code',
-        'email_already_bound',
-        'game_account_already_bound',
-        'rate_limited',
         'storage_unavailable'
       ]
     }
@@ -352,7 +317,7 @@ export const ROUTES = [
     }),
     docs: {
       tags: ['Account'],
-      summary: 'Issue a device token for an already-bound game account',
+      summary: 'Issue a Device Token for an already-linked game account',
       requestBody: {
         required: true,
         content: {
@@ -385,13 +350,13 @@ export const ROUTES = [
     }),
     docs: {
       tags: ['Account'],
-      summary: 'Read the bound BPP Account for a device token',
+      summary: 'Read the linked BPP Account for a Device Token',
       description:
         'Requires `Authorization: Bearer bppd_<token>`. Returns `401 unauthorized` if the ' +
         'device token is missing, invalid, or revoked.',
       responses: {
         '200': {
-          description: 'Bound BPP Account summary',
+          description: 'Linked BPP Account summary',
           content: { 'application/json': { schema: AccountMeResponse } }
         }
       },

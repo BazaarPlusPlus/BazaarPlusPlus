@@ -1,7 +1,7 @@
 {
   "support": {
     "scripts": {
-      "index.js": 102965
+      "index.js": 105627
     },
     "external": [
       "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
@@ -13,7 +13,7 @@
   },
   "tutorial": {
     "scripts": {
-      "index.js": 102965
+      "index.js": 105627
     },
     "external": [],
     "icons": {
@@ -23,7 +23,7 @@
   },
   "download": {
     "scripts": {
-      "index.js": 102965
+      "index.js": 105627
     },
     "external": [
       "https://cdn.bazaarplusplus.com/game-status/android.json",
@@ -39,8 +39,9 @@
   },
   "heroes": {
     "scripts": {
-      "index.js": 102965,
-      "route-pages.js": 8234
+      "HeroBadge.js": 619,
+      "index.js": 105627,
+      "route-pages.js": 7857
     },
     "external": [
       "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
@@ -52,8 +53,55 @@
   },
   "login": {
     "scripts": {
-      "AccountPage.js": 3189,
-      "index.js": 102965
+      "account-ui.js": 1461,
+      "AccountPage.js": 6170,
+      "HeroBadge.js": 619,
+      "index.js": 105627
+    },
+    "external": [
+      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+    ],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "register": {
+    "scripts": {
+      "account-ui.js": 1461,
+      "AccountPage.js": 6170,
+      "HeroBadge.js": 619,
+      "index.js": 105627
+    },
+    "external": [
+      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+    ],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "reset": {
+    "scripts": {
+      "account-ui.js": 1461,
+      "AccountPage.js": 6170,
+      "HeroBadge.js": 619,
+      "index.js": 105627
+    },
+    "external": [
+      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+    ],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "account": {
+    "scripts": {
+      "account-ui.js": 1461,
+      "AccountPage.js": 6170,
+      "HeroBadge.js": 619,
+      "index.js": 105627
     },
     "external": [],
     "icons": {
@@ -63,8 +111,23 @@
   },
   "records": {
     "scripts": {
-      "AccountPage.js": 3189,
-      "index.js": 102965
+      "account-ui.js": 1461,
+      "AccountPage.js": 6170,
+      "HeroBadge.js": 619,
+      "index.js": 105627
+    },
+    "external": [],
+    "icons": {
+      "bazaarplusplus-icon.webp": 7296,
+      "favicon.webp": 2812
+    }
+  },
+  "run": {
+    "scripts": {
+      "account-ui.js": 1461,
+      "HeroBadge.js": 619,
+      "index.js": 105627,
+      "RunPage.js": 8023
     },
     "external": [],
     "icons": {
@@ -74,7 +137,7 @@
   },
   "not-found": {
     "scripts": {
-      "index.js": 102965
+      "index.js": 105627
     },
     "external": [],
     "icons": {

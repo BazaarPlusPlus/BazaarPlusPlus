@@ -255,43 +255,27 @@ export const BotBundlesQuery = z.strictObject({
   after_bundle_id: bundleId.optional()
 });
 
-export const AccountBindStartRequest = z
+export const AccountBindRequest = z
   .strictObject({
-    email: z.string(),
+    bind_code: z.string().meta({
+      description:
+        'The 8-character Bind Code from bazaarplusplus.com/account; spaces and `-` are ignored, case-insensitive'
+    }),
     game_token: z.string(),
     game_account_id: identifier,
     platform: z.string(),
     flavor: z.string()
   })
-  .meta({ id: 'AccountBindStartRequest' });
+  .meta({ id: 'AccountBindRequest' });
 
-export const AccountBindStartResponse = z
-  .strictObject({
-    pending_id: z.string(),
-    user_name: z.string(),
-    email_masked: z.string(),
-    expires_at_ms: unixMs
-  })
-  .meta({ id: 'AccountBindStartResponse' });
-export type AccountBindStartResponse = z.infer<typeof AccountBindStartResponse>;
-
-export const AccountBindConfirmRequest = z
-  .strictObject({
-    pending_id: z.string(),
-    code: z.string().regex(/^[0-9]{6}$/)
-  })
-  .meta({ id: 'AccountBindConfirmRequest' });
-
-export const AccountBindConfirmResponse = z
+export const AccountBindResponse = z
   .strictObject({
     device_token: z.string(),
     user_name: z.string(),
     email_masked: z.string()
   })
-  .meta({ id: 'AccountBindConfirmResponse' });
-export type AccountBindConfirmResponse = z.infer<
-  typeof AccountBindConfirmResponse
->;
+  .meta({ id: 'AccountBindResponse' });
+export type AccountBindResponse = z.infer<typeof AccountBindResponse>;
 
 export const AccountDevicesRequest = z
   .strictObject({

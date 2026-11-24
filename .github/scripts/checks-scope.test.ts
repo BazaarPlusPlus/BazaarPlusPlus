@@ -113,11 +113,11 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-mod/docs/contracts/run-payload-v6.md',
-      ['mod-macos', 'server', 'analyzer', 'bot']
+      ['mod-macos', 'server', 'analyzer', 'bot', 'site']
     ],
     [
       'bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64',
-      ['mod', 'server', 'analyzer', 'bot']
+      ['mod', 'server', 'analyzer', 'bot', 'site']
     ],
     [
       'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json',
@@ -500,7 +500,7 @@ test('ordinary Mod source skips Windows; build and snapshot inputs retain it', (
   }
   expectScopes(
     ['bazaarplusplus-mod/build/game-libs.lock.json'],
-    ['mod', 'mod-windows', 'release']
+    ['mod', 'mod-windows', 'release', 'site']
   );
   expectScopes(
     ['bazaarplusplus-installer/src-tauri/src/services/history.rs'],

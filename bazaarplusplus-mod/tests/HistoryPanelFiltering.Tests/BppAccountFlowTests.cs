@@ -10,10 +10,13 @@ using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.ModApi.Clients;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 public sealed class BppAccountFlowTests
 {
+    private const string BindCode = "K7M2-Q9XR";
+
     [Fact]
     public void SessionStoreRoundTripsAtomicallyAndMatchesOnlyStoredAccount()
     {
@@ -58,13 +61,14 @@ public sealed class BppAccountFlowTests
     }
 
     [Fact]
-    public async Task CoordinatorTwoStepBindAnd401RefreshAndAccountSwitchClearing()
+    public async Task CoordinatorBindCodeActivationAnd401RefreshAndAccountSwitchClearing()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"bpp-acct-flow-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         try
         {
             var responses = new Queue<HttpResponseMessage>();
+            var requests = new List<(string Path, JObject? Body)>();
             var authReads = 0;
             var currentAccount = "acct-1";
             var store = new BppAccountSessionStore(Path.Combine(dir, "bpp-account.json"));
@@ -75,7 +79,21 @@ public sealed class BppAccountFlowTests
                     "macos-arm64",
                     "Test",
                     TimeSpan.FromSeconds(15),
-                    new StubHandler((_, _) => Task.FromResult(responses.Dequeue()))
+                    new StubHandler(
+                        async (request, _) =>
+                        {
+                            var body =
+                                request.Content == null
+                                    ? null
+                                    : JObject.Parse(
+                                        await request
+                                            .Content.ReadAsStringAsync()
+                                            .ConfigureAwait(false)
+                                    );
+                            requests.Add((request.RequestUri!.AbsolutePath, body));
+                            return responses.Dequeue();
+                        }
+                    )
                 ) ?? throw new InvalidOperationException("valid session");
 
             var state = new HistoryPanelState();
@@ -115,56 +133,65 @@ public sealed class BppAccountFlowTests
             Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
             Assert.False(state.BppAccountBound);
 
-            // Step 1 -> bind/start -> Step 2 (EnterCode)
+            // Opening the form shows the bind code input; an empty code never reaches the server.
             coordinator.ToggleBppAccountForm();
-            Assert.Equal(BppAccountFlowPhase.EnterEmail, state.BppAccountPhase);
-            responses.Enqueue(
-                Json(
-                    HttpStatusCode.OK,
-                    """{"pending_id":"pid-1","user_name":"OfficialAlice","email_masked":"a***@example.com","expires_at_ms":1785629400000}"""
-                )
-            );
-            await coordinator.TrySubmitBppAccountInputAsync("secret.alice@example.com");
-            Assert.Equal(1, authReads);
-            Assert.Equal(BppAccountFlowPhase.EnterCode, state.BppAccountPhase);
-            Assert.Equal("pid-1", state.BppAccountPendingId);
-            Assert.Equal("OfficialAlice", state.BppAccountPendingUserName);
-            Assert.Equal("a***@example.com", state.BppAccountPendingEmailMasked);
+            Assert.Equal(BppAccountFlowPhase.EnterBindCode, state.BppAccountPhase);
+            await coordinator.TrySubmitBppAccountInputAsync("   ");
+            Assert.Equal(0, authReads);
+            Assert.Equal(BppAccountFlowPhase.EnterBindCode, state.BppAccountPhase);
 
-            // Switching game account clears pending state immediately.
+            // Switching game account closes the form immediately.
             currentAccount = "acct-2";
             coordinator.Tick(2f);
             Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
-            Assert.Null(state.BppAccountPendingId);
 
-            // Re-open on acct-1: 409 game_account_already_bound transitions to ConfirmActivateDevice with email_masked.
+            // invalid_bind_code and game_account_already_bound keep the input open with a banner.
             currentAccount = "acct-1";
             coordinator.Tick(4f);
             coordinator.ToggleBppAccountForm();
             responses.Enqueue(
                 Json(
-                    HttpStatusCode.Conflict,
-                    """{"error":{"code":"game_account_already_bound","message":"bound","retryable":false,"request_id":"r1","details":{"email_masked":"a***@example.com"}}}"""
+                    HttpStatusCode.BadRequest,
+                    """{"error":{"code":"invalid_bind_code","message":"bad code","retryable":false,"request_id":"r0"}}"""
                 )
             );
-            await coordinator.TrySubmitBppAccountInputAsync("secret.alice@example.com");
-            Assert.Equal(BppAccountFlowPhase.ConfirmActivateDevice, state.BppAccountPhase);
-            Assert.Equal("a***@example.com", state.BppAccountPendingEmailMasked);
+            await coordinator.TrySubmitBppAccountInputAsync(" WRONG777 ");
+            Assert.Equal(BppAccountFlowPhase.EnterBindCode, state.BppAccountPhase);
+            Assert.Contains("invalid or expired", state.BppAccountBannerMessage);
 
-            // Confirming activation calls POST /account/devices and persists device token.
+            responses.Enqueue(
+                Json(
+                    HttpStatusCode.Conflict,
+                    """{"error":{"code":"game_account_already_bound","message":"bound","retryable":false,"request_id":"r1"}}"""
+                )
+            );
+            await coordinator.TrySubmitBppAccountInputAsync(BindCode);
+            Assert.Equal(BppAccountFlowPhase.EnterBindCode, state.BppAccountPhase);
+            Assert.Contains("another BPP Account", state.BppAccountBannerMessage);
+            Assert.False(state.BppAccountBound);
+
+            // A valid bind code posts the trimmed code with the game token and persists the device token.
             responses.Enqueue(
                 Json(
                     HttpStatusCode.OK,
                     """{"device_token":"bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","user_name":"OfficialAlice","email_masked":"a***@example.com"}"""
                 )
             );
-            await coordinator.TrySubmitBppAccountInputAsync(null);
+            await coordinator.TrySubmitBppAccountInputAsync($"  {BindCode}  ");
+            Assert.Equal(3, authReads);
             Assert.True(state.BppAccountBound);
             Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
+            Assert.Equal("OfficialAlice", state.BppAccountUserName);
+            Assert.Equal("a***@example.com", state.BppAccountEmailMasked);
             Assert.Equal(
                 "bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 store.TryReadDeviceTokenForAccount("acct-1")
             );
+            var bindRequest = requests[^1];
+            Assert.Equal("/account/bind", bindRequest.Path);
+            Assert.Equal(BindCode, bindRequest.Body!["bind_code"]!.ToString());
+            Assert.Equal("jwe.secret.token", bindRequest.Body["game_token"]!.ToString());
+            Assert.Equal("acct-1", bindRequest.Body["game_account_id"]!.ToString());
 
             // GET /account/me 401 clears the stored device token and bound state.
             responses.Enqueue(
@@ -185,19 +212,36 @@ public sealed class BppAccountFlowTests
                     """{"error":{"code":"account_mismatch","message":"mismatch","retryable":false,"request_id":"r3"}}"""
                 )
             );
-            await coordinator.TrySubmitBppAccountInputAsync("secret.alice@example.com");
+            await coordinator.TrySubmitBppAccountInputAsync(BindCode);
             Assert.Contains("restart the game", state.BppAccountBannerMessage);
 
-            // Privacy: game token, device token, and raw email never enter BppLog.
+            // Activating this device calls POST /account/devices and persists the device token.
+            coordinator.ToggleBppAccountForm();
+            coordinator.OpenBppAccountActivateDevice();
+            Assert.Equal(BppAccountFlowPhase.ConfirmActivateDevice, state.BppAccountPhase);
+            responses.Enqueue(
+                Json(
+                    HttpStatusCode.OK,
+                    """{"device_token":"bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","user_name":"OfficialAlice","email_masked":"a***@example.com"}"""
+                )
+            );
+            await coordinator.TrySubmitBppAccountInputAsync(null);
+            Assert.Equal("/account/devices", requests[^1].Path);
+            Assert.True(state.BppAccountBound);
+            Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
+            Assert.Equal(
+                "bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+                store.TryReadDeviceTokenForAccount("acct-1")
+            );
+
+            // Privacy: game token, bind code, and device token never enter BppLog.
             BppLog.Flush();
+            Assert.NotEmpty(logSink.Messages);
             foreach (var rendered in logSink.Messages)
             {
                 Assert.DoesNotContain("jwe.secret.token", rendered, StringComparison.Ordinal);
-                Assert.DoesNotContain(
-                    "secret.alice@example.com",
-                    rendered,
-                    StringComparison.Ordinal
-                );
+                Assert.DoesNotContain(BindCode, rendered, StringComparison.Ordinal);
+                Assert.DoesNotContain("WRONG777", rendered, StringComparison.Ordinal);
                 Assert.DoesNotContain("bppd_", rendered, StringComparison.Ordinal);
             }
         }

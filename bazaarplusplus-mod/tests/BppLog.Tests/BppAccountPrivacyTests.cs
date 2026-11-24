@@ -11,26 +11,29 @@ public sealed class BppAccountPrivacyTests
     private const string RequestId = "01JABCDEFGHJKMNPQRSTVWXYZ";
 
     [Fact]
-    public void Game_token_device_token_email_and_code_never_enter_bpp_account_logs()
+    public void Game_token_device_token_and_bind_code_never_enter_bpp_account_logs()
     {
         const string gameToken = "jwe.super-secret-game-token.12345";
         const string deviceToken = "bppd_super-secret-device-token-123456789012";
-        const string email = "private.player@example.com";
-        const string verificationCode = "987654";
+        const string bindCode = "K7M2-Q9XR";
 
         BppLog.Reset();
-        BppAccountLog.Succeeded(RequestId, BppAccountAction.BindStart);
-        BppAccountLog.Succeeded(RequestId, BppAccountAction.BindConfirm);
+        BppAccountLog.Succeeded(RequestId, BppAccountAction.Bind);
         BppAccountLog.Succeeded(RequestId, BppAccountAction.ActivateDevice);
         BppAccountLog.Failed(
             RequestId,
-            BppAccountAction.BindStart,
+            BppAccountAction.Bind,
             BppAccountLog.MapServerError("game_token_rejected")
         );
         BppAccountLog.Failed(
             RequestId,
-            BppAccountAction.BindConfirm,
-            BppAccountLog.MapServerError("invalid_verification_code")
+            BppAccountAction.Bind,
+            BppAccountLog.MapServerError("invalid_bind_code")
+        );
+        BppAccountLog.Failed(
+            RequestId,
+            BppAccountAction.Bind,
+            BppAccountLog.MapServerError("game_account_already_bound")
         );
         BppAccountLog.TokenCleared(RequestId, BppAccountLogReason.Unauthorized);
 
@@ -44,8 +47,8 @@ public sealed class BppAccountPrivacyTests
             );
             Assert.DoesNotContain(gameToken, rendered, StringComparison.Ordinal);
             Assert.DoesNotContain(deviceToken, rendered, StringComparison.Ordinal);
-            Assert.DoesNotContain(email, rendered, StringComparison.Ordinal);
-            Assert.DoesNotContain(verificationCode, rendered, StringComparison.Ordinal);
+            Assert.DoesNotContain(bindCode, rendered, StringComparison.Ordinal);
+            Assert.DoesNotContain("K7M2", rendered, StringComparison.Ordinal);
             Assert.DoesNotContain("bppd_", rendered, StringComparison.Ordinal);
         }
     }

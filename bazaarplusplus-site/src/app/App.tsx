@@ -8,6 +8,7 @@ import { createSpaLocation, type ResolvedSpaLocation } from './router';
 import { LoadingScreen, NotFoundScreen } from './screens';
 
 const AccountPage = lazy(() => import('../features/account/AccountPage'));
+const RunPage = lazy(() => import('../features/runs/RunPage'));
 
 const HeroOverviewPage = lazy(() =>
   import('./route-pages').then((module) => ({
@@ -64,10 +65,27 @@ export default function App() {
     return () => document.removeEventListener('click', handleClick);
   }, [spaLocation]);
 
-  if (location.route.page === 'login' || location.route.page === 'records') {
+  if (
+    location.route.page === 'login' ||
+    location.route.page === 'register' ||
+    location.route.page === 'reset' ||
+    location.route.page === 'account' ||
+    location.route.page === 'records'
+  ) {
     return (
       <Suspense fallback={null}>
         <AccountPage
+          location={location}
+          replacePage={spaLocation.replaceAccountPage}
+        />
+      </Suspense>
+    );
+  }
+
+  if (location.route.page === 'run') {
+    return (
+      <Suspense fallback={null}>
+        <RunPage
           location={location}
           replacePage={spaLocation.replaceAccountPage}
         />

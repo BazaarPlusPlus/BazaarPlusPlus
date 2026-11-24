@@ -1,0 +1,560 @@
+D-H- 2,3,4,5 start done 
+D1H0 5 offer Choice  [705c0d8e/Bronze, c5326dd7/Bronze, 937489c5/Bronze]
+D1H0 6,7 chose done 705c0d8e/Bronze
+D1H1 7 offer Encounter 705c0d8e/Bronze [b23c5988/Bronze$2, 6146cacd/Bronze$2, Mantis Shrimp/Bronze$2] reroll 2/1
+D1H1 8,9 bought done Mantis Shrimp/Bronze$2 amount 2 gold -2
+D1H1 10,11 rerolled done  gold -2
+D1H1 11 offer Encounter 705c0d8e/Bronze [Flying Fish/Bronze$2, 8048bd3a/Bronze$2, 00e3a7ff/Bronze$2] reroll 2/0
+D1H1 12,13 bought done Flying Fish/Bronze$2 amount 2 gold -2
+D1H1 14,15 left done 
+D1H1 15 offer Choice  [5b7c5fc4/Bronze, 1e511488/Bronze, 0370b2b5/Bronze]
+D1H1 16,17 chose done 1e511488/Bronze
+D1H2 17 offer Encounter 1e511488/Bronze [e73e7956/Bronze, ea2776ce/Bronze, 2daef7b8/Bronze]
+D1H2 18,19 chose done 2daef7b8/Bronze
+D1H2 19 offer Encounter free 1e511488/Bronze [Flute/Silver$4]
+D1H2 20,21 picked done Flute/Silver$4 amount 0
+D1H2 21 offer Choice  [bd0711a6/Bronze, 45c473f5/Bronze, 035ace94/Silver]
+D1H2 22,23,24 chose done bd0711a6/Bronze
+D1H3 24 offer Loot free bd0711a6/Bronze [4826832f/Silver$4]
+D1H3 25,26 picked done 4826832f/Silver$4 amount 0
+D1H3 26 offer Choice  [1a21931f/Silver, 54b6cf27/Bronze, 2b3bbe43/Silver]
+D1H3 27,28 chose done 1a21931f/Silver
+D1H4 28 offer Encounter 1a21931f/Silver [cd06b93f/Bronze$4, b4ccf465/Bronze$2, Mantis Shrimp/Bronze$2] reroll 3/1
+D1H4 29,30 bought done Mantis Shrimp/Bronze$2 amount 2 → Silver
+D1H4 31,32 rerolled done  gold -3
+D1H4 32 offer Encounter 1a21931f/Silver [42f78ed2/Bronze$2, 7efc7f90/Bronze$4, Seaweed/Bronze$2] reroll 3/0
+D1H4 33,34 bought done 42f78ed2/Bronze$2 amount 2 gold -2
+D1H4 35,36 bought done Seaweed/Bronze$2 amount 2 gold -2
+D1H4 37,38 left done  health 100
+D1H4 38 offer LevelUp free  [e286d583/Bronze, e2fc8bd4/Bronze]
+D1H4 39,40 chose done e286d583/Bronze
+D1H4 40 offer LevelUp free  [eda51b14/Bronze$2, ee318a20/Bronze$2, Piranha/Bronze$2]
+D1H4 41,42 picked done Piranha/Bronze$2 amount 0
+D1H4 42 offer Choice  [9459a01b/Silver, 0623cedd/Gold, e6e09e6a/Bronze]
+D1H4 43,44 sold done 4826832f/Silver$4 amount 2 gold 2
+D1H4 45,46 chose done 9459a01b/Silver
+D1H5 46 offer Encounter 9459a01b/Silver [2fd7332d/Bronze$2, 00e3a7ff/Bronze$2, b4ccf465/Bronze$2] reroll 3/1
+D1H5 47,48 rerolled done  gold -3
+D1H5 48 offer Encounter 9459a01b/Silver [Flying Fish/Bronze$2, 0abf14a3/Bronze$2, Catfish/Bronze$2] reroll 3/0
+D1H5 49,50 moved done Seaweed/Bronze$2
+D1H5 51,52 sold done 42f78ed2/Bronze$2 amount 3 gold 3
+D1H5 53,54 bought done Flying Fish/Bronze$2 amount 2 → Silver gold -2
+D1H5 55,56 bought done Catfish/Bronze$2 amount 2 gold -2
+D1H5 57,58 left done 
+D1H5 58 offer Choice  [00000000/Bronze]
+D1H5 59,60 moved done Catfish/Bronze$2
+D1H5 61,62 moved done Flute/Silver$4
+D1H5 63,64 moved done Seaweed/Bronze$2
+D1H5 65,66,67 chose done 00000000/Bronze gold 5
+D1H6  battle battle-01
+D2H0 67 offer Choice  [e3b894b0/Silver, c5326dd7/Bronze, 8b4d74f6/Silver]
+D2H0 69,70 chose done 8b4d74f6/Silver
+D2H1 70 offer Encounter free 8b4d74f6/Silver [Magnifying Glass/Silver$4]
+D2H1 71,72 picked done Magnifying Glass/Silver$4 amount 0
+D2H1 72 offer Choice  [705c0d8e/Bronze, 1e511488/Bronze, 3bb35f2f/Bronze]
+D2H1 73,74 chose done 3bb35f2f/Bronze
+D2H2 74 offer Encounter free 3bb35f2f/Bronze [Bolas/Bronze$2]
+D2H2 75,76 picked done Bolas/Bronze$2 amount 0
+D2H2 76 offer Choice  [1eabe08b/Bronze, 66245d12/Silver, 41c5f103/Gold]
+D2H2 77,78 moved done Catfish/Bronze$2
+D2H2 79,80 moved done Magnifying Glass/Silver$4
+D2H2 81,82 moved done Seaweed/Bronze$2
+D2H2 83,84 moved done Bolas/Bronze$2
+D2H2 85,86,87 chose done 41c5f103/Gold
+D2H3 87 offer Loot free 41c5f103/Gold [d6819596/Bronze$2]
+D2H3 88,89 picked done d6819596/Bronze$2 amount 0
+D2H3 89 offer Choice  [9459a01b/Silver, 412fb3ec/Gold, 1005cb9f/Bronze]
+D2H3 90,91 chose done 9459a01b/Silver
+D2H4 91 offer Encounter 9459a01b/Silver [Zoarcid/Bronze$2, 8f18974c/Bronze$2, IllusoRay/Bronze$2] reroll 3/1
+D2H4 92,93 bought done IllusoRay/Bronze$2 amount 2 gold 2
+D2H4 94,95 bought done Zoarcid/Bronze$2 amount 2 gold -2
+D2H4 96,97 moved done Flute/Silver$4
+D2H4 98,99 moved done Zoarcid/Bronze$2
+D2H4 100,101 rerolled done  gold -3
+D2H4 101 offer Encounter 9459a01b/Silver [0abf14a3/Bronze$2, 00e3a7ff/Silver$4, 2fd7332d/Bronze$2] reroll 3/0
+D2H4 102,103 left done  health 150
+D2H4 103 offer LevelUp free  [1453be13/Bronze, 146907bc/Bronze, 377db915/Bronze, 16065716/Bronze]
+D2H4 104,105 chose done 16065716/Bronze
+D2H4 105 offer Encounter free 16065716/Bronze [53099361/Bronze$4]
+D2H4 106,107 moved done IllusoRay/Bronze$2
+D2H4 108,109 picked done 53099361/Bronze$4 amount 0
+D2H4 109 offer Choice  [912c8b09/Bronze, c28b6e9c/Silver, 36b24aae/Silver]
+D2H4 110,111 chose done 36b24aae/Silver
+D2H5 111 offer Encounter free 36b24aae/Silver [b6cd2ee1/Silver$12]
+D2H5 112,113 picked done b6cd2ee1/Silver$12 amount 0
+D2H5 113 offer Choice  [00000000/Bronze]
+D2H5 114,115 moved done Seaweed/Bronze$2
+D2H5 116,117 moved done Flying Fish/Silver$4
+D2H5 118,119 moved done Magnifying Glass/Silver$4
+D2H5 120,121 moved done Mantis Shrimp/Silver$4
+D2H5 122,123 moved done Zoarcid/Bronze$2
+D2H5 124,125,126 chose done 00000000/Bronze gold 5
+D2H6  battle battle-02
+D3H0 126 offer Choice  [ec81a27c/Silver, c5326dd7/Bronze, 8ece0ce0/Silver]
+D3H0 128,129 chose done ec81a27c/Silver
+D3H1 129 offer Encounter ec81a27c/Silver [bdb95fa6/Silver$4, Old Saltclaw/Silver$4, d8106a24/Silver$12] reroll 3/1
+D3H1 130,131 sold done 53099361/Bronze$4 amount 2 gold 2
+D3H1 132,133 sold done b6cd2ee1/Silver$12 amount 6 gold 6
+D3H1 134,135 bought done Old Saltclaw/Silver$4 amount 4 gold -4
+D3H1 136,137 rerolled done  gold -3
+D3H1 137 offer Encounter ec81a27c/Silver [b2709d56/Silver$4, 953402e4/Silver$8, Mantis Shrimp/Silver$4] reroll 3/0
+D3H1 138,139 bought done Mantis Shrimp/Silver$4 amount 4 → Gold gold -4
+D3H1 140,141 left done 
+D3H1 141 offer Choice  [8f0aea10/Silver, 54b6cf27/Bronze, e6e09e6a/Bronze]
+D3H1 142,143 chose done 54b6cf27/Bronze
+D3H2 143 offer Encounter 54b6cf27/Bronze [668a64e9/Bronze, f66494a8/Diamond, 0659ca31/Diamond, 7d536ed9/Diamond]
+D3H2 144,145 chose done 7d536ed9/Diamond
+D3H2 145 offer Encounter free 54b6cf27/Bronze [f422485c/Bronze$5, Chemical Fire/Silver$10]
+D3H2 146,147 skill done Chemical Fire/Silver$10
+D3H2 147 offer Choice  [04b60df4/Bronze, 35d68424/Silver, be111234/Diamond]
+D3H2 148,149 moved done Magnifying Glass/Silver$4
+D3H2 150,151 moved done Old Saltclaw/Silver$4
+D3H2 152,153,154 chose done be111234/Diamond
+D3H3 154 offer Loot free be111234/Diamond [9c722d2b/Silver$4]
+D3H3 155,156 picked done 9c722d2b/Silver$4 amount 0 health 200
+D3H3 156 offer LevelUp free  [0c410bf1/Silver, 4a9ccdf5/Silver]
+D3H3 157,158 moved done Flying Fish/Silver$4
+D3H3 159,160 chose done 0c410bf1/Silver
+D3H3 161,162 moved done Catfish/Bronze$2
+D3H3 163,164 upgraded done Zoarcid/Bronze$2 → Silver
+D3H3 164 offer Choice  [dc12f4bd/Bronze, 1e511488/Bronze, cbe0d294/Bronze]
+D3H3 165,166 chose done dc12f4bd/Bronze
+D3H4 166 offer Encounter dc12f4bd/Bronze [e6a183ce/Bronze$2, 2a7c377e/Silver$6, Kusarigama/Silver$4] reroll 2/1
+D3H4 167,168 sold done Seaweed/Bronze$2 amount 1 gold 6
+D3H4 169,170 bought done Kusarigama/Silver$4 amount 4 gold -4
+D3H4 171,172 rerolled done  gold -2
+D3H4 172 offer Encounter dc12f4bd/Bronze [0abf14a3/Bronze$2, 54f957f2/Bronze$4, 3af3c836/Bronze$2] reroll 2/0
+D3H4 173,174 left done 
+D3H4 174 offer Choice  [1a21931f/Silver, a5b983cb/Gold, 592c3f31/Silver]
+D3H4 175,176 chose done 1a21931f/Silver
+D3H5 176 offer Encounter 1a21931f/Silver [42f78ed2/Bronze$2, Seaweed/Bronze$2, Catfish/Bronze$2] reroll 3/1
+D3H5 177,178 bought done 42f78ed2/Bronze$2 amount 2 gold -2
+D3H5 179,180 bought done Catfish/Bronze$2 amount 2 → Silver gold -2
+D3H5 181,182 left done 
+D3H5 182 offer Choice  [00000000/Bronze]
+D3H5 183,184 moved done Bolas/Bronze$2
+D3H5 185,186,187 chose done 00000000/Bronze gold 5
+D3H6  battle battle-03
+D4H0 187 offer Choice  [816e6ba0/Silver, 956e9c74/Silver, 8b4d74f6/Silver]
+D4H0 189,190 chose done 956e9c74/Silver
+D4H1 190 offer Encounter free 956e9c74/Silver [42e7788f/Bronze]
+D4H1 191,192 chose done 42e7788f/Bronze gold 10
+D4H1 192 offer Choice  [e3b894b0/Silver, 04ac552f/Gold, 36b24aae/Silver]
+D4H1 193,194 chose done e3b894b0/Silver
+D4H2 194 offer Encounter e3b894b0/Silver [813e44ee/Bronze$5, 5e17cfc3/Bronze$1, 5e7abe19/Silver$6] reroll 3/1
+D4H2 195,196 bought done 813e44ee/Bronze$5 amount 5 gold -5
+D4H2 197,198 rerolled done  gold -3
+D4H2 198 offer Encounter e3b894b0/Silver [7d55da10/Silver$6, 2fd7332d/Bronze$1, 42f78ed2/Bronze$1] reroll 3/0
+D4H2 199,200 bought done 42f78ed2/Bronze$1 amount 1 → Silver gold -1
+D4H2 201,202 left done 
+D4H2 202 offer Choice  [91e59b0c/Bronze, 51d0f501/Silver, 8eb6cf35/Gold]
+D4H2 203,204,205 chose done 8eb6cf35/Gold
+D4H3 205 offer Loot free 8eb6cf35/Gold [5bd0a69d/Legendary$12]
+D4H3 206,207 picked done 5bd0a69d/Legendary$12 amount 0 health 250
+D4H3 207 offer LevelUp free  [4c3d4b9d/Silver]
+D4H3 208,209 chose done 4c3d4b9d/Silver
+D4H3 209 offer Encounter free 4c3d4b9d/Silver [fbbfbef7/Silver$10, 280eb842/Silver$10, Stop That!/Silver$10] reroll 3/1
+D4H3 210,211 skill done Stop That!/Silver$10
+D4H3 211 offer Choice  [85db60ee/Bronze, af395a8a/Silver, fe756e73/Silver]
+D4H3 212,213 chose done 85db60ee/Bronze
+D4H4 213 offer Encounter 85db60ee/Bronze [865a673a/Silver$12, 92e7ab18/Bronze$2, ae142862/Silver$8] reroll 2/1
+D4H4 214,215 sold done 9c722d2b/Silver$4 amount 2 gold 6
+D4H4 216,217 bought done ae142862/Silver$8 amount 8 gold -8
+D4H4 218,219 rerolled done  gold -2
+D4H4 219 offer Encounter 85db60ee/Bronze [8048bd3a/Bronze$2, edd857da/Silver$8, 808ad956/Silver$8] reroll 2/0
+D4H4 220,221 sold done d6819596/Bronze$2 amount 1 gold 1
+D4H4 222,223 left done 
+D4H4 223 offer Choice  [323e2c05/Silver, c28b6e9c/Silver, 8ece0ce0/Silver]
+D4H4 224,225 chose done 323e2c05/Silver
+D4H5 225 offer Encounter 323e2c05/Silver [0abf14a3/Bronze$2, 7efc7f90/Bronze$4, 3d212e22/Bronze$2] reroll 3/1
+D4H5 226,227 rerolled done  gold -3
+D4H5 227 offer Encounter 323e2c05/Silver [1b955b8d/Bronze$4, 477a0159/Silver$4, 2a7c377e/Silver$8] reroll 3/0
+D4H5 228,229 left done 
+D4H5 229 offer Choice  [00000000/Bronze]
+D4H5 230,231 moved done Bolas/Bronze$2
+D4H5 232,233,234 chose done 00000000/Bronze gold 5
+D4H6  battle battle-04
+D5H0 234 offer Choice  [dc12f4bd/Bronze, c28b6e9c/Silver, f7467c4b/Silver]
+D5H0 236,237 chose done dc12f4bd/Bronze
+D5H1 237 offer Encounter dc12f4bd/Bronze [865a673a/Silver$12, 54f957f2/Silver$6, 61981752/Silver$8] reroll 2/1
+D5H1 238,239 sold done Flute/Silver$4 amount 2 gold 2
+D5H1 240,241 rerolled done  gold -2
+D5H1 241 offer Encounter dc12f4bd/Bronze [9e5e3d9e/Silver$4, 38c3a468/Silver$8, 60a1f7ce/Silver$8] reroll 2/0
+D5H1 242,243 left done 
+D5H1 243 offer Choice  [9459a01b/Silver, 11287697/Silver, 731fdecd/Silver]
+D5H1 244,245 chose done 9459a01b/Silver
+D5H2 245 offer Encounter 9459a01b/Silver [IllusoRay/Bronze$2, b4ccf465/Bronze$2, 2d395818/Silver$4] reroll 3/1
+D5H2 246,247 bought done IllusoRay/Bronze$2 amount 2 → Silver gold -2
+D5H2 248,249 rerolled done  gold -3
+D5H2 249 offer Encounter 9459a01b/Silver [Mr. Richardson/Silver$4, 8048bd3a/Silver$4, c20cf1f9/Silver$8] reroll 3/0
+D5H2 250,251 sold done Catfish/Silver$4 amount 2 gold 2
+D5H2 252,253 sold done 42f78ed2/Silver$4 amount 6 gold 6
+D5H2 254,255 bought done Mr. Richardson/Silver$4 amount 4 gold -4
+D5H2 256,257 left done 
+D5H2 257 offer Choice  [de126a7a/Bronze, 54bd46ca/Silver, 91c233ed/Diamond]
+D5H2 258,259,260 chose done 91c233ed/Diamond
+D5H3 260 offer Loot free 91c233ed/Diamond [e6d331a7/Silver$4]
+D5H3 261,262 picked done e6d331a7/Silver$4 amount 0 health 300
+D5H3 262 offer LevelUp free  [4a9ccdf5/Silver, fb57d860/Silver, 33ff7845/Silver]
+D5H3 263 chose no-response 33ff7845/Silver
+D5H3 264,265,266,267 reconnect done 
+D5H3 266 offer LevelUp free  [4a9ccdf5/Silver, fb57d860/Silver, 33ff7845/Silver]
+D5H3 268,269 chose done 33ff7845/Silver
+D5H3 269 offer Encounter free 33ff7845/Silver [3e563d2a/Silver$4]
+D5H3 270,271 moved done Mantis Shrimp/Gold$8
+D5H3 272,273 picked done 3e563d2a/Silver$4 amount 0
+D5H3 273 offer Choice  [912c8b09/Bronze, 47704642/Gold, 246ba7e6/Silver]
+D5H3 274,275 sold done 3e563d2a/Silver$4 amount 2 gold 2
+D5H3 276,277 chose done 246ba7e6/Silver
+D5H4 277 offer Encounter free 246ba7e6/Silver [3c9fb662/Silver$8]
+D5H4 278,279 picked done 3c9fb662/Silver$8 amount 0
+D5H4 279 offer Choice  [705c0d8e/Bronze, 87c6a586/Silver, 1bd4edc9/Silver]
+D5H4 280,281 chose done 705c0d8e/Bronze
+D5H5 281 offer Encounter 705c0d8e/Bronze [b4ccf465/Bronze$2, 44a27d67/Silver$4, e6a183ce/Silver$4] reroll 2/1
+D5H5 282,283 sold done 3c9fb662/Silver$8 amount 4 gold 4
+D5H5 284,285 sold done e6d331a7/Silver$4 amount 2 gold 2
+D5H5 286,287 rerolled done  gold -2
+D5H5 287 offer Encounter 705c0d8e/Bronze [Grappling Hook/Bronze$2, ee318a20/Bronze$2, 5e17cfc3/Bronze$2] reroll 2/0
+D5H5 288,289 sold done Flying Fish/Silver$4 amount 2 gold 2
+D5H5 290,291 bought done Grappling Hook/Bronze$2 amount 2 gold -2
+D5H5 292,293 left done 
+D5H5 293 offer Choice  [00000000/Bronze]
+D5H5 294,295 moved done Kusarigama/Silver$4
+D5H5 296,297 moved done Magnifying Glass/Silver$4
+D5H5 298,299 moved done Mantis Shrimp/Gold$8
+D5H5 300,301 moved done Old Saltclaw/Silver$4
+D5H5 302,303 moved done Piranha/Bronze$2
+D5H5 304,305,306 chose done 00000000/Bronze gold 5
+D5H6  battle battle-05
+D6H0 306 offer Choice  [7066e72e/Gold, 255ae0fa/Silver, bbd7fab5/Silver, ead0a1ed/Legendary$0]
+D6H0 308,309 chose done ead0a1ed/Legendary$0
+D6H1 309 offer Encounter free ead0a1ed/Legendary$999999 [c01612a6/Bronze, b594f459/Bronze, 23380916/Bronze]
+D6H1 310,311 chose done b594f459/Bronze
+D6H1 311 offer Encounter free ead0a1ed/Legendary$999999 [Beautiful Friendship/Silver$10, Balanced Friendship/Silver$10, 1d9eb8d1/Silver$10, 57a19498/Gold$20, 570a7c19/Gold$20]
+D6H1 312,313 skill done Beautiful Friendship/Silver$10
+D6H1 313 offer Choice  [2950afee/Diamond]
+D6H1 314,315 chose done 2950afee/Diamond
+D6H2 315 offer Encounter free 2950afee/Diamond [a7e48411/Silver$4, 89573716/Gold$8, 7fcced7f/Diamond$16]
+D6H2 316,317 picked done a7e48411/Silver$4 amount 0
+D6H2 318,319 picked done 89573716/Gold$8 amount 0
+D6H2 320,321 picked done 7fcced7f/Diamond$16 amount 0
+D6H2 321 offer Choice  [7718437a/Bronze, 10504dc3/Silver, 4ef60802/Gold]
+D6H2 322,323,324 chose done 10504dc3/Silver
+D6H3 324 offer Loot free 10504dc3/Silver [e2d2ba81/Silver$8]
+D6H3 325,326 picked done e2d2ba81/Silver$8 amount 0 health 350
+D6H3 326 offer LevelUp free  [4c3d4b9d/Silver]
+D6H3 327,328 chose done 4c3d4b9d/Silver
+D6H3 328 offer Encounter free 4c3d4b9d/Silver [Stop That!/Silver$10, fd927bfc/Silver$10, Balanced Friendship/Silver$10] reroll 3/1
+D6H3 329,330 sold done e2d2ba81/Silver$8 amount 4 gold 7
+D6H3 331,332 skill done Balanced Friendship/Silver$10
+D6H3 332 offer Choice  [54a0e045/Diamond]
+D6H3 333,334 chose done 54a0e045/Diamond
+D6H4 334 offer Encounter free 54a0e045/Diamond [8a23e62d/Bronze, d89ef0c8/Bronze, b859e857/Bronze]
+D6H4 335,336 chose done b859e857/Bronze
+D6H4 336 offer Choice  [07139793/Diamond]
+D6H4 337,338 chose done 07139793/Diamond
+D6H5 338 offer Encounter free 07139793/Diamond [f929af85/Gold$8, 5a4c4c98/Silver$8, fd9c50f0/Silver$4, Pop Snappers/Silver$4]
+D6H5 339,340 picked done 5a4c4c98/Silver$8 amount 0
+D6H5 341,342 moved done Mantis Shrimp/Gold$8
+D6H5 343,344 sold done a7e48411/Silver$4 amount 0
+D6H5 345,346 sold done 89573716/Gold$8 amount 0
+D6H5 347,348 picked done fd9c50f0/Silver$4 amount 0
+D6H5 349,350 sold done fd9c50f0/Silver$4 amount 2 gold 2
+D6H5 351,352 picked done f929af85/Gold$8 amount 0
+D6H5 353,354 picked done Pop Snappers/Silver$4 amount 0
+D6H5 354 offer Choice  [00000000/Bronze]
+D6H5 355,356 moved done Mantis Shrimp/Gold$8
+D6H5 357,358 moved done Pop Snappers/Silver$4
+D6H5 359,360,361 chose done 00000000/Bronze gold 5
+D6H6  battle battle-06
+D7H0 361 offer Choice  [85db60ee/Bronze, 210003fa/Gold, 90e47f27/Silver]
+D7H0 363,364 chose done 210003fa/Gold
+D7H1 364 offer Encounter 210003fa/Gold [daec4b27/Silver$10, 42c33f6c/Silver$10, Stop That!/Silver$10] reroll 6/1
+D7H1 365,366 rerolled done  gold -6
+D7H1 366 offer Encounter 210003fa/Gold [fd927bfc/Silver$10, Balanced Friendship/Silver$10, Chemical Fire/Silver$10] reroll 6/0
+D7H1 367,368 skill done Balanced Friendship/Silver$10 → Gold gold -10 health 450
+D7H1 368 offer LevelUp free  [a07fbe69/Gold, 86907ad1/Gold, 922b9031/Gold]
+D7H1 369,370 chose done 922b9031/Gold
+D7H1 370 offer Encounter free 922b9031/Gold [7a301c09/Silver$10, f38a0fb0/Silver$10, 40118425/Silver$10] reroll 6/1
+D7H1 371,372 rerolled done  gold -6
+D7H1 372 offer Encounter free 922b9031/Gold [b49dd22b/Silver$10, 1fb47cc1/Silver$10, Deadly Eye/Silver$10] reroll 6/0
+D7H1 373,374 skill done Deadly Eye/Silver$10
+D7H1 374 offer Choice  [6f5c1ce2/Silver, 255ae0fa/Silver, ce38f4a2/Silver]
+D7H1 375,376 chose done ce38f4a2/Silver
+D7H2 376 offer Choice  [224ba8a9/Bronze, f79e72dc/Silver, 2b0437f4/Diamond]
+D7H2 377,378,379 chose done f79e72dc/Silver
+D7H3 379 offer Loot free f79e72dc/Silver [cbf2c5d2/Silver$4]
+D7H3 380,381 sold done Magnifying Glass/Silver$4 amount 2 gold 5
+D7H3 382,383 picked done cbf2c5d2/Silver$4 amount 0
+D7H3 383 offer Choice  [323e2c05/Silver, 185a03bc/Silver, fe756e73/Silver]
+D7H3 384,385 chose done 323e2c05/Silver
+D7H4 385 offer Encounter 323e2c05/Silver [a043f66d/Gold$16, Chum/Silver$3, cd06b93f/Silver$8] reroll 3/1
+D7H4 386,387 sold done cbf2c5d2/Silver$4 amount 2 gold 2
+D7H4 388,389 sold done Bolas/Bronze$2 amount 1 gold 1
+D7H4 390,391 sold done Grappling Hook/Bronze$2 amount 1 gold 1
+D7H4 392,393 bought done Chum/Silver$3 amount 3 gold -3
+D7H4 394,395 rerolled done  gold -3
+D7H4 395 offer Encounter 323e2c05/Silver [1312cf29/Silver$3, 65527be1/Gold$16, ae142862/Silver$8] reroll 3/0
+D7H4 396,397 bought done ae142862/Silver$8 amount 8 → Gold gold -8
+D7H4 398,399 left done 
+D7H4 399 offer Choice  [d0276b47/Gold, 48a25657/Gold, e6b0bc78/Silver]
+D7H4 400,401 chose done 48a25657/Gold
+D7H5 401 offer Encounter 48a25657/Gold [94fa42c1/Diamond, e31d168e/Silver$20]
+D7H5 402,403 sold done f929af85/Gold$8 amount 4 gold 4
+D7H5 404,405 sold done ae142862/Gold$16 amount 24 gold 24
+D7H5 406,407 chose done e31d168e/Silver$20 gold -20
+D7H5 407 offer Encounter free 48a25657/Gold [f1892cf4/Gold, 18f8471a/Gold, 845d2051/Diamond]
+D7H5 408,409 chose done 845d2051/Diamond
+D7H5 409 offer Encounter free 845d2051/Diamond [Submerged/Silver$10, 42ca6153/Gold$20, 71433809/Silver$10] reroll 8/1
+D7H5 410,411 skill done Submerged/Silver$10
+D7H5 411 offer Choice  [00000000/Bronze]
+D7H5 412,413 moved done Pop Snappers/Silver$4
+D7H5 414,415,416 chose done 00000000/Bronze health 500
+D7H6  battle battle-07
+D7H6 416 offer LevelUp free  [a07f89ee/Gold, dc665019/Gold, bc5a6ce7/Bronze]
+D7H6 418,419 chose done dc665019/Gold gold 2
+D7H6 419 offer Encounter free dc665019/Gold [55f11b65/Gold$8]
+D7H6 420,421 picked done 55f11b65/Gold$8 amount 0 gold 5
+D8H0 421 offer Choice  [912c8b09/Bronze, 8b811b0f/Silver, e6b0bc78/Silver]
+D8H0 422,423 chose done 8b811b0f/Silver
+D8H1 424,425 upgraded done Chum/Silver$3 → Gold
+D8H1 425 offer Choice  [5b7c5fc4/Bronze, af395a8a/Silver, 90e47f27/Silver]
+D8H1 426,427 sold done Old Saltclaw/Silver$4 amount 2 gold 2
+D8H1 428,429 sold done Mr. Richardson/Silver$4 amount 2 gold 2
+D8H1 430,431 moved done Piranha/Gold$8
+D8H1 432,433 chose done 5b7c5fc4/Bronze
+D8H2 433 offer Encounter 5b7c5fc4/Bronze [5abf3441/Gold$16, 8048bd3a/Silver$4, Tripwire/Gold$16] reroll 2/1
+D8H2 434,435 sold done Kusarigama/Silver$4 amount 2 gold 2
+D8H2 436,437 bought done Tripwire/Gold$16 amount 16 gold -16
+D8H2 438,439 rerolled done  gold -2
+D8H2 439 offer Encounter 5b7c5fc4/Bronze [14b297c5/Silver$4, ae142862/Gold$16, Catfish/Gold$8] reroll 2/0
+D8H2 440,441 sold done Pop Snappers/Silver$4 amount 2 gold 2
+D8H2 442,443 moved done Chum/Gold$7
+D8H2 444,445 left done 
+D8H2 445 offer Choice  [723f8e17/Bronze, e82f2b78/Silver, a04b33a7/Diamond]
+D8H2 446,447 moved done Piranha/Gold$8
+D8H2 448,449 moved done Tripwire/Gold$16
+D8H2 450,451,452 chose done a04b33a7/Diamond
+D8H3 452 offer Loot free a04b33a7/Diamond [Catfish/Gold$8]
+D8H3 453,454 picked done Catfish/Gold$8 amount 0
+D8H3 454 offer Choice  [85db60ee/Bronze, 185a03bc/Silver, 213c6a72/Gold]
+D8H3 455,456 chose done 85db60ee/Bronze
+D8H4 456 offer Encounter 85db60ee/Bronze [fc8eb8ad/Gold$16, 61981752/Silver$8, 3af3c836/Gold$8] reroll 2/1
+D8H4 457,458 rerolled done  gold 3
+D8H4 458 offer Encounter 85db60ee/Bronze [e6a183ce/Silver$4, 1312cf29/Silver$4, 8048bd3a/Silver$3] reroll 2/0
+D8H4 459,460 left done 
+D8H4 460 offer Choice  [323e2c05/Silver, 818fcd1d/Gold, fe756e73/Silver]
+D8H4 461,462 chose done 323e2c05/Silver
+D8H5 462 offer Encounter 323e2c05/Silver [8391a75d/Gold$8, 61981752/Silver$8, Mantis Shrimp/Gold$8] reroll 3/1
+D8H5 463,464 bought done Mantis Shrimp/Gold$8 amount 8 → Diamond gold -8
+D8H5 465,466 rerolled done  gold -3
+D8H5 466 offer Encounter 323e2c05/Silver [743652ce/Silver$8, Tripwire/Gold$16, e13d521c/Gold$8] reroll 3/0
+D8H5 467,468 sold done 2aab9e1b/Silver$4 amount 0
+D8H5 469,470 sold done 5a4c4c98/Silver$8 amount 4 gold 4
+D8H5 471,472 sold done 813e44ee/Bronze$5 amount 31 gold 31
+D8H5 473,474 bought done Tripwire/Gold$16 amount 16 → Diamond gold -16
+D8H5 475,476 left done  health 600
+D8H5 476 offer LevelUp free  [4df2e5f8/Diamond, c1e69f94/Diamond]
+D8H5 477,478 chose done c1e69f94/Diamond
+D8H5 479,480 enchanted done Tripwire/Diamond$32 → Fiery
+D8H5 480 offer Choice  [00000000/Bronze]
+D8H5 481,482 moved done Catfish/Gold$8
+D8H5 483,484 moved done Chum/Gold$7
+D8H5 485,486 moved done IllusoRay/Silver$4
+D8H5 487,488 moved done Mantis Shrimp/Diamond$16
+D8H5 489,490 moved done Piranha/Bronze$2
+D8H5 491,492 moved done Piranha/Silver$4
+D8H5 493,494 moved done Tripwire/Diamond$32
+D8H5 495,496 moved done Zoarcid/Silver$4
+D8H5 497,498,499 chose done 00000000/Bronze gold 5
+D8H6  battle battle-08
+D9H0 499 offer Choice  [5b7c5fc4/Bronze, 185a03bc/Silver, 30101d11/Diamond]
+D9H0 501,502 chose done 185a03bc/Silver
+D9H1 502 offer Encounter 185a03bc/Silver [02ffa56b/Bronze, 9b013db5/Bronze, e1157271/Bronze]
+D9H1 503,504 chose done e1157271/Bronze
+D9H1 504 offer Choice  [dc12f4bd/Bronze, 255ae0fa/Silver, e6b0bc78/Silver]
+D9H1 505,506 chose done dc12f4bd/Bronze
+D9H2 506 offer Encounter dc12f4bd/Bronze [c264f900/Gold$24, 616089ae/Silver$12, 3c9fb662/Silver$8] reroll 2/1
+D9H2 507,508 sold done Catfish/Gold$8 amount 4 gold 4
+D9H2 509,510 bought done c264f900/Gold$24 amount 24 gold -24
+D9H2 511,512 rerolled done  gold -2
+D9H2 512 offer Encounter dc12f4bd/Bronze [0abf14a3/Silver$4, c6ab4982/Gold$24, 214d9c9d/Gold$16] reroll 2/0
+D9H2 513,514 left done 
+D9H2 514 offer Choice  [338f3c4b/Bronze, 3e80e4e9/Silver, a44c3d18/Diamond]
+D9H2 515,516,517 chose done 338f3c4b/Bronze
+D9H3 517 offer Loot free 338f3c4b/Bronze [1b955b8d/Gold$16]
+D9H3 518,519 picked done 1b955b8d/Gold$16 amount 0
+D9H3 519 offer Choice  [323e2c05/Silver, af395a8a/Silver, ce38f4a2/Silver]
+D9H3 520,521 chose done ce38f4a2/Silver health 700
+D9H4 521 offer LevelUp free  [bfe9db96/Gold, 18f8471a/Gold, 845d2051/Diamond]
+D9H4 522,523 chose done 845d2051/Diamond
+D9H4 523 offer Encounter free 845d2051/Diamond [13d1b66a/Gold$20, 42a245de/Silver$10, Steelstorm/Gold$20] reroll 8/1
+D9H4 524,525 sold done 55f11b65/Gold$8 amount 4 gold 6
+D9H4 526,527 sold done 1b955b8d/Gold$16 amount 8 gold 8
+D9H4 528,529 skill done Steelstorm/Gold$20
+D9H4 529 offer Choice  [1a21931f/Silver, a72c9135/Diamond, fe756e73/Silver]
+D9H4 530,531 moved done Mantis Shrimp/Diamond$16
+D9H4 532,533 chose done a72c9135/Diamond
+D9H5 533 offer Encounter a72c9135/Diamond [97ae313b/Bronze, 31fbc96e/Bronze$5, b28ac3ca/Bronze$10, 6dd18408/Bronze$20]
+D9H5 534,535 chose done b28ac3ca/Bronze$10 gold -10
+D9H5 535 offer Choice  [00000000/Bronze]
+D9H5 536,537 moved done Tripwire/Diamond$32
+D9H5 538,539 moved done Tripwire/Diamond$32
+D9H5 540,541,542 chose done 00000000/Bronze gold 5
+D9H6  battle battle-09
+D10H0 542 offer Choice  [85db60ee/Bronze, 185a03bc/Silver, ce38f4a2/Silver]
+D10H0 544,545 chose done 185a03bc/Silver
+D10H1 545 offer Encounter 185a03bc/Silver [02ffa56b/Bronze, 9b013db5/Bronze, e1157271/Bronze]
+D10H1 546,547 chose done e1157271/Bronze
+D10H1 547 offer Choice  [d0276b47/Gold, af395a8a/Silver, e6b0bc78/Silver]
+D10H1 548,549 chose done e6b0bc78/Silver health 220
+D10H2 549 offer Choice  [e54908bc/Bronze, fc59e9b3/Silver, e51634b6/Gold]
+D10H2 550,551,552 chose done fc59e9b3/Silver
+D10H3 552 offer Loot free fc59e9b3/Silver [Foreboding Winds/Diamond$40]
+D10H3 553,554 skill done Foreboding Winds/Diamond$40
+D10H3 554 offer Choice  [d3727a3a/Silver, b7acf32d/Gold, cb280097/Gold]
+D10H3 555,556 chose done b7acf32d/Gold
+D10H4 556 offer Encounter b7acf32d/Gold [892de564/Diamond, b1288f12/Diamond]
+D10H4 557,558 chose done 892de564/Diamond
+D10H4 558 offer Encounter 892de564/Diamond [Dart Launcher/Diamond$16, bbdd06b6/Diamond$32, 961e974b/Diamond$32] reroll 8/1
+D10H4 559,560 bought done Dart Launcher/Diamond$16 amount 16 gold -13
+D10H4 561,562 left done  health 800
+D10H4 562 offer LevelUp free  [a07f89ee/Gold, dc665019/Gold, a38bfa3d/Gold]
+D10H4 563,564 chose done dc665019/Gold gold 2
+D10H4 564 offer Encounter free dc665019/Gold [562d768a/Gold$8]
+D10H4 565,566 picked done 562d768a/Gold$8 amount 0
+D10H4 566 offer Choice  [5b7c5fc4/Bronze, 8e1fe6b3/Diamond, fe756e73/Silver]
+D10H4 567,568 chose done 8e1fe6b3/Diamond
+D10H5 569,570 enchanted done Tripwire/Diamond$32 → Turbo
+D10H5 570 offer Choice  [00000000/Bronze]
+D10H5 571,572,573 chose done 00000000/Bronze gold 5
+D10H6  battle battle-10
+D11H0 573 offer Choice  [15b88e74/Gold, 185a03bc/Silver, ae1d3ea7/Gold]
+D11H0 575,576 chose done 185a03bc/Silver
+D11H1 576 offer Encounter 185a03bc/Silver [02ffa56b/Bronze, 9b013db5/Bronze, e1157271/Bronze]
+D11H1 577,578 chose done e1157271/Bronze
+D11H1 578 offer Choice  [dc12f4bd/Bronze, af395a8a/Silver, ce38f4a2/Silver]
+D11H1 579,580 chose done ce38f4a2/Silver
+D11H2 580 offer Choice  [e54908bc/Bronze, fd862d85/Silver, 265d1068/Diamond]
+D11H2 581,582,583 chose done 265d1068/Diamond
+D11H3 583 offer Loot free 265d1068/Diamond [ecf8cbe6/Legendary$64]
+D11H3 584,585 picked done ecf8cbe6/Legendary$64 amount 0 health 800
+D11H3 585 offer LevelUp free  [586ebd2d/Gold, a07fbe69/Gold]
+D11H3 586,587 chose done 586ebd2d/Gold
+D11H3 588,589 sold done ecf8cbe6/Legendary$64 amount 32 gold 37
+D11H3 590,591 upgraded done Chum/Gold$7 → Diamond
+D11H3 591 offer Choice  [912c8b09/Bronze, 255ae0fa/Silver, 4ebea557/Gold]
+D11H3 592,593 sold done Chum/Diamond$15 amount 8 gold 8
+D11H3 594,595 moved done Piranha/Diamond$16
+D11H3 596,597 chose done 912c8b09/Bronze
+D11H4 597 offer Encounter 912c8b09/Bronze [905f9340/Diamond$32, f04739ec/Gold$16, ae142862/Gold$16] reroll 2/1
+D11H4 598,599 rerolled done  gold -2
+D11H4 599 offer Encounter 912c8b09/Bronze [65527be1/Gold$16, 63e5a09e/Gold$16, 430ed105/Gold$16] reroll 2/0
+D11H4 600,601 bought done 63e5a09e/Gold$16 amount 16 gold -16
+D11H4 602,603 left done 
+D11H4 603 offer Choice  [e3b894b0/Silver, e6b0bc78/Silver, 3e871bbb/Silver]
+D11H4 604,605 chose done 3e871bbb/Silver
+D11H5 605 offer Encounter 3e871bbb/Silver [Old Saltclaw/Gold$8, 4da45ad1/Gold$24, 214d9c9d/Silver$8] reroll 3/1
+D11H5 606,607 rerolled done  gold -3
+D11H5 607 offer Encounter 3e871bbb/Silver [02fa39ce/Gold$8, a043f66d/Gold$16, 20d85338/Gold$16] reroll 3/0
+D11H5 608,609 left done 
+D11H5 609 offer Choice  [00000000/Bronze]
+D11H5 610,611 moved done Piranha/Silver$4
+D11H5 612,613 moved done Piranha/Diamond$16
+D11H5 614,615,616 chose done 00000000/Bronze
+D11H6  battle battle-11
+D11H6 616 offer Encounter free aef5e7d8 [d324197c/Bronze, 923fa720/Bronze, 1de21736/Bronze]
+D11H6 618,619 chose done 1de21736/Bronze gold 20 health 800
+D11H6 619 offer LevelUp free  [a7b60dc3/Diamond, 54e27892/Gold, 922b9031/Gold]
+D11H6 620,621 moved done Dart Launcher/Diamond$16
+D11H6 622,623 chose done a7b60dc3/Diamond
+D11H6 623 offer Encounter free a7b60dc3/Diamond [Tiny Dancer/Diamond$40, 42a245de/Diamond$40, d08258b5/Diamond$40] reroll 8/1
+D11H6 624,625 skill done Tiny Dancer/Diamond$40 gold 5
+D12H0 625 offer Choice  [dc12f4bd/Bronze, 255ae0fa/Silver, ce38f4a2/Silver]
+D12H0 626,627 chose done ce38f4a2/Silver
+D12H1 627 offer Choice  [705c0d8e/Bronze, 48a25657/Gold, fe756e73/Silver]
+D12H1 628,629 chose done 48a25657/Gold
+D12H2 629 offer Encounter 48a25657/Gold [94fa42c1/Diamond, e31d168e/Silver$20]
+D12H2 630,631 chose done e31d168e/Silver$20 gold -20
+D12H2 631 offer Encounter free 48a25657/Gold [86907ad1/Gold, bfe9db96/Gold, 922b9031/Gold]
+D12H2 632,633 chose done bfe9db96/Gold
+D12H2 633 offer Encounter free bfe9db96/Gold [18c6637b/Gold$20, c38468ba/Gold$20, a2200487/Silver$10] reroll 6/1
+D12H2 634,635 rerolled done  gold -6
+D12H2 635 offer Encounter free bfe9db96/Gold [Deadly Eye/Silver$10, Slow and Steady/Gold$20, 6550ba8c/Gold$20] reroll 6/0
+D12H2 636,637 skill done Slow and Steady/Gold$20
+D12H2 637 offer Choice  [492c7f84/Bronze, fc59e9b3/Silver, e51634b6/Gold]
+D12H2 638,639,640 chose done fc59e9b3/Silver
+D12H3 640 offer Loot free fc59e9b3/Silver [54040bca/Diamond$16]
+D12H3 641,642 picked done 54040bca/Diamond$16 amount 0
+D12H3 642 offer Choice  [065f6793/Silver, af395a8a/Silver, 90e47f27/Silver]
+D12H3 643,644 chose done 90e47f27/Silver
+D12H4 644 offer Encounter free 90e47f27/Silver [099cccf9/Gold$8, 199c5f39/Gold$8, 411d0927/Gold$8, 4c8ea629/Gold$8, 93857582/Gold$8]
+D12H4 645,646 picked done 099cccf9/Gold$8 amount 0
+D12H4 647,648 sold done 099cccf9/Gold$8 amount 0 gold 3
+D12H4 649,650 picked done 4c8ea629/Gold$8 amount 0
+D12H4 651,652 sold done 4c8ea629/Gold$8 amount 0 health 196
+D12H4 653,654 picked done 93857582/Gold$8 amount 0
+D12H4 655,656 sold done 93857582/Gold$8 amount 0
+D12H4 657,658 picked done 411d0927/Gold$8 amount 0
+D12H4 659,660 sold done 411d0927/Gold$8 amount 0
+D12H4 661,662 picked done 199c5f39/Gold$8 amount 0 health 800
+D12H4 662 offer LevelUp free  [496e1223/Diamond, e7491a78/Diamond, 17f35958/Bronze, 5ab62b4c/Diamond]
+D12H4 663,664 chose done e7491a78/Diamond gold 2
+D12H4 664 offer Encounter free e7491a78/Diamond [08bb5055/Diamond$16]
+D12H4 665,666 sold done 199c5f39/Gold$8 amount 0
+D12H4 667,668 picked done 08bb5055/Diamond$16 amount 0
+D12H4 668 offer Choice  [323e2c05/Silver, f1302d1d/Gold, e6b0bc78/Silver]
+D12H4 669,670 sold done 08bb5055/Diamond$16 amount 8 gold 8
+D12H4 671,672 chose done f1302d1d/Gold
+D12H5 672 offer Encounter f1302d1d/Gold [a79a4688/Diamond] reroll 1/50
+D12H5 673,674 rerolled done  gold -1
+D12H5 674 offer Encounter f1302d1d/Gold [892de564/Diamond] reroll 2/49
+D12H5 675,676 chose done 892de564/Diamond
+D12H5 676 offer Encounter 892de564/Diamond [Tortuga/Diamond$48, 60a1f7ce/Diamond$32, edd857da/Diamond$32] reroll 8/1
+D12H5 677,678 sold done c264f900/Gold$24 amount 12 gold 12
+D12H5 679,680 bought done Tortuga/Diamond$48 amount 48 gold -48
+D12H5 681,682 moved done Caviar/Gold$8
+D12H5 683,684 rerolled done  gold -8
+D12H5 684 offer Encounter 892de564/Diamond [3af3c836/Diamond$16, 4da45ad1/Diamond$36, ce6769db/Diamond$16] reroll 8/0
+D12H5 685,686 sold done Dart Launcher/Diamond$16 amount 8 gold 8
+D12H5 687,688 moved done IllusoRay/Silver$4
+D12H5 689,690 moved done Tripwire/Diamond$32
+D12H5 691,692 left done 
+D12H5 692 offer Choice  [00000000/Bronze]
+D12H5 693,694 sold done Mantis Shrimp/Diamond$16 amount 8 gold 8
+D12H5 695,696 sold done Zoarcid/Gold$8 amount 4 gold 4
+D12H5 697,698 moved done Tortuga/Diamond$48
+D12H5 699,700 moved done IllusoRay/Silver$4
+D12H5 701,702,703 chose done 00000000/Bronze gold 5 health -196
+D12H6  battle battle-12
+D13H0 703 offer Choice  [5b7c5fc4/Bronze, af395a8a/Silver, ce38f4a2/Silver]
+D13H0 705,706 chose done ce38f4a2/Silver health 800
+D13H1 706 offer LevelUp free  [586ebd2d/Gold, a07fbe69/Gold]
+D13H1 707,708 chose done a07fbe69/Gold
+D13H1 708 offer Encounter free a07fbe69/Gold [f9b262a7/Gold$20, 0dd4d40e/Gold$20, Big Numbers/Gold$20] reroll 6/1
+D13H1 709,710 skill done Big Numbers/Gold$20
+D13H1 710 offer Choice  [705c0d8e/Bronze, 255ae0fa/Silver, 55cb2028/Gold]
+D13H1 711,712 chose done 705c0d8e/Bronze
+D13H2 712 offer Encounter 705c0d8e/Bronze [3af3c836/Gold$8, b02a2b57/Silver$4, 00e3a7ff/Silver$4] reroll 2/1
+D13H2 713,714 rerolled done  gold -2
+D13H2 714 offer Encounter 705c0d8e/Bronze [bbf63b5c/Gold$6, e13d521c/Gold$8, Flying Fish/Gold$8] reroll 2/0
+D13H2 715,716 left done 
+D13H2 716 offer Choice  [a871d83c/Bronze, fc59e9b3/Silver, 96349563/Legendary]
+D13H2 717,718,719 chose done fc59e9b3/Silver
+D13H3 719 offer Loot free fc59e9b3/Silver [af24dea0/Diamond$32]
+D13H3 720,721 picked done af24dea0/Diamond$32 amount 0
+D13H3 721 offer Choice  [1f72700a/Gold, a79a4688/Diamond, e6b0bc78/Silver]
+D13H3 722,723 chose done 1f72700a/Gold
+D13H4 723 offer Encounter 1f72700a/Gold [a043f66d/Gold$16, b59a6072/Gold$24, d6a5d92f/Gold$16] reroll 4/1
+D13H4 724,725 rerolled done  gold -1
+D13H4 725 offer Encounter 1f72700a/Gold [627ce721/Gold$24, 02fa39ce/Gold$8, 9778f31c/Gold$16] reroll 4/0
+D13H4 726,727 left done 
+D13H4 727 offer Choice  [9fc8b5a3/Gold, 49717d0f/Diamond, 90e47f27/Silver]
+D13H4 728,729 sold done af24dea0/Diamond$32 amount 16 gold 16
+D13H4 730,731 chose done 49717d0f/Diamond
+D13H5 732,733 enchanted done Piranha/Diamond$16 → Shielded
+D13H5 733 offer Choice  [00000000/Bronze]
+D13H5 734,735 moved done Tortuga/Diamond$48
+D13H5 736,737 moved done Caviar/Gold$8
+D13H5 738,739,740 chose done 00000000/Bronze
+D13H6  battle battle-13

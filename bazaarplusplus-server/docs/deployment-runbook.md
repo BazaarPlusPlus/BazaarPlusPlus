@@ -30,13 +30,13 @@ bun run wrangler r2 bucket lifecycle add bazaarplusplus-bundle-v6 v6-bundle-rete
 bun run wrangler r2 bucket lifecycle list bazaarplusplus-bundle-v6
 ```
 
-The listing must show the `bundles/` prefix expiring after 8 days, and no rule without a prefix: the analyzer keeps its Data Root under `analyzer-state/` in the same bucket ([ADR 0007](../../docs/adr/0007-one-public-bucket-and-domain.md)). The Worker never deletes R2 objects; this rule is the only R2 retention.
+The listing must show the `bundles/` prefix expiring after 8 days, and no rule without a prefix: the analyzer keeps its Data Root under `analyzer-state/` in the same bucket ([ADR 0007](../../docs/adr/0007-one-public-bucket-and-domain.md)). This rule is the only Bundle retention. Run detail objects under `account-runs/` must stay outside it: the Worker deletes them only when a player unlinks or deletes a BPP Account (server [ADR 0007](adr/0007-site-first-accounts.md)).
 
 Create an R2 S3 API credential scoped to `bazaarplusplus-bundle-v6` with Object Read permission only. Do not grant write, delete, or access to another bucket, and do not reuse a credential scoped to another bucket.
 
 ## 3. Configure rate limiting and secrets
 
-`[[ratelimits]].namespace_id` must be a positive integer unique in the account; sharing an ID would merge two limiters' counters. `1001` is already taken in the account. V6 uses `1002` for Ghost discovery (60 calls per 60 seconds) and `1003` for Bundle upload (120 calls per 60 seconds, far above one mod's three uploads per 180-second pump tick, so a shared NAT stays under it).
+`[[ratelimits]].namespace_id` must be a positive integer unique in the account; sharing an ID would merge two limiters' counters. `1001` is already taken in the account. V6 uses `1002` for Ghost discovery (60 calls per 60 seconds), `1003` for Bundle upload (120 calls per 60 seconds, far above one mod's three uploads per 180-second pump tick, so a shared NAT stays under it), `1004` for account requests per client, and `1005` for website logins per email.
 
 Generate two independent service tokens for V6. They must differ from each other and from every other token:
 
@@ -142,7 +142,7 @@ work such as digesting or URL signing reads as zero.
 | `bundle.ingest` | `manifest_ms` | Receiving the prefix and manifest |
 | `bundle.ingest` | `inspect_ms` | D1 lookup of an existing Bundle or Run |
 | `bundle.ingest` | `body_ms` | Receiving the rest of the body while it streams into R2 |
-| `bundle.ingest` | `store_ms` | `body_ms` plus R2 finishing the PUT |
+| `bundle.ingest` | `store_ms` | `body_ms` plus R2 finishing the PUT, plus the Run detail copy when `detail_stored` is true |
 | `bundle.ingest` | `commit_ms` | The D1 commit batch |
 | `bundle.ingest` | `total_ms` | Sum of `manifest_ms`, `inspect_ms`, `store_ms`, `commit_ms` |
 | `ghost.discovery` | `rate_limit_ms` | The rate limiter call |
@@ -211,3 +211,19 @@ Increase the schedule frequency or per-invocation batch count only after measuri
 delete duration and API latency. Keep each delete transaction small. To pause pruning,
 deploy `crons = []` in the managed Wrangler configuration; already deleted metadata
 requires recovery from an available D1 backup rather than a Worker rollback.
+
+## 8. Turnstile for the website account forms
+
+`POST /api/register/start`, `/api/login`, and `/api/password/reset/start` require a Turnstile token ([ADR 0007](adr/0007-site-first-accounts.md)). The site reads the public site key at build time; this Worker holds the secret. Do the steps in this order, and ship the site and this Worker together:
+
+1. In the Cloudflare dashboard (Turnstile → Add widget), create one widget in **Managed** mode with the hostnames `bazaarplusplus.com`, `www.bazaarplusplus.com`, and the site's preview host `bazaarplusplus-site-preview.cauyxy.workers.dev`. The preview Worker binds this production Worker, so its tokens are checked with the same secret.
+2. Set the widget's secret on this Worker:
+
+   ```sh
+   bun run wrangler secret put TURNSTILE_SECRET_KEY
+   ```
+
+3. Put the widget's site key in `VITE_TURNSTILE_SITE_KEY` in `.github/workflows/deploy-site.yml`. It is public. Until it is set, that workflow stops before it builds.
+4. Deploy this Worker, then run the site workflow for preview and production.
+
+Failure modes: without the secret the three routes return `500 internal_error` (logged as `web_api.http_error`); a site built with Cloudflare's test site key against the real secret gets `403 captcha_failed` for every visitor. Classified 4xx responses are not logged, so after the deploy sign in once on each host to confirm.

@@ -1,6 +1,7 @@
 #nullable enable
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using BazaarPlusPlus.ModApi.Clients;
 using Xunit;
 
@@ -40,35 +41,53 @@ public sealed class BppAccountClientTests
                 handler
             ) ?? throw new InvalidOperationException("valid session");
 
-        // 1. bind/start 200
+        // 1. bind 200
         responses.Enqueue(
             Json(
                 HttpStatusCode.OK,
-                """{"pending_id":"pid-1","user_name":"Alice","email_masked":"a***@example.com","expires_at_ms":1785629400000}"""
+                """{"device_token":"bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","user_name":"Alice","email_masked":"a***@example.com"}"""
             )
         );
-        var start = await session.StartBppAccountBindAsync(
-            "alice@example.com",
+        var bind = await session.BindBppAccountAsync(
+            "K7M2-Q9XR",
             "jwe.token.1",
             "acct-1",
             "Steam",
             "Paid",
             CancellationToken.None
         );
-        Assert.True(start.Succeeded);
-        Assert.Equal("pid-1", start.PendingId);
-        Assert.Equal("Alice", start.UserName);
-        Assert.Equal("a***@example.com", start.EmailMasked);
+        Assert.True(bind.Succeeded);
+        Assert.Equal("bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", bind.DeviceToken);
+        Assert.Equal("Alice", bind.UserName);
+        Assert.Equal("a***@example.com", bind.EmailMasked);
 
-        // 2. bind/start 409 game_account_already_bound extracts details.email_masked
+        // 2. bind 400 invalid_bind_code
+        responses.Enqueue(
+            Json(
+                HttpStatusCode.BadRequest,
+                """{"error":{"code":"invalid_bind_code","message":"bad code","retryable":false,"request_id":"r1"}}"""
+            )
+        );
+        var invalid = await session.BindBppAccountAsync(
+            "WRONG777",
+            "jwe.token.1",
+            "acct-1",
+            "Steam",
+            "Paid",
+            CancellationToken.None
+        );
+        Assert.False(invalid.Succeeded);
+        Assert.Equal("invalid_bind_code", invalid.ErrorCode);
+
+        // 3. bind 409 game_account_already_bound
         responses.Enqueue(
             Json(
                 HttpStatusCode.Conflict,
-                """{"error":{"code":"game_account_already_bound","message":"already bound","retryable":false,"request_id":"r1","details":{"email_masked":"b***@example.com"}}}"""
+                """{"error":{"code":"game_account_already_bound","message":"already bound","retryable":false,"request_id":"r2"}}"""
             )
         );
-        var conflict = await session.StartBppAccountBindAsync(
-            "other@example.com",
+        var conflict = await session.BindBppAccountAsync(
+            "K7M2-Q9XR",
             "jwe.token.1",
             "acct-1",
             "Steam",
@@ -77,22 +96,6 @@ public sealed class BppAccountClientTests
         );
         Assert.False(conflict.Succeeded);
         Assert.Equal("game_account_already_bound", conflict.ErrorCode);
-        Assert.Equal("b***@example.com", conflict.ConflictEmailMasked);
-
-        // 3. bind/confirm 200
-        responses.Enqueue(
-            Json(
-                HttpStatusCode.OK,
-                """{"device_token":"bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","user_name":"Alice","email_masked":"a***@example.com"}"""
-            )
-        );
-        var confirm = await session.ConfirmBppAccountBindAsync(
-            "pid-1",
-            "123456",
-            CancellationToken.None
-        );
-        Assert.True(confirm.Succeeded);
-        Assert.Equal("bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", confirm.DeviceToken);
 
         // 4. account/devices 200
         responses.Enqueue(
@@ -175,8 +178,18 @@ public sealed class BppAccountClientTests
         );
         Assert.True(ghostsWithoutToken.Succeeded);
 
-        Assert.Equal("/account/bind/start", requests[0].Path);
-        Assert.Equal("/account/bind/confirm", requests[2].Path);
+        Assert.Equal(HttpMethod.Post, requests[0].Method);
+        Assert.Equal("/account/bind", requests[0].Path);
+        using (var bindBody = JsonDocument.Parse(requests[0].Body!))
+        {
+            var root = bindBody.RootElement;
+            Assert.Equal("K7M2-Q9XR", root.GetProperty("bind_code").GetString());
+            Assert.Equal("jwe.token.1", root.GetProperty("game_token").GetString());
+            Assert.Equal("acct-1", root.GetProperty("game_account_id").GetString());
+            Assert.Equal("Steam", root.GetProperty("platform").GetString());
+            Assert.Equal("Paid", root.GetProperty("flavor").GetString());
+        }
+        Assert.Null(requests[0].Auth);
         Assert.Equal("/account/devices", requests[3].Path);
         Assert.Equal("/account/me", requests[4].Path);
         Assert.Equal("Bearer bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", requests[4].Auth);

@@ -10,7 +10,11 @@ const DEFAULT_LOCALE: Locale = 'zh';
 
 export type SpaPage =
   | 'login'
+  | 'register'
+  | 'reset'
+  | 'account'
   | 'records'
+  | 'run'
   | 'heroes'
   | 'tutorial'
   | 'download'
@@ -20,13 +24,16 @@ export type SpaPage =
 type NavigationGroup = 'primary' | 'secondary';
 
 type RouteDefinition = {
-  page: Exclude<SpaPage, 'not-found'>;
+  page: Exclude<SpaPage, 'not-found' | 'run'>;
   path: string;
   group: NavigationGroup | null;
 };
 
 const ROUTES = [
   { page: 'login', path: '/login', group: null },
+  { page: 'register', path: '/register', group: null },
+  { page: 'reset', path: '/reset', group: null },
+  { page: 'account', path: '/account', group: null },
   { page: 'heroes', path: '/heroes', group: 'primary' },
   { page: 'tutorial', path: '/tutorial', group: 'secondary' },
   { page: 'download', path: '/download', group: 'secondary' },
@@ -43,11 +50,19 @@ export type SecondaryNavigationPage = Extract<
   { group: 'secondary' }
 >['page'];
 
+/** Pages that the account flow replaces each other with. */
+export type AccountRoutePage = 'login' | 'register' | 'reset' | 'account';
+
+type ResolvedRoute =
+  | RouteDefinition
+  | { page: 'not-found'; path: string; group: null }
+  | { page: 'run'; path: string; group: null; runId: string };
+
 export type ResolvedSpaLocation = {
   pathname: string;
   search: string;
   hash: string;
-  route: RouteDefinition | { page: 'not-found'; path: string; group: null };
+  route: ResolvedRoute;
   locale: Locale;
   scope: AnalysisScope;
   canonicalHref: string | null;
@@ -85,7 +100,7 @@ type RawSpaLocation = {
 export type SpaLocation = {
   current(): ResolvedSpaLocation;
   subscribe(listener: (location: ResolvedSpaLocation) => void): () => void;
-  replaceAccountPage(page: 'login' | 'records'): void;
+  replaceAccountPage(page: AccountRoutePage): void;
   canonicalize(): void;
   replaceScope(scope: AnalysisScope): void;
   handleLinkClick(click: SpaLinkClick): boolean;
@@ -94,6 +109,8 @@ export type SpaLocation = {
 const ALIASES: Record<string, string> = {
   '/supporters': '/support'
 };
+
+const RUN_PATH = /^\/records\/([^/]+)$/;
 
 function normalizePathname(pathname: string): string {
   return pathname.replace(/\/+$/, '') || '/';
@@ -111,11 +128,23 @@ function parseHeroMetricsSegment(value: string | null): HeroMetricsSegment {
   return value === 'legend' || value === 'non_legend' ? value : 'all';
 }
 
-function resolveRoute(pathname: string): ResolvedSpaLocation['route'] {
+function resolveRoute(pathname: string): ResolvedRoute {
   const normalized = normalizePathname(pathname);
   const resolvedPath = ALIASES[normalized] ?? normalized;
   if (resolvedPath === '/') {
     return ROUTES.find((route) => route.page === 'support')!;
+  }
+  const run = RUN_PATH.exec(resolvedPath);
+  if (run) {
+    let runId: string | null = null;
+    try {
+      runId = decodeURIComponent(run[1]);
+    } catch {
+      runId = null;
+    }
+    if (runId) {
+      return { page: 'run', path: resolvedPath, group: null, runId };
+    }
   }
   return (
     ROUTES.find((route) => route.path === resolvedPath) ?? {
@@ -126,13 +155,23 @@ function resolveRoute(pathname: string): ResolvedSpaLocation['route'] {
   );
 }
 
-function buildRouteHref(pathname: string, locale: Locale): string {
+/** A same-origin href in the given locale, for links between pages. */
+export function buildRouteHref(pathname: string, locale: Locale): string {
   const search = new URLSearchParams();
   if (locale !== DEFAULT_LOCALE) {
     search.set('lang', locale);
   }
   const query = search.toString();
   return query ? `${pathname}?${query}` : pathname;
+}
+
+export function runHref(runId: string, locale: Locale): string {
+  return buildRouteHref(`/records/${encodeURIComponent(runId)}`, locale);
+}
+
+/** The navigation item a page sits under: account pages belong to My records. */
+export function navigationPage(page: SpaPage): SpaPage {
+  return page === 'account' || page === 'run' ? 'records' : page;
 }
 
 function buildLocaleHref(raw: RawSpaLocation, locale: Locale): string {

@@ -6,6 +6,9 @@ namespace BazaarPlusPlus.Game.HistoryPanel;
 
 public sealed class HistoryPanelViewModel
 {
+    // A Bind Code is 8 characters; the room left covers a pasted "XXXX-XXXX" with stray spaces.
+    public const int BppAccountBindCodeMaxLength = 16;
+
     public string ArchiveEmptyMessage { get; set; } = string.Empty;
     public string? AccountId { get; set; }
 
@@ -81,8 +84,6 @@ public sealed class HistoryPanelViewModel
     public string BppAccountNoticeText { get; set; } = string.Empty;
 
     public string BppAccountInputPlaceholder { get; set; } = string.Empty;
-
-    public int BppAccountInputMaxLength { get; set; } = 128;
 
     public string BppAccountSubmitText { get; set; } = string.Empty;
 

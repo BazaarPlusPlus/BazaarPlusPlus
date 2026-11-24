@@ -43,6 +43,10 @@ jobs:
     env:
       TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
       WRANGLER_SEND_METRICS: 'false'
+      # The public Turnstile site key of the account forms' widget. Preview and
+      # production both reach the production server, which checks the tokens
+      # with the widget's secret (server deployment runbook, section 8).
+      VITE_TURNSTILE_SITE_KEY: ''
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,6 +70,12 @@ jobs:
           fi
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::CLOUDFLARE_ACCOUNT_ID is not set as a repository variable (just secrets-sync)."
+            exit 1
+          fi
+      - name: Require the Turnstile site key
+        run: |
+          if [ -z "$VITE_TURNSTILE_SITE_KEY" ]; then
+            echo "::error::VITE_TURNSTILE_SITE_KEY is empty; a build without it uses Cloudflare's test key, which the production server rejects."
             exit 1
           fi
       - run: just site::check site::test
