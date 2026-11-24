@@ -1,0 +1,5 @@
+// The BazaarPlusPlus brand mark as a PNG for emails, generated from
+// design/assets/Logos/bpp-mark.svg by `just design::build`. Do not edit.
+export const BPP_MARK_PNG_SIZE = 96;
+export const BPP_MARK_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAABjElEQVR42u3YsW0CURREUUKXsBkp5VEJlEcJG1jQAnxLBM5wYs28mTvSi1d7j7TBHg6MMcYYY4wxxthfd//er+vOlNDFf74PBGF8EAzig2AQHwSD+CAYxAfBID4IBvFBMIgPgkF8EAzig2AQHwSD+CAYxAfBID4IBvG7EUzidyKYxe9CMI3fgWAePxthSPxMhH+Mf1u3g6CLv607gSCK/+s5IKjig2AQHwSD+CAYxK9GcIlfiaCK/7gcr+vO1Qji+M/3dSKYxO9EMIvfhWAavwPBPH42wpD4mQjD4mchDI2fgTA8/myEkPgzEcLiz0IIjT8DITy+N0JJ/O4feCbxPyJUTBy/G8EkfieCWfwuBNP4HQjm8bMRhsTPRBgWPwthvci2bh8IcFv3lYJwGobwE39L+wxNQciLPwghN/4AhPz4xgg98Q0R+uIbIfTGN0AgvhCB+EIE4gsRiC9EIL4QgfhCBOILEYgvRCC+EIH4QgTiCxGIL0QgvhCB+EIE4osRiM8YY4wxxhhjjI3ZC50VmO8EjvKlAAAAAElFTkSuQmCC';

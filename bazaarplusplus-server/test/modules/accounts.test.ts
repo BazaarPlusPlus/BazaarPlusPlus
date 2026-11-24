@@ -16,6 +16,7 @@ interface CapturedEmail {
   to: string;
   subject: string;
   text: string;
+  html: string;
 }
 
 function makeAccountEnv(sent: CapturedEmail[]): Env {
@@ -30,11 +31,13 @@ function makeAccountEnv(sent: CapturedEmail[]): Env {
           to: string;
           subject: string;
           text?: string;
+          html?: string;
         };
         sent.push({
           to: builder.to,
           subject: builder.subject,
-          text: builder.text ?? ''
+          text: builder.text ?? '',
+          html: builder.html ?? ''
         });
         return { messageId: `msg-${sent.length}` };
       }
@@ -140,8 +143,10 @@ describe('Mod API BPP Account flows', () => {
     expect(startBody.email_masked).toBe('a***@example.com');
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe('alice@example.com');
-    expect(sent[0].text).toContain('「OfficialAlice」');
+    expect(sent[0].text).toContain('游戏账号：OfficialAlice');
     const code = extractSixDigitCode(sent[0].text);
+    expect(sent[0].subject).toBe(`BazaarPlusPlus 绑定验证码：${code}`);
+    expect(sent[0].html).toContain(`>${code}</td>`);
 
     // Wrong code increments attempts and rejects.
     const wrongCode = code === '000000' ? '111111' : '000000';
@@ -542,7 +547,7 @@ describe('shadow authentication, run summaries, retention, and WebApi', () => {
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO bpp_accounts (game_account_id, email, user_name, created_at_ms, updated_at_ms)
-         VALUES ('acct-web', 'web@example.com', 'WebPlayer', ?1, ?1)`
+         VALUES ('acct-web', 'web@example.com', 'Web<b>&Player', ?1, ?1)`
       ).bind(now),
       env.DB.prepare(
         `INSERT INTO bpp_device_tokens (token_hash, game_account_id, created_at_ms)
@@ -623,6 +628,9 @@ describe('shadow authentication, run summaries, retention, and WebApi', () => {
     expect(boundStart.status).toBe(200);
     expect(sent).toHaveLength(1);
     const loginCode = extractSixDigitCode(sent[0].text);
+    expect(sent[0].html).toContain(`>${loginCode}</td>`);
+    expect(sent[0].html).toContain('>Web&lt;b&gt;&amp;Player</span>');
+    expect(sent[0].html).not.toContain('<b>&Player');
 
     // Confirm sets HttpOnly, Secure, SameSite=Lax cookie.
     const confirmRes = await handleWebApiRequest(
@@ -656,7 +664,7 @@ describe('shadow authentication, run summaries, retention, and WebApi', () => {
       runs: Array<{ run_id: string; ended_at_ms: number | null }>;
       next_cursor: string | null;
     }>();
-    expect(page1.user_name).toBe('WebPlayer');
+    expect(page1.user_name).toBe('Web<b>&Player');
     expect(page1.email_masked).toBe('w***@example.com');
     expect(page1.runs).toHaveLength(50);
     expect(page1.runs[0].run_id).toBe('run-050');

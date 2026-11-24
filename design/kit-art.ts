@@ -32,7 +32,7 @@ const at = (samples: ArrayLike<number>, index: number) => samples[index] ?? 0;
 /** The Mobile UI's art, beside the desktop kit's: linked into the Android host by name. */
 const touchDir = '../HistoryPanel';
 
-interface Raster {
+export interface Raster {
   width: number;
   height: number;
   /** RGBA, 0..1, not premultiplied. */
@@ -406,7 +406,7 @@ function chunk(type: string, body: Buffer): Buffer {
   return Buffer.concat([head, tagged, tail]);
 }
 
-function encode(raster: Raster): Buffer {
+export function encode(raster: Raster): Buffer {
   const pixels = bytes(raster);
   const stride = raster.width * 4;
   const raw = Buffer.alloc((stride + 1) * raster.height);

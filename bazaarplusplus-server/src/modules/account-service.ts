@@ -25,6 +25,10 @@ import {
   VERIFICATION_CODE_MAX_ATTEMPTS,
   VERIFICATION_CODE_TTL_MS
 } from './account-crypto';
+import {
+  renderVerificationEmail,
+  type VerificationEmail
+} from './account-email';
 import { verifyOfficialGameAccount } from './game-account-verifier';
 
 const DEFAULT_EMAIL_FROM = 'noreply@bazaarplusplus.com';
@@ -112,15 +116,18 @@ function requiredHeaderToken(
 export async function sendAccountEmail(
   env: Env,
   to: string,
-  subject: string,
-  text: string
+  message: VerificationEmail
 ): Promise<void> {
   if (env.EMAIL === undefined) {
     throw apiError('storage_unavailable', 'Email delivery is not configured');
   }
   const from = env.ACCOUNT_EMAIL_FROM?.trim() || DEFAULT_EMAIL_FROM;
   try {
-    await env.EMAIL.send({ from, to, subject, text });
+    await env.EMAIL.send({
+      from: { email: from, name: 'BazaarPlusPlus' },
+      to,
+      ...message
+    });
   } catch {
     throw apiError('storage_unavailable', 'Failed to send verification email');
   }
@@ -251,8 +258,11 @@ export async function startAccountBind(
     await sendAccountEmail(
       env,
       email,
-      'BazaarPlusPlus 账号绑定验证码',
-      `你正在把游戏账号「${official.userName}」绑定到这个邮箱。\n\n验证码：${verificationCode}\n\n验证码 10 分钟内有效。如果不是本人操作，请忽略此邮件。`
+      renderVerificationEmail({
+        purpose: 'bind',
+        userName: official.userName,
+        code: verificationCode
+      })
     );
   } catch (error) {
     await env.DB.prepare(
