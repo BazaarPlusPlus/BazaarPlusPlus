@@ -7,6 +7,7 @@ import { putImmutable, putImmutableFile, putReplaceable } from './r2-store.ts';
 import {
   ANDROID_RELEASE_SIGNER_SHA256,
   RELEASE_MANIFEST_PATH,
+  androidManagedPayloadKey,
   buildAndroidFragment,
   buildLatestManifest,
   buildMirrorRecord,
@@ -14,7 +15,7 @@ import {
   buildPlatformManifest,
   fragmentArtifacts,
   fragmentKey,
-  androidManagedPayloadKey,
+  managedPayloadChunkIndexKey,
   managedPayloadKey,
   mergeReleaseManifest,
   mirrorArtifact,
@@ -26,6 +27,17 @@ import {
   validatePlatformFragment,
   validatePlatformManifest
 } from './manifest.ts';
+import {
+  MAX_CHUNK_INDEX_BYTES,
+  parseChunkIndex,
+  uploadManagedChunks,
+  verifyAndExtractChunksForUpload,
+  verifyManagedChunksStored
+} from './managed-payload-chunks.ts';
+import type {
+  ManagedPayloadChunkIndex,
+  ManagedPayloadChunkRecord
+} from './managed-payload-chunks.ts';
 import type {
   AndroidPlatformFragment,
   AndroidPlatformManifest,
@@ -210,6 +222,21 @@ async function assertSameCommitAcrossPlatforms(
   }
 }
 
+function fragmentChunkIndexes(fragment: PlatformFragment): ReleaseArtifact[] {
+  const candidates: (ReleaseArtifact | undefined)[] =
+    releasePlatformByKey(fragment.platform).kind === 'android'
+      ? Object.values((fragment as AndroidPlatformFragment).adaptations).map(
+          ({ managedPayload }) => managedPayload.chunkIndex
+        )
+      : [fragment.managedPayload.chunkIndex];
+  const present = candidates.filter(
+    (item): item is ReleaseArtifact => item !== undefined
+  );
+  return present.filter(
+    (item, index) => present.findIndex(({ url }) => url === item.url) === index
+  );
+}
+
 async function assertArtifactsStored(
   store: ObjectStore,
   fragment: PlatformFragment,
@@ -225,6 +252,28 @@ async function assertArtifactsStored(
     )
       throw new Error(`Release artifact is missing or differs: ${key}`);
   }
+  const chunkIndexArtifacts = fragmentChunkIndexes(fragment);
+  if (chunkIndexArtifacts.length === 0) return;
+  const parsed: ManagedPayloadChunkIndex[] = [];
+  for (const record of chunkIndexArtifacts) {
+    if (record.size > MAX_CHUNK_INDEX_BYTES)
+      throw new Error(
+        `Managed Payload chunk index exceeds limit (${record.size} bytes)`
+      );
+    const key = objectKey(record.url, baseUrl);
+    const stored = await store.get(key, { maxBytes: record.size });
+    if (
+      !stored ||
+      stored.bytes.length !== record.size ||
+      crypto.createHash('sha256').update(stored.bytes).digest('hex') !==
+        record.sha256
+    )
+      throw new Error(
+        `Managed Payload chunk index is missing or differs: ${key}`
+      );
+    parsed.push(parseChunkIndex(stored.bytes.toString('utf8')));
+  }
+  await verifyManagedChunksStored(store, parsed);
 }
 
 // The published mirror is authoritative on retry, even if the original mirror record has changed.
@@ -353,14 +402,20 @@ export async function uploadPlatform({
   // Freeze and verify every byte before the first remote write. A concurrent
   // local build must never poison an immutable key halfway through an upload.
   const snapshots = new Map<string, Buffer>();
-  const uploads = (
-    [
-      [validated.installer, fragment.installer],
-      [validated.updater, fragment.updater],
-      [validated.signature, fragment.signatureFile],
-      [validated.managedPayload, fragment.managedPayload]
-    ] as const
-  ).map(([file, record]) => {
+  const uploadItems: [string, ReleaseArtifact, string | undefined][] = [
+    [validated.installer, fragment.installer, undefined],
+    [validated.updater, fragment.updater, undefined],
+    [validated.signature, fragment.signatureFile, undefined],
+    [validated.managedPayload, fragment.managedPayload, undefined]
+  ];
+  if (validated.chunkIndex && fragment.managedPayload.chunkIndex) {
+    uploadItems.push([
+      validated.chunkIndex,
+      fragment.managedPayload.chunkIndex,
+      'text/plain'
+    ]);
+  }
+  const uploads = uploadItems.map(([file, record, contentType]) => {
     if (!snapshots.has(file)) snapshots.set(file, fs.readFileSync(file));
     const bytes = snapshots.get(file);
     if (bytes === undefined) throw new Error(`Artifact was not read: ${file}`);
@@ -369,11 +424,21 @@ export async function uploadPlatform({
       crypto.createHash('sha256').update(bytes).digest('hex') !== record.sha256
     )
       throw new Error(`Artifact changed before upload: ${file}`);
-    return { key: objectKey(record.url, baseUrl), bytes };
+    return { key: objectKey(record.url, baseUrl), bytes, contentType };
   });
+  let managedChunks: ReturnType<typeof verifyAndExtractChunksForUpload> | null =
+    null;
+  if (validated.chunkIndex && fragment.managedPayload.chunkIndex) {
+    const zipBytes = snapshots.get(validated.managedPayload);
+    const chunkIndexBytes = snapshots.get(validated.chunkIndex);
+    if (!zipBytes || !chunkIndexBytes)
+      throw new Error('Managed Payload or Chunk Index snapshot was not read');
+    managedChunks = verifyAndExtractChunksForUpload(zipBytes, chunkIndexBytes);
+  }
   await assertSameCommitAcrossPlatforms(store, version, fragment);
-  for (const { key, bytes } of uploads) {
-    await putImmutable(store, key, bytes);
+  if (managedChunks) await uploadManagedChunks(store, managedChunks);
+  for (const { key, bytes, contentType } of uploads) {
+    await putImmutable(store, key, bytes, contentType);
   }
   await putImmutable(
     store,
@@ -381,6 +446,14 @@ export async function uploadPlatform({
     Buffer.from(`${fragment.managedPayload.signature}\n`),
     'text/plain'
   );
+  if (fragment.managedPayload.chunkIndex) {
+    await putImmutable(
+      store,
+      `${managedPayloadChunkIndexKey(version, fragment.platform)}.sig`,
+      Buffer.from(`${fragment.managedPayload.chunkIndex.signature}\n`),
+      'text/plain'
+    );
+  }
   await putImmutable(
     store,
     fragmentKey(version, fragment.platform),
@@ -470,6 +543,40 @@ export async function uploadAndroidPlatform({
     fragment.app.signerSha256,
     releaseSignerSha256
   );
+  const allManagedChunks = new Map<
+    string,
+    { record: ManagedPayloadChunkRecord; bytes: Buffer }
+  >();
+  const chunkIndexUploads: { key: string; bytes: Buffer; signature: string }[] =
+    [];
+  for (const source of ANDROID_SOURCES) {
+    const chunkIndexFile = files.adaptations[source].chunkIndex;
+    const chunkIndexRecord =
+      fragment.adaptations[source].managedPayload.chunkIndex;
+    if (!chunkIndexFile || !chunkIndexRecord) continue;
+    const zipBytes = fs.readFileSync(files.adaptations[source].managedPayload);
+    const indexBytes = fs.readFileSync(chunkIndexFile);
+    if (
+      indexBytes.length !== chunkIndexRecord.size ||
+      crypto.createHash('sha256').update(indexBytes).digest('hex') !==
+        chunkIndexRecord.sha256
+    )
+      throw new Error(`Artifact changed before upload: ${chunkIndexFile}`);
+    for (const [chunkKey, entry] of verifyAndExtractChunksForUpload(
+      zipBytes,
+      indexBytes
+    )) {
+      allManagedChunks.set(chunkKey, entry);
+    }
+    chunkIndexUploads.push({
+      key: objectKey(chunkIndexRecord.url, baseUrl),
+      bytes: indexBytes,
+      signature: chunkIndexRecord.signature
+    });
+  }
+  if (allManagedChunks.size > 0) {
+    await uploadManagedChunks(store, allManagedChunks, { log });
+  }
   const interops = ANDROID_SOURCES.map(
     (source) => fragment.adaptations[source].interop
   );
@@ -508,6 +615,15 @@ export async function uploadAndroidPlatform({
       outcome === 'present'
         ? `Already stored: ${key}`
         : `Uploaded ${key} (${record.size} bytes)`
+    );
+  }
+  for (const item of chunkIndexUploads) {
+    await putImmutable(store, item.key, item.bytes, 'text/plain');
+    await putImmutable(
+      store,
+      `${item.key}.sig`,
+      Buffer.from(`${item.signature}\n`),
+      'text/plain'
     );
   }
   for (const source of ANDROID_SOURCES)

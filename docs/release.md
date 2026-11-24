@@ -86,7 +86,7 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 生产者 `managed` 与 `history-contract` 的条目组成 Managed Payload，mod 自己更新它；其余条目（加载器、native、`bootstrap`、`sqlite-*` 和生产者 `updater` 的 Updater）只由 installer 或新的 Android App 更新，它们的 sha256 汇成 fragment 的 `nonManagedPayloadDigest`。决策记录见 [mod ADR 0014](../bazaarplusplus-mod/docs/adr/0014-managed-payload-self-update.md)。
 
-- `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.ts`，共享样例 `release/fixtures/managed-payload/manifest.txt`。
+- `prepare` 把 Managed Payload Manifest 写进 Payload（生产者 `managed-manifest`，安装后位于 mod 旁边）；`build` 把清单、清单签名和 `files/` 下的文件打成确定性 zip 并签名，三个平台都放在 `<版本>/<平台键>/managed/`。格式与写法见 `release/managed-payload.ts`，共享样例 `release/fixtures/managed-payload/manifest.txt`。同时 `build` 会为同一份 zip 生成并签名 CDC 分片索引（`*-managed.chunks.txt`，格式与算法见 `release/managed-payload-chunks.ts`）；`upload` 在上传版本目录前先把压缩后的唯一分片按内容寻址去重写入 `managed/chunks/<前两位>/<compressedSha256>.deflate`，`promote` 复核分片索引及其引用的每个分片均已落盘。老客户端与增量失败/低复用场景继续自动回退到全量 zip。
 - fragment 记录 `managedPayload`、`historyDatabaseUserVersion` 与 `nonManagedPayloadDigest`。`selfUpdatable` 只给下载页用：`upload` 时与已提升的平台清单比较这两项。mod 只与正在运行的副本比较。
 - 桌面 fragment 与平台清单还记录 `game`（`gameVersion`、`managedSha256`），取自构建记录的锁条目，所以对着 staging 构建时它如实记下 staging 条目。只有下载页读它，与 Game Status 比较 `managedSha256`。在它出现之前上传的 fragment 没有这一项，平台清单也就没有。
 - Updater 以固定版本 1.0.0 确定性构建，同一编译器构建不变的源码时文件不变；改动它就改变 `nonManagedPayloadDigest`，所有用户都要走 installer 或新的 Android App。

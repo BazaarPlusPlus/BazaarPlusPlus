@@ -39,4 +39,17 @@
     />
     <Compile Include="../Updater.Tests/TestSigner.cs" Link="TestSigner.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None
+      Include="../../../release/fixtures/managed-payload/cdc-vectors.json"
+      Link="fixtures/managed-payload/cdc-vectors.json"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <None
+      Include="../../../release/fixtures/managed-payload/chunks.txt"
+      Link="fixtures/managed-payload/chunks.txt"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
 </Project>

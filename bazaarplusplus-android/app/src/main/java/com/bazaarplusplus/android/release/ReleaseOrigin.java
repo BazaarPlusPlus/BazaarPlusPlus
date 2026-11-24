@@ -30,6 +30,24 @@ public final class ReleaseOrigin {
                 + PLATFORM_KEY + "-" + source + "-managed.zip";
     }
 
+    /** The release tooling owns this key in release/manifest.ts {@code androidManagedPayloadChunkIndexKey}. */
+    public String managedPayloadChunkIndexUrl(String version, String source) {
+        return base + "/" + version + "/" + PLATFORM_KEY + "/managed/" + source + "/BazaarPlusPlus_" + version + "_"
+                + PLATFORM_KEY + "-" + source + "-managed.chunks.txt";
+    }
+
+    /** The release tooling owns this prefix in release/managed-payload-chunks.ts {@code MANAGED_CHUNKS_PREFIX}. */
+    public String managedChunksBaseUrl() {
+        return base + "/managed/chunks";
+    }
+
+    public String managedChunkUrl(String compressedSha256) {
+        if (compressedSha256 == null || !StrictJson.SHA256.matcher(compressedSha256).matches()) {
+            throw new IllegalArgumentException("Invalid chunk sha256");
+        }
+        return managedChunksBaseUrl() + "/" + compressedSha256.substring(0, 2) + "/" + compressedSha256 + ".deflate";
+    }
+
     boolean under(String url, String prefix) {
         URI uri;
         URI root;

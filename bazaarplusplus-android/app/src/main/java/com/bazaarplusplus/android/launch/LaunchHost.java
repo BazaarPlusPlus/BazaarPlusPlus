@@ -10,6 +10,14 @@ interface LaunchHost {
 
     Download.Source source(PlatformManifest.Artifact file);
 
+    default boolean hasCarried(PlatformManifest.Artifact file) {
+        return false;
+    }
+
+    default Download.Source urlSource(String url, boolean identityEncoding) {
+        return identityEncoding ? Download.httpIdentity(url) : Download.http(url);
+    }
+
     long appVersionCode();
 
     LaunchRecord.App app();

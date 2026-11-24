@@ -38,6 +38,16 @@ public final class Sha256 {
         return sha256.hex();
     }
 
+    public static String of(byte[] bytes, int offset, int length) {
+        Sha256 sha256 = new Sha256();
+        sha256.update(bytes, offset, length);
+        return sha256.hex();
+    }
+
+    public static String of(byte[] bytes) {
+        return of(bytes, 0, bytes.length);
+    }
+
     public static String of(File file) throws IOException {
         try (InputStream in = new FileInputStream(file)) {
             return of(in);

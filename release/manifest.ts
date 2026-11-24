@@ -23,13 +23,24 @@ import type {
   AndroidGameRelease,
   DesktopGameRelease,
   InteropPackageDownload,
+  ManagedPayloadChunkIndexDownload,
   ManagedPayloadDownload
 } from './downloads.ts';
+import {
+  MANAGED_CHUNKS_PREFIX,
+  managedChunkKey
+} from './managed-payload-chunks.ts';
 import type { ArtifactManifest, ArtifactRecord } from './artifact-manifest.ts';
 import { ANDROID_SOURCES } from './snapshot-lock.ts';
 import type { AndroidSource, LoaderPin } from './snapshot-lock.ts';
 
-export { RELEASE_MANIFEST_PATH, modManifestPath, platformManifestPath };
+export {
+  MANAGED_CHUNKS_PREFIX,
+  RELEASE_MANIFEST_PATH,
+  managedChunkKey,
+  modManifestPath,
+  platformManifestPath
+};
 
 export interface ReleaseArtifact {
   url: string;
@@ -180,10 +191,18 @@ export interface BuildPlatformFragmentOptions {
   game: DesktopGameRelease;
 }
 
+export interface ManagedPayloadChunkIndexFacts {
+  size: number;
+  sha256: string;
+  signature: string;
+}
+
 export interface AndroidAdaptationFacts {
   game: AndroidGameRelease;
   interop: Omit<InteropPackageDownload, 'url'>;
-  managedPayload: Omit<ManagedPayloadDownload, 'url'>;
+  managedPayload: Omit<ManagedPayloadDownload, 'url' | 'chunkIndex'> & {
+    chunkIndex?: ManagedPayloadChunkIndexFacts;
+  };
 }
 
 export interface BuildAndroidFragmentOptions {
@@ -428,12 +447,30 @@ export function managedPayloadKey(
   return `${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.zip`;
 }
 
+export function managedPayloadChunkIndexKey(
+  version: ProductVersion,
+  platform: string
+): string {
+  return `${version}/${platform}/managed/BazaarPlusPlus_${version}_${platform}-managed.chunks.txt`;
+}
+
 // App 6.2.5 checks only the version's managed/ prefix. Newer Apps require the exact key.
 export function androidManagedPayloadKey(
   version: ProductVersion,
   source: AndroidSource
 ): string {
   return `${version}/${ANDROID_PLATFORM}/managed/${source}/BazaarPlusPlus_${version}_${ANDROID_PLATFORM}-${source}-managed.zip`;
+}
+
+export function androidManagedPayloadChunkIndexKey(
+  version: ProductVersion,
+  source: AndroidSource
+): string {
+  return `${version}/${ANDROID_PLATFORM}/managed/${source}/BazaarPlusPlus_${version}_${ANDROID_PLATFORM}-${source}-managed.chunks.txt`;
+}
+
+export function managedChunksBaseUrl(baseUrl: string): string {
+  return `${assertReleaseOrigin(baseUrl)}/${MANAGED_CHUNKS_PREFIX}`;
 }
 
 function assertReleaseOrigin(baseUrl: string): string {
@@ -513,7 +550,12 @@ function assertSelfUpdateFacts(
     !SHA256.test(release.nonManagedPayloadDigest ?? '')
   )
     throw new Error(`Invalid ${platform} self-update facts for ${version}`);
-  assertManagedPayload(release.managedPayload, version, platform);
+  assertManagedPayload(
+    release.managedPayload,
+    version,
+    platform,
+    managedPayloadChunkIndexKey(version, platform)
+  );
   if (
     new URL(release.managedPayload.url).pathname !==
     `${RELEASE_BASE_PATH}/${managedPayloadKey(version, platform)}`
@@ -572,7 +614,18 @@ export function buildPlatformFragment({
       url: `${origin}/${managedPayloadKey(version, definition.key)}`,
       size: manifest.managedPayload?.size,
       sha256: manifest.managedPayload?.sha256,
-      signature: manifest.managedPayload?.signature?.trim()
+      signature: manifest.managedPayload?.signature?.trim(),
+      ...(manifest.managedPayload?.chunkIndex === undefined
+        ? {}
+        : {
+            chunkIndex: {
+              url: `${origin}/${managedPayloadChunkIndexKey(version, definition.key)}`,
+              size: manifest.managedPayload.chunkIndex.size,
+              sha256: manifest.managedPayload.chunkIndex.sha256,
+              signature: manifest.managedPayload.chunkIndex.signature.trim(),
+              chunksBaseUrl: managedChunksBaseUrl(origin)
+            }
+          })
     },
     selfUpdatable,
     historyDatabaseUserVersion: manifest.historyDatabaseUserVersion,
@@ -621,7 +674,18 @@ export function buildAndroidFragment({
         url: `${origin}/${androidManagedPayloadKey(version, source)}`,
         size: managedPayload?.size,
         sha256: managedPayload?.sha256,
-        signature: managedPayload?.signature?.trim()
+        signature: managedPayload?.signature?.trim(),
+        ...(managedPayload?.chunkIndex === undefined
+          ? {}
+          : {
+              chunkIndex: {
+                url: `${origin}/${androidManagedPayloadChunkIndexKey(version, source)}`,
+                size: managedPayload.chunkIndex.size,
+                sha256: managedPayload.chunkIndex.sha256,
+                signature: managedPayload.chunkIndex.signature.trim(),
+                chunksBaseUrl: managedChunksBaseUrl(origin)
+              }
+            })
       }
     } as AndroidAdaptation;
   };
@@ -699,10 +763,47 @@ function positiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 
+function assertChunkIndex(
+  record: ManagedPayloadChunkIndexDownload,
+  parentUrl: string,
+  expectedKey: string,
+  platform: string
+): void {
+  assertRecord(record, `${platform} Managed Payload chunk index`);
+  if (typeof record.signature !== 'string' || !record.signature.trim())
+    throw new Error(
+      `Missing Managed Payload chunk index signature: ${platform}`
+    );
+  const indexUrl = new URL(record.url);
+  if (indexUrl.pathname !== `${RELEASE_BASE_PATH}/${expectedKey}`)
+    throw new Error(
+      `Unexpected Managed Payload chunk index URL: ${record.url}`
+    );
+  const parent = new URL(parentUrl);
+  if (indexUrl.origin !== parent.origin)
+    throw new Error(
+      `Managed Payload chunk index origin differs from Managed Payload: ${record.url}`
+    );
+  const chunksUrl = new URL(record.chunksBaseUrl);
+  if (
+    chunksUrl.protocol !== 'https:' ||
+    chunksUrl.username ||
+    chunksUrl.password ||
+    chunksUrl.search ||
+    chunksUrl.hash ||
+    chunksUrl.origin !== parent.origin ||
+    chunksUrl.pathname !== `${RELEASE_BASE_PATH}/${MANAGED_CHUNKS_PREFIX}`
+  )
+    throw new Error(
+      `Unexpected Managed Payload chunksBaseUrl: ${record.chunksBaseUrl}`
+    );
+}
+
 function assertManagedPayload(
   record: ManagedPayloadDownload,
   version: ProductVersion,
-  platform: string
+  platform: string,
+  expectedChunkIndexKey?: string
 ): void {
   assertRecord(record, `${platform} Managed Payload`);
   if (typeof record.signature !== 'string' || !record.signature.trim())
@@ -713,6 +814,18 @@ function assertManagedPayload(
     )
   )
     throw new Error(`Artifact URL is outside its release: ${record.url}`);
+  if (record.chunkIndex !== undefined) {
+    if (!expectedChunkIndexKey)
+      throw new Error(
+        `Unexpected Managed Payload chunk index without expected key: ${platform}`
+      );
+    assertChunkIndex(
+      record.chunkIndex,
+      record.url,
+      expectedChunkIndexKey,
+      platform
+    );
+  }
 }
 
 function validateAndroidRelease(
@@ -741,12 +854,15 @@ function validateAndroidRelease(
   )
     throw new Error(`Unexpected Android App URL: ${app.url}`);
   assertInteropRecord(release.interop, `${platform} ${version}`);
-  assertManagedPayload(managedPayload, version, platform);
   const { adaptations } = release;
   // A manifest promoted before ADR 0019 has one Managed Payload per version.
   const managedKey = adaptations
     ? androidManagedPayloadKey(version, 'publisher')
     : managedPayloadKey(version, platform);
+  const managedChunkIndexKey = adaptations
+    ? androidManagedPayloadChunkIndexKey(version, 'publisher')
+    : managedPayloadChunkIndexKey(version, platform);
+  assertManagedPayload(managedPayload, version, platform, managedChunkIndexKey);
   if (
     new URL(managedPayload.url).pathname !==
     `${RELEASE_BASE_PATH}/${managedKey}`
@@ -764,7 +880,12 @@ function validateAndroidRelease(
       throw new Error(`Invalid ${description} game signer`);
     assertAndroidGame(adaptation.game, description);
     assertInteropRecord(adaptation.interop, description);
-    assertManagedPayload(adaptation.managedPayload, version, platform);
+    assertManagedPayload(
+      adaptation.managedPayload,
+      version,
+      platform,
+      androidManagedPayloadChunkIndexKey(version, source)
+    );
     if (
       new URL(adaptation.managedPayload.url).pathname !==
       `${RELEASE_BASE_PATH}/${androidManagedPayloadKey(version, source)}`
@@ -813,10 +934,14 @@ export function fragmentArtifacts(
 ): ReleaseArtifact[] {
   if (releasePlatformByKey(fragment.platform).kind === 'android') {
     const android = fragment as AndroidPlatformFragment;
-    const artifacts = [
+    const artifacts: ReleaseArtifact[] = [
       android.app,
       ...Object.values(android.adaptations).flatMap(
-        ({ interop, managedPayload }) => [interop, managedPayload]
+        ({ interop, managedPayload }) => [
+          interop,
+          managedPayload,
+          ...(managedPayload.chunkIndex ? [managedPayload.chunkIndex] : [])
+        ]
       )
     ];
     return artifacts.filter(
@@ -824,11 +949,15 @@ export function fragmentArtifacts(
         artifacts.findIndex(({ url }) => url === artifact.url) === index
     );
   }
+  const desktop = fragment as DesktopPlatformFragment;
   return [
-    (fragment as DesktopPlatformFragment).installer,
-    (fragment as DesktopPlatformFragment).updater,
-    (fragment as DesktopPlatformFragment).signatureFile,
-    fragment.managedPayload
+    desktop.installer,
+    desktop.updater,
+    desktop.signatureFile,
+    desktop.managedPayload,
+    ...(desktop.managedPayload.chunkIndex
+      ? [desktop.managedPayload.chunkIndex]
+      : [])
   ];
 }
 

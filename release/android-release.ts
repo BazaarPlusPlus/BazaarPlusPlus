@@ -18,6 +18,7 @@ import {
   writeManagedPayloadManifest,
   writeManagedPayloadZip
 } from './managed-payload.ts';
+import { writeManagedPayloadChunkIndex } from './managed-payload-chunks.ts';
 import {
   assertReleaseBuildArgs,
   acquirePayloadLock,
@@ -53,6 +54,7 @@ import {
   androidAppKey,
   androidCarriedRelease,
   androidAppVersionCode,
+  androidManagedPayloadChunkIndexKey,
   androidManagedPayloadKey,
   androidNonManagedPayloadDigest,
   interopPackageKey
@@ -293,6 +295,12 @@ export interface AdaptationArtifacts {
     size: number;
     sha256: string;
     signature: string;
+    chunkIndex?: {
+      path: string;
+      size: number;
+      sha256: string;
+      signature: string;
+    };
   };
   lockEntry: AndroidLockEntryRecord;
 }
@@ -322,7 +330,7 @@ export interface AndroidArtifactFiles {
   app: string;
   adaptations: Record<
     AndroidSource,
-    { interop: string; managedPayload: string }
+    { interop: string; managedPayload: string; chunkIndex?: string }
   >;
 }
 
@@ -1057,7 +1065,7 @@ async function buildUnlocked({
   const key = releasePlatform(PLATFORM).key;
 
   for (const stale of fs.readdirSync(paths.root))
-    if (/\.(?:apk|zip|sig|statement)$/.test(stale))
+    if (/\.(?:apk|zip|sig|statement)$|\.chunks\.txt$/.test(stale))
       fs.rmSync(path.join(paths.root, stale), { force: true });
   fs.rmSync(paths.work, { recursive: true, force: true });
 
@@ -1074,6 +1082,10 @@ async function buildUnlocked({
       paths.root,
       path.posix.basename(androidManagedPayloadKey(version, source))
     );
+    const chunkIndexPath = path.join(
+      paths.root,
+      path.posix.basename(androidManagedPayloadChunkIndexKey(version, source))
+    );
     const zip = writeManagedPayloadZip({
       sourceDir: payload,
       platform: PLATFORM,
@@ -1081,7 +1093,14 @@ async function buildUnlocked({
       sign: ({ file }: { file: string }) => sign({ workspaceRoot, file })
     });
     const signature = sign({ workspaceRoot, file: zipPath });
-    log(`Signed ${path.basename(zipPath)}`);
+    const chunkIndex = writeManagedPayloadChunkIndex({
+      zipPath,
+      outputPath: chunkIndexPath,
+      sign: ({ file }: { file: string }) => sign({ workspaceRoot, file })
+    });
+    log(
+      `Signed ${path.basename(zipPath)} and ${path.basename(chunkIndexPath)}`
+    );
     const interop = packInterop({
       root: paths.root,
       interopPath: record.interopPath,
@@ -1104,7 +1123,13 @@ async function buildUnlocked({
         path: path.relative(paths.root, zipPath),
         size: fs.statSync(zipPath).size,
         sha256: zip.sha256,
-        signature
+        signature,
+        chunkIndex: {
+          path: path.relative(paths.root, chunkIndexPath),
+          size: chunkIndex.size,
+          sha256: chunkIndex.sha256,
+          signature: chunkIndex.signature
+        }
       },
       lockEntry: record.lockEntry,
       zipPath,
@@ -1156,7 +1181,16 @@ async function buildUnlocked({
             managedPayload: {
               size: managedPayload.size,
               sha256: managedPayload.sha256,
-              signature: managedPayload.signature
+              signature: managedPayload.signature,
+              ...(managedPayload.chunkIndex === undefined
+                ? {}
+                : {
+                    chunkIndex: {
+                      size: managedPayload.chunkIndex.size,
+                      sha256: managedPayload.chunkIndex.sha256,
+                      signature: managedPayload.chunkIndex.signature
+                    }
+                  })
             }
           }
         ];
@@ -1314,7 +1348,15 @@ export async function readAndroidArtifacts(
             managedPayload: checked(
               adaptation.managedPayload,
               `${source} Managed Payload zip`
-            )
+            ),
+            ...(adaptation.managedPayload.chunkIndex === undefined
+              ? {}
+              : {
+                  chunkIndex: checked(
+                    adaptation.managedPayload.chunkIndex,
+                    `${source} Managed Payload chunk index`
+                  )
+                })
           }
         ];
       })

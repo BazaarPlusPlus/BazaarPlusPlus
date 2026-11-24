@@ -39,7 +39,12 @@ public sealed class MainMenuSelfUpdate
         _stager =
             platformKey == null
                 ? null
-                : new ManagedPayloadStager(SelfUpdatePaths.Updates(dataRoot), platformKey, host);
+                : new ManagedPayloadStager(
+                    SelfUpdatePaths.Updates(dataRoot),
+                    platformKey,
+                    host,
+                    seedInstallRoot: installRoot
+                );
         _downloadClient = downloadClient;
         _runtimeDigest = runtimeDigest;
     }
@@ -138,11 +143,24 @@ public sealed class MainMenuSelfUpdate
             return ManagedPayloadStageResult.Failed("exception");
         }
 
+        if (result.IncrementalFallbackReason != null)
+            BppLog.WarnEvent(
+                new BppLogEvent(
+                    BppLogFeatureScope.SelfUpdate,
+                    "self_update.payload.incremental_fallback",
+                    storm: ["reason_code"]
+                ),
+                ("version", release.Version),
+                ("reason_code", result.IncrementalFallbackReason)
+            );
+
         if (result.Succeeded)
             BppLog.InfoEvent(
                 new BppLogEvent(BppLogFeatureScope.SelfUpdate, "self_update.payload.staged"),
                 ("version", release.Version),
-                ("size", release.Size)
+                ("size", release.Size),
+                ("mode", result.Mode),
+                ("downloaded_bytes", result.DownloadedBytes)
             );
         else
             BppLog.WarnEvent(

@@ -314,6 +314,7 @@ jobs:
             target/android/android-aarch64.json
             target/android/*.apk
             target/android/*.zip
+            target/android/*.chunks.txt
             target/android/*.sig
             target/android/*.statement
           if-no-files-found: error

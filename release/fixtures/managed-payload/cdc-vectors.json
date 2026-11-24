@@ -1,0 +1,138 @@
+{
+  "algorithm": "fastcdc-gear32-v1",
+  "gearSamples": [
+    {
+      "index": 0,
+      "value": 2617980014
+    },
+    {
+      "index": 1,
+      "value": 789771595
+    },
+    {
+      "index": 42,
+      "value": 3230156904
+    },
+    {
+      "index": 127,
+      "value": 2868710242
+    },
+    {
+      "index": 128,
+      "value": 1384889974
+    },
+    {
+      "index": 255,
+      "value": 3859419304
+    }
+  ],
+  "cases": [
+    {
+      "name": "empty",
+      "params": {
+        "minSize": 512,
+        "avgSize": 2048,
+        "maxSize": 8192
+      },
+      "seed": 0,
+      "length": 0,
+      "prefixHex": "",
+      "dataSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "boundaries": [],
+      "chunkSha256s": []
+    },
+    {
+      "name": "below-min",
+      "params": {
+        "minSize": 512,
+        "avgSize": 2048,
+        "maxSize": 8192
+      },
+      "seed": 1,
+      "length": 200,
+      "prefixHex": "",
+      "dataSha256": "3215ab02967cdd0bb24fcc3f2f4896c5bfab6d41848595b4565fa247b9d68fca",
+      "boundaries": [200],
+      "chunkSha256s": [
+        "3215ab02967cdd0bb24fcc3f2f4896c5bfab6d41848595b4565fa247b9d68fca"
+      ]
+    },
+    {
+      "name": "exact-min",
+      "params": {
+        "minSize": 512,
+        "avgSize": 2048,
+        "maxSize": 8192
+      },
+      "seed": 2,
+      "length": 512,
+      "prefixHex": "",
+      "dataSha256": "74349e10db405b47e2a0159e2578a82c1de5b1f8d5c1771a7a6230064ea4e556",
+      "boundaries": [512],
+      "chunkSha256s": [
+        "74349e10db405b47e2a0159e2578a82c1de5b1f8d5c1771a7a6230064ea4e556"
+      ]
+    },
+    {
+      "name": "prng-16k",
+      "params": {
+        "minSize": 512,
+        "avgSize": 2048,
+        "maxSize": 8192
+      },
+      "seed": 305419896,
+      "length": 16384,
+      "prefixHex": "",
+      "dataSha256": "6c2151ba392602898475e8faea682c1923ca241d0cee54d984b520286e005f0d",
+      "boundaries": [871, 4337, 5178, 13232, 16384],
+      "chunkSha256s": [
+        "bb7cb86fd7a6791807a3394c1ac902deb25b79112249f255a46b452227f37b60",
+        "f86e131f85cdddfaf8a8b60066d2f2ed4327dbbea2e1a1b84e093ab0cef22351",
+        "d0e4e91e5dab7b134140b9dd914e56bcb5a624f2a838d4771893cf8377e99a4c",
+        "5b4fc74b4348876e814d265aac1c230afc96406f9a313fe04d19ea0cba6639dd",
+        "fad99f55ddeea7729d8267ea90361178a1cc4deb84e07738552ff20f6b67667a"
+      ]
+    },
+    {
+      "name": "prng-16k-shifted",
+      "params": {
+        "minSize": 512,
+        "avgSize": 2048,
+        "maxSize": 8192
+      },
+      "seed": 305419896,
+      "length": 16384,
+      "prefixHex": "5052454649582d494e5345525445442d425954455321",
+      "dataSha256": "fef2a088f0e8da85326a6d73034b66d57c234e8f1a0989b6deb3a29a8f8ccbd7",
+      "boundaries": [893, 4359, 5200, 13254, 16406],
+      "chunkSha256s": [
+        "8b0cfd6e330cce146a377878b3197827c685dd6fc36e12d25ee41ecf35dc9c79",
+        "f86e131f85cdddfaf8a8b60066d2f2ed4327dbbea2e1a1b84e093ab0cef22351",
+        "d0e4e91e5dab7b134140b9dd914e56bcb5a624f2a838d4771893cf8377e99a4c",
+        "5b4fc74b4348876e814d265aac1c230afc96406f9a313fe04d19ea0cba6639dd",
+        "fad99f55ddeea7729d8267ea90361178a1cc4deb84e07738552ff20f6b67667a"
+      ]
+    },
+    {
+      "name": "default-params-96k",
+      "params": {
+        "minSize": 4096,
+        "avgSize": 16384,
+        "maxSize": 65536
+      },
+      "seed": 3735928559,
+      "length": 98304,
+      "prefixHex": "",
+      "dataSha256": "63c94814dff342516dff9209934c8c0ffb4800e4573fb57c531d9eb82190d493",
+      "boundaries": [6469, 28906, 45007, 49896, 97023, 98304],
+      "chunkSha256s": [
+        "a0a952ab0fd0c7ee4f1539c43ce1386bb48c7a31f4d5d62dd4703a452b834b79",
+        "3b1101bc2895e2f446e9adae6a3ac3cca7827cd19504022362c01e4d3466fbac",
+        "1842ce501bd0a3fe44cbfc9c7701a0ce14abb33ed65c5feea219607593c3f12f",
+        "e65aa490eb75b040f834387cd9f4fbfe3a89a6b892f0703b1311e76da92b17db",
+        "bd4e27baf500d3ea32506fc075410137f620af394fff90cbeca555728f5123a9",
+        "67e5f50f8b56a87fd1d7b233c68c303e79064d7330d210bc88f0af5fff4111ef"
+      ]
+    }
+  ]
+}

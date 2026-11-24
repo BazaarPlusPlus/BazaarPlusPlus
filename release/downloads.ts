@@ -58,11 +58,20 @@ export type AndroidAppDownload = {
   signerSha256: string;
 };
 
+export type ManagedPayloadChunkIndexDownload = {
+  url: string;
+  size: number;
+  sha256: string;
+  signature: string;
+  chunksBaseUrl: string;
+};
+
 export type ManagedPayloadDownload = {
   url: string;
   size: number;
   sha256: string;
   signature: string;
+  chunkIndex?: ManagedPayloadChunkIndexDownload;
 };
 
 // The Android App verifies the interop statement's base64 SHA256withRSA signature before loading the zip.
@@ -196,6 +205,50 @@ export function decodeDesktopGameRelease(
   return decodeDesktopGame(object(downloads?.[platformKey])?.game);
 }
 
+function exactReleaseUrl(
+  value: unknown,
+  relativePath: string
+): value is string {
+  if (typeof value !== 'string') return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  const base = new URL(RELEASE_BASE_URL);
+  const expectedPath = `${base.pathname.replace(/\/$/, '')}${relativePath}`;
+  return (
+    url.origin === base.origin &&
+    !url.username &&
+    !url.password &&
+    !url.search &&
+    !url.hash &&
+    url.pathname === expectedPath
+  );
+}
+
+function decodeChunkIndex(
+  value: unknown,
+  prefix: string
+): ManagedPayloadChunkIndexDownload | null | undefined {
+  if (value === undefined) return undefined;
+  const record = artifact(value, prefix);
+  if (
+    !record ||
+    !signed(record.signature) ||
+    !exactReleaseUrl(record.chunksBaseUrl, '/managed/chunks')
+  )
+    return null;
+  return {
+    url: record.url as string,
+    size: record.size as number,
+    sha256: record.sha256 as string,
+    signature: record.signature,
+    chunksBaseUrl: record.chunksBaseUrl
+  };
+}
+
 // Manifests without adaptations still support the publisher's game (ADR 0019).
 export function decodeAndroidDownload(
   manifest: unknown,
@@ -206,10 +259,11 @@ export function decodeAndroidDownload(
   if (typeof version !== 'string' || !version) return null;
   const record = object(object(root?.downloads)?.[platformKey]);
   const app = artifact(record?.app, `/${version}/${platformKey}/app/`);
-  const managedPayload = artifact(
-    record?.managedPayload,
-    `/${version}/${platformKey}/managed/`
-  );
+  const managedPrefix = `/${version}/${platformKey}/managed/`;
+  const managedPayload = artifact(record?.managedPayload, managedPrefix);
+  const chunkIndex = managedPayload
+    ? decodeChunkIndex(managedPayload.chunkIndex, managedPrefix)
+    : undefined;
   const interop = artifact(record?.interop, '/android/interop/');
   const game = decodeAndroidGame(record?.game);
   const adaptations = object(record?.adaptations);
@@ -226,6 +280,7 @@ export function decodeAndroidDownload(
     !sha256(app.signerSha256) ||
     !managedPayload ||
     !signed(managedPayload.signature) ||
+    chunkIndex === null ||
     !interop ||
     !(interop.url as string).endsWith(
       `/android/interop/${interop.sha256}.zip`
@@ -248,7 +303,8 @@ export function decodeAndroidDownload(
       url: managedPayload.url as string,
       size: managedPayload.size as number,
       sha256: managedPayload.sha256 as string,
-      signature: managedPayload.signature
+      signature: managedPayload.signature,
+      ...(chunkIndex === undefined ? {} : { chunkIndex })
     },
     interop: {
       url: interop.url as string,

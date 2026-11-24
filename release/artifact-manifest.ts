@@ -26,9 +26,15 @@ export interface ArtifactRecord {
   sha256: string;
 }
 
+export interface ManagedPayloadChunkIndexArtifact {
+  path: string;
+  signature: string;
+}
+
 export interface ManagedPayloadArtifact {
   path: string;
   signature: string;
+  chunkIndex?: ManagedPayloadChunkIndexArtifact;
   historyDatabaseUserVersion: number;
   nonManagedPayloadDigest: string;
 }
@@ -44,7 +50,10 @@ export interface ArtifactManifest {
   installer: ArtifactRecord;
   updater: ArtifactRecord;
   signature: ArtifactRecord & { content: string };
-  managedPayload: ArtifactRecord & { signature: string };
+  managedPayload: ArtifactRecord & {
+    signature: string;
+    chunkIndex?: ArtifactRecord & { signature: string };
+  };
   historyDatabaseUserVersion: number;
   nonManagedPayloadDigest: string;
   builtAt: string;
@@ -79,6 +88,7 @@ export interface ValidatedArtifactManifest {
   updater: string;
   signature: string;
   managedPayload: string;
+  chunkIndex?: string;
 }
 
 interface DiscoveredArtifacts {
@@ -298,6 +308,17 @@ export function createArtifactManifest({
     throw new Error('The build wrote no signed Managed Payload');
   const managedFile = path.resolve(managedPayload.path);
   assertFileNameContainsVersion(managedFile, version);
+  let chunkIndexRecord: (ArtifactRecord & { signature: string }) | undefined;
+  if (managedPayload.chunkIndex !== undefined) {
+    if (!managedPayload.chunkIndex.signature?.trim())
+      throw new Error('The build wrote no signed Managed Payload Chunk Index');
+    const chunkIndexFile = path.resolve(managedPayload.chunkIndex.path);
+    assertFileNameContainsVersion(chunkIndexFile, version);
+    chunkIndexRecord = {
+      ...artifactRecord(rootDir, chunkIndexFile),
+      signature: managedPayload.chunkIndex.signature.trim()
+    };
+  }
 
   const manifest: ArtifactManifest = {
     schemaVersion: 1,
@@ -323,7 +344,10 @@ export function createArtifactManifest({
     },
     managedPayload: {
       ...artifactRecord(rootDir, managedFile),
-      signature: managedPayload.signature.trim()
+      signature: managedPayload.signature.trim(),
+      ...(chunkIndexRecord === undefined
+        ? {}
+        : { chunkIndex: chunkIndexRecord })
     },
     historyDatabaseUserVersion: managedPayload.historyDatabaseUserVersion,
     nonManagedPayloadDigest: managedPayload.nonManagedPayloadDigest,
@@ -440,12 +464,26 @@ export function validateArtifactManifest({
     manifest.managedPayload
   );
   assertFileNameContainsVersion(managedPayload, version);
+  let chunkIndex: string | undefined;
+  if (manifest.managedPayload.chunkIndex !== undefined) {
+    if (!manifest.managedPayload.chunkIndex.signature?.trim())
+      throw new Error(
+        'Artifact manifest lacks Managed Payload Chunk Index signature'
+      );
+    chunkIndex = validateRecord(
+      rootDir,
+      'Managed Payload Chunk Index',
+      manifest.managedPayload.chunkIndex
+    );
+    assertFileNameContainsVersion(chunkIndex, version);
+  }
   return {
     manifest,
     lockEntry: payloadIdentity.lockEntry,
     installer,
     updater,
     signature,
-    managedPayload
+    managedPayload,
+    ...(chunkIndex === undefined ? {} : { chunkIndex })
   };
 }

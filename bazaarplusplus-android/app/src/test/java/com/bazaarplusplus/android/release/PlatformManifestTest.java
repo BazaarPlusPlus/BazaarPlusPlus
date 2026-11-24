@@ -175,4 +175,32 @@ public class PlatformManifestTest {
         org.junit.Assert.assertThrows(MalformedReleaseException.class,
                 () -> PlatformManifest.decodeCarried(fixture(), ReleaseOrigin.PUBLIC));
     }
+
+    @Test
+    public void optionalChunkIndexIsValidatedAgainstOrigin() throws Exception {
+        JSONObject withChunkIndex = new JSONObject(fixture());
+        String version = withChunkIndex.getString("version");
+        for (String source : PlatformManifest.SOURCES) {
+            adaptation(withChunkIndex, source).getJSONObject("managedPayload").put("chunkIndex", new JSONObject()
+                    .put("url", ReleaseOrigin.PUBLIC.managedPayloadChunkIndexUrl(version, source))
+                    .put("size", 128)
+                    .put("sha256", "a".repeat(64))
+                    .put("signature", "chunk-sig-" + source)
+                    .put("chunksBaseUrl", ReleaseOrigin.PUBLIC.managedChunksBaseUrl()));
+        }
+        PlatformManifest decoded = PlatformManifest.decode(withChunkIndex.toString(), ReleaseOrigin.PUBLIC);
+        assertEquals(ReleaseOrigin.PUBLIC.managedChunksBaseUrl(),
+                decoded.adaptations.get("publisher").managedPayload.chunkIndex.chunksBaseUrl);
+
+        JSONObject withNullChunkIndex = new JSONObject(fixture());
+        adaptation(withNullChunkIndex, "publisher").getJSONObject("managedPayload").put("chunkIndex", JSONObject.NULL);
+        assertNull(PlatformManifest.decode(withNullChunkIndex.toString(), ReleaseOrigin.PUBLIC)
+                .adaptations.get("publisher").managedPayload.chunkIndex);
+
+        JSONObject wrongBase = new JSONObject(withChunkIndex.toString());
+        adaptation(wrongBase, "publisher").getJSONObject("managedPayload").getJSONObject("chunkIndex")
+                .put("chunksBaseUrl", "https://evil.example/installer/managed/chunks");
+        assertThrows(MalformedReleaseException.class,
+                () -> PlatformManifest.decode(wrongBase.toString(), ReleaseOrigin.PUBLIC));
+    }
 }

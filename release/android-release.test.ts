@@ -44,8 +44,10 @@ import {
 import type { AndroidSource } from './snapshot-lock.ts';
 import {
   ANDROID_GAME_SIGNERS,
+  MANAGED_CHUNKS_PREFIX,
   androidAppKey,
   androidCarriedRelease,
+  androidManagedPayloadChunkIndexKey,
   androidManagedPayloadKey,
   androidAppVersionCode,
   androidNonManagedPayloadDigest,
@@ -706,16 +708,28 @@ test('a release builds and signs its Android App and Interop Package, then strea
   expect(fragment.app.url).toBe(
     `${RELEASE_BASE_URL}/${androidAppKey(current)}`
   );
-  expect(store.writes).toEqual([
+  const chunkWrites = store.writes.filter((key) =>
+    key.startsWith(`${MANAGED_CHUNKS_PREFIX}/`)
+  );
+  expect(chunkWrites.length).toBeGreaterThan(0);
+  expect(
+    store.writes.filter((key) => !key.startsWith(`${MANAGED_CHUNKS_PREFIX}/`))
+  ).toEqual([
     androidAppKey(current),
     publisher.interop.key,
     androidManagedPayloadKey(current, 'publisher'),
     play.interop.key,
     androidManagedPayloadKey(current, 'play'),
+    androidManagedPayloadChunkIndexKey(current, 'publisher'),
+    `${androidManagedPayloadChunkIndexKey(current, 'publisher')}.sig`,
+    androidManagedPayloadChunkIndexKey(current, 'play'),
+    `${androidManagedPayloadChunkIndexKey(current, 'play')}.sig`,
     `${androidManagedPayloadKey(current, 'publisher')}.sig`,
     `${androidManagedPayloadKey(current, 'play')}.sig`,
     fragmentKey(current, KEY)
   ]);
+  // Content-addressed chunks upload before any immutable versioned release object.
+  expect(store.writes.slice(0, chunkWrites.length)).toEqual(chunkWrites);
   expect(store.objects.get(androidAppKey(current))!.bytes).toEqual(
     fs.readFileSync(apk)
   );
@@ -780,9 +794,21 @@ test('the next release ships its own App, keeps the stored Interop Package, and 
   const payloads = ANDROID_SOURCES.map((source) =>
     androidManagedPayloadKey(next, source)
   );
-  expect(store.writes.slice(before)).toEqual([
+  const chunkIndexes = ANDROID_SOURCES.map((source) =>
+    androidManagedPayloadChunkIndexKey(next, source)
+  );
+  const nextWrites = store.writes.slice(before);
+  const nextChunkWrites = nextWrites.filter((key) =>
+    key.startsWith(`${MANAGED_CHUNKS_PREFIX}/`)
+  );
+  // Only the changed BazaarPlusPlus.version chunk is new; unchanged DLL chunks are reused in R2.
+  expect(nextChunkWrites).toHaveLength(1);
+  expect(
+    nextWrites.filter((key) => !key.startsWith(`${MANAGED_CHUNKS_PREFIX}/`))
+  ).toEqual([
     androidAppKey(next),
     ...payloads,
+    ...chunkIndexes.flatMap((key) => [key, `${key}.sig`]),
     ...payloads.map((key) => `${key}.sig`),
     fragmentKey(next, KEY)
   ]);

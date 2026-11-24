@@ -26,10 +26,19 @@ public final class Download {
     private Download() {}
 
     public static Source http(String url) {
+        return http(url, false);
+    }
+
+    public static Source httpIdentity(String url) {
+        return http(url, true);
+    }
+
+    private static Source http(String url, boolean identityEncoding) {
         return () -> {
             HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
             connection.setConnectTimeout(TIMEOUT_MS);
             connection.setReadTimeout(TIMEOUT_MS);
+            if (identityEncoding) connection.setRequestProperty("Accept-Encoding", "identity");
             int status = connection.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK) {
                 connection.disconnect();
