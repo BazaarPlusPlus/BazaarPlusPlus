@@ -16,6 +16,10 @@
       "description": "Liveness"
     },
     {
+      "name": "Account",
+      "description": "BPP Account binding and device tokens"
+    },
+    {
       "name": "Ingest",
       "description": "Public Bundle upload"
     },
@@ -90,7 +94,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token",
+            "description": "- `unauthorized`: Missing or invalid service or device token",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -144,7 +148,7 @@
             }
           },
           "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -267,7 +271,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token",
+            "description": "- `unauthorized`: Missing or invalid service or device token",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -321,7 +325,7 @@
             }
           },
           "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -495,7 +499,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token",
+            "description": "- `unauthorized`: Missing or invalid service or device token",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -567,7 +571,7 @@
             }
           },
           "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -774,7 +778,7 @@
             }
           },
           "429": {
-            "description": "- `rate_limited` (retryable): Upload or Ghost request rate exceeded",
+            "description": "- `rate_limited` (retryable): Request rate exceeded",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -816,7 +820,7 @@
             }
           },
           "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -904,7 +908,7 @@
             }
           },
           "429": {
-            "description": "- `rate_limited` (retryable): Upload or Ghost request rate exceeded",
+            "description": "- `rate_limited` (retryable): Request rate exceeded",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -946,7 +950,7 @@
             }
           },
           "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1073,7 +1077,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token",
+            "description": "- `unauthorized`: Missing or invalid service or device token",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1145,7 +1149,625 @@
             }
           },
           "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, signing, or rate limiter unavailable",
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/bind/start": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Start binding a game account to an email address",
+        "description": "Verifies the official game token against the read-only official account summary endpoint, enforces 1:1 email/game-account binding, and emails a 6-digit verification code.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountBindStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email sent",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountBindStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_body`: Missing, malformed, or invalid JSON request body",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `game_token_rejected`: Official game API rejected the game access token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `account_mismatch`: Official game account ID differs from the claimed game account ID\n- `email_already_bound`: Email is already bound to another game account\n- `game_account_already_bound`: Game account is already bound to an email",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "- `rate_limited` (retryable): Request rate exceeded",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "- `game_api_unavailable` (retryable): Official game API is unavailable or timed out",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/bind/confirm": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Confirm email binding and issue a device token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountBindConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account bound and device token issued",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountBindConfirmResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_body`: Missing, malformed, or invalid JSON request body",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `invalid_verification_code`: Verification code is invalid, expired, or exceeded max attempts",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `email_already_bound`: Email is already bound to another game account\n- `game_account_already_bound`: Game account is already bound to an email",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "- `rate_limited` (retryable): Request rate exceeded",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/devices": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Issue a device token for an already-bound game account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDevicesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device token issued",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDevicesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "- `invalid_body`: Missing, malformed, or invalid JSON request body",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `game_token_rejected`: Official game API rejected the game access token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "- `account_not_bound`: Game account is not bound to a BPP Account",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "- `account_mismatch`: Official game account ID differs from the claimed game account ID",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "- `rate_limited` (retryable): Request rate exceeded",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "- `game_api_unavailable` (retryable): Official game API is unavailable or timed out",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/me": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Read the bound BPP Account for a device token",
+        "description": "Requires `Authorization: Bearer bppd_<token>`. Returns `401 unauthorized` if the device token is missing, invalid, or revoked.",
+        "responses": {
+          "200": {
+            "description": "Bound BPP Account summary",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountMeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "- `unauthorized`: Missing or invalid service or device token",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "- `rate_limited` (retryable): Request rate exceeded",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "const": "60"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
+            "headers": {
+              "X-Request-Id": {
+                "description": "CF-Ray, or a server UUID",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1251,6 +1873,79 @@
   },
   "components": {
     "schemas": {
+      "AccountBindStartRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "game_token": {
+            "type": "string"
+          },
+          "game_account_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Opaque identity"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "flavor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "game_token",
+          "game_account_id",
+          "platform",
+          "flavor"
+        ],
+        "additionalProperties": false
+      },
+      "AccountBindConfirmRequest": {
+        "type": "object",
+        "properties": {
+          "pending_id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        },
+        "required": [
+          "pending_id",
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "AccountDevicesRequest": {
+        "type": "object",
+        "properties": {
+          "game_token": {
+            "type": "string"
+          },
+          "game_account_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "description": "Opaque identity"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "flavor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_token",
+          "game_account_id",
+          "platform",
+          "flavor"
+        ],
+        "additionalProperties": false
+      },
       "BotPlayersResponse": {
         "type": "object",
         "properties": {
@@ -1297,13 +1992,20 @@
                   "invalid_content_length",
                   "invalid_content_digest",
                   "invalid_query",
+                  "invalid_body",
                   "window_not_settled",
                   "unauthorized",
+                  "game_token_rejected",
+                  "invalid_verification_code",
                   "insufficient_scope",
                   "not_found",
+                  "account_not_bound",
                   "method_not_allowed",
                   "bundle_id_conflict",
                   "run_already_bundled",
+                  "account_mismatch",
+                  "email_already_bound",
+                  "game_account_already_bound",
                   "window_expired",
                   "content_length_required",
                   "bundle_too_large",
@@ -1316,6 +2018,7 @@
                   "run_without_battles",
                   "rate_limited",
                   "internal_error",
+                  "game_api_unavailable",
                   "storage_unavailable"
                 ]
               },
@@ -1881,6 +2584,89 @@
           "run_id",
           "content_type",
           "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "AccountBindStartResponse": {
+        "type": "object",
+        "properties": {
+          "pending_id": {
+            "type": "string"
+          },
+          "user_name": {
+            "type": "string"
+          },
+          "email_masked": {
+            "type": "string"
+          },
+          "expires_at_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Unix time in milliseconds"
+          }
+        },
+        "required": [
+          "pending_id",
+          "user_name",
+          "email_masked",
+          "expires_at_ms"
+        ],
+        "additionalProperties": false
+      },
+      "AccountBindConfirmResponse": {
+        "type": "object",
+        "properties": {
+          "device_token": {
+            "type": "string"
+          },
+          "user_name": {
+            "type": "string"
+          },
+          "email_masked": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_token",
+          "user_name",
+          "email_masked"
+        ],
+        "additionalProperties": false
+      },
+      "AccountDevicesResponse": {
+        "type": "object",
+        "properties": {
+          "device_token": {
+            "type": "string"
+          },
+          "user_name": {
+            "type": "string"
+          },
+          "email_masked": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_token",
+          "user_name",
+          "email_masked"
+        ],
+        "additionalProperties": false
+      },
+      "AccountMeResponse": {
+        "type": "object",
+        "properties": {
+          "user_name": {
+            "type": "string"
+          },
+          "email_masked": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_name",
+          "email_masked"
         ],
         "additionalProperties": false
       }

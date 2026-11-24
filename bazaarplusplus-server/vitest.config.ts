@@ -25,7 +25,10 @@ export default defineConfig({
           R2_PRESIGN_SECRET_ACCESS_KEY: 'test-secret-access-key',
           BOT_STATS_TOKEN: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
           BUNDLE_SYNC_TOKEN: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-          BAZAARDB_DELIVERY_TOKEN: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'
+          BAZAARDB_DELIVERY_TOKEN:
+            'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+          ACCOUNT_CODE_SECRET: 'test-account-code-secret-for-vitest-only',
+          ACCOUNT_EMAIL_FROM: 'noreply@bazaarplusplus.com'
         },
         isolatedStorage: true
       }

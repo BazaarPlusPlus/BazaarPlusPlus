@@ -14,6 +14,7 @@ import {
 } from '../limits';
 import { logEvent } from '../observability';
 import { createBundleDownloadSigner, signDownloadPage } from '../presigner';
+import { evaluateDeviceTokenShadowAuth } from './account-auth';
 
 interface GhostRow {
   uploader_account_id: string;
@@ -178,9 +179,15 @@ export async function discoverGhostBattles(
       download_expires_at_ms: downloads[index].expiresAtMs
     };
   });
+  const shadowAuth = await evaluateDeviceTokenShadowAuth(
+    request,
+    env.DB,
+    accountId
+  );
   logEvent('ghost.discovery', {
     request_id: requestId,
     account_hash: await accountHash(accountId),
+    shadow_auth: shadowAuth.status,
     row_count: rows.length,
     limited: false,
     rate_limit_ms: rateLimitMs,

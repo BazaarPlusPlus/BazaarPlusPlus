@@ -134,6 +134,17 @@ _Avoid_: bot run
 **Ghost Battle**:
 A PvP battle in which a player's uploaded build fought inside another player's run. The server serves it as a query projection of Bundle manifests; the mod imports it into local history.
 
+## Accounts
+
+**BPP Account** (BPP 账号):
+A one-to-one link between one normalized email address and one game account ID, verified against the official game account summary API and stored in the server's D1 (`bpp_accounts`, server ADR 0006). Distinct from the QQ bot's Binding.
+
+**Device Token** (设备令牌):
+A per-device bearer credential (`bppd_` followed by 32 random bytes as unpadded base64url) issued by the server for a bound BPP Account and stored as a SHA-256 hash in D1. The mod stores it in the Data Root and sends it on Bundle uploads, Ghost queries (shadow auth), and `GET /account/me`. Unbinding revokes all Device Tokens for that account.
+
+**Run Summary** (每局摘要):
+One long-lived D1 row (`run_summaries`) recording the terminal `projection.run` fields of a Run uploaded with a matching Device Token for a bound BPP Account, excluding opponent account IDs and display names. Retained across 15-day Bundle pruning and deleted immediately when the BPP Account is unbound.
+
 ## Design
 
 **Design System** (设计系统):

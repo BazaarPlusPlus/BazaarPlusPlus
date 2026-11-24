@@ -12,6 +12,8 @@ This Worker receives completed game-run Bundles and makes them discoverable by t
 
 **Ghost Battle**: A directional query projection derived from a Bundle manifest. It is not authoritative Battle data.
 
+**BPP Account**, **Device Token**, **Run Summary**: Defined in [the root glossary](../GLOSSARY.md). The storage, shadow-auth, and retention boundary is recorded in [ADR 0006](docs/adr/0006-bpp-accounts-and-run-summaries.md).
+
 ## Runtime boundaries
 
 The Worker exposes liveness, Bundle ingest, stateless Bundle collection, Ghost discovery, the BazaarDB Feed, and token-protected per-account Bot queries. A scheduled handler prunes D1 Bundle metadata older than 15 days every 15 minutes in bounded batches. The analyzer runs independently through GitHub Actions ([`analyzer.yml`](../.github/workflows/analyzer.yml)), triggered by `on.schedule` or manually through `on.workflow_dispatch`. The Worker's `scheduled` handler ([`src/scheduled.ts`](src/scheduled.ts)) performs D1 retention and dispatches `analyzer.yml` and the QQ daily report workflow at fixed UTC times ([ADR 0005](docs/adr/0005-workflow-dispatch.md)); it never runs the analyzer itself. Bundle upload retries recover matching R2-only objects.

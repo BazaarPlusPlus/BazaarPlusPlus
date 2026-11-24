@@ -138,6 +138,7 @@ export function buildOpenApiDocument(
     servers: [{ url: PRODUCTION_ORIGIN }],
     tags: [
       { name: 'Health', description: 'Liveness' },
+      { name: 'Account', description: 'BPP Account binding and device tokens' },
       { name: 'Ingest', description: 'Public Bundle upload' },
       { name: 'Discovery', description: 'Bundle and Ghost Battle discovery' },
       {

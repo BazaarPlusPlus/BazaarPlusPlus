@@ -11,12 +11,16 @@ The Worker exposes exactly these routes:
 | Method | Path | Authentication |
 |---|---|---|
 | `GET` | `/health` | None |
-| `POST` | `/bundles` | None; per-client rate limited; uploader identity is a caller assertion |
+| `POST` | `/bundles` | Optional Device Token (shadow auth; required for Run Summaries); per-client rate limited |
 | `GET` | `/bundles` | `BUNDLE_SYNC_TOKEN` |
-| `GET` | `/ghost-battles` | None; per-client rate limited |
+| `GET` | `/ghost-battles` | Optional Device Token (shadow auth); per-client rate limited |
 | `GET` | `/bazaardb/bundles` | `BAZAARDB_DELIVERY_TOKEN` |
 | `GET` | `/bot/players` | `BOT_STATS_TOKEN` |
 | `GET` | `/bot/bundles` | `BOT_STATS_TOKEN` |
+| `POST` | `/account/bind/start` | Official game access token in JSON body; per-client rate limited |
+| `POST` | `/account/bind/confirm` | Pending bind ID + 6-digit email code; per-client rate limited |
+| `POST` | `/account/devices` | Official game access token in JSON body; per-client rate limited |
+| `GET` | `/account/me` | Device Token (`Authorization: Bearer bppd_…`); per-client rate limited |
 | `GET` | `/openapi.json` | None |
 | `GET` | `/docs` | None |
 
@@ -63,13 +67,20 @@ The machine-readable owner is [`contracts/mod-api-errors.json`](../contracts/mod
 | 400 | `invalid_content_length` | `false` | Invalid header or actual length mismatch |
 | 400 | `invalid_content_digest` | `false` | Invalid or unsupported digest field |
 | 400 | `invalid_query` | `false` | Missing, repeated, unknown, or invalid query parameter |
+| 400 | `invalid_body` | `false` | Missing, malformed, or invalid JSON request body |
 | 400 | `window_not_settled` | `false` | Bundle window ends after the settle point |
-| 401 | `unauthorized` | `false` | Missing or invalid service token |
+| 401 | `unauthorized` | `false` | Missing or invalid service or device token |
+| 401 | `game_token_rejected` | `false` | Official game API rejected the game access token |
+| 401 | `invalid_verification_code` | `false` | Verification code is invalid, expired, or exceeded max attempts |
 | 403 | `insufficient_scope` | `false` | Service token does not grant access to the route |
 | 404 | `not_found` | `false` | Unknown route |
+| 404 | `account_not_bound` | `false` | Game account is not bound to a BPP Account |
 | 405 | `method_not_allowed` | `false` | Unsupported method on a known route |
 | 409 | `bundle_id_conflict` | `false` | Bundle identity has different bytes |
 | 409 | `run_already_bundled` | `false` | Run belongs to another Bundle |
+| 409 | `account_mismatch` | `false` | Official game account ID differs from the claimed game account ID |
+| 409 | `email_already_bound` | `false` | Email is already bound to another game account |
+| 409 | `game_account_already_bound` | `false` | Game account is already bound to an email |
 | 410 | `window_expired` | `false` | Bundle window is outside R2 retention |
 | 411 | `content_length_required` | `false` | Content-Length header missing |
 | 413 | `bundle_too_large` | `false` | Declared or actual size reaches 8 MiB |
@@ -80,9 +91,10 @@ The machine-readable owner is [`contracts/mod-api-errors.json`](../contracts/mod
 | 422 | `bundle_digest_mismatch` | `false` | Complete digest mismatch |
 | 422 | `segment_digest_mismatch` | `false` | Run or Screenshot digest mismatch |
 | 422 | `run_without_battles` | `false` | Bundle has no Battle projection |
-| 429 | `rate_limited` | `true` | Upload or Ghost request rate exceeded |
+| 429 | `rate_limited` | `true` | Request rate exceeded |
 | 500 | `internal_error` | `true` | Unclassified server error or invalid service configuration |
-| 503 | `storage_unavailable` | `true` | Storage, signing, or rate limiter unavailable |
+| 502 | `game_api_unavailable` | `true` | Official game API is unavailable or timed out |
+| 503 | `storage_unavailable` | `true` | Storage, email delivery, signing, or rate limiter unavailable |
 
 ## Service-token authentication
 
@@ -208,7 +220,7 @@ Response `200`:
 
 ## `POST /bundles`
 
-Public ingest for one sealed Bundle. `run.player_account_id` is not authenticated and must never be treated as an authorization fact. The upload is [rate limited per client](#common-http-behavior) before any header or body is read; the mod treats `429` as a temporary outage, keeps the Bundle queued, and retries after `Retry-After`.
+Public ingest for one sealed Bundle. `run.player_account_id` is a caller assertion and is not authenticated unless a valid `Authorization: Bearer bppd_…` Device Token matches it. Shadow authentication records `absent`, `match`, `mismatch`, or `invalid` in structured logs without rejecting uploads. Only uploads with a matching Device Token and a non-empty `run.projection.run` write a durable Run Summary row for the bound BPP Account. The upload is [rate limited per client](#common-http-behavior) before any header or body is read; the mod treats `429` as a temporary outage, keeps the Bundle queued, and retries after `Retry-After`.
 
 Required headers:
 
@@ -299,7 +311,7 @@ Public directional Ghost projection discovery:
 GET /ghost-battles?player_account_id=account-id&limit=200
 ```
 
-The route is [rate limited per client](#common-http-behavior) before business query parsing or D1 access; a denied request performs no D1 query or signing.
+The route is [rate limited per client](#common-http-behavior) before business query parsing or D1 access; a denied request performs no D1 query or signing. An optional `Authorization: Bearer bppd_…` Device Token is evaluated in shadow mode (`absent`, `match`, `mismatch`, or `invalid` in structured logs) and never changes the response.
 
 `player_account_id` is required. `limit` defaults to 200 and accepts 1–200. Both may appear only once; unknown parameters are invalid. The server lookback is exactly five days.
 
@@ -415,6 +427,17 @@ A matching retry of `POST /bundles` validates and commits an R2-only object left
 
 `GET /bot/bundles?account_id=` pages 100 candidate Bundles at a time, ordered by `(stored_at_ms, bundle_id)`. The first page defaults to the same Beijing start and server now. Repeat the returned `window.stored_from_ms`, `window.stored_before_ms` and `next_after` fields as `after_stored_at_ms` / `after_bundle_id` to keep subsequent pages fixed. Unknown and duplicate parameters are rejected; requested windows must be within the last three days plus five minutes for already queued requests. This allowance does not extend the Bot’s Run end-time window.
 
-Stored time is only a candidate filter. A yesterday report still requests uploads through now, so a late upload is included. The Bot decodes `RunFactsV6.EndedAtMs` and applies the final Beijing calendar window; the server neither decompresses Runs nor stores derived statistics. Each item includes a complete-object SHA-256 and a presigned download URL. Presigned URLs are private bearer capabilities and must not be placed in group replies or report HTML.
+Stored time is only a candidate filter. A yesterday report still requests uploads through now, so a late upload is included. The Bot decodes `RunFactsV6.EndedAtMs` and applies the final Beijing calendar window; the server never decompresses Runs and stores no bot report aggregates (only durable per-run summaries from `projection.run` for bound BPP Accounts). Each item includes a complete-object SHA-256 and a presigned download URL. Presigned URLs are private bearer capabilities and must not be placed in group replies or report HTML.
 
 `BOT_STATS_TOKEN` is a distinct optional service token. Until configured, Bot routes fail closed; the existing service routes continue to work. A configured Bot token cannot access the analyzer or BazaarDB feeds. Only the Bot applies its binding visibility policy; the token grants trusted per-account access.
+
+## BPP Account routes
+
+All four routes are rate limited per client via `ACCOUNT_RATE_LIMITER` (`namespace_id = 1004`). Emails are trimmed and lowercased before storing or comparing. Game access tokens are sent in JSON request bodies, verified against the hardcoded read-only official endpoint `https://enter.playthebazaar.com/api/Accounts/me/summary` (10s timeout), and discarded immediately without storage or logging.
+
+- `POST /account/bind/start`: body `{ email, game_token, game_account_id, platform, flavor }`. Verifies the official account `id` equals `game_account_id` (else `409 account_mismatch`), enforces 1:1 uniqueness (`409 game_account_already_bound` with `details.email_masked`, or `409 email_already_bound`), enforces an hourly per-email send cap, emails a 6-digit HMAC-SHA256 verification code (10 min TTL, max 5 attempts), and returns `{ pending_id, user_name, email_masked, expires_at_ms }`.
+- `POST /account/bind/confirm`: body `{ pending_id, code }`. Consumes the verification challenge, writes the 1:1 BPP Account binding and a SHA-256-hashed Device Token (`bppd_<base64url>`), and returns `{ device_token, user_name, email_masked }`.
+- `POST /account/devices`: body `{ game_token, game_account_id, platform, flavor }`. Verifies ownership of an already-bound game account (else `404 account_not_bound` or `409 account_mismatch`) and issues a new Device Token `{ device_token, user_name, email_masked }`.
+- `GET /account/me`: requires `Authorization: Bearer bppd_…`. Returns `{ user_name, email_masked }` or `401 unauthorized`.
+
+Browser-facing website routes (`/api/login/start`, `/api/login/confirm`, `/api/me`, `/api/logout`, `/api/unbind`) are not exposed on `mod-api-v6.bazaarplusplus.com`; they are served exclusively through the Worker's `WebApi` named entrypoint bound by `bazaarplusplus-site`.

@@ -12,6 +12,7 @@ type ConflictReason = 'bundle_id_conflict' | 'run_already_bundled';
 export interface CommitTimes {
   availableAtMs: number;
   storedAtMs: number;
+  verifiedAccountId?: string | null;
 }
 
 interface ExistingBundleRow {
@@ -24,6 +25,7 @@ type StatementName =
   | 'insert_bundle'
   | 'insert_ghost'
   | 'count_eligible'
+  | 'insert_run_summary'
   | 'insert_uploader';
 
 interface NamedStatement {
@@ -181,6 +183,43 @@ function buildStatements(
         )
         .bind(battles, descriptor.uploaderAccountId)
     },
+    ...(times.verifiedAccountId === descriptor.uploaderAccountId &&
+    descriptor.runProjection !== null
+      ? [
+          {
+            name: 'insert_run_summary' as const,
+            statement: db
+              .prepare(
+                `INSERT INTO run_summaries (
+                  run_id, game_account_id, status, game_mode, hero,
+                  started_at_ms, ended_at_ms, day, victories, losses,
+                  final_player_rank, final_player_rating, final_player_rating_delta, stored_at_ms
+                )
+                SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14
+                WHERE EXISTS (
+                  SELECT 1 FROM bpp_accounts WHERE game_account_id = ?2
+                )
+                ON CONFLICT(run_id) DO NOTHING`
+              )
+              .bind(
+                descriptor.runId,
+                descriptor.uploaderAccountId,
+                descriptor.runProjection.status,
+                descriptor.runProjection.game_mode,
+                descriptor.runProjection.hero,
+                descriptor.runProjection.started_at_ms,
+                descriptor.runProjection.ended_at_ms,
+                descriptor.runProjection.day,
+                descriptor.runProjection.victories,
+                descriptor.runProjection.losses,
+                descriptor.runProjection.final_player_rank,
+                descriptor.runProjection.final_player_rating,
+                descriptor.runProjection.final_player_rating_delta,
+                times.storedAtMs
+              )
+          }
+        ]
+      : []),
     {
       name: 'insert_uploader',
       statement: db

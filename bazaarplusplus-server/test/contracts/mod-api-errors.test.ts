@@ -149,6 +149,134 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
     await record(uploadRequest(conflicting.body, conflicting.headers));
   }
 
+  // Account route error codes exercised through real HTTP requests.
+  const jsonPost = (path: string, body: unknown) =>
+    request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: typeof body === 'string' ? body : JSON.stringify(body)
+    });
+  const accountEnv: Env = {
+    ...env,
+    EMAIL: {
+      send: async () => ({ messageId: 'msg-error-contract' })
+    }
+  };
+  await record(jsonPost('/account/bind/start', '{not-json'), accountEnv);
+  await record(
+    jsonPost('/account/bind/confirm', {
+      pending_id: 'missing-pending-id',
+      code: '123456'
+    }),
+    accountEnv
+  );
+
+  const fetchSpy = vi.spyOn(globalThis, 'fetch');
+  try {
+    fetchSpy.mockResolvedValueOnce(new Response('denied', { status: 401 }));
+    await record(
+      jsonPost('/account/devices', {
+        game_token: 'tok-rejected',
+        game_account_id: 'acct-err-1',
+        platform: 'Steam',
+        flavor: 'Paid'
+      }),
+      accountEnv
+    );
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response('bad gateway', { status: 502 })
+    );
+    await record(
+      jsonPost('/account/devices', {
+        game_token: 'tok-down',
+        game_account_id: 'acct-err-1',
+        platform: 'Steam',
+        flavor: 'Paid'
+      }),
+      accountEnv
+    );
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'acct-other', userName: 'Other' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+    await record(
+      jsonPost('/account/devices', {
+        game_token: 'tok-mismatch',
+        game_account_id: 'acct-err-1',
+        platform: 'Steam',
+        flavor: 'Paid'
+      }),
+      accountEnv
+    );
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 'acct-unbound', userName: 'Unbound' }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    );
+    await record(
+      jsonPost('/account/devices', {
+        game_token: 'tok-unbound',
+        game_account_id: 'acct-unbound',
+        platform: 'Steam',
+        flavor: 'Paid'
+      }),
+      accountEnv
+    );
+
+    await env.DB.prepare(
+      `INSERT INTO bpp_accounts (game_account_id, email, user_name, created_at_ms, updated_at_ms)
+       VALUES ('acct-bound', 'taken@example.com', 'BoundUser', 1000, 1000)`
+    ).run();
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 'acct-bound', userName: 'BoundUser' }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    );
+    await record(
+      jsonPost('/account/bind/start', {
+        email: 'fresh@example.com',
+        game_token: 'tok-bound-game',
+        game_account_id: 'acct-bound',
+        platform: 'Steam',
+        flavor: 'Paid'
+      }),
+      accountEnv
+    );
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'acct-new', userName: 'NewUser' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    );
+    await record(
+      jsonPost('/account/bind/start', {
+        email: 'taken@example.com',
+        game_token: 'tok-taken-email',
+        game_account_id: 'acct-new',
+        platform: 'Steam',
+        flavor: 'Paid'
+      }),
+      accountEnv
+    );
+  } finally {
+    fetchSpy.mockRestore();
+  }
+
   expect(
     [...observed.values()].sort((a, b) => a.code.localeCompare(b.code))
   ).toEqual(

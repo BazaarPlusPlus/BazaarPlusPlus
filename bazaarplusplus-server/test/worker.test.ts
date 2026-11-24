@@ -75,6 +75,10 @@ describe('the public route table', () => {
     ['/bundles', 'GET, POST'],
     ['/ghost-battles', 'GET'],
     ['/bazaardb/bundles', 'GET'],
+    ['/account/bind/start', 'POST'],
+    ['/account/bind/confirm', 'POST'],
+    ['/account/devices', 'POST'],
+    ['/account/me', 'GET'],
     ['/openapi.json', 'GET'],
     ['/docs', 'GET']
   ])(

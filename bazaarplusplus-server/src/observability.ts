@@ -3,6 +3,12 @@ const FORBIDDEN_FIELDS = new Set([
   'player_account_id',
   'uploader_account_id',
   'opponent_account_id',
+  'game_account_id',
+  'email',
+  'email_address',
+  'otp',
+  'verification_code',
+  'passcode',
   'authorization',
   'token',
   'secret',
@@ -16,7 +22,13 @@ const FORBIDDEN_FIELDS = new Set([
   'redacted_fields'
 ]);
 
-const FORBIDDEN_SUFFIXES = ['_account_id', '_token', '_secret', '_url'];
+const FORBIDDEN_SUFFIXES = [
+  '_account_id',
+  '_email',
+  '_token',
+  '_secret',
+  '_url'
+];
 
 function sanitizeFields(
   fields: Record<string, unknown>

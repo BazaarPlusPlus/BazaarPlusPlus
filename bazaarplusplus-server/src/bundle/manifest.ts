@@ -1,6 +1,20 @@
 export const BUNDLE_ID = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 export const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
+export interface ValidatedRunProjection {
+  status: string | null;
+  game_mode: string | null;
+  hero: string | null;
+  started_at_ms: number | null;
+  ended_at_ms: number | null;
+  day: number | null;
+  victories: number | null;
+  losses: number | null;
+  final_player_rank: string | null;
+  final_player_rating: number | null;
+  final_player_rating_delta: number | null;
+}
+
 export interface ValidatedBattleProjection {
   battle_id: string;
   recorded_at_ms: number;
@@ -42,6 +56,7 @@ export interface ValidatedBundleDescriptor {
     length: number;
     sha256: string;
   };
+  runProjection: ValidatedRunProjection | null;
   battles: ValidatedBattleProjection[];
 }
 

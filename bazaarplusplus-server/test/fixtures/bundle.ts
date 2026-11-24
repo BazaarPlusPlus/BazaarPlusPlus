@@ -12,6 +12,7 @@ export interface BundleFixtureOptions {
   createdAtMs?: number;
   runBytes?: Uint8Array;
   screenshotBytes?: Uint8Array | null;
+  runProjection?: Record<string, unknown>;
   battles?: unknown[];
 }
 
@@ -117,7 +118,7 @@ export async function makeBundleFixture(
       run_id: runId,
       player_account_id: uploader,
       run_format_version: 6,
-      projection: { run: {}, battles },
+      projection: { run: options.runProjection ?? {}, battles },
       payload: {
         offset: 0,
         length: run.byteLength,
