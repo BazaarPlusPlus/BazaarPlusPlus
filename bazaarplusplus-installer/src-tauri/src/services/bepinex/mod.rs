@@ -6,8 +6,8 @@ mod trampoline;
 mod zip_archive;
 
 pub(crate) use managed_payload::installed_version_is_current;
-#[cfg(target_os = "windows")]
-pub(crate) use payload::windows_native_payload_present;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+pub(crate) use payload::native_payload_present;
 pub(crate) use payload::{ensure_valid_game_path, remove_dir_with_retry};
 pub(crate) use trampoline::{
     install_trampoline, is_current_trampoline, obsolete_macos_artifacts_present,
@@ -173,6 +173,8 @@ pub fn install_bepinex(resource_dir: &Path, game_path: &Path) -> anyhow::Result<
         }
     };
 
+    #[cfg(target_os = "macos")]
+    crate::services::tempo::ensure_launch_entry(game_path)?;
     let install_backup = payload::prepare_install_target(game_path, &incoming_relative_paths)?;
 
     let install_result = (|| -> anyhow::Result<()> {
@@ -221,8 +223,13 @@ pub fn uninstall_bpp(
     payload::ensure_valid_game_path(game_path)?;
 
     #[cfg(target_os = "macos")]
-    if !_steam_path.trim().is_empty() {
-        crate::services::steam::prepare_steam_for_config_update(Path::new(&_steam_path))?;
+    let steam = crate::services::tempo::steam_config(
+        game_path,
+        (!_steam_path.trim().is_empty()).then(|| Path::new(&_steam_path)),
+    );
+    #[cfg(target_os = "macos")]
+    if let Some(steam) = steam {
+        crate::services::steam::prepare_steam_for_config_update(steam)?;
     }
 
     let keep_shared_bootstrap =
@@ -247,13 +254,15 @@ pub fn uninstall_bpp(
         if !keep_shared_bootstrap {
             #[cfg(target_os = "macos")]
             {
-                if !_steam_path.trim().is_empty() {
-                    crate::services::vdf::clear_launch_options_for_steam(Path::new(&_steam_path))?;
+                if let Some(steam) = steam {
+                    crate::services::vdf::clear_launch_options_for_steam(steam)?;
                 }
             }
         }
 
         trampoline::remove_obsolete_macos_artifacts(game_path)?;
+        #[cfg(target_os = "macos")]
+        crate::services::tempo::clean_launch_entry(game_path)?;
         Ok(())
     })?;
 
@@ -503,6 +512,29 @@ mod tests {
         }
         zip.finish().unwrap();
         resources
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn failed_tempo_recorder_install_removes_new_bootstrap_and_preserves_game_files() {
+        let root = tempfile::tempdir().unwrap();
+        let game = root.path().join("buildarm64");
+        let contents = game.join("TheBazaar_ARM64.app/Contents");
+        std::fs::create_dir_all(&contents).unwrap();
+        std::fs::write(contents.join("PlugIns"), b"existing file").unwrap();
+        let resources = bundled_resources("6.0.0", &[], &[
+            ("BepInEx/core/BepInEx.Preloader.dll", b"preloader"),
+            ("libdoorstop.dylib", b"doorstop"),
+            ("TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle/Contents/Info.plist", b"recorder"),
+        ]);
+
+        assert!(install_bepinex(resources.path(), &game).is_err());
+        assert!(!game.join("libdoorstop.dylib").exists());
+        assert!(!game.join("BepInEx").exists());
+        assert_eq!(
+            std::fs::read(contents.join("PlugIns")).unwrap(),
+            b"existing file"
+        );
     }
 
     #[test]

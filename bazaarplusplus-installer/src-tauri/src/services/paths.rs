@@ -1,4 +1,4 @@
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 use anyhow::Context as _;
 use std::path::{Path, PathBuf};
 
@@ -11,7 +11,7 @@ const OVERLAY_CACHE_DIRECTORY: &str = "stream-overlay-cache";
 const OVERLAY_SETTINGS_FILE_NAME: &str = "stream-overlay-crop.json";
 
 pub fn bpp_data_dir(game_path: &Path) -> PathBuf {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     if let Some(library) = super::tempo::library(game_path) {
         let stable = library.join(BAZAAR_DATA_DIRECTORY);
         let old = game_path.join(BAZAAR_DATA_DIRECTORY);
@@ -41,7 +41,7 @@ fn existing_directory(path: &Path) -> anyhow::Result<bool> {
 pub(crate) fn checked_data_root(game: &Path) -> anyhow::Result<PathBuf> {
     let original = game.join(BAZAAR_DATA_DIRECTORY);
     let original_exists = existing_directory(&original)?;
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     if let Some(library) = super::tempo::library(game) {
         let stable = library.join(BAZAAR_DATA_DIRECTORY);
         let stable_exists = existing_directory(&stable)?;
@@ -57,7 +57,7 @@ pub(crate) fn checked_data_root(game: &Path) -> anyhow::Result<PathBuf> {
 }
 
 pub(crate) fn tempo_migration_pending(game: &Path) -> bool {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     if let Some(library) = super::tempo::library(game) {
         return game
             .join(BAZAAR_DATA_DIRECTORY)
@@ -70,7 +70,7 @@ pub(crate) fn tempo_migration_pending(game: &Path) -> bool {
 }
 
 pub(crate) fn migrate_tempo_data(game: &Path) -> anyhow::Result<()> {
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     if let Some(library) = super::tempo::library(game) {
         let source = checked_data_root(game)?;
         let stable = library.join(BAZAAR_DATA_DIRECTORY);

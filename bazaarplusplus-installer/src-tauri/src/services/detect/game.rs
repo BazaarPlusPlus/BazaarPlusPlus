@@ -21,11 +21,10 @@ pub(crate) fn is_bepinex_installed(game_path: &Path) -> bool {
 
 pub(crate) fn read_installed_bpp_version(game_path: &Path) -> Option<String> {
     // Tempo restores BepInEx, including its version marker, after a redownload.
-    // The native recorder under TheBazaar_Data must also be present for this
-    // version of the Payload to count as installed.
-    #[cfg(target_os = "windows")]
+    // The native recorder in the game files must also be present.
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     if crate::services::tempo::library(game_path).is_some()
-        && !crate::services::bepinex::windows_native_payload_present(game_path)
+        && !crate::services::bepinex::native_payload_present(game_path)
     {
         return None;
     }
@@ -37,7 +36,7 @@ pub(crate) fn read_installed_bpp_version(game_path: &Path) -> Option<String> {
 
 pub(crate) fn is_valid_game_path(base: &Path) -> bool {
     #[cfg(target_os = "macos")]
-    return base.join("TheBazaar.app").exists();
+    return crate::services::tempo::game_bundle(base).is_dir();
 
     #[cfg(target_os = "windows")]
     return base.join("TheBazaar.exe").exists();

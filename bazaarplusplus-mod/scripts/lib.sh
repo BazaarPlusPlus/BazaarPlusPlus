@@ -74,7 +74,8 @@ desktop_data_root() {
     old="$build/BazaarPlusPlusV6"
     parent="$(dirname "$build")"
     layout="$(basename "$parent")/$(basename "$build")"
-    if [[ "$(host_platform)" == windows && "$(printf '%s' "$layout" | tr '[:upper:]' '[:lower:]')" == game/buildx64 ]]; then
+    if [[ "$(host_platform)" == windows && "$(printf '%s' "$layout" | tr '[:upper:]' '[:lower:]')" == game/buildx64 ]] ||
+       [[ "$(host_platform)" == macos && "$(basename "$build")" == buildarm64 && -d "$build/TheBazaar_ARM64.app" ]]; then
         stable="$parent/BazaarPlusPlusV6"
         if [[ -d "$stable" || ( ! -e "$stable" && ! -d "$old" ) ]]; then
             printf '%s' "$stable"

@@ -178,19 +178,45 @@ pub(crate) fn ensure_game_stopped_with(
 
 #[cfg(any(target_os = "macos", test))]
 fn contains_game_process(processes: &str, game_path: &Path) -> bool {
+    #[cfg(target_os = "macos")]
+    let bundle = crate::services::tempo::game_bundle(game_path);
+    #[cfg(not(target_os = "macos"))]
     let bundle = game_path.join("TheBazaar.app");
+    #[cfg(target_os = "macos")]
+    let launch_bundle = crate::services::tempo::launch_entry_ready(game_path)
+        .then(|| game_path.join("TheBazaar.app/Contents/MacOS"));
+    #[cfg(not(target_os = "macos"))]
+    let launch_bundle: Option<std::path::PathBuf> = None;
+    let binaries = bundle.join("Contents/MacOS");
     processes.lines().any(|line| {
-        let process = Path::new(line.trim());
-        process.starts_with(&bundle)
-            && process
-                .parent()
-                .is_some_and(|parent| parent.ends_with("Contents/MacOS"))
+        Path::new(line.trim())
+            .parent()
+            .is_some_and(|parent| parent == binaries || Some(parent) == launch_bundle.as_deref())
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn matches_only_the_selected_tempo_game_process() {
+        let root = tempfile::tempdir().unwrap();
+        let tempo = root.path().join("custom/buildarm64");
+        let bundle = tempo.join("TheBazaar_ARM64.app");
+        std::fs::create_dir_all(&bundle).unwrap();
+        let processes = bundle.join("Contents/MacOS/The Bazaar.orig");
+        assert!(contains_game_process(processes.to_str().unwrap(), &tempo));
+        let alias = tempo.join("TheBazaar.app/Contents/MacOS/The Bazaar.orig");
+        assert!(!contains_game_process(alias.to_str().unwrap(), &tempo));
+        crate::services::tempo::ensure_launch_entry(&tempo).unwrap();
+        assert!(contains_game_process(alias.to_str().unwrap(), &tempo));
+        assert!(!contains_game_process(
+            processes.to_str().unwrap(),
+            &root.path().join("The Bazaar")
+        ));
+    }
 
     #[test]
     fn macos_matching_finds_native_and_trampoline_processes_of_this_install_only() {

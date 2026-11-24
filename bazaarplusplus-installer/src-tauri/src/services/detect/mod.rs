@@ -76,14 +76,10 @@ pub fn detect_for_install(
         .as_ref()
         .map(|path| crate::services::bepinex::obsolete_macos_artifacts_present(path))
         .unwrap_or(false);
-    let steam_launch_options = if cfg!(target_os = "macos") {
-        steam_path
-            .as_deref()
-            .map(crate::services::vdf::inspect_launch_options_for_steam)
-            .unwrap_or(SteamLaunchOptionsState::Unavailable)
-    } else {
-        SteamLaunchOptionsState::Empty
-    };
+    #[cfg(target_os = "macos")]
+    let steam_launch_options = launch_options(game_path.as_deref(), steam_path.as_deref());
+    #[cfg(not(target_os = "macos"))]
+    let steam_launch_options = SteamLaunchOptionsState::Empty;
 
     crate::services::debug_log!(
         "[detect_for_install] resolved steam_path={:?} game_path={:?} bepinex_installed={} bundled_bpp_version={:?}",
@@ -107,4 +103,18 @@ pub fn detect_for_install(
         trampoline_current,
         obsolete_macos_artifacts_present,
     })
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn launch_options(
+    game_path: Option<&std::path::Path>,
+    steam_path: Option<&std::path::Path>,
+) -> SteamLaunchOptionsState {
+    if game_path.and_then(super::tempo::library).is_some() {
+        SteamLaunchOptionsState::Empty
+    } else {
+        steam_path
+            .map(crate::services::vdf::inspect_launch_options_for_steam)
+            .unwrap_or(SteamLaunchOptionsState::Unavailable)
+    }
 }

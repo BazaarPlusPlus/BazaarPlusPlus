@@ -19,6 +19,9 @@ struct PayloadEntry {
     ownership: String,
     producer: String,
     platforms: Option<Vec<String>>,
+    #[cfg(target_os = "macos")]
+    #[serde(rename = "requiredEntries", default)]
+    required_entries: Vec<String>,
 }
 
 fn inventory() -> &'static PayloadInventory {
@@ -76,8 +79,23 @@ fn owned_paths(ownership: &str) -> impl Iterator<Item = &'static str> + '_ {
         .map(|entry| entry.path.as_str())
 }
 
-#[cfg(target_os = "windows")]
-pub(crate) fn windows_native_payload_present(game: &Path) -> bool {
+/// Archive and inventory paths use the Steam bundle name on macOS.
+pub(super) fn installed_path(game: &Path, relative: &Path) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    if let Ok(rest) = relative.strip_prefix("TheBazaar.app") {
+        let bundle = crate::services::tempo::game_bundle(game);
+        if bundle.file_name() != Some("TheBazaar.app".as_ref()) {
+            return match rest.strip_prefix("Contents/Plugins") {
+                Ok(plugin) => bundle.join("Contents/PlugIns").join(plugin),
+                Err(_) => bundle.join(rest),
+            };
+        }
+    }
+    game.join(relative)
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+pub(crate) fn native_payload_present(game: &Path) -> bool {
     inventory()
         .files
         .iter()
@@ -86,9 +104,19 @@ pub(crate) fn windows_native_payload_present(game: &Path) -> bool {
                 && entry
                     .platforms
                     .as_ref()
-                    .is_none_or(|platforms| platforms.iter().any(|p| p == "windows"))
+                    .is_none_or(|platforms| platforms.iter().any(|p| p == std::env::consts::OS))
         })
-        .all(|entry| game.join(&entry.path).is_file())
+        .all(|entry| {
+            let path = installed_path(game, Path::new(&entry.path));
+            #[cfg(target_os = "macos")]
+            if !entry.required_entries.is_empty() {
+                return entry
+                    .required_entries
+                    .iter()
+                    .all(|file| path.join(file).is_file());
+            }
+            path.is_file()
+        })
 }
 
 pub(super) fn installed_managed_manifest_path() -> &'static str {
@@ -112,32 +140,61 @@ pub(super) struct PreservedFile {
 
 pub(super) struct InstallTargetBackup {
     root: tempfile::TempDir,
+    new_bootstrap: Vec<PathBuf>,
 }
 
 impl InstallTargetBackup {
-    fn capture(game_path: &Path) -> anyhow::Result<Self> {
+    fn capture(
+        game_path: &Path,
+        incoming: &std::collections::HashSet<String>,
+    ) -> anyhow::Result<Self> {
         let root = tempfile::Builder::new()
             .prefix("bpp-install-backup-")
             .tempdir()
             .context("Cannot create install rollback snapshot")?;
 
         for relative_path in payload_root_relative_paths() {
-            let source = game_path.join(relative_path);
+            let source = installed_path(game_path, Path::new(relative_path));
             if source.exists() {
                 copy_path(&source, &root.path().join(relative_path))?;
             }
         }
 
-        Ok(Self { root })
+        let mut new_bootstrap = Vec::new();
+        for relative in owned_paths("bootstrap") {
+            if incoming
+                .iter()
+                .any(|file| Path::new(file).starts_with(relative))
+            {
+                let path = installed_path(game_path, Path::new(relative));
+                match std::fs::symlink_metadata(&path) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => new_bootstrap.push(path),
+                    Err(e) => {
+                        return Err(e).with_context(|| format!("Cannot inspect {}", path.display()))
+                    }
+                    Ok(_) => {}
+                }
+            }
+        }
+        Ok(Self {
+            root,
+            new_bootstrap,
+        })
     }
 
     pub(super) fn restore(self, game_path: &Path) -> anyhow::Result<()> {
+        for path in &self.new_bootstrap {
+            remove_path_if_exists(path)?;
+        }
         uninstall_payload(game_path)?;
 
         for relative_path in payload_root_relative_paths() {
             let backup_path = self.root.path().join(relative_path);
             if backup_path.exists() {
-                copy_path(&backup_path, &game_path.join(relative_path))?;
+                copy_path(
+                    &backup_path,
+                    &installed_path(game_path, Path::new(relative_path)),
+                )?;
             }
         }
 
@@ -316,12 +373,12 @@ pub(super) fn uninstall_payload_preserving_shared_dependencies(
 
 fn remove_bpp_files(game_path: &Path, remove_bundled_dependencies: bool) -> anyhow::Result<()> {
     for relative_path in owned_paths("private") {
-        remove_path_if_exists(&game_path.join(relative_path))?;
+        remove_path_if_exists(&installed_path(game_path, Path::new(relative_path)))?;
     }
 
     if remove_bundled_dependencies {
         for relative_path in owned_paths("dependency") {
-            remove_path_if_exists(&game_path.join(relative_path))?;
+            remove_path_if_exists(&installed_path(game_path, Path::new(relative_path)))?;
         }
     }
 
@@ -347,7 +404,7 @@ fn remove_empty_dir_if_exists(path: &Path) -> anyhow::Result<()> {
 
 pub(super) fn remove_bootstrap_files(game_path: &Path) -> anyhow::Result<()> {
     for relative_path in owned_paths("bootstrap") {
-        remove_path_if_exists(&game_path.join(relative_path))?;
+        remove_path_if_exists(&installed_path(game_path, Path::new(relative_path)))?;
     }
 
     remove_empty_dir_if_exists(&game_path.join("BepInEx/config"))?;
@@ -414,7 +471,7 @@ pub(super) fn prepare_install_target(
     incoming_relative_paths: &std::collections::HashSet<String>,
 ) -> anyhow::Result<InstallTargetBackup> {
     ensure_valid_game_path(game_path)?;
-    let backup = InstallTargetBackup::capture(game_path)?;
+    let backup = InstallTargetBackup::capture(game_path, incoming_relative_paths)?;
     if let Err(cleanup_err) = remove_stale_bpp_files(game_path, incoming_relative_paths) {
         return match backup.restore(game_path) {
             Ok(()) => Err(cleanup_err),
@@ -435,7 +492,7 @@ fn remove_stale_bpp_files(
         if incoming_relative_paths.contains(relative_path) {
             continue;
         }
-        remove_path_if_exists(&game_path.join(relative_path))?;
+        remove_path_if_exists(&installed_path(game_path, Path::new(relative_path)))?;
     }
 
     Ok(())
@@ -578,7 +635,10 @@ mod tests {
         std::fs::create_dir_all(tmp.path().join("BepInEx/plugins")).unwrap();
         std::fs::write(tmp.path().join("BepInEx/plugins/old.dll"), b"old").unwrap();
 
-        let backup = prepare_install_target(tmp.path(), &std::collections::HashSet::new()).unwrap();
+        let preloader = "BepInEx/core/BepInEx.Preloader.dll";
+        let backup = prepare_install_target(tmp.path(), &[preloader.to_owned()].into()).unwrap();
+        std::fs::create_dir(tmp.path().join("BepInEx/core")).unwrap();
+        std::fs::write(tmp.path().join(preloader), b"partial install").unwrap();
         std::fs::create_dir_all(tmp.path().join("BepInEx/plugins")).unwrap();
         std::fs::write(tmp.path().join("BepInEx/plugins/new.dll"), b"new").unwrap();
         #[cfg(target_os = "macos")]
@@ -588,6 +648,7 @@ mod tests {
 
         backup.restore(tmp.path()).unwrap();
 
+        assert!(!tmp.path().join("BepInEx/core").exists());
         assert!(tmp.path().join("BepInEx/plugins/old.dll").exists());
         assert!(tmp.path().join("BepInEx/plugins/new.dll").exists());
         #[cfg(target_os = "macos")]

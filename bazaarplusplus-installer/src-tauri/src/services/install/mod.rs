@@ -179,7 +179,7 @@ pub async fn run_uninstall(
 
 pub fn launch_selected_game(game: &Path) -> anyhow::Result<()> {
     crate::services::bepinex::ensure_valid_game_path(game)?;
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     if crate::services::tempo::library(game).is_some() {
         return crate::services::tempo::open_launcher();
     }

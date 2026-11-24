@@ -43,11 +43,7 @@ export function InstallConfirmModal({
     >
       <ConfirmNote tone="neutral" icon={<BookOpen size={16} />}>
         <p className="text-text-1">{t('tutorialKicker')}</p>
-        <p>
-          {t(
-            isWindowsPlatform() ? 'installModalBodyWindows' : 'installModalBody'
-          )}
-        </p>
+        <p>{t('installModalBody')}</p>
         <a
           href="https://bazaarplusplus.com/tutorial"
           target="_blank"

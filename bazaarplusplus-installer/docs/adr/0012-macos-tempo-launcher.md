@@ -1,0 +1,5 @@
+# macOS Tempo Launcher
+
+Tempo Launcher opens the selected Unity application bundle with the arguments for the player’s session. On Apple Silicon, use the in-bundle trampoline from [ADR-0002](0002-macos-launch-trampoline.md) and hand launch back to Tempo for its Play action. Tempo Launcher 1.0.19 looks for `TheBazaar.app` and otherwise guesses from the first child directory. Once BepInEx is present that guess selects BepInEx. Create a relative `TheBazaar.app` link to the original `TheBazaar_ARM64.app`. Repair verifies the link. Uninstall removes it when the official bundle is the only remaining directory. Steam launch options belong to the Steam installation.
+
+The selected build directory owns BepInEx, and its actual bundle owns the native recorder. Resolve the archive’s bundle-relative entries at installation time so both distributions consume the macOS Payload. Keep the Data Root in the library beside the Tempo build, as on Windows. A launcher redownload can restore BepInEx while replacing the game bundle, so readiness includes the native recorder and the signed trampoline.

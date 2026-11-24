@@ -44,7 +44,7 @@ sample_desktop() {
                 if (!$process.ExecutablePath -or $process.ExecutablePath -eq $env:BPP_SAMPLE_EXE) { exit 1 }
             }
         ' || die "Cannot confirm the selected game is closed."
-    elif pgrep -f 'TheBazaar.app/Contents/MacOS' >/dev/null 2>&1; then
+    elif pgrep -f 'TheBazaar(_ARM64)?[.]app/Contents/MacOS' >/dev/null 2>&1; then
         die "The game is running; quit it first, so the mod is not writing the same database."
     fi
     root="$(desktop_data_root "$game")"

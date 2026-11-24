@@ -28,7 +28,7 @@ What `just --list mod` cannot tell you:
 
 Runtime console output goes to `<GameDir>/BepInEx/LogOutput.log`, the sibling of the `BepInEx/plugins/` folder the build copies into. Mod log lines are structured events shaped `[BPP][<Scope>] event=<id> field=value ...`. `Debug` events emit only from Debug builds; `Info`, `Warning`, and `Error` always emit.
 
-Launch and relaunch the selected desktop copy through its distribution launcher so its runtime and authentication state are present. For Steam use `steam://run/1617400`. For a Windows Tempo installation, click Play in Tempo Launcher.
+Launch and relaunch the selected desktop copy through its distribution launcher so its runtime and authentication state are present. For Steam use `steam://run/1617400`. For a Tempo installation, click Play in Tempo Launcher.
 
 Device and game-run evidence (`artifacts/android/<run>/` screenshots, logcat, databases) stays local: `artifacts/` is gitignored, so never `git add -f` it. Screenshots show the signed-in account. Summarize the evidence in the PR body; attach files to the PR or issue only when a reviewer needs them.
 

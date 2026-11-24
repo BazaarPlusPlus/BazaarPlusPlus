@@ -15,6 +15,9 @@ pub mod startup;
 pub mod steam;
 #[cfg(target_os = "windows")]
 pub(crate) mod tempo;
+#[cfg(target_os = "macos")]
+#[path = "tempo_macos.rs"]
+pub(crate) mod tempo;
 pub mod vdf;
 
 macro_rules! debug_log {
