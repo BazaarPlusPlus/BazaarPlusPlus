@@ -79,6 +79,7 @@ public sealed class BundleBuildInputV6
     public string? Platform { get; set; }
     public string RunId { get; set; } = string.Empty;
     public string PlayerAccountId { get; set; } = string.Empty;
+    public RunFactsV6? RunFacts { get; set; }
     public IReadOnlyList<BundleBattleProjectionV6> Battles { get; set; } =
         Array.Empty<BundleBattleProjectionV6>();
     public ReadOnlyMemory<byte> RunPayload { get; set; }

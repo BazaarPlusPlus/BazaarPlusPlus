@@ -80,7 +80,7 @@ public static class BundleV6Codec
             };
         }
 
-        var manifestBytes = BundleManifestV6Writer.Write(manifest);
+        var manifestBytes = BundleManifestV6Writer.Write(manifest, input.RunFacts);
         if (manifestBytes.Length == 0 || manifestBytes.Length > BundleLimitsV6.MaxManifestBytes)
             Invalid("manifest_too_large", "Manifest length is outside the accepted range.");
         ValidateProjectionSize(manifest.Run.Projection);

@@ -11,6 +11,7 @@ import {
   type CombatantProjection,
   type ValidatedBattleProjection,
   type ValidatedBundleDescriptor,
+  type ValidatedRunProjection,
   validBundleId,
   validIdentifier
 } from './manifest';
@@ -153,6 +154,63 @@ function nullableString(value: unknown, field: string): string | null {
 function nullableSafeInteger(value: unknown, field: string): number | null {
   if (value === null) return null;
   return safeInteger(value, field);
+}
+
+function nullableSignedSafeInteger(
+  value: unknown,
+  field: string
+): number | null {
+  if (value === null) return null;
+  if (!Number.isSafeInteger(value)) {
+    throw invalidBundle(
+      'manifest_schema_invalid',
+      `${field} must be a safe integer or null`
+    );
+  }
+  return value as number;
+}
+
+const RUN_PROJECTION_KEYS = [
+  'status',
+  'game_mode',
+  'hero',
+  'started_at_ms',
+  'ended_at_ms',
+  'day',
+  'victories',
+  'losses',
+  'final_player_rank',
+  'final_player_rating',
+  'final_player_rating_delta'
+] as const;
+
+function parseRunProjection(value: unknown): ValidatedRunProjection | null {
+  const source = object(value);
+  const hasAny = RUN_PROJECTION_KEYS.some((key) => Object.hasOwn(source, key));
+  if (!hasAny) return null;
+
+  const optString = (key: string): string | null =>
+    Object.hasOwn(source, key)
+      ? nullableString(source[key], `run.projection.run.${key}`)
+      : null;
+  const optSignedInt = (key: string): number | null =>
+    Object.hasOwn(source, key)
+      ? nullableSignedSafeInteger(source[key], `run.projection.run.${key}`)
+      : null;
+
+  return {
+    status: optString('status'),
+    game_mode: optString('game_mode'),
+    hero: optString('hero'),
+    started_at_ms: optSignedInt('started_at_ms'),
+    ended_at_ms: optSignedInt('ended_at_ms'),
+    day: optSignedInt('day'),
+    victories: optSignedInt('victories'),
+    losses: optSignedInt('losses'),
+    final_player_rank: optString('final_player_rank'),
+    final_player_rating: optSignedInt('final_player_rating'),
+    final_player_rating_delta: optSignedInt('final_player_rating_delta')
+  };
 }
 
 function combatant(value: unknown, field: string): CombatantProjection {
@@ -311,7 +369,7 @@ function validateManifest(
   }
 
   const projection = object(run.projection);
-  object(projection.run);
+  const runProjection = parseRunProjection(projection.run);
   if (!Array.isArray(projection.battles)) {
     throw invalidBundle(
       'manifest_schema_invalid',
@@ -432,6 +490,7 @@ function validateManifest(
     objectKey: `bundles/${day}/${root.bundle_id}.bundle`,
     run: { offset: runOffset, length: runLength, sha256: payload.sha256 },
     screenshot,
+    runProjection,
     battles
   };
 }

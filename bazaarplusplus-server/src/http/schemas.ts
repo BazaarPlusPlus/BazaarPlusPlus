@@ -254,3 +254,67 @@ export const BotBundlesQuery = z.strictObject({
   after_stored_at_ms: queryInteger.optional(),
   after_bundle_id: bundleId.optional()
 });
+
+export const AccountBindStartRequest = z
+  .strictObject({
+    email: z.string(),
+    game_token: z.string(),
+    game_account_id: identifier,
+    platform: z.string(),
+    flavor: z.string()
+  })
+  .meta({ id: 'AccountBindStartRequest' });
+
+export const AccountBindStartResponse = z
+  .strictObject({
+    pending_id: z.string(),
+    user_name: z.string(),
+    email_masked: z.string(),
+    expires_at_ms: unixMs
+  })
+  .meta({ id: 'AccountBindStartResponse' });
+export type AccountBindStartResponse = z.infer<typeof AccountBindStartResponse>;
+
+export const AccountBindConfirmRequest = z
+  .strictObject({
+    pending_id: z.string(),
+    code: z.string().regex(/^[0-9]{6}$/)
+  })
+  .meta({ id: 'AccountBindConfirmRequest' });
+
+export const AccountBindConfirmResponse = z
+  .strictObject({
+    device_token: z.string(),
+    user_name: z.string(),
+    email_masked: z.string()
+  })
+  .meta({ id: 'AccountBindConfirmResponse' });
+export type AccountBindConfirmResponse = z.infer<
+  typeof AccountBindConfirmResponse
+>;
+
+export const AccountDevicesRequest = z
+  .strictObject({
+    game_token: z.string(),
+    game_account_id: identifier,
+    platform: z.string(),
+    flavor: z.string()
+  })
+  .meta({ id: 'AccountDevicesRequest' });
+
+export const AccountDevicesResponse = z
+  .strictObject({
+    device_token: z.string(),
+    user_name: z.string(),
+    email_masked: z.string()
+  })
+  .meta({ id: 'AccountDevicesResponse' });
+export type AccountDevicesResponse = z.infer<typeof AccountDevicesResponse>;
+
+export const AccountMeResponse = z
+  .strictObject({
+    user_name: z.string(),
+    email_masked: z.string()
+  })
+  .meta({ id: 'AccountMeResponse' });
+export type AccountMeResponse = z.infer<typeof AccountMeResponse>;

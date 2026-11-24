@@ -55,3 +55,15 @@ namespace_id = "1003"
 [ratelimits.simple]
 limit = 120
 period = 60
+
+[[ratelimits]]
+name = "ACCOUNT_RATE_LIMITER"
+# Unique in the account, like the Ghost and Upload limiters.
+namespace_id = "1004"
+
+[ratelimits.simple]
+limit = 20
+period = 60
+
+[[send_email]]
+name = "EMAIL"

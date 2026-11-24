@@ -185,7 +185,7 @@ The full JSON Schema is [`contracts/v6/manifest.schema.json`](https://github.com
 | `run.run_id` | string | Identifier |
 | `run.player_account_id` | string | The uploading player's in-game account ID |
 | `run.run_format_version` | integer | Always `6` |
-| `run.projection.run` | object | Reserved; treat as opaque |
+| `run.projection.run` | object | Optional final Run facts; older bundlers send an empty object |
 | `run.projection.battles` | array | 0–30 battle summaries, unique `battle_id` |
 | `run.payload` | object | `offset` `0`, `length` 1–2,097,151, `sha256`, `content_type` `application/x-bpp-run-v6` |
 | `screenshot` | object | Always present in this feed. `offset`, `length` (1–1,048,576), `sha256`, `content_type` (`image/jpeg` or `image/webp`), `width`, `height`, `quality` (1–100), `captured_at_ms` |

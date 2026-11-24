@@ -3,6 +3,8 @@ export interface Env {
   BUNDLE_BUCKET: R2Bucket;
   GHOST_BATTLE_RATE_LIMITER: RateLimit;
   BUNDLE_UPLOAD_RATE_LIMITER: RateLimit;
+  ACCOUNT_RATE_LIMITER: RateLimit;
+  EMAIL?: SendEmail;
 
   R2_ACCOUNT_ID: string;
   R2_PRESIGN_ACCESS_KEY_ID: string;
@@ -12,4 +14,6 @@ export interface Env {
   BAZAARDB_DELIVERY_TOKEN: string;
   BOT_STATS_TOKEN?: string;
   GITHUB_DISPATCH_TOKEN?: string;
+  ACCOUNT_CODE_SECRET?: string;
+  ACCOUNT_EMAIL_FROM?: string;
 }

@@ -7,6 +7,7 @@ import { clientRateLimitKey } from '../http/request';
 import type { BundleReceipt } from '../http/schemas';
 import { MAX_BUNDLE_BYTES } from '../limits';
 import { logError, logEvent } from '../observability';
+import { evaluateDeviceTokenShadowAuth } from './account-auth';
 import {
   type CommitOutcome,
   commitBundle,
@@ -227,12 +228,18 @@ export async function ingestBundle(
   }
 
   const objectWrite = await putConditionally(env, opened, digest);
+  const shadowAuth = await evaluateDeviceTokenShadowAuth(
+    request,
+    env.DB,
+    descriptor.uploaderAccountId
+  );
   const now = Date.now();
   let outcome: CommitOutcome;
   try {
     outcome = await commitBundle(env.DB, descriptor, digest, {
       availableAtMs: now,
-      storedAtMs: objectWrite.storedAtMs
+      storedAtMs: objectWrite.storedAtMs,
+      verifiedAccountId: shadowAuth.verifiedAccountId
     });
   } catch (error) {
     if (error instanceof HttpError && error.status === 503) {
@@ -263,6 +270,7 @@ export async function ingestBundle(
     run_id: descriptor.runId,
     bytes: descriptor.objectBytes,
     has_screenshot: descriptor.screenshot !== null,
+    shadow_auth: shadowAuth.status,
     outcome: 'stored',
     // store_ms includes both the remaining body transfer and R2 finishing the PUT.
     manifest_ms: manifestReadAt - startedAt,

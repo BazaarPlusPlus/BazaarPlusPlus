@@ -19,13 +19,20 @@ export const API_ERROR_CODES = [
   'invalid_content_length',
   'invalid_content_digest',
   'invalid_query',
+  'invalid_body',
   'window_not_settled',
   'unauthorized',
+  'game_token_rejected',
+  'invalid_verification_code',
   'insufficient_scope',
   'not_found',
+  'account_not_bound',
   'method_not_allowed',
   'bundle_id_conflict',
   'run_already_bundled',
+  'account_mismatch',
+  'email_already_bound',
+  'game_account_already_bound',
   'window_expired',
   'content_length_required',
   'bundle_too_large',
@@ -38,6 +45,7 @@ export const API_ERROR_CODES = [
   'run_without_battles',
   'rate_limited',
   'internal_error',
+  'game_api_unavailable',
   'storage_unavailable'
 ] as const;
 

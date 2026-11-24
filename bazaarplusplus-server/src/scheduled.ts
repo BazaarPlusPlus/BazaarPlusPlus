@@ -1,5 +1,8 @@
 import type { Env } from './env';
-import { pruneExpiredBundles } from './modules/d1-retention';
+import {
+  pruneExpiredAuthState,
+  pruneExpiredBundles
+} from './modules/d1-retention';
 import {
   WORKFLOW_DISPATCHES,
   dispatchWorkflow
@@ -21,4 +24,5 @@ export async function scheduled(
     return;
   }
   await pruneExpiredBundles(env.DB, controller.scheduledTime);
+  await pruneExpiredAuthState(env.DB, controller.scheduledTime);
 }

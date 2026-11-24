@@ -19,6 +19,12 @@
       "meaning": "Missing, repeated, unknown, or invalid query parameter"
     },
     {
+      "code": "invalid_body",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Missing, malformed, or invalid JSON request body"
+    },
+    {
       "code": "window_not_settled",
       "status": 400,
       "retryable": false,
@@ -28,7 +34,19 @@
       "code": "unauthorized",
       "status": 401,
       "retryable": false,
-      "meaning": "Missing or invalid service token"
+      "meaning": "Missing or invalid service or device token"
+    },
+    {
+      "code": "game_token_rejected",
+      "status": 401,
+      "retryable": false,
+      "meaning": "Official game API rejected the game access token"
+    },
+    {
+      "code": "invalid_verification_code",
+      "status": 401,
+      "retryable": false,
+      "meaning": "Verification code is invalid, expired, or exceeded max attempts"
     },
     {
       "code": "insufficient_scope",
@@ -41,6 +59,12 @@
       "status": 404,
       "retryable": false,
       "meaning": "Unknown route"
+    },
+    {
+      "code": "account_not_bound",
+      "status": 404,
+      "retryable": false,
+      "meaning": "Game account is not bound to a BPP Account"
     },
     {
       "code": "method_not_allowed",
@@ -59,6 +83,24 @@
       "status": 409,
       "retryable": false,
       "meaning": "Run belongs to another Bundle"
+    },
+    {
+      "code": "account_mismatch",
+      "status": 409,
+      "retryable": false,
+      "meaning": "Official game account ID differs from the claimed game account ID"
+    },
+    {
+      "code": "email_already_bound",
+      "status": 409,
+      "retryable": false,
+      "meaning": "Email is already bound to another game account"
+    },
+    {
+      "code": "game_account_already_bound",
+      "status": 409,
+      "retryable": false,
+      "meaning": "Game account is already bound to an email"
     },
     {
       "code": "window_expired",
@@ -124,7 +166,7 @@
       "code": "rate_limited",
       "status": 429,
       "retryable": true,
-      "meaning": "Upload or Ghost request rate exceeded"
+      "meaning": "Request rate exceeded"
     },
     {
       "code": "internal_error",
@@ -133,10 +175,16 @@
       "meaning": "Unclassified server error or invalid service configuration"
     },
     {
+      "code": "game_api_unavailable",
+      "status": 502,
+      "retryable": true,
+      "meaning": "Official game API is unavailable or timed out"
+    },
+    {
       "code": "storage_unavailable",
       "status": 503,
       "retryable": true,
-      "meaning": "Storage, signing, or rate limiter unavailable"
+      "meaning": "Storage, email delivery, signing, or rate limiter unavailable"
     }
   ]
 }
