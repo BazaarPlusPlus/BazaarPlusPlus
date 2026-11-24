@@ -21,6 +21,7 @@ import {
   VERIFICATION_CODE_TTL_MS,
   WEB_SESSION_TTL_MS
 } from './account-crypto';
+import { renderVerificationEmail } from './account-email';
 import {
   readJsonObject,
   requireCodeSecret,
@@ -260,8 +261,11 @@ async function handleLoginStart(
       await sendAccountEmail(
         env,
         email,
-        'BazaarPlusPlus 登录验证码',
-        `你正在登录 BazaarPlusPlus 网站（绑定账号「${account.user_name}」）。\n\n验证码：${verificationCode}\n\n验证码 10 分钟内有效。如果不是本人操作，请忽略此邮件。`
+        renderVerificationEmail({
+          purpose: 'login',
+          userName: account.user_name,
+          code: verificationCode
+        })
       );
     } catch (error) {
       await env.DB.prepare(

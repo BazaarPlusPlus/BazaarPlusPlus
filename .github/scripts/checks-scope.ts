@@ -389,6 +389,7 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
         'site',
         'android',
         'bot',
+        'server',
         'release'
       ])
         select(consumer, `Design system: ${file}`);

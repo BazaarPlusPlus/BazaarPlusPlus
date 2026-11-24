@@ -295,7 +295,7 @@ test('new cross-project reads cannot silently bypass consumers, including backsl
   );
 });
 
-test('design system inputs select the installer frontend, the site, the Android App and the root gates', () => {
+test('design system inputs select the installer frontend, the site, the Android App, the server and the root gates', () => {
   expectScopes(
     [
       'design/tokens.json',
@@ -303,13 +303,14 @@ test('design system inputs select the installer frontend, the site, the Android 
       'design/build.ts',
       'design/README.md'
     ],
-    ['installer-frontend', 'site', 'android', 'bot', 'release']
+    ['installer-frontend', 'site', 'android', 'bot', 'server', 'release']
   );
   assert.deepEqual(selected(classifyChanges(changed('design/design.just'))), [
     'android',
     'bot',
     'installer-frontend',
     'release',
+    'server',
     'site'
   ]);
 });

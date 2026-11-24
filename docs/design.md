@@ -18,7 +18,7 @@ Android App 是启动器：一页里显示游戏、状态和下一步操作，�
 | 视觉、对齐、动效与组件规则 | `design/README.md` 与 `design/components/*/README.md` | 两个产品 |
 | 文案：语气、术语表、大小写与标点、句式 | `design/writing.md` | installer 的 `src/i18n/messages.ts` 与 site 的 `src/content/site-copy.ts` |
 | 游戏内颜色 | `design/tokens.json` 的 `ingame-*` | `just design::build` 生成 mod 桌面 UI 与 Mobile UI 的 `InGameTheme.g.cs` |
-| 品牌标志 | `design/assets/Logos/bpp-mark.svg` | `just design::build` 复制到 installer 的 `static/brand/`；site 页头使用现有的 `public/bazaarplusplus-icon.webp` 应用图标；Android App 用生成的矢量图 `res/drawable/bpp_mark.xml` |
+| 品牌标志 | `design/assets/Logos/bpp-mark.svg` | `just design::build` 复制到 installer 的 `static/brand/`；site 页头使用现有的 `public/bazaarplusplus-icon.webp` 应用图标；Android App 用生成的矢量图 `res/drawable/bpp_mark.xml`；server 的验证码邮件用生成的 PNG `bazaarplusplus-server/src/modules/email-mark.g.ts` |
 
 `design/` 同时发布为 claude.ai 上的 [Design System artifact](https://claude.ai/artifact/4Xv54mp3y68YPc95PWNGVk)，用来浏览组件预览和品牌手册；仓库是源头，artifact 跟随仓库更新。维护流程见 `design/AGENTS.md`。
 
