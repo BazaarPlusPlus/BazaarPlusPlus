@@ -51,7 +51,10 @@ internal static class RunMessageStreamCommandPatch
             var parameters = __originalMethod.GetParameters();
             var args = new Dictionary<string, object?>();
             for (var index = 0; index < parameters.Length && index < __args.Length; index++)
-                args[parameters[index].Name] = Describe(__args[index]);
+            {
+                var name = parameters[index].Name;
+                args[name] = DescribeArgument(__originalMethod.Name, name, __args[index]);
+            }
             __state = RunMessageStreamTap.OnCommand(
                 __originalMethod.Name,
                 JsonConvert.SerializeObject(args)
@@ -125,6 +128,19 @@ internal static class RunMessageStreamCommandPatch
         }
         return result;
     }
+
+    // HttpGameClient normalizes null desiredSockets to an empty list when building the wire DTO;
+    // match that here so desktop and Android emit the same JSON for fuse purchases.
+    internal static object? DescribeArgument(
+        string methodName,
+        string parameterName,
+        object? value
+    ) =>
+        value == null
+        && parameterName == "desiredSockets"
+        && methodName is "SendSelectItem" or "SendMoveItem"
+            ? Array.Empty<object>()
+            : Describe(value);
 
     private static object? Describe(object? value) =>
         value switch

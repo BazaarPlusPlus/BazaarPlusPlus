@@ -71,6 +71,36 @@ internal sealed class RunMessageStreamWriter
             );
             return;
         }
+        if (frame.PveCombat is { } pve)
+        {
+            sessions.AppendEvent(
+                new RunLogEvent
+                {
+                    Kind = "pve_combat_recorded",
+                    Ts = at,
+                    Day = pve.Day,
+                    Hour = pve.Hour,
+                    EncounterId = pve.EncounterId,
+                    CombatKind = "Combat",
+                    Winner = pve.Winner,
+                    Loser = pve.Loser,
+                    FrameCount = pve.FrameCount,
+                    DurationMs = checked(pve.FrameCount * 50),
+                    OpponentHealthThresholdsForGold = pve.OpponentHealthThresholdsForGold
+                        is { Count: > 0 }
+                        ? pve.OpponentHealthThresholdsForGold
+                        : null,
+                    OpponentHealthThresholdsForXp = pve.OpponentHealthThresholdsForXp
+                        is { Count: > 0 }
+                        ? pve.OpponentHealthThresholdsForXp
+                        : null,
+                    GoldThresholdsHit = pve.GoldThresholdsHit,
+                    XpThresholdsHit = pve.XpThresholdsHit,
+                    CardStats = pve.CardStats is { Count: > 0 } ? pve.CardStats : null,
+                }
+            );
+            return;
+        }
         if (frame.Command == null)
             return;
         var entry = sessions.AppendEvent(

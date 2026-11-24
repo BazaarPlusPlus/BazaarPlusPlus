@@ -17,6 +17,7 @@ public enum RunLoggingReasonCode
     RankRefreshSubscribeException,
     RankRefreshTimeout,
     ShutdownForced,
+    NextRunActivated,
     QueueShutdownDrainTimeout,
     QueueWriteException,
     QueueWorkerTerminatedUnexpectedly,

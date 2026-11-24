@@ -27,6 +27,10 @@ internal static class BundleManifestV6Writer
         Write(writer, "bundle_id", manifest.BundleId);
         Write(writer, "bundle_version", manifest.BundleVersion);
         Write(writer, "created_at_ms", manifest.CreatedAtMs);
+        if (manifest.BundlerVersion != null)
+            Write(writer, "bundler_version", manifest.BundlerVersion);
+        if (manifest.Platform != null)
+            Write(writer, "platform", manifest.Platform);
         writer.WritePropertyName("run");
         WriteRun(writer, manifest.Run);
         if (manifest.Screenshot != null)

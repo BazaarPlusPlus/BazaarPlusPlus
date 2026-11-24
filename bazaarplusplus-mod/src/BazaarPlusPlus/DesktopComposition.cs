@@ -193,7 +193,11 @@ internal sealed class DesktopComposition : IDisposable
                 ),
             gameDataEtagResolver: () => GameDataManifest.ReadGameDataEtag(gameDataCache)
         );
-        _bundleSealCoordinator = DesktopBundleSealCoordinator.Create(_services);
+        _bundleSealCoordinator = DesktopBundleSealCoordinator.Create(
+            _services,
+            bundlerVersion: BppPluginVersion.Current,
+            platform: "desktop"
+        );
 
         _core.Register(_runLifecycle);
         _core.Register(_combatReplayModule);

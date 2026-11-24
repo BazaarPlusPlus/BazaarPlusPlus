@@ -24,18 +24,24 @@ public sealed class RunPayloadComposer
     private readonly PvpBattleSqliteStore _battles;
     private readonly CombatReplayPayloadStore _replayStore;
     private readonly IPvpBattleEvidenceBinding _evidence;
+    private readonly string? _bundlerVersion;
+    private readonly string? _platform;
 
     public RunPayloadComposer(
         string databasePath,
         string replayRoot,
         IPvpBattleEvidenceBinding evidence,
-        SqliteOpenOptions databaseOptions
+        SqliteOpenOptions databaseOptions,
+        string? bundlerVersion = null,
+        string? platform = null
     )
     {
         _runs = new RunLogBundleSource(databasePath, databaseOptions);
         _battles = new PvpBattleSqliteStore(databasePath, databaseOptions);
         _replayStore = new CombatReplayPayloadStore(replayRoot);
         _evidence = evidence ?? throw new ArgumentNullException(nameof(evidence));
+        _bundlerVersion = Limit(bundlerVersion);
+        _platform = Limit(platform);
     }
 
     public string ResolvePlayerAccountId(string runId, string? frozenAccountId)
@@ -142,6 +148,8 @@ public sealed class RunPayloadComposer
             ModVersion = Limit(run.ModVersion) ?? string.Empty,
             ServerBuildId = Limit(started?.Value<string>("server_build_id")),
             GameDataEtag = Limit(started?.Value<string>("game_data_etag")),
+            BundlerVersion = _bundlerVersion,
+            Platform = _platform,
         };
     }
 
@@ -565,7 +573,7 @@ public sealed class RunPayloadComposer
             _events = [.. payload.Events];
             _categories = [.. payload.Degradation.Categories];
             _omitted = payload.Degradation.EventsOmitted;
-            Trimmable = _events.Count(value => !IsTerminalEvent(value.Kind));
+            Trimmable = _events.Count(value => !IsProtectedEvent(value.Kind));
         }
 
         internal int Trimmable { get; }
@@ -582,7 +590,7 @@ public sealed class RunPayloadComposer
             var dropped = 0;
             foreach (var value in _events)
             {
-                if (dropped < count && !IsTerminalEvent(value.Kind))
+                if (dropped < count && !IsProtectedEvent(value.Kind))
                 {
                     dropped++;
                     continue;
@@ -610,8 +618,9 @@ public sealed class RunPayloadComposer
             payload.Degradation.ReplayOmittedBattleIds.Add(battleId);
     }
 
-    private static bool IsTerminalEvent(string kind) =>
-        kind is "run_started" or "run_completed" or "run_abandoned";
+    // Protect run lifecycle and resume version-anchor events from size-budget trimming.
+    private static bool IsProtectedEvent(string kind) =>
+        kind is "run_started" or "run_resumed" or "run_completed" or "run_abandoned";
 
     // Stored payload_json repeats the RunEventV6 envelope fields. Keep those fields solely in the wire envelope.
     private static readonly string[] EventEnvelopeKeys = ["run_id", "seq", "ts", "kind"];

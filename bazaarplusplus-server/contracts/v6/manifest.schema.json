@@ -7,6 +7,8 @@
   "properties": {
     "bundle_id": { "type": "string", "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" },
     "bundle_version": { "const": 6 },
+    "bundler_version": { "$ref": "#/$defs/nullableString" },
+    "platform": { "$ref": "#/$defs/nullableString" },
     "created_at_ms": { "type": "integer", "minimum": 0 },
     "run": {
       "type": "object",

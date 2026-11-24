@@ -89,6 +89,189 @@ public sealed class RunLoggingPipelineTests : IDisposable
     public void RankedRunsWaitForTheRankRefresh() =>
         RankedRunWaitsForTheRankRefresh(new Harness(Path.Combine(_root, "rank-refresh")), _logs);
 
+    [Fact]
+    public void QuickNextRunActivationCompletesDeferredRankedRun()
+    {
+        var h = new Harness(Path.Combine(_root, "next-run-handoff"));
+        var bus = new InMemoryBppEventBus();
+        var completed = new List<(string RunId, string? Status)>();
+        bus.Subscribe<RunLogRunCompleted>(done =>
+            completed.Add((done.RunId, h.Status(done.RunId)))
+        );
+        var module = h.CreateModule(bus, observeRankRefresh: true);
+        module.Start();
+
+        h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+        h.Activate(bus, "run-a");
+        h.Probe.Basics = Basics(day: 10, hour: 6, victories: 10, losses: 1);
+        h.EndRun(bus, RunExitKind.Completed);
+        Check.That(
+            h.Status("run-a") == "active" && completed.Count == 0,
+            "Run A waits for rank refresh before completing."
+        );
+
+        // Player quickly starts Run B inside the 15s rank-refresh window.
+        h.Clock.Advance(TimeSpan.FromSeconds(3));
+        bus.Publish(
+            new RunMessageStreamFrameObserved
+            {
+                CommandNumber = 10,
+                Command = "SendInitializeRun",
+                CommandArgsJson = "{\"playmode\":\"Ranked\"}",
+                StartsRun = true,
+            }
+        );
+        bus.Publish(
+            new RunMessageStreamFrameObserved { Message = [7, 8, 9], RespondsToCommand = 10 }
+        );
+        h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+        h.Activate(bus, "run-b");
+
+        Check.That(
+            h.Status("run-a") == "completed",
+            "Starting Run B during deferred completion must complete Run A instead of abandoning it."
+        );
+        Check.That(
+            completed.Count == 1
+                && completed[0].RunId == "run-a"
+                && completed[0].Status == "completed",
+            "RunLogRunCompleted fires exactly once for Run A."
+        );
+        Check.That(
+            _logs.Any(line =>
+                line.Contains("run_logging.run.completion_degraded", StringComparison.Ordinal)
+                && line.Contains("next_run_activated", StringComparison.Ordinal)
+            ),
+            "Forced next-run handoff logs next_run_activated instead of shutdown_forced."
+        );
+        Check.That(
+            h.Status("run-b") == "active"
+                && h.Text(
+                    "SELECT group_concat(kind, ',') FROM (SELECT kind FROM run_events WHERE run_id='run-b' ORDER BY seq)"
+                ) == "run_started,stream_command,stream_message"
+                && h.Count(
+                    "SELECT json_extract(payload_json, '$.responds_to_seq') FROM run_events WHERE run_id='run-b' AND seq=3"
+                ) == 2,
+            "Run B activates cleanly and receives its own buffered initialize frames."
+        );
+
+        module.Stop();
+    }
+
+    [Fact]
+    public void SameRunReactivationCancelsDeferredCompletion()
+    {
+        var h = new Harness(Path.Combine(_root, "same-run-reactivation"));
+        var bus = new InMemoryBppEventBus();
+        var completed = new List<string>();
+        bus.Subscribe<RunLogRunCompleted>(done => completed.Add(done.RunId));
+        var module = h.CreateModule(bus, observeRankRefresh: true);
+        module.Start();
+
+        h.Probe.Basics = Basics(day: 1, hour: 0, victories: 0, losses: 0);
+        h.Activate(bus, "run-same");
+        h.EndRun(bus, RunExitKind.Completed);
+        h.Clock.Advance(TimeSpan.FromSeconds(2));
+        h.Activate(bus, "run-same");
+        h.Clock.Advance(TimeSpan.FromSeconds(20));
+
+        Check.That(
+            h.Status("run-same") == "active" && completed.Count == 0,
+            "Reactivating the same run cancels its deferred completion."
+        );
+        module.Stop();
+    }
+
+    [Fact]
+    public void PveCombatSummaryInterleavesWithMessageStreamAndSurvivesStreamCleanup()
+    {
+        var h = new Harness(Path.Combine(_root, "pve-summary"));
+        var bus = new InMemoryBppEventBus();
+        var module = h.CreateModule(bus);
+        module.Start();
+
+        h.Probe.Basics = Basics(day: 1, hour: 1, victories: 0, losses: 0);
+        h.Activate(bus, "run-pve");
+        bus.Publish(new RunMessageStreamFrameObserved { Message = [1, 1] });
+        bus.Publish(
+            new RunMessageStreamFrameObserved
+            {
+                PveCombat = new PveCombatSummary
+                {
+                    EncounterId = "monster-pyro",
+                    Day = 1,
+                    Hour = 3,
+                    Winner = "Player",
+                    Loser = "Opponent",
+                    FrameCount = 140,
+                    OpponentHealthThresholdsForGold = [0.5f, 0.0f],
+                    OpponentHealthThresholdsForXp = [0.0f],
+                    GoldThresholdsHit = 2,
+                    XpThresholdsHit = 1,
+                    CardStats = new Dictionary<string, Dictionary<string, int>>
+                    {
+                        ["itm_1"] = new() { ["DamageDealt"] = 250 },
+                    },
+                },
+            }
+        );
+        bus.Publish(new RunMessageStreamFrameObserved { Message = [2, 2] });
+        Check.That(
+            module.FlushPendingWrites(TimeSpan.FromSeconds(2)),
+            "FlushPendingWrites drains queued events."
+        );
+
+        Check.That(
+            h.Text(
+                "SELECT group_concat(kind, ',') FROM (SELECT kind FROM run_events WHERE run_id='run-pve' ORDER BY seq)"
+            ) == "run_started,stream_message,pve_combat_recorded,stream_message",
+            "pve_combat_recorded sits on the shared seq axis between opening and closing GameSim."
+        );
+        Check.That(
+            h.Text(
+                "SELECT json_extract(payload_json, '$.winner') FROM run_events WHERE run_id='run-pve' AND kind='pve_combat_recorded'"
+            ) == "Player"
+                && h.Count(
+                    "SELECT json_extract(payload_json, '$.duration_ms') FROM run_events WHERE run_id='run-pve' AND kind='pve_combat_recorded'"
+                ) == 7000
+                && h.Count(
+                    "SELECT json_extract(payload_json, '$.gold_thresholds_hit') FROM run_events WHERE run_id='run-pve' AND kind='pve_combat_recorded'"
+                ) == 2
+                && h.Count(
+                    "SELECT json_extract(payload_json, '$.card_stats.itm_1.DamageDealt') FROM run_events WHERE run_id='run-pve' AND kind='pve_combat_recorded'"
+                ) == 250,
+            "pve_combat_recorded persists winner, duration, threshold hits, and card_stats."
+        );
+        module.Stop();
+    }
+
+    [Fact]
+    public void TryFlushPendingWritesTimeoutDoesNotThrowWhenWorkerCompletesLater()
+    {
+        var entered = new ManualResetEventSlim(false);
+        var release = new ManualResetEventSlim(false);
+        var failures = new List<RunLogStoreDiagnostic>();
+        using var store = new QueuedRunLogStore(
+            new BlockingRunLogStore(entered, release),
+            new CallbackLogger(failures.Add)
+        );
+        store.AppendEvent("run-slow", new RunLogEvent { Kind = "test", Seq = 1 });
+        Check.That(entered.Wait(TimeSpan.FromSeconds(2)), "Worker started the blocked write.");
+        Check.That(
+            !store.TryFlushPendingWrites(TimeSpan.FromMilliseconds(30)),
+            "Flush returns false on timeout without throwing."
+        );
+        release.Set();
+        Check.That(
+            store.TryFlushPendingWrites(TimeSpan.FromSeconds(2)),
+            "Subsequent flush succeeds after blocked write finishes."
+        );
+        Check.That(
+            failures.Count == 0,
+            "Late completion of a timed-out flush barrier must not throw ObjectDisposedException."
+        );
+    }
+
     private static void RequireSharedTarget()
     {
         if (SharedTargetPin.Mismatch(SharedTarget) is { } mismatch)
@@ -724,6 +907,37 @@ internal sealed class Harness
 internal sealed class ListLogSink(List<string> lines) : IBppLogSink
 {
     public void Write(BppLogSeverity severity, string message) => lines.Add(message);
+}
+
+internal sealed class CallbackLogger(Action<RunLogStoreDiagnostic> onDiagnostic)
+    : IRunLogStoreLogger
+{
+    public void Emit(RunLogStoreDiagnostic diagnostic) => onDiagnostic(diagnostic);
+}
+
+internal sealed class BlockingRunLogStore(
+    ManualResetEventSlim entered,
+    ManualResetEventSlim release
+) : IRunLogStore
+{
+    public RunLogSessionState? TryResumeActiveRun() => null;
+
+    public RunLogSessionState CreateRun(RunLogCreateRequest request) =>
+        new() { RunId = request.RunId, StartedAtUtc = request.StartedAtUtc };
+
+    public void SetPlayerAccountIdOnce(string runId, string? playerAccountId) { }
+
+    public void AppendEvent(string runId, RunLogEvent entry)
+    {
+        entered.Set();
+        release.Wait(TimeSpan.FromSeconds(5));
+    }
+
+    public void SaveCheckpoint(string runId, RunLogCheckpoint checkpoint) { }
+
+    public void CompleteRun(string runId, RunLogCompletion completion) { }
+
+    public void MarkRunAbandoned(string runId, RunLogAbandonment abandonment) { }
 }
 
 internal sealed class TestPaths(string root) : IPathProvider

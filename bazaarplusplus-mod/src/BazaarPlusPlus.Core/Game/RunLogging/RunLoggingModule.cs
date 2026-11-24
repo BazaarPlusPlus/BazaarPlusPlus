@@ -6,6 +6,7 @@ using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
 using BazaarPlusPlus.Storage.RunLog;
+using BazaarPlusPlus.Storage.RunLog.Replication;
 
 namespace BazaarPlusPlus.Game.RunLogging;
 
@@ -36,6 +37,7 @@ public sealed class RunLoggingModule : IBppFeature
     private readonly Func<string?> _gameDataEtagResolver;
     private readonly Func<Action<RankSnapshot>, IDisposable>? _subscribeRankRefreshed;
     private IDisposable? _storeLifetime;
+    private volatile QueuedRunLogStore? _queuedStore;
     private RunLogSessionManager? _sessionManager;
     private IDisposable? _runLifecycleSubscription;
     private IDisposable? _pvpBattleSubscription;
@@ -182,12 +184,16 @@ public sealed class RunLoggingModule : IBppFeature
         }
     }
 
+    public bool FlushPendingWrites(TimeSpan timeout) =>
+        _queuedStore?.TryFlushPendingWrites(timeout) ?? true;
+
     private void InitializeStore()
     {
         var store =
             _storeFactory()
             ?? throw new InvalidOperationException("Run logging store factory returned null.");
         _storeLifetime = store as IDisposable;
+        _queuedStore = store as QueuedRunLogStore;
         _sessionManager = new RunLogSessionManager(
             store,
             _utcNow,
@@ -200,6 +206,7 @@ public sealed class RunLoggingModule : IBppFeature
     {
         var lifetime = _storeLifetime;
         _storeLifetime = null;
+        _queuedStore = null;
         _sessionManager = null;
         lifetime?.Dispose();
     }
@@ -528,19 +535,40 @@ public sealed class RunLoggingModule : IBppFeature
             }
         }
 
-        CancelDeferredRunExitForActivation();
-        EnsureActiveRunFromGame();
+        if (_deferredRunCompletion != null)
+        {
+            if (
+                !string.IsNullOrWhiteSpace(_deferredRunCompletionRunId)
+                && RunLogRunIdentity.MatchesServerRunId(_deferredRunCompletionRunId, runId)
+            )
+            {
+                CancelDeferredRunExitForActivation();
+            }
+            else
+            {
+                // Force-complete the ended previous run before activating the next run so a quick
+                // queue during rank-refresh/replay grace never misclassifies it as abandoned.
+                TryCompleteDeferredRunExit(
+                    forceCompletion: true,
+                    forcedReason: RunLoggingReasonCode.NextRunActivated
+                );
+            }
+        }
+        EnsureActiveRunFromGame(runId);
     }
 
-    private RunLogSessionState? EnsureActiveRunFromGame()
+    private RunLogSessionState? EnsureActiveRunFromGame(string? activationRunId = null)
     {
         var basics = ReadRunBasics();
         var rank = ReadRank();
+        var targetRunId = string.IsNullOrWhiteSpace(activationRunId)
+            ? _runContext.CurrentServerRunId
+            : activationRunId;
         if (
             !RunLogRecordMapper.TryCreateRunLogCreateRequest(
                 basics,
                 rank,
-                _runContext.CurrentServerRunId,
+                targetRunId,
                 _buildChannel,
                 _utcNow(),
                 out var request
@@ -671,7 +699,10 @@ public sealed class RunLoggingModule : IBppFeature
         return deferredSession;
     }
 
-    private bool TryCompleteDeferredRunExit(bool forceCompletion = false)
+    private bool TryCompleteDeferredRunExit(
+        bool forceCompletion = false,
+        RunLoggingReasonCode forcedReason = RunLoggingReasonCode.ShutdownForced
+    )
     {
         if (_deferredRunCompletion == null)
             return false;
@@ -716,7 +747,7 @@ public sealed class RunLoggingModule : IBppFeature
         }
         else if (forceCompletion && (replayPending || _deferredRunCompletionAwaitsRank))
         {
-            degradationReason = RunLoggingReasonCode.ShutdownForced;
+            degradationReason = forcedReason;
         }
 
         var completedRunId = activeSession.RunId;

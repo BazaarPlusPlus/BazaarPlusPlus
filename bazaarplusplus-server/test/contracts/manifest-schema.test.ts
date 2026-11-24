@@ -13,6 +13,26 @@ test('the canonical Run-only manifest satisfies the published manifest schema', 
   expect(result.valid).toBe(true);
 });
 
+test.each([
+  { bundler_version: null, platform: null },
+  { bundler_version: '6.5.0', platform: 'desktop' },
+  { platform: 'android' },
+  { bundler_version: 'v'.repeat(256) }
+])('the schema accepts sealing host provenance %#', (provenance) => {
+  expect(validator.validate({ ...manifest, ...provenance }).valid).toBe(true);
+});
+
+test.each(['bundler_version', 'platform'])(
+  'the schema rejects invalid %s',
+  (field) => {
+    for (const value of [123, {}, 'x'.repeat(257)]) {
+      expect(validator.validate({ ...manifest, [field]: value }).valid).toBe(
+        false
+      );
+    }
+  }
+);
+
 test('the manifest schema rejects a manifest missing a required field', () => {
   const { run_id: _omitted, ...run } = manifest.run;
   expect(validator.validate({ ...manifest, run }).valid).toBe(false);

@@ -6,6 +6,8 @@ public sealed class BundleManifestV6
     public string BundleId { get; set; } = string.Empty;
     public int BundleVersion { get; set; } = BundleLimitsV6.BundleVersion;
     public long CreatedAtMs { get; set; }
+    public string? BundlerVersion { get; set; }
+    public string? Platform { get; set; }
     public BundleRunManifestV6 Run { get; set; } = new();
     public BundleScreenshotManifestV6? Screenshot { get; set; }
 }
@@ -73,6 +75,8 @@ public sealed class BundleBuildInputV6
 {
     public string BundleId { get; set; } = string.Empty;
     public long CreatedAtMs { get; set; }
+    public string? BundlerVersion { get; set; }
+    public string? Platform { get; set; }
     public string RunId { get; set; } = string.Empty;
     public string PlayerAccountId { get; set; } = string.Empty;
     public IReadOnlyList<BundleBattleProjectionV6> Battles { get; set; } =

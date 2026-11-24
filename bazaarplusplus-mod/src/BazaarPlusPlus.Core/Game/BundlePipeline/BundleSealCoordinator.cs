@@ -33,6 +33,8 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
     private readonly ConcurrentQueue<ScreenshotCaptureTerminal> _screenshotTerminals = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Action<BundleSealStage, string>? _faultProbe;
+    private readonly string? _bundlerVersion;
+    private readonly string? _platform;
 
     private readonly ConcurrentDictionary<string, ReplayWait> _replayWaits = new(
         StringComparer.Ordinal
@@ -60,7 +62,9 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         RunPayloadComposer composer,
         IBundleScreenshotEncoder screenshotEncoder,
         Action<BundleSealStage, string>? faultProbe,
-        SqliteOpenOptions databaseOptions
+        SqliteOpenOptions databaseOptions,
+        string? bundlerVersion = null,
+        string? platform = null
     )
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
@@ -68,6 +72,8 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         _screenshotEncoder =
             screenshotEncoder ?? throw new ArgumentNullException(nameof(screenshotEncoder));
         _faultProbe = faultProbe;
+        _bundlerVersion = string.IsNullOrWhiteSpace(bundlerVersion) ? null : bundlerVersion.Trim();
+        _platform = string.IsNullOrWhiteSpace(platform) ? null : platform.Trim();
         if (databaseOptions == null)
             throw new ArgumentNullException(nameof(databaseOptions));
         _launchedAtUtc = DateTimeOffset.UtcNow;
@@ -544,6 +550,8 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                 {
                     BundleId = allocation.BundleId,
                     CreatedAtMs = allocation.CreatedAtMs,
+                    BundlerVersion = _bundlerVersion,
+                    Platform = _platform,
                     RunId = runId,
                     PlayerAccountId = playerAccountId,
                     Battles = composition.Projections,

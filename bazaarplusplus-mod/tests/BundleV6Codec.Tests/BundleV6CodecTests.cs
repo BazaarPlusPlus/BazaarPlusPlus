@@ -429,14 +429,32 @@ public sealed class BundleV6CodecTests
         );
         Equal("Online", futureRun.Run.BuildChannel, "known Run keys decode past an unknown one");
         Equal("server-build-13176", futureRun.Run.ServerBuildId, "the server build id decodes");
+        Equal("6.0.0", futureRun.Run.BundlerVersion, "the bundler version decodes");
+        Equal("desktop", futureRun.Run.Platform, "the host platform decodes");
+        graph[3] = run.Take(24).ToArray();
+        var withoutProvenance = RunPayloadV6Codec.Decode(
+            Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
+        );
+        Equal(
+            "server-build-13176",
+            withoutProvenance.Run.ServerBuildId,
+            "a 24-slot Run keeps its game version"
+        );
+        True(
+            withoutProvenance.Run.BundlerVersion == null && withoutProvenance.Run.Platform == null,
+            "absent provenance keys decode as null"
+        );
         graph[3] = run.Take(22).ToArray();
         var earlierRun = RunPayloadV6Codec.Decode(
             Gzip(MessagePackSerializer.Serialize<object>(graph, untyped))
         );
         Equal("Online", earlierRun.Run.BuildChannel, "a Run without the game version decodes");
         True(
-            earlierRun.Run.ServerBuildId == null && earlierRun.Run.GameDataEtag == null,
-            "absent game version keys decode as null"
+            earlierRun.Run.ServerBuildId == null
+                && earlierRun.Run.GameDataEtag == null
+                && earlierRun.Run.BundlerVersion == null
+                && earlierRun.Run.Platform == null,
+            "absent game version and provenance keys decode as null"
         );
         graph[3] = run;
 
@@ -462,6 +480,85 @@ public sealed class BundleV6CodecTests
         using var output = new MemoryStream();
         gzip.CopyTo(output);
         return output.ToArray();
+    }
+
+    [Fact]
+    public void BundleManifestProvenanceRoundTripAndValidation()
+    {
+        var payload = new byte[] { 1 };
+        var digest = BundleV6Codec.ComputeSha256Hex(payload);
+
+        var minimal = BundleV6Codec.Build(
+            new BundleBuildInputV6
+            {
+                BundleId = "01J00000000000000000000951",
+                CreatedAtMs = 1_785_628_800_000,
+                RunId = "prov-run-1",
+                PlayerAccountId = "prov-account",
+                RunPayload = payload,
+            }
+        );
+        var minimalText = Encoding.UTF8.GetString(minimal.ManifestBytes);
+        True(
+            !minimalText.Contains("\"bundler_version\"", StringComparison.Ordinal)
+                && !minimalText.Contains("\"platform\"", StringComparison.Ordinal),
+            "omitted provenance fields are not written to the manifest"
+        );
+        var openedMinimal = BundleV6Codec.Open(minimal.Bytes);
+        True(
+            openedMinimal.Manifest.BundlerVersion == null
+                && openedMinimal.Manifest.Platform == null,
+            "omitted provenance fields open as null"
+        );
+
+        var stamped = BundleV6Codec.Build(
+            new BundleBuildInputV6
+            {
+                BundleId = "01J00000000000000000000952",
+                CreatedAtMs = 1_785_628_800_000,
+                BundlerVersion = " 6.5.0 ",
+                Platform = " android ",
+                RunId = "prov-run-2",
+                PlayerAccountId = "prov-account",
+                RunPayload = payload,
+            }
+        );
+        var openedStamped = BundleV6Codec.Open(stamped.Bytes);
+        Equal("6.5.0", openedStamped.Manifest.BundlerVersion, "bundler_version round-trips");
+        Equal("android", openedStamped.Manifest.Platform, "platform round-trips");
+
+        var nullManifest =
+            MinimalManifest(digest)[..^1] + ",\"bundler_version\":null,\"platform\":null}";
+        var openedNull = BundleV6Codec.Open(RawBundle(nullManifest, payload));
+        True(
+            openedNull.Manifest.BundlerVersion == null && openedNull.Manifest.Platform == null,
+            "explicit null provenance fields open as null"
+        );
+
+        var wrongType = MinimalManifest(digest)[..^1] + ",\"bundler_version\":123}";
+        ThrowsReason(
+            () => BundleV6Codec.Open(RawBundle(wrongType, payload)),
+            "invalid_bundle",
+            "manifest_schema_invalid"
+        );
+
+        var tooLong = new string('x', 257);
+        ThrowsReason(
+            () =>
+                BundleV6Codec.Build(
+                    new BundleBuildInputV6
+                    {
+                        BundleId = "01J00000000000000000000953",
+                        CreatedAtMs = 1_785_628_800_000,
+                        Platform = tooLong,
+                        RunId = "prov-run-3",
+                        PlayerAccountId = "prov-account",
+                        RunPayload = payload,
+                    }
+                ),
+            "invalid_bundle",
+            "manifest_schema_invalid"
+        );
     }
 
     [Fact]
@@ -706,6 +803,8 @@ public sealed class BundleV6CodecTests
         payload.Run.BuildChannel = "Online";
         payload.Run.ServerBuildId = "server-build-13176";
         payload.Run.GameDataEtag = "0123456789abcdef0123456789abcdef";
+        payload.Run.BundlerVersion = "6.0.0";
+        payload.Run.Platform = "desktop";
         var battle = ReplayBattle("battle-000");
         battle.Replay!.PlayerAttributes = new Dictionary<string, int>
         {
