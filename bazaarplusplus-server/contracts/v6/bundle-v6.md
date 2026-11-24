@@ -14,6 +14,8 @@ The manifest fields and bounds are defined by [`manifest.schema.json`](./manifes
 
 The optional manifest strings `bundler_version` and `platform` identify the bundler version and platform of the host that sealed the Bundle. Either field may be omitted or set to null.
 
+The mod copies final Run facts into `run.projection.run`. Each field is optional and nullable. Earlier bundlers write an empty object.
+
 Every time in a V6 Bundle is a Unix millisecond integer. The manifest carries `created_at_ms`, `recorded_at_ms`, and `captured_at_ms`, `bundle_version: 6`, `run_format_version: 6`, and the Run media type `application/x-bpp-run-v6`. The Run segment is defined by [`run-payload-v6.md`](../../../bazaarplusplus-mod/docs/contracts/run-payload-v6.md).
 
 A V6 reader rejects every other Bundle version (`unsupported_bundle_version` or `invalid_prefix`).

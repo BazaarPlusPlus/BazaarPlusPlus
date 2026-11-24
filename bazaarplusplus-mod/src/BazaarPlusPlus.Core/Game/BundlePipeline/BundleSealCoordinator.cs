@@ -554,6 +554,7 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
                     Platform = _platform,
                     RunId = runId,
                     PlayerAccountId = playerAccountId,
+                    RunFacts = composition.Payload.Run,
                     Battles = composition.Projections,
                     RunPayload = encodedPayload,
                     Screenshot = screenshot,

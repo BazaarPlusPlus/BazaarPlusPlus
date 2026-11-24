@@ -21,7 +21,22 @@
           "type": "object",
           "required": ["run", "battles"],
           "properties": {
-            "run": { "type": "object" },
+            "run": {
+              "type": "object",
+              "properties": {
+                "status": { "type": ["string", "null"] },
+                "game_mode": { "type": ["string", "null"] },
+                "hero": { "type": ["string", "null"] },
+                "started_at_ms": { "type": ["integer", "null"] },
+                "ended_at_ms": { "type": ["integer", "null"] },
+                "day": { "type": ["integer", "null"] },
+                "victories": { "type": ["integer", "null"] },
+                "losses": { "type": ["integer", "null"] },
+                "final_player_rank": { "type": ["string", "null"] },
+                "final_player_rating": { "type": ["integer", "null"] },
+                "final_player_rating_delta": { "type": ["integer", "null"] }
+              }
+            },
             "battles": { "type": "array", "maxItems": 30, "items": { "$ref": "#/$defs/battle" } }
           }
         },

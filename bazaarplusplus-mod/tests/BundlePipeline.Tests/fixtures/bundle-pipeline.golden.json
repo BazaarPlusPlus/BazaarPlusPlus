@@ -9,7 +9,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070908800000,
+            "ended_at_ms": 4070908860000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": [
             {
               "battle_id": "battle-seal-001",
@@ -64,7 +76,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070912400000,
+            "ended_at_ms": 4070912460000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {
@@ -94,7 +118,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070916000000,
+            "ended_at_ms": 4070916060000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {
@@ -114,7 +150,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070919660000,
+            "ended_at_ms": 4070919720000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {
@@ -134,7 +182,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070919600000,
+            "ended_at_ms": 4070919660000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {
@@ -154,7 +214,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070923200000,
+            "ended_at_ms": 4070923260000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {
@@ -174,7 +246,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070944800000,
+            "ended_at_ms": 4070945220000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": [
             {
               "battle_id": "budget-projection-3",
@@ -297,7 +381,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070950800000,
+            "ended_at_ms": 4070950920000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {
@@ -317,7 +413,19 @@
         "player_account_id": "account-001",
         "run_format_version": 6,
         "projection": {
-          "run": {},
+          "run": {
+            "status": "completed",
+            "game_mode": "Ranked",
+            "hero": "Vanessa",
+            "started_at_ms": 4070956800000,
+            "ended_at_ms": 4070957040000,
+            "day": null,
+            "victories": null,
+            "losses": null,
+            "final_player_rank": null,
+            "final_player_rating": null,
+            "final_player_rating_delta": null
+          },
           "battles": []
         },
         "payload": {

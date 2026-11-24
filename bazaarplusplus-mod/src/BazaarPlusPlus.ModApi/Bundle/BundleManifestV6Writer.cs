@@ -7,7 +7,7 @@ namespace BazaarPlusPlus.ModApi.Bundle;
 
 internal static class BundleManifestV6Writer
 {
-    internal static byte[] Write(BundleManifestV6 manifest)
+    internal static byte[] Write(BundleManifestV6 manifest, RunFactsV6? facts = null)
     {
         using var text = new StringWriter(CultureInfo.InvariantCulture);
         using (var writer = new JsonTextWriter(text))
@@ -16,12 +16,16 @@ internal static class BundleManifestV6Writer
             writer.Culture = CultureInfo.InvariantCulture;
             writer.Formatting = Formatting.None;
             writer.StringEscapeHandling = StringEscapeHandling.Default;
-            WriteManifest(writer, manifest);
+            WriteManifest(writer, manifest, facts);
         }
         return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(text.ToString());
     }
 
-    private static void WriteManifest(JsonWriter writer, BundleManifestV6 manifest)
+    private static void WriteManifest(
+        JsonWriter writer,
+        BundleManifestV6 manifest,
+        RunFactsV6? facts
+    )
     {
         writer.WriteStartObject();
         Write(writer, "bundle_id", manifest.BundleId);
@@ -32,7 +36,7 @@ internal static class BundleManifestV6Writer
         if (manifest.Platform != null)
             Write(writer, "platform", manifest.Platform);
         writer.WritePropertyName("run");
-        WriteRun(writer, manifest.Run);
+        WriteRun(writer, manifest.Run, facts);
         if (manifest.Screenshot != null)
         {
             writer.WritePropertyName("screenshot");
@@ -41,7 +45,7 @@ internal static class BundleManifestV6Writer
         writer.WriteEndObject();
     }
 
-    private static void WriteRun(JsonWriter writer, BundleRunManifestV6 run)
+    private static void WriteRun(JsonWriter writer, BundleRunManifestV6 run, RunFactsV6? facts)
     {
         writer.WriteStartObject();
         Write(writer, "run_id", run.RunId);
@@ -51,6 +55,20 @@ internal static class BundleManifestV6Writer
         writer.WriteStartObject();
         writer.WritePropertyName("run");
         writer.WriteStartObject();
+        if (facts != null)
+        {
+            WriteNullable(writer, "status", facts.Status);
+            WriteNullable(writer, "game_mode", facts.GameMode);
+            WriteNullable(writer, "hero", facts.Hero);
+            WriteNullable(writer, "started_at_ms", facts.StartedAtMs);
+            WriteNullable(writer, "ended_at_ms", facts.EndedAtMs);
+            WriteNullable(writer, "day", facts.Day);
+            WriteNullable(writer, "victories", facts.Victories);
+            WriteNullable(writer, "losses", facts.Losses);
+            WriteNullable(writer, "final_player_rank", facts.FinalPlayerRank);
+            WriteNullable(writer, "final_player_rating", facts.FinalPlayerRating);
+            WriteNullable(writer, "final_player_rating_delta", facts.FinalPlayerRatingDelta);
+        }
         writer.WriteEndObject();
         writer.WritePropertyName("battles");
         writer.WriteStartArray();

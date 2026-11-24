@@ -14,6 +14,19 @@ test('the canonical Run-only manifest satisfies the published manifest schema', 
 });
 
 test.each([
+  [{ ended_at_ms: null, final_player_rating_delta: -24 }, true],
+  [{ hero: 'Vanessa', status: 'completed', victories: 10 }, true],
+  [{ ended_at_ms: 'unknown' }, false],
+  [{ final_player_rank: 42 }, false]
+])('the schema validates optional final Run facts %#', (facts, valid) => {
+  const projection = { ...manifest.run.projection, run: facts };
+  expect(
+    validator.validate({ ...manifest, run: { ...manifest.run, projection } })
+      .valid
+  ).toBe(valid);
+});
+
+test.each([
   { bundler_version: null, platform: null },
   { bundler_version: '6.5.0', platform: 'desktop' },
   { platform: 'android' },
