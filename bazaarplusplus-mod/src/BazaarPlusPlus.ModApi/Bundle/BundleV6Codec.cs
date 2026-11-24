@@ -35,6 +35,8 @@ public static class BundleV6Codec
         if (input.RunPayload.Length > BundleLimitsV6.MaxRunBytes)
             Invalid("run_too_large", "Run segment exceeds its byte limit.");
 
+        var bundlerVersion = NormalizeOptionalString(input.BundlerVersion, "bundler_version");
+        var platform = NormalizeOptionalString(input.Platform, "platform");
         var battles = input.Battles ?? throw new ArgumentNullException(nameof(input.Battles));
         ValidateBattles(battles, input.PlayerAccountId);
         var runBytes = input.RunPayload.ToArray();
@@ -42,6 +44,8 @@ public static class BundleV6Codec
         {
             BundleId = input.BundleId,
             CreatedAtMs = input.CreatedAtMs,
+            BundlerVersion = bundlerVersion,
+            Platform = platform,
             Run = new BundleRunManifestV6
             {
                 RunId = input.RunId,
@@ -275,6 +279,16 @@ public static class BundleV6Codec
         ValidateBundleId(bundleId);
         var createdAtMs = ReadSafeInteger(RequireProperty(root, "created_at_ms"), "created_at_ms");
         ValidateCreatedAt(createdAtMs);
+        var bundlerVersionProperty = root.Property("bundler_version", StringComparison.Ordinal);
+        var bundlerVersion =
+            bundlerVersionProperty == null
+                ? null
+                : ReadNullableString(bundlerVersionProperty.Value, "bundler_version");
+        var platformProperty = root.Property("platform", StringComparison.Ordinal);
+        var platform =
+            platformProperty == null
+                ? null
+                : ReadNullableString(platformProperty.Value, "platform");
 
         var run = RequireObject(RequireProperty(root, "run"), "run must be an object.");
         var runFormatVersion = ReadSafeInteger(
@@ -327,6 +341,8 @@ public static class BundleV6Codec
             BundleId = bundleId,
             BundleVersion = BundleLimitsV6.BundleVersion,
             CreatedAtMs = createdAtMs,
+            BundlerVersion = bundlerVersion,
+            Platform = platform,
             Run = new BundleRunManifestV6
             {
                 RunId = runId,
@@ -676,6 +692,15 @@ public static class BundleV6Codec
                 "manifest_schema_invalid",
                 "created_at_ms is outside the supported date range."
             );
+    }
+
+    private static string? NormalizeOptionalString(string? value, string field)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var normalized = value.Trim();
+        ValidateNullableString(normalized, field);
+        return normalized;
     }
 
     private static void ValidateNullableString(string? value, string field)

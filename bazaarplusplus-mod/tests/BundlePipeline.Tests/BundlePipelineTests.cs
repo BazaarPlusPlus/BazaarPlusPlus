@@ -18,6 +18,7 @@ using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Clients;
+using BazaarPlusPlus.Patches.RunLogging;
 using BazaarPlusPlus.Storage.Paths;
 using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunScreenshot;
@@ -954,6 +955,241 @@ public sealed class BundlePipelineTests : IDisposable
         using var command = connection.CreateCommand();
         command.CommandText = sql;
         return command.ExecuteScalar();
+    }
+
+    [Fact]
+    public async Task Sealing_stamps_provenance_protects_run_resumed_and_keeps_pve_and_error_frames()
+    {
+        var dataRoot = Path.Combine(_root, "provenance-and-resume");
+        Directory.CreateDirectory(dataRoot);
+        var paths = new TestPaths(dataRoot);
+        var store = new RunLogStore(paths);
+
+        // 1. Non-oversized run: verify provenance, NetMessageError in stream, and pve_combat_recorded seq interleaving.
+        CreateRun(store, "run-pve-err", minute: 10, screenshotRequested: false);
+        var seq = 0L;
+        store.AppendEvent(
+            "run-pve-err",
+            new RunLogEvent
+            {
+                RunId = "run-pve-err",
+                Seq = ++seq,
+                Ts = PipelineInputs.Base.AddMinutes(10).AddSeconds(seq),
+                Kind = "run_started",
+                ServerBuildId = "build-1",
+                GameDataEtag = "etag-1",
+            }
+        );
+        var openingBytes = MessagePackSerializer.Serialize<INetMessage>(
+            new NetMessageGameSim(new GameSim()) { MessageId = "opn" },
+            MessagePackConfig.Options
+        );
+        store.AppendEvent(
+            "run-pve-err",
+            new RunLogEvent
+            {
+                RunId = "run-pve-err",
+                Seq = ++seq,
+                Ts = PipelineInputs.Base.AddMinutes(10).AddSeconds(seq),
+                Kind = RunMessageStreamKinds.Message,
+                Message = Convert.ToBase64String(openingBytes),
+            }
+        );
+        store.AppendEvent(
+            "run-pve-err",
+            new RunLogEvent
+            {
+                RunId = "run-pve-err",
+                Seq = ++seq,
+                Ts = PipelineInputs.Base.AddMinutes(10).AddSeconds(seq),
+                Kind = "pve_combat_recorded",
+                Day = 1,
+                Hour = 3,
+                EncounterId = "monster-1",
+                CombatKind = "Combat",
+                Winner = "Player",
+                Loser = "Opponent",
+                FrameCount = 80,
+                DurationMs = 4000,
+                GoldThresholdsHit = 2,
+                XpThresholdsHit = 1,
+            }
+        );
+        var closingBytes = MessagePackSerializer.Serialize<INetMessage>(
+            new NetMessageGameSim(new GameSim()) { MessageId = "cls" },
+            MessagePackConfig.Options
+        );
+        store.AppendEvent(
+            "run-pve-err",
+            new RunLogEvent
+            {
+                RunId = "run-pve-err",
+                Seq = ++seq,
+                Ts = PipelineInputs.Base.AddMinutes(10).AddSeconds(seq),
+                Kind = RunMessageStreamKinds.Message,
+                Message = Convert.ToBase64String(closingBytes),
+            }
+        );
+        var errorBytes = MessagePackSerializer.Serialize<INetMessage>(
+            new NetMessageError("err", message: "insufficient_gold"),
+            MessagePackConfig.Options
+        );
+        store.AppendEvent(
+            "run-pve-err",
+            new RunLogEvent
+            {
+                RunId = "run-pve-err",
+                Seq = ++seq,
+                Ts = PipelineInputs.Base.AddMinutes(10).AddSeconds(seq),
+                Kind = RunMessageStreamKinds.Message,
+                Message = Convert.ToBase64String(errorBytes),
+            }
+        );
+        CompleteRun(store, "run-pve-err", minute: 11);
+
+        // 2. Oversized run with run_resumed between trimmable padding events: verify run_resumed survives trimming.
+        const int EventEntropy = 180_000;
+        const int EventCount = 18;
+        CreateRun(store, "run-budget-resume", minute: 20, screenshotRequested: false);
+        var rSeq = 0L;
+        void AppendResumeCase(
+            string kind,
+            string? body,
+            string? buildId = null,
+            string? etag = null
+        ) =>
+            store.AppendEvent(
+                "run-budget-resume",
+                new RunLogEvent
+                {
+                    RunId = "run-budget-resume",
+                    Seq = ++rSeq,
+                    Ts = PipelineInputs.Base.AddMinutes(20).AddSeconds(rSeq),
+                    Kind = kind,
+                    EncounterId = body,
+                    ServerBuildId = buildId,
+                    GameDataEtag = etag,
+                }
+            );
+        AppendResumeCase("run_started", null, "build-1", "etag-1");
+        for (var index = 0; index < 3; index++)
+            AppendResumeCase("budget_padding", SeededBase64(EventEntropy, seed: 6100 + index));
+        AppendResumeCase("run_resumed", null, "build-2", "etag-2");
+        for (var index = 3; index < EventCount; index++)
+            AppendResumeCase("budget_padding", SeededBase64(EventEntropy, seed: 6100 + index));
+        AppendResumeCase("run_completed", null);
+        CompleteRun(store, "run-budget-resume", minute: 21);
+
+        using var coordinator = DesktopBundleSealCoordinator.Create(
+            new TestServices(paths),
+            bundlerVersion: "6.5.0",
+            platform: "desktop"
+        );
+        await coordinator.ReconcileAsync(CancellationToken.None);
+
+        var sealedPve = OpenSealedWithoutArtifacts(dataRoot, "pve-err-provenance", "run-pve-err");
+        Check.That(
+            sealedPve.Opened.Manifest.BundlerVersion == "6.5.0"
+                && sealedPve.Opened.Manifest.Platform == "desktop"
+                && sealedPve.Payload.Run.BundlerVersion == "6.5.0"
+                && sealedPve.Payload.Run.Platform == "desktop",
+            "Sealing stamps bundler_version and platform on both manifest and RunFactsV6."
+        );
+        var pveEvent = sealedPve.Payload.Events.Single(e => e.Kind == "pve_combat_recorded");
+        var stream = sealedPve.Payload.MessageStream!;
+        Check.That(
+            stream.Count == 3 && stream[0].Seq < pveEvent.Seq && pveEvent.Seq < stream[1].Seq,
+            "pve_combat_recorded interleaves between opening and closing GameSim on the shared seq axis."
+        );
+        var decodedError = MessagePackSerializer.Deserialize<INetMessage>(
+            stream[2].Message!,
+            MessagePackConfig.Options
+        );
+        Check.That(
+            decodedError is NetMessageError { Message: "insufficient_gold" },
+            "NetMessageError round-trips intact in MessageStream."
+        );
+
+        var sealedResume = OpenSealedWithoutArtifacts(
+            dataRoot,
+            "resume-protected",
+            "run-budget-resume"
+        );
+        Check.That(
+            sealedResume.Payload.Degradation.Categories.Contains("events_trimmed")
+                && sealedResume.Payload.Degradation.EventsOmitted > 0
+                && sealedResume.Payload.Events.Any(e =>
+                    e.Kind == "run_resumed"
+                    && e.PayloadJson.Contains("build-2", StringComparison.Ordinal)
+                    && e.PayloadJson.Contains("etag-2", StringComparison.Ordinal)
+                ),
+            "run_resumed and its version metadata survive size-budget event trimming."
+        );
+    }
+
+    private static SealedBundle OpenSealedWithoutArtifacts(
+        string dataRoot,
+        string name,
+        string runId
+    )
+    {
+        var outbox = PathConstants.BundleOutbox(dataRoot);
+        var database = PathConstants.RunLogDatabase(dataRoot);
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        var fileName = Scalar(
+            connection,
+            $"SELECT file_name FROM bundle_outbox WHERE run_id = '{runId}'"
+        );
+        Check.That(!string.IsNullOrEmpty(fileName), $"{name}: expected an outbox row for {runId}.");
+        var bytes = TestInputs.ScratchBytes(Path.Combine(outbox, fileName!));
+        var opened = BundleV6Codec.Open(bytes);
+        PipelineArtifacts.ValidateManifestSchema(name, opened.ManifestBytes);
+        return new SealedBundle(bytes, opened, RunPayloadV6Codec.Decode(opened.RunPayload));
+    }
+
+    [Fact]
+    public void Command_argument_normalization_matches_wire_dto_for_desired_sockets()
+    {
+        var selectNull = RunMessageStreamCommandPatch.DescribeArgument(
+            "SendSelectItem",
+            "desiredSockets",
+            null
+        );
+        var moveNull = RunMessageStreamCommandPatch.DescribeArgument(
+            "SendMoveItem",
+            "desiredSockets",
+            null
+        );
+        var initGameModeNull = RunMessageStreamCommandPatch.DescribeArgument(
+            "SendInitializeRun",
+            "gameModeId",
+            null
+        );
+        var selectSectionNull = RunMessageStreamCommandPatch.DescribeArgument(
+            "SendSelectItem",
+            "targetSection",
+            null
+        );
+        var selectSockets = RunMessageStreamCommandPatch.DescribeArgument(
+            "SendSelectItem",
+            "desiredSockets",
+            new[] { "Socket_1" }
+        );
+
+        Check.That(
+            Newtonsoft.Json.JsonConvert.SerializeObject(selectNull) == "[]"
+                && Newtonsoft.Json.JsonConvert.SerializeObject(moveNull) == "[]",
+            "Null desiredSockets for SendSelectItem/SendMoveItem normalize to [] to match Android and wire DTO."
+        );
+        Check.That(
+            initGameModeNull == null && selectSectionNull == null,
+            "Other nullable command parameters remain null."
+        );
+        Check.That(
+            Newtonsoft.Json.JsonConvert.SerializeObject(selectSockets) == "[\"Socket_1\"]",
+            "Non-null socket lists serialize unchanged."
+        );
     }
 
     [Fact]

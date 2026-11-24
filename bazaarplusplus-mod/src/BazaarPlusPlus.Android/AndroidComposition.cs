@@ -33,11 +33,14 @@ using BazaarPlusPlus.Storage.RunLog;
 using BazaarPlusPlus.Storage.RunLog.Replication;
 using BazaarPlusPlus.Storage.Sqlite;
 using Il2CppBazaarGameShared.Infra.Messages;
+using Il2CppTheBazaar.DataManagement;
 
 namespace BazaarPlusPlus.Android;
 
 internal sealed class AndroidComposition
 {
+    private static readonly TimeSpan PauseFlushTimeout = TimeSpan.FromMilliseconds(500);
+
     // The Data Root is on FUSE external storage. DELETE keeps the database in one file for adb
     // pull.
     public static readonly SqliteOpenOptions DatabaseOptions = new(SqliteJournalMode.Delete);
@@ -49,6 +52,7 @@ internal sealed class AndroidComposition
     private readonly TouchLiveBuildData _liveBuild;
     private readonly AndroidSupporterData _supporters;
     private readonly BazaarDbLinkClient _accountLink;
+    private readonly RunLoggingModule _runLoggingModule;
     private readonly BundleSealCoordinator _sealCoordinator;
     private ReplayMaintenanceFlight? _replayMaintenanceFlight;
     private UploadPump? _uploads;
@@ -116,43 +120,47 @@ internal sealed class AndroidComposition
             RunLifecycleSource
         );
         _core.Register(RunLifecycle);
-        _core.Register(
-            new RunLoggingModule(
-                services.EventBus,
-                services.RunContext,
-                services.RunSnapshot,
-                gameBuild.Channel.ToString(),
-                () =>
-                    new QueuedRunLogStore(
-                        new RunLogStore(paths, DatabaseOptions),
-                        new RunLogStoreLoggerBridge()
-                    ),
-                battles.AttachToRun,
-                () => BattleCapture.HasPendingPersistence,
-                static () => DateTimeOffset.UtcNow,
-                DatabasePath,
-                playerAccountIdResolver: AndroidClientCache.TryGetProfileAccountId,
-                bundleScreenshotRequestedResolver: () =>
-                    endOfRunCapture && services.Config.BazaarDbUploadEnabled.Value,
-                modVersionResolver: static () => BppPluginVersion.Current,
-                subscribeRankRefreshed: static onRefreshed =>
-                    AndroidClientCache.SubscribeRankRefreshed(
-                        (rank, rating) =>
-                            onRefreshed(new RankSnapshot { Rank = rank, Rating = rating })
-                    )
-            )
+        var gameDataCache = TryGetGameDataCacheDirectory();
+        _runLoggingModule = new RunLoggingModule(
+            services.EventBus,
+            services.RunContext,
+            services.RunSnapshot,
+            gameBuild.Channel.ToString(),
+            () =>
+                new QueuedRunLogStore(
+                    new RunLogStore(paths, DatabaseOptions),
+                    new RunLogStoreLoggerBridge()
+                ),
+            battles.AttachToRun,
+            () => BattleCapture.HasPendingPersistence,
+            static () => DateTimeOffset.UtcNow,
+            DatabasePath,
+            playerAccountIdResolver: AndroidClientCache.TryGetProfileAccountId,
+            bundleScreenshotRequestedResolver: () =>
+                endOfRunCapture && services.Config.BazaarDbUploadEnabled.Value,
+            modVersionResolver: static () => BppPluginVersion.Current,
+            subscribeRankRefreshed: static onRefreshed =>
+                AndroidClientCache.SubscribeRankRefreshed(
+                    (rank, rating) => onRefreshed(new RankSnapshot { Rank = rank, Rating = rating })
+                ),
+            gameDataEtagResolver: () => GameDataManifest.ReadGameDataEtag(gameDataCache)
         );
+        _core.Register(_runLoggingModule);
         _sealCoordinator = new BundleSealCoordinator(
             services,
             new RunPayloadComposer(
                 DatabasePath,
                 CombatReplayDirectory,
                 AndroidPvpBattleEvidence.Instance,
-                DatabaseOptions
+                DatabaseOptions,
+                bundlerVersion: BppPluginVersion.Current,
+                platform: "android"
             ),
             new BundleScreenshotEncoder(),
             faultProbe: null,
-            DatabaseOptions
+            DatabaseOptions,
+            bundlerVersion: BppPluginVersion.Current,
+            platform: "android"
         );
         _core.Register(_sealCoordinator);
         _accountLink = new BazaarDbLinkClient(
@@ -248,14 +256,32 @@ internal sealed class AndroidComposition
     }
 
     // Unity stops the frames that tick the upload pump when the app leaves the foreground.
-    public void Pause() => _sealCoordinator.Pause();
+    public void Pause()
+    {
+        AndroidRunMessageStream.Tick(EventBus);
+        _runLoggingModule.FlushPendingWrites(PauseFlushTimeout);
+        _sealCoordinator.Pause();
+    }
 
     public void Resume() => _sealCoordinator.Resume();
 
     public void Tick(float nowSeconds)
     {
+        AndroidRunMessageStream.Tick(EventBus);
         BattleCapture.Tick();
         _uploads?.Tick(nowSeconds);
+    }
+
+    private static string? TryGetGameDataCacheDirectory()
+    {
+        try
+        {
+            return DataManifestActions.Default.GetCachePath();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public void Stop()

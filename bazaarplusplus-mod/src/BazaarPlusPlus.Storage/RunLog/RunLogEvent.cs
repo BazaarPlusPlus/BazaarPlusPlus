@@ -52,4 +52,23 @@ public sealed class RunLogEvent
 
     // Present on stream_command. Arguments are keyed by parameter name.
     public JObject? CommandArgs { get; set; }
+
+    // Present on pve_combat_recorded.
+    public string? Winner { get; set; }
+
+    public string? Loser { get; set; }
+
+    public int? FrameCount { get; set; }
+
+    public int? DurationMs { get; set; }
+
+    public List<float>? OpponentHealthThresholdsForGold { get; set; }
+
+    public List<float>? OpponentHealthThresholdsForXp { get; set; }
+
+    public int? GoldThresholdsHit { get; set; }
+
+    public int? XpThresholdsHit { get; set; }
+
+    public Dictionary<string, Dictionary<string, int>>? CardStats { get; set; }
 }

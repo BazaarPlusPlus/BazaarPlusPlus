@@ -145,6 +145,37 @@ describe('openBundle', () => {
     await expect(opened.digest).resolves.toBe(golden.sha256);
   });
 
+  test.each([
+    { bundler_version: null, platform: null },
+    { bundler_version: '6.5.0', platform: 'desktop' },
+    { platform: 'android' },
+    { bundler_version: 'v'.repeat(256) }
+  ])('opens a Bundle with sealing host provenance %#', async (provenance) => {
+    const run = new Uint8Array([1, 2, 3]);
+    const { manifest } = await makeBundleFixture({ runBytes: run });
+    const { body } = await sealBundle({ ...manifest, ...provenance }, run);
+    const opened = await openBundle(stream(body), body.byteLength, null);
+    await opened.body.pipeTo(new WritableStream<Uint8Array>());
+    await expect(opened.digest).resolves.toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  test.each(['bundler_version', 'platform'])(
+    'rejects invalid %s',
+    async (field) => {
+      const run = new Uint8Array([1, 2, 3]);
+      const { manifest } = await makeBundleFixture({ runBytes: run });
+      for (const value of [123, {}, 'x'.repeat(257)]) {
+        const { body } = await sealBundle({ ...manifest, [field]: value }, run);
+        await expect(
+          openBundle(stream(body), body.byteLength, null)
+        ).rejects.toMatchObject({
+          code: 'invalid_bundle',
+          details: { reason: 'manifest_schema_invalid' }
+        });
+      }
+    }
+  );
+
   test.each(['winner_combatant_id', 'loser_combatant_id'])(
     'rejects a Battle whose %s is null or missing',
     async (field) => {

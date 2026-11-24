@@ -108,6 +108,12 @@ public sealed class RunFactsV6
 
     [Key(23)]
     public string? GameDataEtag { get; set; }
+
+    [Key(24)]
+    public string? BundlerVersion { get; set; }
+
+    [Key(25)]
+    public string? Platform { get; set; }
 }
 
 [MessagePackObject]

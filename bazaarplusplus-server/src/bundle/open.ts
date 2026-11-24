@@ -275,6 +275,12 @@ function validateManifest(
       'bundle_id must be a canonical ULID'
     );
   }
+  if (root.bundler_version !== undefined) {
+    nullableString(root.bundler_version, 'bundler_version');
+  }
+  if (root.platform !== undefined) {
+    nullableString(root.platform, 'platform');
+  }
   const createdAtMs = safeInteger(root.created_at_ms, 'created_at_ms');
   const run = object(root.run);
   if (run.run_format_version !== RUN_FORMAT_VERSION) {

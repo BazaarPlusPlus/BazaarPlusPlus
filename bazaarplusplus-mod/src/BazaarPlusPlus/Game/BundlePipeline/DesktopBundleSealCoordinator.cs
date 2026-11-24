@@ -10,7 +10,9 @@ internal static class DesktopBundleSealCoordinator
     internal static BundleSealCoordinator Create(
         IBppServices services,
         Action<BundleSealStage, string>? faultProbe = null,
-        IBundleScreenshotEncoder? screenshotEncoder = null
+        IBundleScreenshotEncoder? screenshotEncoder = null,
+        string? bundlerVersion = null,
+        string? platform = null
     )
     {
         if (services == null)
@@ -22,11 +24,15 @@ internal static class DesktopBundleSealCoordinator
                 PathConstants.RunLogDatabase(dataRoot),
                 PathConstants.CombatReplays(dataRoot),
                 DesktopPvpBattleEvidence.Instance,
-                SqliteOpenOptions.Default
+                SqliteOpenOptions.Default,
+                bundlerVersion,
+                platform
             ),
             screenshotEncoder ?? new BundleScreenshotEncoder(),
             faultProbe,
-            SqliteOpenOptions.Default
+            SqliteOpenOptions.Default,
+            bundlerVersion,
+            platform
         );
     }
 }

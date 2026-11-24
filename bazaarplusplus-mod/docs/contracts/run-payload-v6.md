@@ -37,18 +37,23 @@ key `0` (`RecordedAtMs`).
 
 `RunFactsV6` records hero, mode, seed, start/end time, terminal status, day/hour, wins/losses,
 starting and final rank/rating, rating delta, final economy/build values, build channel, mod
-version, and the game version the Run started under. Its keys are `0..23` in property declaration
-order. Keys `22` and `23` are the game version, for statistics split by game patch; each is `null`
-when it was not read, and absent from a payload sealed before the keys existed:
+version, the game version the Run started under, and the sealing bundler's provenance. Its keys are
+`0..25` in property declaration order. Keys `22` and `23` are the game version, for statistics split
+by game patch; keys `24` and `25` are the sealing host's version and platform. Each is `null` when
+not recorded, and absent from a payload sealed before the key existed:
 
 - `22` `ServerBuildId`: the `BuildId` the game server sends in its run-initialized message
   (`NetMessageRunInitialized`), as text. It is not the Steam build id or the client version.
 - `23` `GameDataEtag`: the ETag of the `GameData.db` the game had loaded, from the manifest the
   game keeps beside that file, without its HTTP quotes: the form `gameDataEtag` in
-  `release/card-art.ts` reads from the public GameData URL. The Android Host does not read it yet.
+  `release/card-art.ts` reads from the public GameData URL. Both Desktop and Android Hosts read it.
+- `24` `BundlerVersion`: the mod version that sealed the Bundle (may differ from `ModVersion` when
+  the mod updated between starting and sealing the Run).
+- `25` `Platform`: the sealing host platform (`desktop` or `android`).
 
-Both come from the Run's `run_started` event; `RunPayloadComposer` reads them from the stored
-events, before the size budget can trim any.
+Keys `22` and `23` come from the Run's `run_started` event; `RunPayloadComposer` reads them from
+the stored events, before the size budget can trim any. Keys `24` and `25` are stamped by
+`RunPayloadComposer` at seal time from the sealing host.
 
 `RunEventV6` uses keys `0..3` for sequence, timestamp, kind, and the structured event JSON.
 `PayloadJson` does not repeat `run_id`, `seq`, `ts`, or `kind`: the Run root and the event's keys
@@ -58,7 +63,15 @@ version (`BundleLimitsV6.RunFormatVersion`) covers them.
 `RunPayloadComposer.EventPayloadBody` does the stripping. The Bundle pipeline does not reinterpret it.
 A `run_started` or `run_resumed` event also carries `server_build_id` and `game_data_etag`, the
 values above as read when that event was written; a field that was not read is omitted. A resumed
-Run can carry a newer game version than its `run_started` event.
+Run can carry a newer game version than its `run_started` event, so `run_resumed` is protected from
+size-budget event trimming alongside terminal lifecycle events.
+
+A `pve_combat_recorded` event carries a lightweight summary extracted from a PvE `NetMessageCombatSim`
+(when preceded by a matching `Combat`-state `NetMessageGameSim`): `day`, `hour`, `encounter_id`,
+`combat_kind` (`Combat`), `winner`, `loser`, `frame_count`, `duration_ms` (`frame_count * 50`),
+`opponent_health_thresholds_for_gold`, `opponent_health_thresholds_for_xp`, `gold_thresholds_hit`,
+`xp_thresholds_hit`, and optional `card_stats`. Its `seq` sits on the shared timeline between the
+opening and closing `NetMessageGameSim` frames.
 
 Rows of kind `stream_message` and `stream_command` are not events: they make up key `8`, below.
 
@@ -117,7 +130,7 @@ frame sets exactly one of `Message` and `Command`:
 |---:|---|---|---|
 | 0 | `Seq` | int | The frame's `run_events` sequence; it orders the frames, and shares its numbers with key `4` |
 | 1 | `TimestampMs` | int | When the mod observed the frame; a frame written after the start event can be earlier than it |
-| 2 | `Message` | bin or null | One message the client received, serialized as `INetMessage` with the game's `MessagePackConfig.Options`: a `NetMessageGameSim`, `NetMessageGameStateSync` or `NetMessageRunInitialized`. An aggregate is split into its messages. Read it with the game's types for the Run's `ServerBuildId` |
+| 2 | `Message` | bin or null | One message the client received, serialized as `INetMessage` with the game's `MessagePackConfig.Options`: a `NetMessageGameSim`, `NetMessageGameStateSync`, `NetMessageRunInitialized`, or `NetMessageError`. An aggregate is split into its messages. Read it with the game's types for the Run's `ServerBuildId` |
 | 3 | `RespondsToSeq` | int or null | On a message: the `Seq` of the command whose response carried it; null for a message the server sent on its own, or a response the mod could not pair |
 | 4 | `Command` | string or null | A command the client sent: the `HttpGameClient` method, such as `SendSelectItem` |
 | 5 | `CommandArgsJson` | string or null | On a command: its arguments as a JSON object by parameter name. Instance ids are their text, enums their member name, lists arrays |

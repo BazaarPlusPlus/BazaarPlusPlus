@@ -95,6 +95,32 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
         _innerStore.MarkRunAbandoned(runId, abandonment);
     }
 
+    // Bounded non-throwing flush for lifecycle pauses (e.g. Android OnPause) so queued writes reach
+    // SQLite before the OS can suspend or kill the process without risking an ANR.
+    public bool TryFlushPendingWrites(TimeSpan timeout)
+    {
+        if (timeout <= TimeSpan.Zero || Volatile.Read(ref _stopAcceptingNewWork) == 1)
+            return false;
+
+        var drained = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        try
+        {
+            EnqueueWrite(
+                RunLogStoreWriteOperation.DrainBarrier,
+                string.Empty,
+                () => drained.TrySetResult(true)
+            );
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+
+        return drained.Task.Wait(timeout);
+    }
+
     public void Dispose()
     {
         lock (_lifecycleGate)
@@ -144,9 +170,17 @@ public sealed class QueuedRunLogStore : IRunLogStore, IDisposable
 
     private void DrainPendingWrites(string runId)
     {
-        using var drained = new ManualResetEventSlim(false);
-        EnqueueWrite(RunLogStoreWriteOperation.DrainBarrier, runId, drained.Set);
-        if (!drained.Wait(_shutdownDrainTimeout))
+        // Use TaskCompletionSource instead of a disposable wait handle so a late worker completion
+        // after timeout cannot throw ObjectDisposedException.
+        var drained = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        EnqueueWrite(
+            RunLogStoreWriteOperation.DrainBarrier,
+            runId,
+            () => drained.TrySetResult(true)
+        );
+        if (!drained.Task.Wait(_shutdownDrainTimeout))
         {
             throw new TimeoutException(
                 "Timed out while waiting for queued run logging writes to drain."

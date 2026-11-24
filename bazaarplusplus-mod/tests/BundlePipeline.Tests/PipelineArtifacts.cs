@@ -27,8 +27,9 @@ internal sealed class PipelineArtifacts
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
+    private static readonly JsonSchema ManifestSchema = BuildManifestSchema();
+
     private readonly string _directory;
-    private readonly JsonSchema _manifestSchema;
     private readonly JsonObject _manifests = new();
     private readonly JsonObject _checksums = new();
     private readonly JsonArray _queue = new();
@@ -44,10 +45,28 @@ internal sealed class PipelineArtifacts
         if (Directory.Exists(_directory))
             Directory.Delete(_directory, recursive: true);
         Directory.CreateDirectory(_directory);
+        VerifyServerChecksumsUseOurMeasure();
+    }
+
+    internal static void ValidateManifestSchema(string name, byte[] manifestBytes)
+    {
+        using var manifest = JsonDocument.Parse(manifestBytes);
+        var validation = ManifestSchema.Evaluate(
+            manifest.RootElement,
+            new EvaluationOptions { OutputFormat = OutputFormat.List }
+        );
+        Check.That(
+            validation.IsValid,
+            $"{name}: sealed manifest violates the server manifest.schema.json: "
+                + JsonSerializer.Serialize(validation)
+        );
+    }
+
+    private static JsonSchema BuildManifestSchema()
+    {
         // The built schema keeps reading its source elements, so it gets a detached copy.
         using var schema = JsonDocument.Parse(Resource("manifest.schema.json"));
-        _manifestSchema = JsonSchema.Build(schema.RootElement.Clone());
-        VerifyServerChecksumsUseOurMeasure();
+        return JsonSchema.Build(schema.RootElement.Clone());
     }
 
     internal OpenedBundleV6 RecordBundle(string name, byte[] bytes)
@@ -56,18 +75,7 @@ internal sealed class PipelineArtifacts
         File.WriteAllBytes(Path.Combine(_directory, name + ".bundle"), bytes);
         File.WriteAllBytes(Path.Combine(_directory, name + ".manifest.json"), opened.ManifestBytes);
 
-        using (var manifest = JsonDocument.Parse(opened.ManifestBytes))
-        {
-            var validation = _manifestSchema.Evaluate(
-                manifest.RootElement,
-                new EvaluationOptions { OutputFormat = OutputFormat.List }
-            );
-            Check.That(
-                validation.IsValid,
-                $"{name}: sealed manifest violates the server manifest.schema.json: "
-                    + JsonSerializer.Serialize(validation)
-            );
-        }
+        ValidateManifestSchema(name, opened.ManifestBytes);
 
         var normalized = JsonNode.Parse(opened.ManifestBytes)!.AsObject();
         normalized["bundle_id"] = Ulid;
