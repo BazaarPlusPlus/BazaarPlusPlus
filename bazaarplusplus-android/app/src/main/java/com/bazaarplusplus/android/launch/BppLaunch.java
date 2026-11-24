@@ -5,6 +5,7 @@ import com.bazaarplusplus.android.game.InstalledGame;
 import com.bazaarplusplus.android.io.AtomicFiles;
 import com.bazaarplusplus.android.io.Sha256;
 import com.bazaarplusplus.android.loader.LoaderDeployment;
+import com.bazaarplusplus.android.payload.ManagedPayloadIncremental;
 import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
 import com.bazaarplusplus.android.release.Download;
 import com.bazaarplusplus.android.release.InteropPackage;
@@ -78,20 +79,48 @@ final class BppLaunch {
         if (switched || ManagedPayloadStaging.compareVersions(in.installedModsVersion, release) < 0) {
             File payloadDir = dirs.managedPayloadCache;
             PlatformManifest.Artifact payload = adaptation.managedPayload.file;
-            File payloadZip = Download.cachedOrFetch(host.source(payload), payload.size, payload.sha256,
-                    new File(payloadDir, payload.sha256 + ".zip"),
-                    (received, total) -> progress.downloading(false, received, total));
-            keepOnly(payloadDir, payloadZip.getName());
-            progress.preparing();
-            if (switched) {
-                List<String> removed = ManagedPayloadStaging.removeInstalled(external);
-                AppLog.i(TAG, "the installed Mods are not staged for game " + game + ": deleted " + removed);
+            File cachedPayloadZip = new File(payloadDir, payload.sha256 + ".zip");
+            boolean stagedIncrementally = false;
+            if (adaptation.managedPayload.chunkIndex != null
+                    && !Download.matches(cachedPayloadZip, payload.size, payload.sha256)
+                    && !host.hasCarried(payload)) {
+                ManagedPayloadIncremental.Outcome incremental = ManagedPayloadIncremental.tryStage(
+                        adaptation.managedPayload, release, external, updates, switched, host::urlSource,
+                        (received, total) -> progress.downloading(false, received, total));
+                if (incremental.staged) {
+                    keepOnly(payloadDir, null);
+                    progress.preparing();
+                    if (switched) {
+                        AppLog.i(TAG, "the installed Mods are not staged for game " + game + ": deleted "
+                                + incremental.removedInstalled);
+                    }
+                    stagedIncrementally = true;
+                    staged = release;
+                    ManagedPayloadStaging.remember(dirs.stagedGame, game);
+                    AppLog.i(TAG, "staged the " + adaptation.source + " Managed Payload " + release
+                            + " incrementally (" + incremental.downloadedBytes + " bytes) over installed "
+                            + in.installedModsVersion);
+                } else {
+                    AppLog.i(TAG, "incremental Managed Payload staging fell back to full zip ("
+                            + incremental.fallbackReason + ")");
+                    progress.preparing();
+                }
             }
-            ManagedPayloadStaging.stage(payloadZip, updates, release);
-            staged = release;
-            ManagedPayloadStaging.remember(dirs.stagedGame, game);
-            AppLog.i(TAG, "staged the " + adaptation.source + " Managed Payload " + release + " over installed "
-                    + in.installedModsVersion);
+            if (!stagedIncrementally) {
+                File payloadZip = Download.cachedOrFetch(host.source(payload), payload.size, payload.sha256,
+                        cachedPayloadZip, (received, total) -> progress.downloading(false, received, total));
+                keepOnly(payloadDir, payloadZip.getName());
+                progress.preparing();
+                if (switched) {
+                    List<String> removed = ManagedPayloadStaging.removeInstalled(external);
+                    AppLog.i(TAG, "the installed Mods are not staged for game " + game + ": deleted " + removed);
+                }
+                ManagedPayloadStaging.stage(payloadZip, updates, release);
+                staged = release;
+                ManagedPayloadStaging.remember(dirs.stagedGame, game);
+                AppLog.i(TAG, "staged the " + adaptation.source + " Managed Payload " + release + " over installed "
+                        + in.installedModsVersion);
+            }
         }
         ManagedPayloadStaging.remember(dirs.stagedVersion, staged);
         List<String> pruned = ManagedPayloadStaging.prune(updates, staged);

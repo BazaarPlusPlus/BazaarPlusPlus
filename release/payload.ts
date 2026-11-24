@@ -54,7 +54,8 @@ import {
   writeManagedPayloadZip
 } from './managed-payload.ts';
 import type { SignWithUpdaterKeyOptions } from './managed-payload.ts';
-import { managedPayloadKey } from './manifest.ts';
+import { writeManagedPayloadChunkIndex } from './managed-payload-chunks.ts';
+import { managedPayloadChunkIndexKey, managedPayloadKey } from './manifest.ts';
 
 export interface PayloadPaths {
   source: string;
@@ -734,13 +735,16 @@ function writeDesktopManagedPayload({
   version: ProductVersion;
   sign: (options: SignWithUpdaterKeyOptions) => string;
 }): ManagedPayloadArtifact {
+  const platformKey = releasePlatform(platform).key;
   const outputPath = path.join(
     rootDir,
     'src-tauri/target/release-artifacts/managed',
-    releasePlatform(platform).key,
-    path.posix.basename(
-      managedPayloadKey(version, releasePlatform(platform).key)
-    )
+    platformKey,
+    path.posix.basename(managedPayloadKey(version, platformKey))
+  );
+  const chunkIndexPath = path.join(
+    path.dirname(outputPath),
+    path.posix.basename(managedPayloadChunkIndexKey(version, platformKey))
   );
   fs.rmSync(path.dirname(outputPath), { recursive: true, force: true });
   const zip = writeManagedPayloadZip({
@@ -749,9 +753,18 @@ function writeDesktopManagedPayload({
     outputPath,
     sign: ({ file }) => sign({ workspaceRoot, file })
   });
+  const chunkIndex = writeManagedPayloadChunkIndex({
+    zipPath: zip.path,
+    outputPath: chunkIndexPath,
+    sign: ({ file }) => sign({ workspaceRoot, file })
+  });
   return {
     path: zip.path,
     signature: sign({ workspaceRoot, file: zip.path }),
+    chunkIndex: {
+      path: chunkIndex.path,
+      signature: chunkIndex.signature
+    },
     historyDatabaseUserVersion: zip.manifest.historyDatabaseUserVersion,
     nonManagedPayloadDigest: zip.manifest.nonManagedPayloadDigest
   };

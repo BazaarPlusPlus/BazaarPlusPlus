@@ -1,6 +1,14 @@
 #nullable enable
 namespace BazaarPlusPlus.Infrastructure.SelfUpdate;
 
+public sealed record ManagedPayloadChunkIndexReference(
+    Uri Url,
+    long Size,
+    string Sha256,
+    string Signature,
+    Uri ChunksBaseUrl
+);
+
 public sealed record ManagedPayloadRelease(
     string Version,
     Uri Url,
@@ -8,5 +16,6 @@ public sealed record ManagedPayloadRelease(
     string Sha256,
     string Signature,
     int HistoryDatabaseUserVersion,
-    string NonManagedPayloadDigest
+    string NonManagedPayloadDigest,
+    ManagedPayloadChunkIndexReference? ChunkIndex = null
 );

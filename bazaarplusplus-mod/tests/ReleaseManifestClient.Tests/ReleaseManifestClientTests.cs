@@ -722,6 +722,66 @@ public sealed class ReleaseManifestClientTests
         Equal(1, published.Count, "A completion after dispose must not publish.");
     }
 
+    [Fact]
+    public async Task Chunk_index_metadata_is_parsed_when_valid_and_dropped_without_breaking_full_zip_when_malformed()
+    {
+        var sha = new string('a', 64);
+        var validBody = $$"""
+            {
+              "version": "6.5.0",
+              "downloads": {
+                "darwin-aarch64": {
+                  "managedPayload": {
+                    "url": "https://cdn.example/installer/6.5.0/darwin-aarch64/managed/managed.zip",
+                    "size": 1000,
+                    "sha256": "{{sha}}",
+                    "signature": "zip-sig",
+                    "chunkIndex": {
+                      "url": "https://cdn.example/installer/6.5.0/darwin-aarch64/managed/managed.chunks.txt",
+                      "size": 256,
+                      "sha256": "{{sha}}",
+                      "signature": "index-sig",
+                      "chunksBaseUrl": "https://cdn.example/installer/managed/chunks"
+                    }
+                  },
+                  "historyDatabaseUserVersion": 1,
+                  "nonManagedPayloadDigest": "{{sha}}"
+                }
+              }
+            }
+            """;
+
+        var valid = await Fetch(
+            _ => Response(HttpStatusCode.OK, validBody),
+            platformKey: ReleaseManifestEndpoints.MacPlatformKey
+        );
+        True(valid.Succeeded, "Valid chunkIndex manifest should succeed.");
+        True(valid.ManagedPayload?.ChunkIndex != null, "Valid chunkIndex should be parsed.");
+        Equal(
+            "https://cdn.example/installer/managed/chunks",
+            valid.ManagedPayload!.ChunkIndex!.ChunksBaseUrl.ToString(),
+            "chunksBaseUrl should match."
+        );
+
+        var crossOriginBody = validBody.Replace(
+            "https://cdn.example/installer/managed/chunks",
+            "https://evil.example/installer/managed/chunks"
+        );
+        var degraded = await Fetch(
+            _ => Response(HttpStatusCode.OK, crossOriginBody),
+            platformKey: ReleaseManifestEndpoints.MacPlatformKey
+        );
+        True(degraded.Succeeded, "Cross-origin chunkIndex should not break manifest fetch.");
+        True(
+            degraded.ManagedPayload != null,
+            "Cross-origin chunkIndex should still preserve full-zip ManagedPayloadRelease."
+        );
+        True(
+            degraded.ManagedPayload!.ChunkIndex == null,
+            "Cross-origin chunkIndex must be ignored."
+        );
+    }
+
     private static async Task<ReleaseManifestFetchResult> Fetch(
         Func<HttpRequestMessage, HttpResponseMessage> send,
         CancellationToken cancellationToken = default,

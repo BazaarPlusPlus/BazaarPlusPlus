@@ -35,6 +35,16 @@ final class AndroidLaunchHost implements LaunchHost {
     }
 
     @Override
+    public boolean hasCarried(PlatformManifest.Artifact file) {
+        return CarriedRelease.hasAsset(context.getAssets(), file);
+    }
+
+    @Override
+    public Download.Source urlSource(String url, boolean identityEncoding) {
+        return identityEncoding ? Download.httpIdentity(url) : Download.http(url);
+    }
+
+    @Override
     public long appVersionCode() {
         return BuildConfigFacts.versionCode(context);
     }

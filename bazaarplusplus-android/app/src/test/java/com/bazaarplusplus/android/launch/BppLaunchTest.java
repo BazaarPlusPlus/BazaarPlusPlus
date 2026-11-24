@@ -13,6 +13,8 @@ import android.content.ContextWrapper;
 import com.bazaarplusplus.android.TestZips;
 import com.bazaarplusplus.android.game.GameCodeHash;
 import com.bazaarplusplus.android.launch.LaunchGate.Tier;
+import com.bazaarplusplus.android.payload.FastCdcChunker;
+import com.bazaarplusplus.android.payload.ManagedPayloadChunkIndex;
 import com.bazaarplusplus.android.payload.ManagedPayloadStaging;
 import com.bazaarplusplus.android.release.Download;
 import com.bazaarplusplus.android.release.InteropPackage;
@@ -746,5 +748,163 @@ public class BppLaunchTest {
         assertFalse("launchDirs creates nothing", dirs.external.exists());
         assertEquals(AppFiles.external(context), dirs.external);
         assertEquals(AppFiles.updates(context), dirs.updates);
+    }
+
+    @Test
+    public void launchStagesIncrementallyWhenChunkIndexExistsAndFallsBackWhenChunksFail() throws Exception {
+        byte[] shared = new byte[32 * 1024];
+        for (int i = 0; i < shared.length; i++) shared[i] = (byte) ((i * 73 + 17) & 0xff);
+        byte[] modOld = new byte[24 * 1024];
+        for (int i = 0; i < modOld.length; i++) modOld[i] = (byte) ((i * 131 + 5) & 0xff);
+        byte[] modNew = modOld.clone();
+        modNew[modNew.length - 1] ^= (byte) 0xff;
+
+        // Seed installed 6.0.0 Mods on disk.
+        File external = dirs().external;
+        Files.createDirectories(new File(external, "MelonLoader/Mods").toPath());
+        Files.createDirectories(new File(external, "MelonLoader/UserLibs").toPath());
+        Files.write(new File(external, "MelonLoader/UserLibs/Shared.dll").toPath(), shared);
+        Files.write(new File(external, "MelonLoader/Mods/BazaarPlusPlus.Core.dll").toPath(), modOld);
+        ManagedPayloadStaging.remember(dirs().stagedGame, GAME.toString());
+
+        String manifestTxt = "bpp-managed-payload-manifest 1\nversion " + RELEASE
+                + "\nplatform android-aarch64\nhistory-database-user-version 1\nnon-managed-payload-digest "
+                + "e".repeat(64) + "\n"
+                + "file " + sha256(modNew) + " " + modNew.length + " MelonLoader/Mods/BazaarPlusPlus.Core.dll\n"
+                + "file " + sha256(shared) + " " + shared.length + " MelonLoader/UserLibs/Shared.dll\n";
+        String sigTxt = "untrusted comment: test\nRW...\n";
+        Map<String, byte[]> zipEntries = new LinkedHashMap<>();
+        zipEntries.put("manifest.txt", manifestTxt.getBytes(StandardCharsets.UTF_8));
+        zipEntries.put("manifest.txt.minisig", sigTxt.getBytes(StandardCharsets.UTF_8));
+        zipEntries.put("files/MelonLoader/Mods/BazaarPlusPlus.Core.dll", modNew);
+        zipEntries.put("files/MelonLoader/UserLibs/Shared.dll", shared);
+        File zipFile = tmp.newFile("inc-full.zip");
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(
+                new java.io.FileOutputStream(zipFile))) {
+            for (Map.Entry<String, byte[]> e : zipEntries.entrySet()) {
+                zos.putNextEntry(new java.util.zip.ZipEntry(e.getKey()));
+                zos.write(e.getValue());
+                zos.closeEntry();
+            }
+        }
+        byte[] fullZip = read(zipFile);
+
+        // Build chunk index + compressed chunks.
+        FastCdcChunker.Params params = new FastCdcChunker.Params(512, 2048, 8192);
+        Map<String, byte[]> filesMap = new TreeMap<>();
+        filesMap.put("MelonLoader/Mods/BazaarPlusPlus.Core.dll", modNew);
+        filesMap.put("MelonLoader/UserLibs/Shared.dll", shared);
+        List<String> chunkLines = new ArrayList<>();
+        Map<String, Integer> rawIdx = new LinkedHashMap<>();
+        Map<String, byte[]> compressedChunks = new LinkedHashMap<>();
+        List<String> fileLines = new ArrayList<>();
+        for (Map.Entry<String, byte[]> entry : filesMap.entrySet()) {
+            byte[] content = entry.getValue();
+            int[] bounds = FastCdcChunker.chunkBoundaries(content, content.length, params);
+            StringBuilder refs = new StringBuilder();
+            int start = 0;
+            for (int end : bounds) {
+                byte[] raw = java.util.Arrays.copyOfRange(content, start, end);
+                String rawSha = sha256(raw);
+                Integer idx = rawIdx.get(rawSha);
+                if (idx == null) {
+                    java.util.zip.Deflater d = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION, true);
+                    byte[] comp;
+                    try {
+                        d.setInput(raw);
+                        d.finish();
+                        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                        byte[] buf = new byte[4096];
+                        while (!d.finished()) bos.write(buf, 0, d.deflate(buf));
+                        comp = bos.toByteArray();
+                    } finally {
+                        d.end();
+                    }
+                    String compSha = sha256(comp);
+                    idx = chunkLines.size();
+                    rawIdx.put(rawSha, idx);
+                    chunkLines.add("chunk " + rawSha + " " + raw.length + " " + compSha + " " + comp.length);
+                    compressedChunks.put(compSha, comp);
+                }
+                if (refs.length() > 0) refs.append(',');
+                refs.append(idx);
+                start = end;
+            }
+            fileLines.add("file " + sha256(content) + " " + content.length + " " + refs + " " + entry.getKey());
+        }
+        StringBuilder idxSb = new StringBuilder(ManagedPayloadChunkIndex.HEADER).append('\n')
+                .append("version ").append(RELEASE).append('\n')
+                .append("platform android-aarch64\n")
+                .append("chunking ").append(FastCdcChunker.ALGORITHM).append(" 512 2048 8192\n")
+                .append("compression ").append(ManagedPayloadChunkIndex.COMPRESSION).append('\n')
+                .append("manifest-base64 ").append(Base64.getEncoder().encodeToString(
+                        manifestTxt.getBytes(StandardCharsets.UTF_8))).append('\n')
+                .append("manifest-sig-base64 ").append(Base64.getEncoder().encodeToString(
+                        sigTxt.getBytes(StandardCharsets.UTF_8))).append('\n');
+        for (String line : chunkLines) idxSb.append(line).append('\n');
+        for (String line : fileLines) idxSb.append(line).append('\n');
+        byte[] indexBytes = idxSb.toString().getBytes(StandardCharsets.UTF_8);
+
+        byte[] interop = interopZip(false, "assembly");
+        byte[] playInterop = interopZip(false, "play assembly");
+        byte[] playPayload = payloadZip("play core");
+        String purpose = InteropStatement.releasePurpose(RELEASE);
+        JSONObject pubJson = adaptationJson("publisher", LaunchGateTest.PUBLISHER_SIGNER, GAME_VERSION_NAME,
+                GAME_VERSION_CODE, GAME, interop, fullZip, sign(KEY, sha256(interop), GAME, purpose));
+        String indexUrl = ReleaseOrigin.PUBLIC.managedPayloadChunkIndexUrl(RELEASE, "publisher");
+        pubJson.getJSONObject("managedPayload").put("chunkIndex", new JSONObject()
+                .put("url", indexUrl)
+                .put("size", indexBytes.length)
+                .put("sha256", sha256(indexBytes))
+                .put("signature", "idx-sig")
+                .put("chunksBaseUrl", ReleaseOrigin.PUBLIC.managedChunksBaseUrl()));
+        PlatformManifest m = manifest(pubJson, adaptationJson("play", LaunchGateTest.PLAY_SIGNER, PLAY_VERSION_NAME,
+                PLAY_VERSION_CODE, PLAY_GAME, playInterop, playPayload,
+                sign(KEY, sha256(playInterop), PLAY_GAME, purpose)));
+
+        List<String> fetchedUrls = new ArrayList<>();
+        boolean[] failChunks = {false};
+        LaunchHost incHost = new LaunchHost() {
+            @Override public boolean gamePrepared() { return false; }
+            @Override public Download.Source source(PlatformManifest.Artifact file) {
+                fetchedUrls.add("artifact:" + file.url);
+                if (file == m.adaptations.get("publisher").interop.file) {
+                    return () -> new ByteArrayInputStream(interop);
+                }
+                return () -> new ByteArrayInputStream(fullZip);
+            }
+            @Override public Download.Source urlSource(String url, boolean identityEncoding) {
+                fetchedUrls.add("url:" + url);
+                if (url.equals(indexUrl)) return () -> new ByteArrayInputStream(indexBytes);
+                if (failChunks[0]) return () -> { throw new IOException("simulated chunk failure"); };
+                String name = url.substring(url.lastIndexOf('/') + 1);
+                String sha = name.substring(0, name.length() - ".deflate".length());
+                byte[] bytes = compressedChunks.get(sha);
+                return () -> new ByteArrayInputStream(bytes);
+            }
+            @Override public long appVersionCode() { return APP.versionCode; }
+            @Override public LaunchRecord.App app() { return APP; }
+            @Override public void prepareGame(File interopZip) {}
+            @Override public long processId() { return PID; }
+        };
+
+        LaunchInputs launchIn = new LaunchInputs(LauncherScreenTest.decision(Tier.NORMAL, false), true, GAME,
+                GAME_VERSION_NAME, GAME_VERSION_CODE, m, m.adaptations.get("publisher"), "6.0.0",
+                List.of(KEY.getPublic()), null);
+        new BppLaunch(incHost, dirs()).prepare(launchIn, SILENT);
+
+        assertFalse("full managed.zip must not be fetched when incremental succeeds",
+                fetchedUrls.contains("artifact:" + m.adaptations.get("publisher").managedPayload.file.url));
+        assertArrayEquals(modNew, read(new File(dirs().updates, RELEASE + "/files/MelonLoader/Mods/BazaarPlusPlus.Core.dll")));
+        assertArrayEquals(shared, read(new File(dirs().updates, RELEASE + "/files/MelonLoader/UserLibs/Shared.dll")));
+
+        // Now force chunk failure and clear Updates/ -> must seamlessly fall back to full zip!
+        com.bazaarplusplus.android.io.AtomicFiles.deleteTree(dirs().updates);
+        fetchedUrls.clear();
+        failChunks[0] = true;
+        new BppLaunch(incHost, dirs()).prepare(launchIn, SILENT);
+        assertTrue("fallback must fetch full managed.zip",
+                fetchedUrls.contains("artifact:" + m.adaptations.get("publisher").managedPayload.file.url));
+        assertArrayEquals(modNew, read(new File(dirs().updates, RELEASE + "/files/MelonLoader/Mods/BazaarPlusPlus.Core.dll")));
     }
 }

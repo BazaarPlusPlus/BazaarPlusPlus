@@ -89,13 +89,38 @@ public final class PlatformManifest {
         }
     }
 
+    public static final class ChunkIndex {
+        public final Artifact file;
+        public final String signature;
+        public final String chunksBaseUrl;
+
+        ChunkIndex(Artifact file, String signature, String chunksBaseUrl) {
+            this.file = file;
+            this.signature = signature;
+            this.chunksBaseUrl = chunksBaseUrl;
+        }
+
+        static ChunkIndex decode(JSONObject json, ReleaseOrigin origin, String version, String source)
+                throws MalformedReleaseException {
+            Artifact file = Artifact.exact(json, origin.managedPayloadChunkIndexUrl(version, source));
+            String signature = StrictJson.string(json, "signature");
+            String chunksBaseUrl = StrictJson.string(json, "chunksBaseUrl");
+            if (!chunksBaseUrl.equals(origin.managedChunksBaseUrl())) {
+                throw new MalformedReleaseException(chunksBaseUrl + " is not " + origin.managedChunksBaseUrl());
+            }
+            return new ChunkIndex(file, signature, chunksBaseUrl);
+        }
+    }
+
     public static final class ManagedPayload {
         public final Artifact file;
         public final String signature;
+        public final ChunkIndex chunkIndex;
 
-        ManagedPayload(Artifact file, String signature) {
+        ManagedPayload(Artifact file, String signature, ChunkIndex chunkIndex) {
             this.file = file;
             this.signature = signature;
+            this.chunkIndex = chunkIndex;
         }
     }
 
@@ -117,10 +142,13 @@ public final class PlatformManifest {
         static Adaptation decode(JSONObject json, String source, ReleaseOrigin origin, String version)
                 throws MalformedReleaseException {
             JSONObject payload = StrictJson.object(json, "managedPayload");
+            ChunkIndex chunkIndex = payload.has("chunkIndex") && !payload.isNull("chunkIndex")
+                    ? ChunkIndex.decode(StrictJson.object(payload, "chunkIndex"), origin, version, source)
+                    : null;
             return new Adaptation(source, StrictJson.sha256(json, "signerSha256"),
                     Game.decode(StrictJson.object(json, "game")), Interop.decode(StrictJson.object(json, "interop"), origin),
                     new ManagedPayload(Artifact.exact(payload, origin.managedPayloadUrl(version, source)),
-                            StrictJson.string(payload, "signature")));
+                            StrictJson.string(payload, "signature"), chunkIndex));
         }
     }
 

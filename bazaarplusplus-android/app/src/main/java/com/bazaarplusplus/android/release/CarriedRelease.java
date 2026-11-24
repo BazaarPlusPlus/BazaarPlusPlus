@@ -22,6 +22,15 @@ public final class CarriedRelease {
         }
     }
 
+    public static boolean hasAsset(AssetManager assets, PlatformManifest.Artifact file) {
+        String asset = DIR + "/" + file.sha256 + ".zip";
+        try (InputStream ignored = assets.open(asset)) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     public static Download.Source source(AssetManager assets, PlatformManifest.Artifact file) {
         String asset = DIR + "/" + file.sha256 + ".zip";
         try (InputStream ignored = assets.open(asset)) {

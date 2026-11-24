@@ -154,6 +154,31 @@ test.each([
   expect(decodeAndroidDownload(manifest())).toBeNull();
 });
 
+test('decodeAndroidDownload preserves a valid chunkIndex and rejects a malformed one', () => {
+  const validChunkIndex = {
+    url: `${RELEASE_BASE_URL}/3.1.2/android-aarch64/managed/publisher/BazaarPlusPlus_3.1.2_android-aarch64-publisher-managed.chunks.txt`,
+    size: 256,
+    sha256: 'a'.repeat(64),
+    signature: 'chunk-sig',
+    chunksBaseUrl: `${RELEASE_BASE_URL}/managed/chunks`
+  };
+  const withChunks = brokenAndroid((record) => {
+    (record.managedPayload as Record<string, unknown>).chunkIndex =
+      validChunkIndex;
+  });
+  expect(decodeAndroidDownload(withChunks)?.managedPayload.chunkIndex).toEqual(
+    validChunkIndex
+  );
+
+  const badBase = brokenAndroid((record) => {
+    (record.managedPayload as Record<string, unknown>).chunkIndex = {
+      ...validChunkIndex,
+      chunksBaseUrl: 'https://evil.example/installer/managed/chunks'
+    };
+  });
+  expect(decodeAndroidDownload(badBase)).toBeNull();
+});
+
 test('mod endpoints are separate while installer and website endpoints stay compatible', () => {
   for (const key of Object.values(DOWNLOAD_PLATFORM_KEYS)) {
     expect(modManifestPath(key)).toBe(`latest/mod/${key}.json`);

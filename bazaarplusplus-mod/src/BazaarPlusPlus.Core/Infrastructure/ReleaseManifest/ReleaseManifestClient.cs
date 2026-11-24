@@ -173,8 +173,59 @@ public sealed class ReleaseManifestClient
             sha256!,
             signature!,
             historyVersion,
-            digest!
+            digest!,
+            ReadChunkIndex(payload["chunkIndex"] as JObject, uri)
         );
+    }
+
+    // Malformed or cross-origin chunkIndex metadata degrades gracefully to full-zip staging.
+    private static ManagedPayloadChunkIndexReference? ReadChunkIndex(
+        JObject? chunkIndex,
+        Uri managedPayloadUri
+    )
+    {
+        if (chunkIndex == null)
+            return null;
+        var url = chunkIndex.Value<string>("url");
+        var size =
+            chunkIndex["size"]?.Type == JTokenType.Integer ? chunkIndex.Value<long>("size") : 0;
+        var sha256 = chunkIndex.Value<string>("sha256");
+        var signature = chunkIndex.Value<string>("signature");
+        var chunksBaseUrl = chunkIndex.Value<string>("chunksBaseUrl");
+        if (
+            !TryParseSameOriginHttpsUri(url, managedPayloadUri, out var indexUri)
+            || !TryParseSameOriginHttpsUri(chunksBaseUrl, managedPayloadUri, out var chunksBaseUri)
+            || size <= 0
+            || size > ManagedPayloadChunkIndex.MaxIndexBytes
+            || string.IsNullOrWhiteSpace(sha256)
+            || !IsSha256(sha256!)
+            || string.IsNullOrWhiteSpace(signature)
+        )
+            return null;
+        return new ManagedPayloadChunkIndexReference(
+            indexUri!,
+            size,
+            sha256!,
+            signature!.Trim(),
+            chunksBaseUri!
+        );
+    }
+
+    private static bool TryParseSameOriginHttpsUri(string? raw, Uri expectedOrigin, out Uri? uri)
+    {
+        uri = null;
+        if (
+            !Uri.TryCreate(raw, UriKind.Absolute, out var parsed)
+            || parsed.Scheme != Uri.UriSchemeHttps
+            || !string.IsNullOrEmpty(parsed.UserInfo)
+            || !string.IsNullOrEmpty(parsed.Query)
+            || !string.IsNullOrEmpty(parsed.Fragment)
+            || !string.Equals(parsed.Host, expectedOrigin.Host, StringComparison.OrdinalIgnoreCase)
+            || parsed.Port != expectedOrigin.Port
+        )
+            return false;
+        uri = parsed;
+        return true;
     }
 
     // release/manifest.ts owns the Android schema. The top-level game field serves older mods.
