@@ -108,6 +108,17 @@ internal sealed partial class HistoryPanelView : IDisposable
         _pageBattles = battles;
     }
 
+    internal void SetBppAccountActions(
+        Action toggle,
+        Action openActivateDevice,
+        Action<string?> submit
+    )
+    {
+        _toggleBppAccount = toggle;
+        _openBppActivateDevice = openActivateDevice;
+        _submitBppAccount = submit;
+    }
+
     public void EnsureCreated()
     {
         if (_disposed || _root != null)
@@ -147,6 +158,9 @@ internal sealed partial class HistoryPanelView : IDisposable
             _accountCode = string.Empty;
             _accountInput?.SetTextWithoutNotify(string.Empty);
             _accountInput?.DeactivateInputField();
+            _bppAccountText = string.Empty;
+            _bppAccountInput?.SetTextWithoutNotify(string.Empty);
+            _bppAccountInput?.DeactivateInputField();
             _more?.Root.SetActive(false);
             _heroMenu?.Root.SetActive(false);
             CloseNoteDialog();
@@ -157,6 +171,7 @@ internal sealed partial class HistoryPanelView : IDisposable
 
     public bool IsTextInputFocused() =>
         (_accountInput != null && _accountInput.isFocused)
+        || (_bppAccountInput != null && _bppAccountInput.isFocused)
         || (_noteInput != null && _noteInput.isFocused);
 
     internal bool HasOpenModal =>

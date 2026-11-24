@@ -9,6 +9,7 @@ public sealed class ModApiSession : IDisposable
     private readonly BundleUploadClient _bundleUpload;
     private readonly GhostBattleClient _ghostBattles;
     private readonly ModApiHealthClient _health;
+    private readonly BppAccountClient _accounts;
     private int _disposed;
 
     private ModApiSession(HttpClient httpClient, ModApiRoutes routes)
@@ -17,6 +18,7 @@ public sealed class ModApiSession : IDisposable
         _bundleUpload = new BundleUploadClient(httpClient, routes);
         _ghostBattles = new GhostBattleClient(httpClient, routes);
         _health = new ModApiHealthClient(httpClient, routes);
+        _accounts = new BppAccountClient(httpClient, routes);
     }
 
     public static ModApiSession? TryCreate(
@@ -47,7 +49,8 @@ public sealed class ModApiSession : IDisposable
         string contentDigest,
         string expectedBundleId,
         string expectedRunId,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? deviceToken = null
     ) =>
         _bundleUpload.UploadAsync(
             sealedFile,
@@ -55,14 +58,16 @@ public sealed class ModApiSession : IDisposable
             contentDigest,
             expectedBundleId,
             expectedRunId,
-            cancellationToken
+            cancellationToken,
+            deviceToken
         );
 
     public Task<GhostBattleQueryResult> QueryGhostBattlesAgainstMeAsync(
         string playerAccountId,
         int limit,
-        CancellationToken cancellationToken
-    ) => _ghostBattles.QueryAgainstMeAsync(playerAccountId, limit, cancellationToken);
+        CancellationToken cancellationToken,
+        string? deviceToken = null
+    ) => _ghostBattles.QueryAgainstMeAsync(playerAccountId, limit, cancellationToken, deviceToken);
 
     public Task<GhostBundleDownloadResult> DownloadGhostBundleAsync(
         string downloadUrl,
@@ -71,6 +76,49 @@ public sealed class ModApiSession : IDisposable
 
     public Task<ModApiHealthProbeResult> ProbeHealthAsync(CancellationToken cancellationToken) =>
         _health.ProbeAsync(cancellationToken);
+
+    public Task<BppAccountBindStartResult> StartBppAccountBindAsync(
+        string email,
+        string gameToken,
+        string gameAccountId,
+        string platform,
+        string flavor,
+        CancellationToken cancellationToken
+    ) =>
+        _accounts.StartBindAsync(
+            email,
+            gameToken,
+            gameAccountId,
+            platform,
+            flavor,
+            cancellationToken
+        );
+
+    public Task<BppAccountDeviceResult> ConfirmBppAccountBindAsync(
+        string pendingId,
+        string code,
+        CancellationToken cancellationToken
+    ) => _accounts.ConfirmBindAsync(pendingId, code, cancellationToken);
+
+    public Task<BppAccountDeviceResult> IssueBppAccountDeviceTokenAsync(
+        string gameToken,
+        string gameAccountId,
+        string platform,
+        string flavor,
+        CancellationToken cancellationToken
+    ) =>
+        _accounts.IssueDeviceTokenAsync(
+            gameToken,
+            gameAccountId,
+            platform,
+            flavor,
+            cancellationToken
+        );
+
+    public Task<BppAccountMeResult> GetBppAccountMeAsync(
+        string deviceToken,
+        CancellationToken cancellationToken
+    ) => _accounts.GetMeAsync(deviceToken, cancellationToken);
 
     public void Dispose()
     {

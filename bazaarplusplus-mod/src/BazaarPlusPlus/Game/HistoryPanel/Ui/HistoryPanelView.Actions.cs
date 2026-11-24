@@ -16,25 +16,41 @@ internal sealed partial class HistoryPanelView
     private readonly Action<string?> _submitAccountCode;
     private readonly Action _toggleAccountLink;
     private readonly Action _markAccountLinked;
+    private Action? _toggleBppAccount;
+    private Action? _openBppActivateDevice;
+    private Action<string?>? _submitBppAccount;
     private string _accountCode = string.Empty;
+    private string _bppAccountText = string.Empty;
+    private BppAccountFlowPhase _bppAccountRenderedPhase;
     private string? _inputAccount;
     private TMP_InputField? _accountInput;
+    private TMP_InputField? _bppAccountInput;
     private KitModal? _more;
     private GameObject _accountForm = null!;
+    private GameObject _bppAccountForm = null!;
     private KitButton _deleteButton = null!,
         _recordButton = null!,
         _replayButton = null!,
         _healthButton = null!,
         _accountToggle = null!,
         _accountSubmit = null!,
-        _accountLinked = null!;
+        _accountLinked = null!,
+        _bppAccountToggle = null!,
+        _bppAccountActivate = null!,
+        _bppAccountSubmit = null!;
     private TextMeshProUGUI _databaseLabel = null!,
         _moreStatus = null!,
         _accountTitle = null!,
         _accountStatus = null!,
         _accountPersistence = null!,
         _accountWhy = null!,
-        _accountBanner = null!;
+        _accountBanner = null!,
+        _bppAccountTitle = null!,
+        _bppAccountStatus = null!,
+        _bppAccountHint = null!,
+        _bppAccountPrompt = null!,
+        _bppAccountNotice = null!,
+        _bppAccountBanner = null!;
 
     private void CreateActions(DesktopKit kit, RectTransform detail)
     {
@@ -147,6 +163,60 @@ internal sealed partial class HistoryPanelView
         );
         _accountBanner = Wrapped(kit.Text(form, string.Empty, KitTextRole.Meta));
         _accountForm = form.gameObject;
+
+        kit.Hairline(card, .7f);
+
+        var bppRow = Line(card, "BppAccount", InGameSizes.Space12);
+        bppRow.childAlignment = TextAnchor.UpperLeft;
+        var bppWords = Flexible(DesktopKit.Rect(bppRow.transform, "Words"));
+        Column(bppWords, InGameSizes.Space4);
+        _bppAccountTitle = kit.Text(bppWords, string.Empty, KitTextRole.Section);
+        _bppAccountStatus = Wrapped(kit.Text(bppWords, string.Empty, KitTextRole.Body));
+        _bppAccountHint = Wrapped(kit.Text(bppWords, string.Empty, KitTextRole.Caption));
+        var bppButtons = DesktopKit.Rect(bppRow.transform, "Buttons");
+        Column(bppButtons, InGameSizes.Space8);
+        _bppAccountToggle = kit.Button(
+            bppButtons,
+            string.Empty,
+            KitButtonKind.Secondary,
+            KitSize.Sm,
+            () => _toggleBppAccount?.Invoke()
+        );
+        _bppAccountActivate = kit.Button(
+            bppButtons,
+            string.Empty,
+            KitButtonKind.Quiet,
+            KitSize.Sm,
+            () => _openBppActivateDevice?.Invoke()
+        );
+
+        var bppForm = DesktopKit.Rect(card, "BppAccountForm");
+        Column(bppForm, InGameSizes.Space8);
+        _bppAccountPrompt = Wrapped(kit.Text(bppForm, string.Empty, KitTextRole.Body));
+        _bppAccountNotice = Wrapped(kit.Text(bppForm, string.Empty, KitTextRole.Caption));
+        var bppLine = Line(bppForm, "InputLine", InGameSizes.Space8);
+        var bppInput = Flexible(
+            kit.Field(bppLine.transform, HistoryPanelText.BppAccount.EmailPlaceholder())
+        );
+        bppInput.characterLimit = 254;
+        bppInput.onValueChanged.AddListener(value => _bppAccountText = value);
+        bppInput.onSelect.AddListener(_ => UpdateInputFocus());
+        bppInput.onDeselect.AddListener(_ => ReleaseInputFocus());
+        bppInput.onSubmit.AddListener(_ =>
+        {
+            if (_model?.BppAccountControlsEnabled == true)
+                _submitBppAccount?.Invoke(_bppAccountText.Trim());
+        });
+        _bppAccountInput = bppInput;
+        _bppAccountSubmit = kit.Button(
+            bppLine.transform,
+            string.Empty,
+            KitButtonKind.Primary,
+            KitSize.Md,
+            () => _submitBppAccount?.Invoke(_bppAccountText.Trim())
+        );
+        _bppAccountBanner = Wrapped(kit.Text(card, string.Empty, KitTextRole.Meta));
+        _bppAccountForm = bppForm.gameObject;
     }
 
     private void SetMoreVisible(bool visible)
@@ -154,6 +224,7 @@ internal sealed partial class HistoryPanelView
         if (!visible)
         {
             _accountInput?.DeactivateInputField();
+            _bppAccountInput?.DeactivateInputField();
             ReleaseInputFocus();
         }
         _more?.Root.SetActive(visible);
@@ -168,7 +239,16 @@ internal sealed partial class HistoryPanelView
             _accountCode = string.Empty;
             _accountInput?.SetTextWithoutNotify(string.Empty);
             _accountInput?.DeactivateInputField();
+            _bppAccountText = string.Empty;
+            _bppAccountInput?.SetTextWithoutNotify(string.Empty);
+            _bppAccountInput?.DeactivateInputField();
             ReleaseInputFocus();
+        }
+        if (_bppAccountRenderedPhase != m.BppAccountPhase)
+        {
+            _bppAccountRenderedPhase = m.BppAccountPhase;
+            _bppAccountText = string.Empty;
+            _bppAccountInput?.SetTextWithoutNotify(string.Empty);
         }
         var hasRows =
             m.SectionMode == HistorySectionMode.Runs
@@ -214,6 +294,36 @@ internal sealed partial class HistoryPanelView
         _accountSubmit.Label = m.AccountLinkButtonText;
         _accountSubmit.interactable = m.AccountLinkButtonEnabled;
         Show(_accountBanner, m.AccountLinkBannerText, StatusColor(m.AccountLinkBannerSeverity));
+
+        _bppAccountTitle.text = m.BppAccountTitleText;
+        _bppAccountStatus.text = m.BppAccountStatusText;
+        Show(_bppAccountHint, m.BppAccountHintText, Muted);
+        _bppAccountToggle.gameObject.SetActive(m.BppAccountActionVisible);
+        _bppAccountToggle.Label = m.BppAccountActionText;
+        _bppAccountToggle.interactable = m.BppAccountControlsEnabled;
+        _bppAccountActivate.gameObject.SetActive(m.BppAccountActivateActionVisible);
+        _bppAccountActivate.Label = m.BppAccountActivateActionText;
+        _bppAccountActivate.interactable = m.BppAccountControlsEnabled;
+        if (!m.BppAccountFormVisible || !m.BppAccountInputVisible)
+        {
+            _bppAccountInput?.DeactivateInputField();
+            if (!m.AccountLinkFormVisible)
+                ReleaseInputFocus();
+        }
+        _bppAccountForm.SetActive(m.BppAccountFormVisible);
+        Show(_bppAccountPrompt, m.BppAccountFormPromptText, Ink);
+        Show(_bppAccountNotice, m.BppAccountNoticeText, Muted);
+        if (_bppAccountInput != null)
+        {
+            _bppAccountInput.gameObject.SetActive(m.BppAccountInputVisible);
+            _bppAccountInput.characterLimit = m.BppAccountInputMaxLength;
+            _bppAccountInput.interactable = m.BppAccountControlsEnabled;
+            if (_bppAccountInput.placeholder is TextMeshProUGUI placeholder)
+                placeholder.text = m.BppAccountInputPlaceholder;
+        }
+        _bppAccountSubmit.Label = m.BppAccountSubmitText;
+        _bppAccountSubmit.interactable = m.BppAccountControlsEnabled;
+        Show(_bppAccountBanner, m.BppAccountBannerText, StatusColor(m.BppAccountBannerSeverity));
     }
 
     private static void Show(TextMeshProUGUI text, string? value, Color color)

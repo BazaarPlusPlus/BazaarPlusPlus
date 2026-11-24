@@ -30,8 +30,21 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     private readonly HistoryButton _accountSubmit;
     private readonly TextMeshProUGUI _accountBanner;
     private readonly HistoryButton _accountLinked;
+    private readonly RectTransform _bppSection;
+    private readonly TextMeshProUGUI _bppTitle;
+    private readonly HistoryButton _bppToggle;
+    private readonly TextMeshProUGUI _bppStatus;
+    private readonly TextMeshProUGUI _bppHint;
+    private readonly HistoryButton _bppActivate;
+    private readonly GameObject _bppForm;
+    private readonly TextMeshProUGUI _bppPrompt;
+    private readonly TextMeshProUGUI _bppNotice;
+    private readonly TMP_InputField _bppInput;
+    private readonly HistoryButton _bppSubmit;
+    private readonly TextMeshProUGUI _bppBanner;
     private string? _inputAccount;
-    private (bool Form, bool Status, bool Linked)? _shownRows;
+    private BppAccountFlowPhase _bppRenderedPhase;
+    private (bool Form, bool Status, bool Linked, bool BppForm, bool BppActivate)? _shownRows;
 
     public TouchHistoryMoreDialog(
         RectTransform parent,
@@ -199,6 +212,112 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             layout.ButtonFont,
             () => _actions.MarkLinked()
         );
+        _bppSection = UiKit.Rect(
+            "BppAccountSection",
+            below,
+            Vector2.zero,
+            Vector2.one,
+            Vector2.zero,
+            Vector2.zero
+        );
+        _bppTitle = TouchHistoryUi.Label(
+            _bppSection,
+            font,
+            "BppAccountTitle",
+            layout.BppAccountTitle,
+            layout.RowTitleFont
+        );
+        _bppToggle = TouchHistoryUi.Button(
+            _bppSection,
+            font,
+            "bpp_account_toggle",
+            layout.BppAccountToggle,
+            layout.ButtonFont,
+            () => _actions.ToggleBppAccountForm?.Invoke()
+        );
+        _bppStatus = TouchHistoryUi.Label(
+            _bppSection,
+            font,
+            "BppAccountStatus",
+            layout.BppAccountStatus,
+            layout.BodyFont,
+            TextAlignmentOptions.TopLeft,
+            TouchHistoryUi.Muted,
+            wrap: true
+        );
+        _bppHint = TouchHistoryUi.Label(
+            _bppSection,
+            font,
+            "BppAccountHint",
+            layout.BppAccountHint,
+            layout.BodyFont,
+            TextAlignmentOptions.TopLeft,
+            TouchHistoryUi.Muted,
+            wrap: true
+        );
+        _bppActivate = TouchHistoryUi.Button(
+            _bppSection,
+            font,
+            "bpp_account_activate",
+            layout.BppAccountActivate,
+            layout.ButtonFont,
+            () => _actions.OpenBppActivateDevice?.Invoke()
+        );
+        var bppForm = UiKit.Rect(
+            "BppAccountForm",
+            _bppSection,
+            Vector2.zero,
+            Vector2.one,
+            Vector2.zero,
+            Vector2.zero
+        );
+        _bppForm = bppForm.gameObject;
+        _bppPrompt = TouchHistoryUi.Label(
+            bppForm,
+            font,
+            "BppAccountPrompt",
+            layout.BppAccountPrompt,
+            layout.BodyFont,
+            TextAlignmentOptions.TopLeft,
+            wrap: true
+        );
+        _bppNotice = TouchHistoryUi.Label(
+            bppForm,
+            font,
+            "BppAccountNotice",
+            layout.BppAccountNotice,
+            layout.BodyFont,
+            TextAlignmentOptions.TopLeft,
+            TouchHistoryUi.Muted,
+            wrap: true
+        );
+        _bppInput = TouchHistoryUi.Input(
+            bppForm,
+            font,
+            "BppAccountInput",
+            layout.BppAccountInput,
+            layout.ButtonFont,
+            HistoryPanelText.BppAccount.EmailPlaceholder(),
+            254,
+            multiLine: false
+        );
+        _bppSubmit = TouchHistoryUi.Button(
+            bppForm,
+            font,
+            "bpp_account_submit",
+            layout.BppAccountSubmit,
+            layout.ButtonFont,
+            SubmitBppAccount
+        );
+        _bppBanner = TouchHistoryUi.Label(
+            _bppSection,
+            font,
+            "BppAccountBanner",
+            layout.BppAccountBanner,
+            layout.BodyFont,
+            TextAlignmentOptions.TopLeft,
+            wrap: true
+        );
         _root.SetActive(false);
     }
 
@@ -218,6 +337,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         if (!IsOpen)
             return false;
         _accountInput.DeactivateInputField(false);
+        _bppInput.DeactivateInputField(false);
         _root.SetActive(false);
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.Touch, "touch.history.more_closed"),
@@ -233,6 +353,13 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             _inputAccount = m.AccountId;
             _accountInput.SetTextWithoutNotify(string.Empty);
             _accountInput.DeactivateInputField(false);
+            _bppInput.SetTextWithoutNotify(string.Empty);
+            _bppInput.DeactivateInputField(false);
+        }
+        if (_bppRenderedPhase != m.BppAccountPhase)
+        {
+            _bppRenderedPhase = m.BppAccountPhase;
+            _bppInput.SetTextWithoutNotify(string.Empty);
         }
         _database.text = m.DatabaseChipText;
         _database.color = TouchHistoryUi.StatusColor(m.DatabaseChipSeverity);
@@ -252,11 +379,19 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         if (!m.AccountLinkFormVisible)
             _accountInput.DeactivateInputField(false);
         TouchHistoryUi.SetActive(_form, m.AccountLinkFormVisible);
-        if (
-            _shownRows != (m.AccountLinkFormVisible, hasStatus, m.AccountAlreadyLinkedButtonVisible)
-        )
+        if (!m.BppAccountFormVisible || !m.BppAccountInputVisible)
+            _bppInput.DeactivateInputField(false);
+        TouchHistoryUi.SetActive(_bppForm, m.BppAccountFormVisible);
+        var rowsKey = (
+            m.AccountLinkFormVisible,
+            hasStatus,
+            m.AccountAlreadyLinkedButtonVisible,
+            m.BppAccountFormVisible,
+            m.BppAccountActivateActionVisible
+        );
+        if (_shownRows != rowsKey)
         {
-            _shownRows = (m.AccountLinkFormVisible, hasStatus, m.AccountAlreadyLinkedButtonVisible);
+            _shownRows = rowsKey;
             var rise = hasStatus ? 0f : _layout.AccountTitle.Top - _layout.MoreStatus.Top;
             _below.anchoredPosition = new Vector2(0f, rise);
             var linked = _layout.AccountLinked;
@@ -268,12 +403,17 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
                     linked.Height
                 );
             TouchScreen.Place(_accountLinked.GameObject.GetComponent<RectTransform>(), linked);
-            var content =
-                (
-                    m.AccountLinkFormVisible ? _layout.MoreContentHeight
-                    : m.AccountAlreadyLinkedButtonVisible ? linked.Bottom
-                    : _layout.AccountFormTop
-                ) - rise;
+            var bazaarDbBottom =
+                m.AccountLinkFormVisible ? _layout.AccountLinked.Bottom
+                : m.AccountAlreadyLinkedButtonVisible ? linked.Bottom
+                : _layout.AccountFormTop;
+            var bppOffset = bazaarDbBottom + _layout.Gap;
+            _bppSection.anchoredPosition = new Vector2(0f, -bppOffset);
+            var bppHeight =
+                m.BppAccountFormVisible ? _layout.BppAccountExpandedHeight
+                : m.BppAccountActivateActionVisible ? _layout.BppAccountCompactHeight
+                : _layout.BppAccountFormTop + _layout.BppAccountBanner.Height;
+            var content = bppOffset + bppHeight - rise;
             _scroll.content.sizeDelta = new Vector2(_layout.MoreScroll.Width, content);
             Fit(content);
         }
@@ -284,6 +424,24 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         _accountBanner.color = TouchHistoryUi.StatusColor(m.AccountLinkBannerSeverity);
         TouchHistoryUi.SetActive(_accountLinked.GameObject, m.AccountAlreadyLinkedButtonVisible);
         _accountLinked.Set(m.AccountAlreadyLinkedButtonText);
+
+        _bppTitle.text = m.BppAccountTitleText;
+        _bppStatus.text = m.BppAccountStatusText;
+        _bppHint.text = m.BppAccountHintText;
+        TouchHistoryUi.SetActive(_bppToggle.GameObject, m.BppAccountActionVisible);
+        _bppToggle.Set(m.BppAccountActionText, enabled: m.BppAccountControlsEnabled);
+        TouchHistoryUi.SetActive(_bppActivate.GameObject, m.BppAccountActivateActionVisible);
+        _bppActivate.Set(m.BppAccountActivateActionText, enabled: m.BppAccountControlsEnabled);
+        _bppPrompt.text = m.BppAccountFormPromptText;
+        _bppNotice.text = m.BppAccountNoticeText;
+        TouchHistoryUi.SetActive(_bppInput.gameObject, m.BppAccountInputVisible);
+        _bppInput.characterLimit = m.BppAccountInputMaxLength;
+        _bppInput.interactable = m.BppAccountControlsEnabled;
+        if (_bppInput.placeholder is TextMeshProUGUI bppPlaceholder)
+            bppPlaceholder.text = m.BppAccountInputPlaceholder;
+        _bppSubmit.Set(m.BppAccountSubmitText, true, m.BppAccountControlsEnabled);
+        _bppBanner.text = m.BppAccountBannerText ?? string.Empty;
+        _bppBanner.color = TouchHistoryUi.StatusColor(m.BppAccountBannerSeverity);
     }
 
     private void Fit(float content)
@@ -314,6 +472,13 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         _actions.Redeem(code);
     }
 
+    private void SubmitBppAccount()
+    {
+        var text = (_bppInput.text ?? string.Empty).Trim();
+        _bppInput.DeactivateInputField(false);
+        _actions.SubmitBppAccount?.Invoke(text);
+    }
+
     private static TouchRect Local(TouchRect rect, TouchRect origin) =>
         new(rect.Left - origin.Left, rect.Top - origin.Top, rect.Width, rect.Height);
 
@@ -321,7 +486,10 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         Action CheckHealth,
         Action ToggleAccountForm,
         Action<string> Redeem,
-        Action MarkLinked
+        Action MarkLinked,
+        Action? ToggleBppAccountForm = null,
+        Action? OpenBppActivateDevice = null,
+        Action<string>? SubmitBppAccount = null
     );
 }
 

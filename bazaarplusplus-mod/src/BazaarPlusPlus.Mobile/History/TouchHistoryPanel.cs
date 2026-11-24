@@ -343,7 +343,12 @@ internal sealed class TouchHistoryPanel : IDisposable
                     _uiRefresh.Guard<string?>(code =>
                         _ = _coordinator.TryRedeemBazaarDbAccountAsync(code)
                     ),
-                    _uiRefresh.Guard(_coordinator.MarkAccountLinkedManually)
+                    _uiRefresh.Guard(_coordinator.MarkAccountLinkedManually),
+                    _coordinator.ToggleBppAccountForm,
+                    _coordinator.OpenBppAccountActivateDevice,
+                    _uiRefresh.Guard<string?>(input =>
+                        _ = _coordinator.TrySubmitBppAccountInputAsync(input)
+                    )
                 )
             );
             note = new TouchHistoryNoteDialog(

@@ -58,6 +58,42 @@ public sealed class HistoryPanelViewModel
 
     public bool AccountLinkFormVisible { get; set; }
 
+    public string BppAccountTitleText { get; set; } = string.Empty;
+
+    public string BppAccountStatusText { get; set; } = string.Empty;
+
+    public string BppAccountHintText { get; set; } = string.Empty;
+
+    public string BppAccountActionText { get; set; } = string.Empty;
+
+    public bool BppAccountActionVisible { get; set; }
+
+    public string BppAccountActivateActionText { get; set; } = string.Empty;
+
+    public bool BppAccountActivateActionVisible { get; set; }
+
+    public bool BppAccountFormVisible { get; set; }
+
+    public bool BppAccountInputVisible { get; set; }
+
+    public string BppAccountFormPromptText { get; set; } = string.Empty;
+
+    public string BppAccountNoticeText { get; set; } = string.Empty;
+
+    public string BppAccountInputPlaceholder { get; set; } = string.Empty;
+
+    public int BppAccountInputMaxLength { get; set; } = 128;
+
+    public string BppAccountSubmitText { get; set; } = string.Empty;
+
+    public bool BppAccountControlsEnabled { get; set; }
+
+    public BppAccountFlowPhase BppAccountPhase { get; set; }
+
+    public string? BppAccountBannerText { get; set; }
+
+    public StatusSeverity BppAccountBannerSeverity { get; set; }
+
     public HistorySectionMode SectionMode { get; set; }
 
     public GhostBattleFilter GhostBattleFilter { get; set; }

@@ -577,6 +577,52 @@ public sealed class GhostBattleSyncTests
             Result = "unknown",
         };
 
+    [Fact]
+    public async Task DiscoverySendsDeviceTokenOnlyWhenAccountMatches()
+    {
+        var authHeaders = new List<string?>();
+        using var fixture = new GhostFixture(
+            request =>
+            {
+                authHeaders.Add(request.Headers.Authorization?.ToString());
+                return JsonResponse("{\"battles\":[]}");
+            },
+            profileAccountId: () => "account-local",
+            deviceTokenForAccount: accountId =>
+                string.Equals(accountId, "account-local", StringComparison.Ordinal)
+                    ? "bppd_matching_ghost_token"
+                    : null
+        );
+        var synced = await fixture.Service.SyncRecentBattlesAsync(CancellationToken.None);
+        Assert(synced.Succeeded, "Matching device-token sync must succeed.");
+        Assert(
+            authHeaders.Count == 1 && authHeaders[0] == "Bearer bppd_matching_ghost_token",
+            "Ghost discovery must attach the matching device token."
+        );
+
+        var mismatchedHeaders = new List<string?>();
+        using var mismatched = new GhostFixture(
+            request =>
+            {
+                mismatchedHeaders.Add(request.Headers.Authorization?.ToString());
+                return JsonResponse("{\"battles\":[]}");
+            },
+            profileAccountId: () => "account-other",
+            deviceTokenForAccount: accountId =>
+                string.Equals(accountId, "account-local", StringComparison.Ordinal)
+                    ? "bppd_matching_ghost_token"
+                    : null
+        );
+        var mismatchedResult = await mismatched.Service.SyncRecentBattlesAsync(
+            CancellationToken.None
+        );
+        Assert(mismatchedResult.Succeeded, "Mismatched account sync must still succeed.");
+        Assert(
+            mismatchedHeaders.Count == 1 && mismatchedHeaders[0] is null,
+            "Ghost discovery must omit Authorization when no token matches the active account."
+        );
+    }
+
     private static string BattlePage(
         string battleId,
         string bundleId,
@@ -675,7 +721,8 @@ internal sealed class GhostFixture : IDisposable
 
     public GhostFixture(
         Func<HttpRequestMessage, HttpResponseMessage> respond,
-        Func<string?>? profileAccountId = null
+        Func<string?>? profileAccountId = null,
+        Func<string?, string?>? deviceTokenForAccount = null
     )
     {
         Root = Path.Combine(Path.GetTempPath(), $"bpp-ghost-{Guid.NewGuid():N}");
@@ -688,7 +735,8 @@ internal sealed class GhostFixture : IDisposable
             _session,
             profileAccountId ?? (() => "account-local"),
             FakePvpBattleEvidence.Instance,
-            templateId => templateId != Guid.Empty
+            templateId => templateId != Guid.Empty,
+            deviceTokenForAccount: deviceTokenForAccount
         );
     }
 
