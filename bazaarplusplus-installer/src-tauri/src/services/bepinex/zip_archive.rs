@@ -55,15 +55,17 @@ pub(super) fn extract_zip(
         if !file.is_dir() && skip.contains(&relative_path.to_string_lossy().replace('\\', "/")) {
             continue;
         }
-        let output_path = dest_dir.join(relative_path);
+        let output_path = super::payload::installed_path(dest_dir, &relative_path);
 
         if file.is_dir() {
-            std::fs::create_dir_all(&output_path)?;
+            std::fs::create_dir_all(&output_path)
+                .with_context(|| format!("Cannot create {}", output_path.display()))?;
             continue;
         }
 
         if let Some(parent) = output_path.parent() {
-            std::fs::create_dir_all(parent)?;
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Cannot create {}", parent.display()))?;
         }
 
         let mut contents = Vec::new();
@@ -76,7 +78,8 @@ pub(super) fn extract_zip(
             continue;
         }
 
-        std::fs::write(&output_path, contents)?;
+        std::fs::write(&output_path, contents)
+            .with_context(|| format!("Cannot write {}", output_path.display()))?;
         report
             .written
             .push(output_path.to_string_lossy().into_owned());

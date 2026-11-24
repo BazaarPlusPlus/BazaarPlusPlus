@@ -88,6 +88,10 @@
     <FixedMacSqliteNativeFile>$(PkgSourceGear_sqlite3)/runtimes/$(MacSqliteRuntimeRid)/native/libe_sqlite3.dylib</FixedMacSqliteNativeFile>
     <FixedMacAudioTapNativeFile>$(BPPInstallerSourcePath)/SourceForBuild/macos/BepInEx/plugins/libBppMacAudio.dylib</FixedMacAudioTapNativeFile>
     <FixedWindowsSqliteNativeFile>$(PkgSourceGear_sqlite3)/runtimes/$(WindowsSqliteRuntimeRid)/native/e_sqlite3.dll</FixedWindowsSqliteNativeFile>
+    <MacGamePluginDir>$(GamePath)/TheBazaar.app/Contents/Plugins</MacGamePluginDir>
+    <MacGamePluginDir
+      Condition="$([System.IO.Path]::GetFileName('$(GamePath)')) == 'buildarm64' and Exists('$(GamePath)/TheBazaar_ARM64.app')"
+      >$(GamePath)/TheBazaar_ARM64.app/Contents/PlugIns</MacGamePluginDir>
     <LocalMacReplayPluginBundle>$(ProjectRoot)/../../native/macos/build/GfxPluginBppReplayVideoToolbox.bundle</LocalMacReplayPluginBundle>
     <InstallerMacReplayPluginBundle>$(BPPInstallerSourcePath)/SourceForBuild/macos/TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle</InstallerMacReplayPluginBundle>
     <MacReplayPluginBundle
@@ -242,11 +246,11 @@
          provide IUnityGraphicsMetal. Copy only when a reviewed prebuilt or local native build is
          available; ordinary C# builds remain toolchain-independent. -->
     <RemoveDir
-      Directories="$(GamePath)/TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle"
+      Directories="$(MacGamePluginDir)/GfxPluginBppReplayVideoToolbox.bundle"
       Condition="'$(MacReplayPluginBundle)' != ''"
     />
     <Exec
-      Command="/usr/bin/ditto &quot;$(MacReplayPluginBundle)&quot; &quot;$(GamePath)/TheBazaar.app/Contents/Plugins/GfxPluginBppReplayVideoToolbox.bundle&quot;"
+      Command="/usr/bin/ditto &quot;$(MacReplayPluginBundle)&quot; &quot;$(MacGamePluginDir)/GfxPluginBppReplayVideoToolbox.bundle&quot;"
       Condition="'$(MacReplayPluginBundle)' != ''"
     />
     <Exec

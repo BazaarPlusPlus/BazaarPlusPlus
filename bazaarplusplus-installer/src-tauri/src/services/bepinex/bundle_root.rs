@@ -144,7 +144,7 @@ fn retire(backups: &Path, path: &Path, digest: &str) -> anyhow::Result<()> {
 }
 
 pub(super) fn normalize(game: &Path) -> anyhow::Result<()> {
-    let app = game.join("TheBazaar.app");
+    let app = crate::services::tempo::game_bundle(game);
     directory(&app)?;
     directory(&app.join("Contents"))?;
     for entry in children(&app)? {
@@ -163,7 +163,7 @@ pub(super) fn normalize(game: &Path) -> anyhow::Result<()> {
             continue;
         }
         bail!(
-            "Unexpected application root entry {}; move it outside TheBazaar.app before repairing",
+            "Unexpected application root entry {}; move it outside the game bundle before repairing",
             entry.display()
         );
     }

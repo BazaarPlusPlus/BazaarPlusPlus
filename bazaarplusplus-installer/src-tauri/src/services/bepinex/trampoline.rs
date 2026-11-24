@@ -40,10 +40,10 @@ mod imp {
     }
 
     pub(super) fn bundle_paths(game_path: &Path) -> anyhow::Result<BundleLayout> {
-        let app_path = game_path.join("TheBazaar.app");
+        let app_path = crate::services::tempo::game_bundle(game_path);
         if !app_path.is_dir() {
             bail!(
-                "{} is not a valid game bundle (TheBazaar.app missing)",
+                "{} is not a valid game bundle (application bundle missing)",
                 game_path.display()
             );
         }
@@ -136,9 +136,9 @@ mod imp {
         } else if orig_exists && orig_is_real {
             Ok(RealBinarySource::ExistingOrig)
         } else if orig_exists {
-            Err(anyhow!("The game binary backup (.orig) exists but is not the real Unity binary. Run Steam \"Verify integrity of game files\" and try again."))
+            Err(anyhow!("The game binary backup (.orig) exists but is not the real Unity binary. Restore the game through its launcher and try again."))
         } else {
-            Err(anyhow!("The game's main executable is not the real Unity binary and no backup exists. Run Steam \"Verify integrity of game files\"."))
+            Err(anyhow!("The game's main executable is not the real Unity binary and no backup exists. Restore the game through its launcher."))
         }
     }
 
@@ -283,6 +283,12 @@ mod imp {
     }
 
     pub(super) fn install_with_stub(game_path: &Path, stub: &Path) -> anyhow::Result<()> {
+        if !crate::services::tempo::launch_entry_ready(game_path) {
+            crate::services::tempo::ensure_launch_entry(game_path)?;
+            if super::is_current_with_stub(game_path, stub, false)? {
+                return Ok(());
+            }
+        }
         install_with_finalizer(game_path, stub, |layout| {
             sign_real_binary(&layout.orig_path)?;
             seal_bundle(&layout.app_path)?;
@@ -310,7 +316,9 @@ mod imp {
             RealBinarySource::ExistingOrig => &layout.orig_path,
         };
         if !has_arm64(real)? {
-            bail!("The game executable has no arm64 architecture; restore the Steam game before repairing.");
+            bail!(
+                "The game executable has no arm64 architecture; restore the game before repairing."
+            );
         }
         if !stub.is_file() {
             bail!("Bundled trampoline stub is missing at {}", stub.display());
@@ -353,7 +361,7 @@ mod imp {
                     Ok(()) => Err(err),
                     Err(restore_err) => {
                         let retained = recovery.keep();
-                        Err(anyhow!("{err:#}; game recovery also failed: {restore_err:#}. The executable backup is retained at {}. Run Steam \"Verify integrity of game files\".", retained.display()))
+                        Err(anyhow!("{err:#}; game recovery also failed: {restore_err:#}. The executable backup is retained at {}. Restore the game through its launcher.", retained.display()))
                     }
                 }
             }
@@ -377,7 +385,7 @@ mod imp {
             return Ok(());
         }
         Err(anyhow!(
-            "The game binary backup is missing ({} not found) and {} is still the trampoline stub. Run Steam \"Verify integrity of game files\" to restore the game.",
+            "The game binary backup is missing ({} not found) and {} is still the trampoline stub. Restore the game through its launcher.",
             layout.orig_path.display(),
             layout.exe_path.display()
         ))
@@ -405,7 +413,7 @@ fn is_current_with_stub(
     signature_verified: bool,
 ) -> anyhow::Result<bool> {
     let layout = imp::bundle_paths(game_path)?;
-    if !imp::is_trampolined(&layout)? {
+    if !crate::services::tempo::launch_entry_ready(game_path) || !imp::is_trampolined(&layout)? {
         return Ok(false);
     }
     Ok(trampoline_builds_match(&layout.exe_path, bundled)?

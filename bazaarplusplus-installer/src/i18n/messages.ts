@@ -185,8 +185,7 @@ const zh = {
 
   installModalTitle: '安装 BazaarPlusPlus',
   tutorialKicker: '使用教程',
-  installModalBody: '安装完成后，从 Steam 启动游戏即可使用。',
-  installModalBodyWindows:
+  installModalBody:
     '安装完成后，从 Steam 启动游戏，或在 Tempo Launcher 中点击 Play。',
   viewTutorial: '查看教程',
   installWindowsLauncherNotice: '请先退出游戏和启动器，再继续安装。',
@@ -686,8 +685,6 @@ const en: Record<MessageKey, string> = {
   installModalTitle: 'Install BazaarPlusPlus',
   tutorialKicker: 'Tutorial',
   installModalBody:
-    'After installation, launch the game from Steam to use the mod.',
-  installModalBodyWindows:
     'After installation, start the game from Steam or click Play in Tempo Launcher.',
   viewTutorial: 'View tutorial',
   installWindowsLauncherNotice:

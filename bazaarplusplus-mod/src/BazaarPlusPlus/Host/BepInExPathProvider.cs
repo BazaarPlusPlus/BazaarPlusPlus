@@ -1,5 +1,4 @@
 #nullable enable
-using System.Runtime.InteropServices;
 using BazaarPlusPlus.ManagedPayload;
 using BazaarPlusPlus.Storage.Paths;
 
@@ -14,7 +13,7 @@ internal sealed class BepInExPathProvider : IPathProvider
         DataRootDirectoryPath = DesktopDataRoot.Resolve(
             BepInEx.Paths.GameRootPath,
             PathConstants.DataRootDirectoryName,
-            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            HostPlatformKey.Current
         );
     }
 }

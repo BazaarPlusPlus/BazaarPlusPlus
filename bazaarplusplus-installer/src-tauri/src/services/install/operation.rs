@@ -56,8 +56,7 @@ fn install_on_blocking_thread(
     let steam_path = before.steam_path.clone().unwrap_or_default();
     let requires_macos_bootstrap = cfg!(target_os = "macos");
     if requires_macos_bootstrap
-        && (steam_path.trim().is_empty()
-            || before.steam_launch_options == SteamLaunchOptionsState::Unavailable)
+        && before.steam_launch_options == SteamLaunchOptionsState::Unavailable
     {
         return Err(ActionError::Failed(
             "Steam localconfig.vdf is unavailable; start Steam once, close it, and retry."
@@ -243,27 +242,41 @@ mod fresh_install_acceptance {
     #[test]
     #[ignore = "macOS acceptance: run through `just installer::acceptance`"]
     fn fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam() {
+        verify_fresh_install(false);
+        verify_fresh_install(true);
+    }
+
+    fn verify_fresh_install(tempo: bool) {
         let resources = std::path::PathBuf::from(
             std::env::var("BPP_ACCEPTANCE_RESOURCE_DIR").expect("resource directory required"),
         );
         assert!(resources.join("BepInExSource/BepInEx.zip").is_file());
         assert!(resources.join("Trampoline/bpp_launcher").is_file());
-        let temporary = tempfile::tempdir().unwrap();
-        let game = temporary.path().join("The Bazaar");
-        let bundle = game.join("TheBazaar.app");
+        let temporary = tempfile::tempdir().expect("create fixture directory");
+        let game = temporary.path().join(if tempo {
+            "game/buildarm64"
+        } else {
+            "The Bazaar"
+        });
+        let bundle = game.join(if tempo {
+            "TheBazaar_ARM64.app"
+        } else {
+            "TheBazaar.app"
+        });
         let macos = bundle.join("Contents/MacOS");
         let frameworks = bundle.join("Contents/Frameworks");
-        std::fs::create_dir_all(&macos).unwrap();
-        std::fs::create_dir_all(&frameworks).unwrap();
-        std::fs::write(bundle.join("Contents/Info.plist"), r#"<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>The Bazaar</string><key>CFBundleIdentifier</key><string>com.bpp.acceptance.fixture</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>"#).unwrap();
+        std::fs::create_dir_all(&macos).expect("create MacOS directory");
+        std::fs::create_dir_all(&frameworks).expect("create Frameworks directory");
+        std::fs::write(bundle.join("Contents/Info.plist"), r#"<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>The Bazaar</string><key>CFBundleIdentifier</key><string>com.bpp.acceptance.fixture</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>"#).expect("write Info.plist");
         let library_source = temporary.path().join("unity.c");
         let main_source = temporary.path().join("main.c");
-        std::fs::write(&library_source, "int fixture_unity(void) { return 0; }").unwrap();
+        std::fs::write(&library_source, "int fixture_unity(void) { return 0; }")
+            .expect("write library source");
         std::fs::write(
             &main_source,
             "extern int fixture_unity(void); int main(void) { return fixture_unity(); }",
         )
-        .unwrap();
+        .expect("write executable source");
         let library = frameworks.join("UnityPlayer.dylib");
         let executable = macos.join("The Bazaar");
         run(Command::new("clang")
@@ -292,7 +305,8 @@ mod fresh_install_acceptance {
 
         let steam = temporary.path().join("Steam");
         let config = steam.join("userdata/123/config/localconfig.vdf");
-        std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(config.parent().expect("fixture config parent"))
+            .expect("create Steam user directory");
         let original_config = r#""UserLocalConfigStore"
 {
     "Software"
@@ -313,8 +327,14 @@ mod fresh_install_acceptance {
     }
 }
 "#;
-        std::fs::write(&config, original_config).unwrap();
-        let options = crate::services::vdf::inspect_launch_options_for_steam(&steam);
+        // A Tempo install must leave even non-empty options in a coexisting Steam client intact.
+        let original_config = if tempo {
+            original_config.replace(r#""LaunchOptions" """#, r#""LaunchOptions" "keep-me""#)
+        } else {
+            original_config.to_owned()
+        };
+        std::fs::write(&config, &original_config).expect("write Steam launch options");
+        let options = crate::services::detect::launch_options(Some(&game), Some(&steam));
         assert_eq!(options, SteamLaunchOptionsState::Empty);
         assert!(!game.join("BepInEx").exists());
         assert!(!macos.join("The Bazaar.orig").exists());
@@ -337,20 +357,27 @@ mod fresh_install_acceptance {
         });
         let verified = execute_and_refresh(&facts, &mut effects, |_| {
             let mut archive = zip::ZipArchive::new(
-                std::fs::File::open(resources.join("BepInExSource/BepInEx.zip")).unwrap(),
+                std::fs::File::open(resources.join("BepInExSource/BepInEx.zip"))
+                    .expect("open packaged Payload"),
             )
-            .unwrap();
+            .expect("read Payload archive");
             let mut verified_files = 0;
             for index in 0..archive.len() {
-                let mut entry = archive.by_index(index).unwrap();
+                let mut entry = archive.by_index(index).expect("open archive entry");
                 if entry.is_dir() {
                     continue;
                 }
-                let path = game.join(entry.enclosed_name().expect("safe packaged path"));
+                let relative = entry.enclosed_name().expect("safe packaged path");
+                let path = match relative.strip_prefix("TheBazaar.app/Contents/Plugins") {
+                    Ok(plugin) if tempo => bundle.join("Contents/PlugIns").join(plugin),
+                    _ => game.join(relative),
+                };
                 let mut expected = Vec::new();
-                entry.read_to_end(&mut expected).unwrap();
+                entry
+                    .read_to_end(&mut expected)
+                    .expect("read archive entry");
                 assert_eq!(
-                    std::fs::read(&path).unwrap(),
+                    std::fs::read(&path).expect("read installed entry"),
                     expected,
                     "payload mismatch: {}",
                     path.display()
@@ -362,21 +389,31 @@ mod fresh_install_acceptance {
             assert!(game.join("BepInEx/core/BepInEx.Preloader.dll").is_file());
             assert!(game.join("BepInEx/plugins/BazaarPlusPlus.dll").is_file());
             assert!(game.join("libdoorstop.dylib").is_file());
+            if tempo {
+                assert_eq!(
+                    std::fs::read_link(game.join("TheBazaar.app")).expect("launcher entry"),
+                    std::path::Path::new("TheBazaar_ARM64.app")
+                );
+                assert!(crate::services::bepinex::native_payload_present(&game));
+            }
             assert!(macos.join("The Bazaar.orig").is_file());
-            assert_eq!(std::fs::read_to_string(&config).unwrap(), original_config);
+            assert_eq!(
+                std::fs::read_to_string(&config).expect("read Steam launch options"),
+                original_config
+            );
             assert!(!config.with_extension("vdf.bak").exists());
             let codesign_verified = Command::new("codesign")
                 .args(["--verify", "--deep", "--strict"])
                 .arg(&bundle)
                 .status()
-                .unwrap()
+                .expect("run codesign")
                 .success();
             let uuid = |path: &std::path::Path| {
                 let output = Command::new("dwarfdump")
                     .arg("--uuid")
                     .arg(path)
                     .output()
-                    .unwrap();
+                    .expect("inspect Mach-O UUID");
                 String::from_utf8_lossy(&output.stdout)
                     .split_whitespace()
                     .nth(1)
@@ -387,10 +424,19 @@ mod fresh_install_acceptance {
                 && installed_uuid == uuid(&resources.join("Trampoline/bpp_launcher"));
             Ok((codesign_verified, uuid_matches))
         })
-        .unwrap();
+        .expect("complete install effects");
         let (codesign_verified, uuid_matches) = verified;
 
-        // Signing changes hashes on each run, so the committed golden compares paths.
+        if tempo {
+            assert!(codesign_verified && uuid_matches);
+            // A redownload can restore the version marker while replacing the in-bundle recorder.
+            assert!(crate::services::detect::read_installed_bpp_version(&game).is_some());
+            let recorder = bundle.join("Contents/PlugIns/GfxPluginBppReplayVideoToolbox.bundle");
+            std::fs::remove_dir_all(recorder).expect("simulate launcher replacing the recorder");
+            assert!(crate::services::detect::read_installed_bpp_version(&game).is_none());
+            return;
+        }
+        // The committed Steam golden compares paths because signing changes hashes.
         let manifest = crate::goldens::tree_manifest(&game);
         crate::goldens::write_run_manifest(
             "fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam",

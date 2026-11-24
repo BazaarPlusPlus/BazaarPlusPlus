@@ -33,15 +33,59 @@ public sealed class SwapTests : IDisposable
         Directory.CreateDirectory(old);
         File.WriteAllText(Path.Combine(old, "history"), "existing");
 
-        Assert.Equal(old, DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, false));
-        var stable = DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, true);
+        Assert.Equal(
+            old,
+            DesktopDataRoot.Resolve(
+                build,
+                UpdaterRun.DataRootDirectoryName,
+                UpdaterRun.MacPlatformKey
+            )
+        );
+        var stable = DesktopDataRoot.Resolve(
+            build,
+            UpdaterRun.DataRootDirectoryName,
+            UpdaterRun.WindowsPlatformKey
+        );
         Directory.Delete(build, recursive: true);
         Directory.CreateDirectory(build);
         Assert.Equal(
             stable,
-            DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, true)
+            DesktopDataRoot.Resolve(
+                build,
+                UpdaterRun.DataRootDirectoryName,
+                UpdaterRun.WindowsPlatformKey
+            )
         );
         Assert.Equal("existing", TestInputs.Scratch(Path.Combine(stable, "history")));
+    }
+
+    [Fact]
+    public void Mac_Tempo_moves_history_out_of_the_game_build_and_leaves_Steam_local()
+    {
+        var build = Path.Combine(InstallRoot, "buildarm64");
+        var bundle = Path.Combine(build, "TheBazaar_ARM64.app");
+        Directory.CreateDirectory(bundle);
+        var old = Path.Combine(build, UpdaterRun.DataRootDirectoryName);
+        Directory.CreateDirectory(old);
+        File.WriteAllText(Path.Combine(old, "history"), "existing");
+        var stable = DesktopDataRoot.Resolve(
+            build,
+            UpdaterRun.DataRootDirectoryName,
+            UpdaterRun.MacPlatformKey
+        );
+        Assert.Equal(Path.Combine(InstallRoot, UpdaterRun.DataRootDirectoryName), stable);
+        Directory.Delete(build, recursive: true);
+        Directory.CreateDirectory(bundle);
+        Assert.Equal("existing", TestInputs.Scratch(Path.Combine(stable, "history")));
+        var steam = Path.Combine(_root, "steamapps", "common", "The Bazaar");
+        Assert.Equal(
+            Path.Combine(steam, UpdaterRun.DataRootDirectoryName),
+            DesktopDataRoot.Resolve(
+                steam,
+                UpdaterRun.DataRootDirectoryName,
+                UpdaterRun.MacPlatformKey
+            )
+        );
     }
 
     [Fact]
@@ -52,7 +96,14 @@ public sealed class SwapTests : IDisposable
         Directory.CreateDirectory(old);
         File.WriteAllText(Path.Combine(old, "history"), "old");
         File.WriteAllText(Path.Combine(InstallRoot, UpdaterRun.DataRootDirectoryName), "occupied");
-        Assert.Equal(old, DesktopDataRoot.Resolve(build, UpdaterRun.DataRootDirectoryName, true));
+        Assert.Equal(
+            old,
+            DesktopDataRoot.Resolve(
+                build,
+                UpdaterRun.DataRootDirectoryName,
+                UpdaterRun.WindowsPlatformKey
+            )
+        );
         Assert.Equal("old", TestInputs.Scratch(Path.Combine(old, "history")));
     }
 

@@ -107,11 +107,11 @@ pub(crate) fn fs_probe(probe: GamePathProbe, path: &Path) -> bool {
     }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 pub(crate) fn find_existing_fallback_game_path() -> Option<PathBuf> {
     let candidates = fallback_game_candidates();
     crate::services::debug_log!(
-        "[detect::steam] probing common Windows candidates count={}",
+        "[detect::steam] probing fallback candidates count={}",
         candidates.len()
     );
     candidates
@@ -154,9 +154,10 @@ pub(crate) fn fallback_game_candidates() -> Vec<PathBuf> {
         for candidate in STEAM_LIBRARY_FALLBACK_CANDIDATES {
             push_unique(&mut candidates, PathBuf::from(candidate));
         }
-        if let Some(game) = super::tempo::default_game_path() {
-            push_unique(&mut candidates, game);
-        }
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    if let Some(game) = super::tempo::default_game_path() {
+        push_unique(&mut candidates, game);
     }
 
     candidates

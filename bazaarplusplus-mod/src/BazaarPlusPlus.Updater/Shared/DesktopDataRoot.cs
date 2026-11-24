@@ -3,24 +3,29 @@ namespace BazaarPlusPlus.ManagedPayload;
 
 public static class DesktopDataRoot
 {
-    // Tempo replaces game/buildx64 on update. The library that contains it survives.
+    public const string MacPlatformKey = "darwin-aarch64";
+    public const string WindowsPlatformKey = "windows-x86_64";
+
+    // Tempo replaces the build directory on update. Its library survives.
     public static string Resolve(
         string gameRoot,
         string directoryName,
-        bool windows,
+        string? platformKey,
         Action<string>? warn = null
     )
     {
         var original = Path.Combine(gameRoot, directoryName);
-        if (!windows)
-            return original;
         var build = new DirectoryInfo(gameRoot);
         var library = build.Parent;
-        if (
-            !build.Name.Equals("buildx64", StringComparison.OrdinalIgnoreCase)
-            || library == null
-            || !library.Name.Equals("game", StringComparison.OrdinalIgnoreCase)
-        )
+        var tempo = platformKey switch
+        {
+            WindowsPlatformKey => build.Name.Equals("buildx64", StringComparison.OrdinalIgnoreCase)
+                && library?.Name.Equals("game", StringComparison.OrdinalIgnoreCase) == true,
+            MacPlatformKey => build.Name == "buildarm64"
+                && Directory.Exists(Path.Combine(gameRoot, "TheBazaar_ARM64.app")),
+            _ => false,
+        };
+        if (!tempo || library == null)
             return original;
 
         var stable = Path.Combine(library.FullName, directoryName);

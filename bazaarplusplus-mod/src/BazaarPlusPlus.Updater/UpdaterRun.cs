@@ -15,8 +15,8 @@ internal static class UpdaterRun
 
     // ReleaseManifestEndpoints' platform keys, which the Updater may not reference; a test pins
     // them together.
-    public const string MacPlatformKey = "darwin-aarch64";
-    public const string WindowsPlatformKey = "windows-x86_64";
+    public const string MacPlatformKey = DesktopDataRoot.MacPlatformKey;
+    public const string WindowsPlatformKey = DesktopDataRoot.WindowsPlatformKey;
     public const string AndroidPlatformKey = "android-aarch64";
 
     public static string? DesktopPlatformKey() =>
@@ -37,7 +37,7 @@ internal static class UpdaterRun
             var dataRoot = DesktopDataRoot.Resolve(
                 installRoot,
                 DataRootDirectoryName,
-                platformKey == WindowsPlatformKey,
+                platformKey,
                 message => log.Warn("updater.data_root.migration", ("detail", message))
             );
             log.Info(
