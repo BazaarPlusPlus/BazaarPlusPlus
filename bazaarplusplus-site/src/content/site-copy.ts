@@ -220,6 +220,28 @@ export type TutorialPageCopy = {
 
 type LocalizedSiteCopy = {
   common: CommonCopy;
+  account: {
+    email: string;
+    code: string;
+    send: string;
+    sent: string;
+    change: string;
+    error: string;
+    invalid: string;
+    logout: string;
+    unbind: string;
+    warning: string;
+    cancel: string;
+    empty: string;
+    more: string;
+    loading: string;
+    hero: string;
+    result: string;
+    rank: string;
+    rating: string;
+    ended: string;
+    mode: string;
+  };
   primaryNav: PrimaryNavCopy;
   secondaryNav: SecondaryNavCopy;
   pageTitles: PageTitleCopy;
@@ -269,15 +291,41 @@ const zh: LocalizedSiteCopy = {
     },
     noValueLabel: '暂无数值'
   },
+  account: {
+    email: '绑定邮箱',
+    code: '六位验证码',
+    send: '发送验证码',
+    sent: '如果此邮箱已绑定游戏账号，你将收到登录验证码。',
+    change: '更换邮箱',
+    error: '请求失败，请重试。',
+    invalid: '请检查验证码或重新获取。',
+    logout: '退出登录',
+    unbind: '解绑账号',
+    warning: '解绑将永久删除已保存的每局摘要，并让已绑定的设备退出登录。',
+    cancel: '取消',
+    empty:
+      '使用新版 Mod 在游戏的历史面板绑定邮箱后，完成符合条件的对局即可在这里查看战绩。',
+    more: '加载更多',
+    loading: '正在读取战绩…',
+    hero: '英雄',
+    result: '胜 / 负',
+    rank: '最终段位',
+    rating: '评分（变化）',
+    ended: '结束时间',
+    mode: '游戏模式'
+  },
   primaryNav: {
     heroes: '统计'
   },
   secondaryNav: {
+    records: '我的战绩',
     tutorial: '教程',
     download: '下载',
     support: '支持'
   },
   pageTitles: {
+    records: '我的战绩',
+    login: '登录',
     heroes: '统计',
     tutorial: '教程',
     download: '下载',
@@ -606,15 +654,42 @@ const en: LocalizedSiteCopy = {
     },
     noValueLabel: 'No value'
   },
+  account: {
+    email: 'Bound email address',
+    code: 'Six-digit code',
+    send: 'Send code',
+    sent: 'If this email is bound to a game account, a sign-in code is on its way.',
+    change: 'Use another email',
+    error: 'The request failed. Please try again.',
+    invalid: 'Check the code or request a new one.',
+    logout: 'Sign out',
+    unbind: 'Unbind account',
+    warning:
+      'Unbinding permanently deletes your stored run summaries and signs out your devices.',
+    cancel: 'Cancel',
+    empty:
+      'Records appear after you bind your email in the game’s History panel with the updated mod and complete an eligible run.',
+    more: 'Load more',
+    loading: 'Loading records…',
+    hero: 'Hero',
+    result: 'Wins / losses',
+    rank: 'Final rank',
+    rating: 'Rating (change)',
+    ended: 'Ended',
+    mode: 'Game mode'
+  },
   primaryNav: {
     heroes: 'Stats'
   },
   secondaryNav: {
+    records: 'My records',
     tutorial: 'Tutorial',
     download: 'Download',
     support: 'Support'
   },
   pageTitles: {
+    records: 'My records',
+    login: 'Sign in',
     heroes: 'Hero stats',
     tutorial: 'Tutorial',
     download: 'Download',

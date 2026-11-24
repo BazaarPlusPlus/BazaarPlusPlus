@@ -7,6 +7,8 @@ import TutorialPage from '../features/tutorial/TutorialPage';
 import { createSpaLocation, type ResolvedSpaLocation } from './router';
 import { LoadingScreen, NotFoundScreen } from './screens';
 
+const AccountPage = lazy(() => import('../features/account/AccountPage'));
+
 const HeroOverviewPage = lazy(() =>
   import('./route-pages').then((module) => ({
     default: module.HeroOverviewPage
@@ -61,6 +63,17 @@ export default function App() {
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, [spaLocation]);
+
+  if (location.route.page === 'login' || location.route.page === 'records') {
+    return (
+      <Suspense fallback={null}>
+        <AccountPage
+          location={location}
+          replacePage={spaLocation.replaceAccountPage}
+        />
+      </Suspense>
+    );
+  }
 
   if (location.route.page === 'heroes') {
     return (

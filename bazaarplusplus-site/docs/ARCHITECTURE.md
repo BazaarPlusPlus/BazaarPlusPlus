@@ -7,8 +7,10 @@ The code is the structural source of truth. This document records intended owner
 | Concern | Owner | Boundary |
 | --- | --- | --- |
 | URL and browser history | `src/app/router.ts` | Owns routes, aliases, locale and Analysis Scope parsing, canonical hrefs, click eligibility, and push/replace/popstate behavior. |
-| Page composition | `src/app/App.tsx` and `src/app/route-pages.tsx` | Render the resolved location; `/heroes` stays lazy, guarded by the route chunk golden in `e2e/__snapshots__/route-chunks.json`. Runtime data enters through React Query. |
+| Page composition | `src/app/App.tsx` and `src/app/route-pages.tsx` | Render the resolved location; `/heroes`, `/login` and `/records` stay lazy, guarded by the route chunk golden in `e2e/__snapshots__/route-chunks.json`. Runtime data enters through React Query. |
 | Hero Metrics Dataset ingestion | `src/features/heroes/hero-metrics-dataset.ts` | Owns the snapshot fetch and its timeout, decoding, compatibility, and Dataset Coverage. Retries belong to the `/heroes` query in `src/app/route-pages.tsx`. |
+| Account requests | `worker.ts` | Forwards same-origin `/api/*` through the server WebApi service binding in preview and production. |
+| Account pages | `src/features/account/` | Owns email sign-in, Run Summary paging, sign-out and confirmed unbinding. |
 | Hero Analysis | `src/features/heroes/hero-analysis.ts` | Pure, React-free policy for scope selection, merging, ranking, trends, matchups, focus fallback, and selected-window coverage. |
 | Hero Analysis presentation | `src/features/heroes/HeroOverviewDashboard.tsx`, `HeroTrendPanel.tsx`, and `HeroRankingTable.tsx` | The dashboard composes validated analysis and shares hero focus. The trend module owns SVG geometry and chart interaction; the ranking module owns its columns and sorting policy. |
 | Installer resolution | `src/features/download/installer.ts` | Owns the Platform Release Manifest fetch and primary-download decoding, one manifest per platform. The workspace `release/downloads.ts` owns release origin, platform keys, manifest paths, the mainland mirror decoder `decodeMainlandDownloadUrl` and the Android decoder `decodeAndroidDownload`; the download page consumes the resolved per-platform model. |
@@ -23,6 +25,7 @@ Installer resolution reads each platform's Platform Release Manifest at `latest/
 ## URL Contract
 
 - `src/app/router.ts` is the route catalog for App routing, navigation, and page-title keys. Cloudflare supplies SPA fallback; unknown paths still resolve to the localized not-found page.
+- The My records navigation link opens `/records`. A signed-out response replaces it with `/login` in the current locale. Successful sign-in replaces the login page with records.
 - Default values—Chinese, `1d`, and `all`—omit `lang`, `w`, and `s`; non-default values serialize explicitly.
 - Hero Analysis query values canonicalize at the SPA location boundary independently of page data loading.
 - Analysis Scope changes and alias canonicalization replace history. Internal navigation pushes. Locale links preserve the current path, scope, and hash.

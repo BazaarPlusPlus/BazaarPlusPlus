@@ -7,7 +7,9 @@
   },
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   },
   "routes": [
     {
@@ -22,7 +24,22 @@
   "env": {
     "preview": {
       "workers_dev": true,
-      "routes": []
+      "routes": [],
+      "services": [
+        {
+          "binding": "ACCOUNT_API",
+          "service": "bazaarplusplus-mod-api-v6",
+          "entrypoint": "WebApi"
+        }
+      ]
     }
-  }
+  },
+  "main": "worker.ts",
+  "services": [
+    {
+      "binding": "ACCOUNT_API",
+      "service": "bazaarplusplus-mod-api-v6",
+      "entrypoint": "WebApi"
+    }
+  ]
 }

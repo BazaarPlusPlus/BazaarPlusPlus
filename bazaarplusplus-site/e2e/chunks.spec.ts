@@ -24,6 +24,8 @@ const ROUTES: Record<string, string> = {
   tutorial: '/tutorial',
   download: '/download',
   heroes: '/heroes',
+  login: '/login',
+  records: '/records',
   'not-found': '/unknown'
 };
 
@@ -48,6 +50,18 @@ test.describe.configure({ mode: 'serial' });
 for (const [route, href] of Object.entries(ROUTES)) {
   test(`${route} transfers`, async ({ page }) => {
     const routes = await installGoldenRoutes(page);
+    if (route === 'records') {
+      await page.route('**/api/me', (intercept) =>
+        intercept.fulfill({
+          json: {
+            user_name: 'Player',
+            email_masked: 'p***',
+            runs: [],
+            next_cursor: null
+          }
+        })
+      );
+    }
     const entry: RouteReport = { scripts: {}, external: [], icons: {} };
     const pending: Array<Promise<void>> = [];
     page.on('requestfinished', (request) => {

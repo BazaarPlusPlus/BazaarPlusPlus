@@ -53,7 +53,7 @@ export default function SiteHeader({ location }: SiteHeaderProps) {
               item.group === 'primary'
                 ? copy.primaryNav[item.page as 'heroes']
                 : copy.secondaryNav[
-                    item.page as 'tutorial' | 'download' | 'support'
+                    item.page as 'tutorial' | 'download' | 'support' | 'records'
                   ];
             return (
               <a

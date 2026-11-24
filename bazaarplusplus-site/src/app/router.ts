@@ -9,6 +9,8 @@ export type Locale = 'en' | 'zh';
 const DEFAULT_LOCALE: Locale = 'zh';
 
 export type SpaPage =
+  | 'login'
+  | 'records'
   | 'heroes'
   | 'tutorial'
   | 'download'
@@ -20,14 +22,16 @@ type NavigationGroup = 'primary' | 'secondary';
 type RouteDefinition = {
   page: Exclude<SpaPage, 'not-found'>;
   path: string;
-  group: NavigationGroup;
+  group: NavigationGroup | null;
 };
 
 const ROUTES = [
+  { page: 'login', path: '/login', group: null },
   { page: 'heroes', path: '/heroes', group: 'primary' },
   { page: 'tutorial', path: '/tutorial', group: 'secondary' },
   { page: 'download', path: '/download', group: 'secondary' },
-  { page: 'support', path: '/support', group: 'secondary' }
+  { page: 'support', path: '/support', group: 'secondary' },
+  { page: 'records', path: '/records', group: 'secondary' }
 ] as const satisfies readonly RouteDefinition[];
 
 export type PrimaryNavigationPage = Extract<
@@ -81,6 +85,7 @@ type RawSpaLocation = {
 export type SpaLocation = {
   current(): ResolvedSpaLocation;
   subscribe(listener: (location: ResolvedSpaLocation) => void): () => void;
+  replaceAccountPage(page: 'login' | 'records'): void;
   canonicalize(): void;
   replaceScope(scope: AnalysisScope): void;
   handleLinkClick(click: SpaLinkClick): boolean;
@@ -203,11 +208,13 @@ function resolveLocation(raw: RawSpaLocation): ResolvedSpaLocation {
       ? buildScopeSearch(raw.search, locale, scope)
       : raw.search;
   const canonicalHref = `${canonicalPath ?? raw.pathname}${canonicalSearch}`;
-  const items = ROUTES.map((candidate) => ({
-    page: candidate.page,
-    group: candidate.group,
-    href: buildRouteHref(candidate.path, locale)
-  }));
+  const items = ROUTES.filter((candidate) => candidate.group !== null).map(
+    (candidate) => ({
+      page: candidate.page,
+      group: candidate.group,
+      href: buildRouteHref(candidate.path, locale)
+    })
+  );
 
   return {
     pathname: raw.pathname,
@@ -282,6 +289,17 @@ export function createSpaLocation(): SpaLocation {
           subscribedToPop = false;
         }
       };
+    },
+    replaceAccountPage(page) {
+      window.history.replaceState(
+        {},
+        '',
+        buildRouteHref(
+          ROUTES.find((route) => route.page === page)!.path,
+          current().locale
+        )
+      );
+      notify();
     },
     canonicalize() {
       const canonicalHref = current().canonicalHref;
