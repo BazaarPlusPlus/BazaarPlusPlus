@@ -25,7 +25,8 @@ internal sealed class BundleUploadClient
         string contentDigest,
         string expectedBundleId,
         string expectedRunId,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? deviceToken = null
     )
     {
         if (sealedFile == null)
@@ -41,6 +42,13 @@ internal sealed class BundleUploadClient
             );
             request.Content.Headers.ContentLength = contentLength;
             request.Headers.TryAddWithoutValidation("Content-Digest", contentDigest);
+            if (!string.IsNullOrWhiteSpace(deviceToken))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    "Bearer",
+                    deviceToken!.Trim()
+                );
+            }
             using var response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
                 .ConfigureAwait(false);

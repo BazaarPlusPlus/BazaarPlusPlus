@@ -50,19 +50,21 @@ internal sealed class HistoryPanelMount : IBppMountable
             return;
         }
 
+        var dataRoot = services.Paths.RequireDataRoot();
         var dependencies = HistoryPanelFactory.Create(
             services.RunContext,
             modApiSession,
             () => combatReplayRuntime,
-            PathConstants.RunLogDatabase(services.Paths.RequireDataRoot()),
-            PathConstants.CombatReplays(services.Paths.RequireDataRoot()),
-            PathConstants.CombatReplayVideos(services.Paths.RequireDataRoot()),
+            PathConstants.RunLogDatabase(dataRoot),
+            PathConstants.CombatReplays(dataRoot),
+            PathConstants.CombatReplayVideos(dataRoot),
             _accountLinkClient(),
             () =>
                 HistoryPanelDecisions.ResolveAccountLinkGate(
                     services.Config.BazaarDbUploadEnabled.Value,
                     services.GameBuild.Channel
-                )
+                ),
+            PathConstants.BppAccountSession(dataRoot)
         );
         _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
             HistoryPanel.RefreshLocalization()

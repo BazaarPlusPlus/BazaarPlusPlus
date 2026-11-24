@@ -15,6 +15,7 @@ public sealed class UploadPump : IDisposable
     private static readonly TimeSpan ShutdownDrainTimeout = TimeSpan.FromMilliseconds(500);
 
     private readonly IBppServices _services;
+    private readonly Func<string?>? _profileAccountId;
     private BundleUploadFeed.Session? _session;
 
     // Converted once: a method group passed to Tick would allocate a delegate every frame.
@@ -27,18 +28,23 @@ public sealed class UploadPump : IDisposable
     private IDisposable? _feedArmSubscription;
     private int _armRequested;
 
-    private UploadPump(IBppServices services) => _services = services;
+    private UploadPump(IBppServices services, Func<string?>? profileAccountId)
+    {
+        _services = services;
+        _profileAccountId = profileAccountId;
+    }
 
     public static UploadPump Start(
         IBppServices services,
         string? platformKey,
         float nowSeconds,
-        SqliteOpenOptions databaseOptions
+        SqliteOpenOptions databaseOptions,
+        Func<string?>? profileAccountId = null
     )
     {
         if (services == null)
             throw new ArgumentNullException(nameof(services));
-        var pump = new UploadPump(services);
+        var pump = new UploadPump(services, profileAccountId);
         var cadence = new UploadPumpCadence(
             ModApiUploadDefaults.StartupDelaySeconds,
             ModApiUploadDefaults.IntervalSeconds
@@ -81,6 +87,15 @@ public sealed class UploadPump : IDisposable
             || _startupRunner == null
         )
             return;
+
+        if (_profileAccountId != null && _session != null)
+        {
+            try
+            {
+                _session.UpdateCurrentAccountId(_profileAccountId());
+            }
+            catch { }
+        }
 
         if (Interlocked.Exchange(ref _armRequested, 0) == 1)
             _startupGate.ArmImmediateAttempt(nowSeconds);

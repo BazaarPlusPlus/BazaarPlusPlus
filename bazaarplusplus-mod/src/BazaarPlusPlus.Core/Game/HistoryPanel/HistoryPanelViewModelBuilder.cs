@@ -125,6 +125,52 @@ public static class HistoryPanelViewModelBuilder
             state.AccountLinkExpanded,
             state.AccountLinkInProgress
         );
+        var hasAccount = !string.IsNullOrWhiteSpace(state.CachedAccountId);
+        var bppFormVisible =
+            hasAccount
+            && !state.BppAccountBound
+            && state.BppAccountPhase != BppAccountFlowPhase.Idle;
+        var bppLocalName = string.IsNullOrWhiteSpace(state.BppAccountLocalDisplayName)
+            ? state.CachedAccountId ?? string.Empty
+            : state.BppAccountLocalDisplayName!;
+        var bppStatusText =
+            !hasAccount ? HistoryPanelText.BppAccount.SignedOut()
+            : state.BppAccountBound
+                ? HistoryPanelText.BppAccount.BoundStatus(
+                    state.BppAccountEmailMasked ?? string.Empty,
+                    state.BppAccountUserName ?? bppLocalName
+                )
+            : HistoryPanelText.BppAccount.NotBound();
+        var bppHintText =
+            hasAccount && state.BppAccountBound
+                ? HistoryPanelText.BppAccount.BoundHint()
+                : string.Empty;
+        var bppFormPrompt = state.BppAccountPhase switch
+        {
+            BppAccountFlowPhase.EnterEmail => HistoryPanelText.BppAccount.Step1Prompt(bppLocalName),
+            BppAccountFlowPhase.EnterCode => HistoryPanelText.BppAccount.Step2Prompt(
+                state.BppAccountPendingEmailMasked ?? string.Empty,
+                state.BppAccountPendingUserName ?? bppLocalName
+            ),
+            BppAccountFlowPhase.ConfirmActivateDevice => HistoryPanelText.BppAccount.ActivatePrompt(
+                state.BppAccountPendingEmailMasked
+            ),
+            _ => string.Empty,
+        };
+        var bppNoticeText = state.BppAccountPhase
+            is BppAccountFlowPhase.EnterEmail
+                or BppAccountFlowPhase.ConfirmActivateDevice
+            ? HistoryPanelText.BppAccount.CredentialNotice()
+            : string.Empty;
+        var bppSubmitText = state.BppAccountInProgress
+            ? HistoryPanelText.BppAccount.Working()
+            : state.BppAccountPhase switch
+            {
+                BppAccountFlowPhase.EnterCode => HistoryPanelText.BppAccount.ConfirmCodeButton(),
+                BppAccountFlowPhase.ConfirmActivateDevice =>
+                    HistoryPanelText.BppAccount.ConfirmActivateButton(),
+                _ => HistoryPanelText.BppAccount.SendCodeButton(),
+            };
 
         var archiveStatus = ArchiveStatus(state, coordinator, playerBoard, opponentBoard);
         var showsBothBoards = ShowsBothBoards(state);
@@ -206,6 +252,38 @@ public static class HistoryPanelViewModelBuilder
             AccountLinkBannerText = state.AccountLinkBannerMessage,
             AccountLinkBannerSeverity = state.AccountLinkBannerSeverity,
             AccountLinkFormVisible = accountCard.FormVisible,
+            BppAccountTitleText = HistoryPanelText.BppAccount.Title(),
+            BppAccountStatusText = bppStatusText,
+            BppAccountHintText = bppHintText,
+            BppAccountActionText = bppFormVisible
+                ? HistoryPanelText.BppAccount.Collapse()
+                : HistoryPanelText.BppAccount.BindButton(),
+            BppAccountActionVisible = hasAccount && !state.BppAccountBound,
+            BppAccountActivateActionText = HistoryPanelText.BppAccount.ActivateDeviceButton(),
+            BppAccountActivateActionVisible =
+                hasAccount
+                && !state.BppAccountBound
+                && state.BppAccountPhase == BppAccountFlowPhase.Idle
+                && !state.BppAccountInProgress,
+            BppAccountFormVisible = bppFormVisible,
+            BppAccountInputVisible =
+                bppFormVisible
+                && state.BppAccountPhase
+                    is BppAccountFlowPhase.EnterEmail
+                        or BppAccountFlowPhase.EnterCode,
+            BppAccountFormPromptText = bppFormPrompt,
+            BppAccountNoticeText = bppNoticeText,
+            BppAccountInputPlaceholder =
+                state.BppAccountPhase == BppAccountFlowPhase.EnterCode
+                    ? HistoryPanelText.BppAccount.CodePlaceholder()
+                    : HistoryPanelText.BppAccount.EmailPlaceholder(),
+            BppAccountInputMaxLength =
+                state.BppAccountPhase == BppAccountFlowPhase.EnterCode ? 6 : 254,
+            BppAccountSubmitText = bppSubmitText,
+            BppAccountControlsEnabled = hasAccount && !state.BppAccountInProgress,
+            BppAccountPhase = state.BppAccountPhase,
+            BppAccountBannerText = state.BppAccountBannerMessage,
+            BppAccountBannerSeverity = state.BppAccountBannerSeverity,
             SectionMode = state.SectionMode,
             GhostBattleFilter = state.GhostBattleFilter,
             SelectedRunHero = state.SelectedRunHero,

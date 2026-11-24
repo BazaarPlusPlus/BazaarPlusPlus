@@ -28,6 +28,14 @@ public enum GhostBattleFilter
     ILost,
 }
 
+public enum BppAccountFlowPhase
+{
+    Idle,
+    EnterEmail,
+    EnterCode,
+    ConfirmActivateDevice,
+}
+
 public sealed class HistoryPanelState
 {
     public IReadOnlyList<HistoryRunRecord> Runs => RunPage.Rows;
@@ -108,6 +116,28 @@ public sealed class HistoryPanelState
     public string? AccountLinkBannerMessage { get; set; }
 
     public StatusSeverity AccountLinkBannerSeverity { get; set; }
+
+    public BppAccountFlowPhase BppAccountPhase { get; set; }
+
+    public bool BppAccountInProgress { get; set; }
+
+    public bool BppAccountBound { get; set; }
+
+    public string? BppAccountUserName { get; set; }
+
+    public string? BppAccountEmailMasked { get; set; }
+
+    public string? BppAccountLocalDisplayName { get; set; }
+
+    public string? BppAccountPendingId { get; set; }
+
+    public string? BppAccountPendingUserName { get; set; }
+
+    public string? BppAccountPendingEmailMasked { get; set; }
+
+    public string? BppAccountBannerMessage { get; set; }
+
+    public StatusSeverity BppAccountBannerSeverity { get; set; }
 
     public bool ShouldClearStatusWhenDeleteConfirmationExpires()
     {

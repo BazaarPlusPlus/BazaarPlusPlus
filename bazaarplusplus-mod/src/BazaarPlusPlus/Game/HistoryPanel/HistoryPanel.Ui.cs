@@ -40,6 +40,11 @@ internal sealed partial class HistoryPanel
                 _uiRefresh.Guard(TryFavoriteSelectedBattle),
                 SaveFavoriteNote
             );
+            _uiView.SetBppAccountActions(
+                ToggleBppAccountForm,
+                OpenBppAccountActivateDevice,
+                _uiRefresh.Guard<string?>(SubmitBppAccountInput)
+            );
             _uiView.PreviewContainerBoundsChanged += OnPreviewContainerBoundsChanged;
             _uiView.OpponentBoundsChanged += bounds =>
             {

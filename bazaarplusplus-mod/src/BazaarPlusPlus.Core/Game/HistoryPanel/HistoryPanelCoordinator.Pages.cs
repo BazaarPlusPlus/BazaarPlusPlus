@@ -347,8 +347,12 @@ public sealed partial class HistoryPanelCoordinator
         _state.FavoriteActionInProgress = false;
         _state.GhostSync = GhostSyncPhase.NotStarted;
         _state.ServerHealthProbeInProgress = false;
+        ClearPendingBppAccountFlow();
         SetAccountLinkBanner(null, StatusSeverity.Neutral);
+        SetBppAccountBanner(null, StatusSeverity.Neutral);
         RefreshAccountLinkHint();
+        RefreshBppAccountFromStore();
+        _ = RefreshBppAccountSessionAsync();
         ClearDetail();
         RefreshSectionOnEntry();
         StartGhostMaintenance();

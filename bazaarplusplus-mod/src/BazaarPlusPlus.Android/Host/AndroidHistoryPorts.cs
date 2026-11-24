@@ -1,4 +1,5 @@
 using BazaarPlusPlus.Android.GameInterop;
+using BazaarPlusPlus.Core.GameAuth;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -14,6 +15,12 @@ internal static class AndroidHistoryPorts
 
     public static string? ProfileAccountId() =>
         OnMainThread("profile_account") ? AndroidClientCache.TryGetProfileAccountId() : null;
+
+    public static string? ProfileDisplayName() =>
+        OnMainThread("profile_display_name") ? AndroidClientCache.TryGetProfileUsername() : null;
+
+    public static BppGameAuthSnapshot? ReadGameAuthSnapshot() =>
+        OnMainThread("game_auth") ? AndroidGameAuthBridge.TryRead() : null;
 
     public static BazaarDbAccountLinkStore AccountLinkStore() =>
         new(
