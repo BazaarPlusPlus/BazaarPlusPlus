@@ -21,6 +21,7 @@ function installState(overrides: Partial<InstallState> = {}): InstallState {
       can_uninstall: false,
       can_launch: true
     },
+    data_root_path: '/Applications/The Bazaar/BazaarPlusPlusV6',
     has_resettable_data: true,
     has_bepinex_files: true,
     warnings: [],
@@ -269,6 +270,7 @@ describe('install workflow confirmation lifecycle', () => {
       phase: 'confirming',
       target: {
         kind: 'reset-data',
+        dataRootPath: '/Applications/The Bazaar/BazaarPlusPlusV6',
         gamePath: '/Applications/The Bazaar'
       }
     });
@@ -278,14 +280,21 @@ describe('install workflow confirmation lifecycle', () => {
       phase: 'failed',
       target: {
         kind: 'reset-data',
+        dataRootPath: '/Applications/The Bazaar/BazaarPlusPlusV6',
         gamePath: '/Applications/The Bazaar'
       },
       problem: { diagnostic: 'reset failed' }
     });
-    expect(resetBppData).toHaveBeenCalledWith('/Applications/The Bazaar');
+    expect(resetBppData).toHaveBeenCalledWith(
+      '/Applications/The Bazaar',
+      '/Applications/The Bazaar/BazaarPlusPlusV6'
+    );
 
     expect(await workflow.intents.confirm()).toBe(true);
-    expect(resetBppData).toHaveBeenLastCalledWith('/Applications/The Bazaar');
+    expect(resetBppData).toHaveBeenLastCalledWith(
+      '/Applications/The Bazaar',
+      '/Applications/The Bazaar/BazaarPlusPlusV6'
+    );
     expect(workflow.getSnapshot().notice?.code).toBe('reset_data_done');
     expect(workflow.getSnapshot().confirmation).toBeNull();
 
@@ -451,7 +460,9 @@ describe('install workflow mutation outcomes', () => {
     expect(commands.uninstallMod).toHaveBeenCalledTimes(1);
 
     expect(await workflow.intents.launch()).toBe(true);
-    expect(commands.launchGame).toHaveBeenCalledTimes(1);
+    expect(commands.launchGame).toHaveBeenCalledWith(
+      '/Applications/The Bazaar'
+    );
     expect(getInstallState).toHaveBeenCalledTimes(1);
   });
 });

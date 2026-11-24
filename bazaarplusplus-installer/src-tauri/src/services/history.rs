@@ -92,8 +92,8 @@ impl CleanupPlans {
         }
     }
 
-    fn database_generation(&self) -> u64 {
-        self.maintenance.database_generation()
+    fn database_generation(&self, data_root: &Path) -> u64 {
+        self.maintenance.database_generation(data_root)
     }
 
     fn store(
@@ -140,7 +140,7 @@ impl CleanupPlans {
         (stored.data_root == data_root
             && stored.scope == scope
             && stored.preset == preset
-            && stored.database_generation == self.database_generation())
+            && stored.database_generation == self.database_generation(data_root))
         .then_some(stored)
     }
 
@@ -165,7 +165,7 @@ struct HistoryStorage {
 
 pub(crate) struct History {
     paths: HistoryStorage,
-    is_game_running: fn() -> bool,
+    is_game_running: fn(&Path) -> bool,
     cleanup_game_probe: fn(&Path) -> anyhow::Result<bool>,
 }
 
@@ -189,7 +189,7 @@ impl History {
 
     pub(crate) fn at_with(
         game_path: Option<PathBuf>,
-        is_game_running: fn() -> bool,
+        is_game_running: fn(&Path) -> bool,
     ) -> Result<Self, SemanticProblem> {
         let game_path = game_path
             .ok_or_else(|| SemanticProblem::new(SemanticProblemCode::HistoryUnavailable))?;
@@ -226,7 +226,11 @@ impl History {
             |screenshot_id| history_thumbnails::url(source, screenshot_id),
             card_names,
         )
-        .map_err(|error| history_read_problem_with("list_runs", error, self.is_game_running))
+        .map_err(|error| {
+            history_read_problem_with("list_runs", &self.paths.game_path, error, || {
+                (self.is_game_running)(&self.paths.game_path)
+            })
+        })
     }
 
     pub(crate) fn run_detail_for_page(
@@ -234,7 +238,9 @@ impl History {
         run_id: &str,
     ) -> Result<Option<HistoryRunDetail>, SemanticProblem> {
         get_history_run_detail(&self.paths.database_path, run_id).map_err(|error| {
-            history_read_problem_with("get_run_detail", error, self.is_game_running)
+            history_read_problem_with("get_run_detail", &self.paths.game_path, error, || {
+                (self.is_game_running)(&self.paths.game_path)
+            })
         })
     }
 
@@ -316,7 +322,7 @@ impl History {
         as_action_problem("preview_storage_cleanup", || {
             // Read before planning: a Reset that starts after this
             // read invalidates the plan.
-            let database_generation = plans.database_generation();
+            let database_generation = plans.database_generation(&self.paths.data_root);
             let plan = self.plan_cleanup(scope, preset)?;
             Ok(match plan {
                 CleanupPlan::Screenshots(plan) => {
@@ -399,14 +405,14 @@ impl History {
                 &self.paths.database_path,
                 &self.paths.data_root,
                 plan,
-                &self.cleanup_game_probe,
+                &|| (self.cleanup_game_probe)(&self.paths.game_path),
             )
             .map(|result| StorageCleanupExecution::Screenshots { result }),
             CleanupPlan::RunData(plan) => cleanup::execute_run_data_cleanup_plan(
                 &self.paths.database_path,
                 &self.paths.data_root,
                 plan,
-                &self.cleanup_game_probe,
+                &|| (self.cleanup_game_probe)(&self.paths.game_path),
             )
             .map(|result| StorageCleanupExecution::RunData { result }),
         }
@@ -469,6 +475,7 @@ fn as_action_problem<T>(
 
 fn history_read_problem_with(
     operation: &str,
+    game_path: &Path,
     error: HistoryReadError,
     is_game_running: impl FnOnce() -> bool,
 ) -> SemanticProblem {
@@ -483,6 +490,7 @@ fn history_read_problem_with(
     // A game process can outlive its window and hold the database open. Surface that actionable cause first.
     if is_game_running() {
         return SemanticProblem::new(SemanticProblemCode::HistoryReadBlockedByGame)
+            .with_param("game_path", game_path.display().to_string())
             .with_param("operation", operation)
             .with_diagnostic(diagnostic);
     }
@@ -572,7 +580,7 @@ mod tests {
 
         let temp = tempfile::tempdir().unwrap();
         let game_path = temp.path().join("The Bazaar");
-        let history = History::at_with(Some(game_path.clone()), || false).unwrap();
+        let history = History::at_with(Some(game_path.clone()), |_| false).unwrap();
         std::fs::create_dir_all(history.paths.database_path.parent().unwrap()).unwrap();
         std::fs::write(&history.paths.database_path, b"not sqlite").unwrap();
 
@@ -660,7 +668,7 @@ mod tests {
 
         let temp = tempfile::tempdir().unwrap();
         let game_path = temp.path().join("The Bazaar");
-        let history = History::at_with(Some(game_path.clone()), || false).unwrap();
+        let history = History::at_with(Some(game_path.clone()), |_| false).unwrap();
         assert_eq!(history.run_detail_for_page("missing").unwrap(), None);
 
         std::fs::create_dir_all(history.paths.database_path.parent().unwrap()).unwrap();
@@ -769,7 +777,7 @@ mod tests {
         .unwrap();
         drop(conn);
 
-        let history = History::at_with(Some(game_path.clone()), || false).unwrap();
+        let history = History::at_with(Some(game_path.clone()), |_| false).unwrap();
         let thumbnails = HistoryThumbnails::default();
         thumbnails.register(Path::new("/another/installation"));
         let list = history
@@ -912,7 +920,7 @@ mod tests {
                 root,
                 scope,
                 StorageCleanupPreset::All,
-                plans.database_generation(),
+                plans.database_generation(root),
                 match scope {
                     StorageCleanupScope::Screenshots => {
                         super::CleanupPlan::Screenshots(ScreenshotCleanupPlan::empty())
@@ -1001,23 +1009,36 @@ mod tests {
         maintenance
             .run_blocking_with_overlay_stopped(
                 &crate::stream::runtime::StreamRuntime::default(),
+                Path::new("/game"),
                 || (),
             )
             .await
             .unwrap();
         assert!(take(id).is_none());
 
+        let id = store(StorageCleanupScope::RunData);
+        maintenance
+            .run_blocking_with_overlay_stopped(
+                &crate::stream::runtime::StreamRuntime::default(),
+                Path::new("/other"),
+                || (),
+            )
+            .await
+            .unwrap();
+        assert!(take(id).is_some());
+
         let during = {
             let plans = plans.clone();
             maintenance
                 .run_blocking_with_overlay_stopped(
                     &crate::stream::runtime::StreamRuntime::default(),
+                    Path::new("/game"),
                     move || {
                         plans.store(
                             root,
                             StorageCleanupScope::RunData,
                             StorageCleanupPreset::All,
-                            plans.database_generation(),
+                            plans.database_generation(root),
                             super::CleanupPlan::RunData(RunDataCleanupPlan::empty()),
                         )
                     },
@@ -1050,7 +1071,7 @@ mod tests {
         };
         insert_run("run-1");
         let plans = CleanupPlans::default();
-        let running = History::at_with(Some(game_path.clone()), || false)
+        let running = History::at_with(Some(game_path.clone()), |_| false)
             .unwrap()
             .with_cleanup_game_probe(|_| Ok(true));
         let StorageCleanupPreview::RunData { preview, plan_id } = running
@@ -1076,7 +1097,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(refused.code, SemanticProblemCode::HistoryActionFailed);
 
-        let closed = History::at_with(Some(game_path), || false)
+        let closed = History::at_with(Some(game_path), |_| false)
             .unwrap()
             .with_cleanup_game_probe(|_| Ok(false));
         let StorageCleanupExecution::RunData { result } = closed

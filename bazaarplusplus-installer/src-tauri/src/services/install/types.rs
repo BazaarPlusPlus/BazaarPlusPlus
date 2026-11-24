@@ -8,6 +8,7 @@ pub struct InstallState {
     pub game: InstallGameState,
     pub mod_state: InstallModState,
     pub actions: InstallActions,
+    pub data_root_path: Option<String>,
     pub has_resettable_data: bool,
     /// Whether a `BepInEx/` directory physically exists — gates the blunt
     /// "reset BepInEx folder" action independently of a healthy install, so it

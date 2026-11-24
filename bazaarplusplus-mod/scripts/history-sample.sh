@@ -34,11 +34,20 @@ sampler() {
 sample_desktop() {
     local command="$1"
     shift
-    if pgrep -f 'TheBazaar.app/Contents/MacOS|The Bazaar.exe' >/dev/null 2>&1; then
+    local game root
+    game="$(to_unix_path "$(game_root)")"
+    [[ -d "$game" ]] || die "Cannot locate the game directory."
+    if [[ "$(host_platform)" == windows ]]; then
+        BPP_SAMPLE_EXE="$(cygpath -aw "$game/TheBazaar.exe")" powershell.exe -NoProfile -Command '
+            $ErrorActionPreference = "Stop"
+            foreach ($process in (Get-CimInstance Win32_Process | Where-Object Name -eq "TheBazaar.exe")) {
+                if (!$process.ExecutablePath -or $process.ExecutablePath -eq $env:BPP_SAMPLE_EXE) { exit 1 }
+            }
+        ' || die "Cannot confirm the selected game is closed."
+    elif pgrep -f 'TheBazaar.app/Contents/MacOS' >/dev/null 2>&1; then
         die "The game is running; quit it first, so the mod is not writing the same database."
     fi
-    local root
-    root="$(game_root)/$DATA_ROOT_NAME"
+    root="$(desktop_data_root "$game")"
     [[ -f "$root/$DATABASE" ]] || die "No history database at $root; start the game with the mod once."
     sampler "$command" --data-root "$root" --journal wal "$@"
 }

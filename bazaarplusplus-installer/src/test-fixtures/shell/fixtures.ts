@@ -38,6 +38,7 @@ export const installable: InstallState = {
     can_uninstall: false,
     can_launch: true
   },
+  data_root_path: '/Games/The Bazaar/BazaarPlusPlusV6',
   has_resettable_data: false,
   has_bepinex_files: false,
   warnings: []

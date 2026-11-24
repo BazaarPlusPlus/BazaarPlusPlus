@@ -266,8 +266,8 @@ describe('History List workflow', () => {
       await workflow.start();
       const request = deferred<boolean>();
       commands.endGameProcess.mockReturnValueOnce(request.promise);
-      const recovery = workflow.intents.endLeftoverGameProcess();
-      expect(workflow.intents.endLeftoverGameProcess()).toBe(recovery);
+      const recovery = workflow.intents.endLeftoverGameProcess('/game');
+      expect(workflow.intents.endLeftoverGameProcess('/game')).toBe(recovery);
       expect(workflow.getSnapshot().endingGameProcess).toBe(true);
       await workflow.selectPage(2);
       await workflow.selectPage(3);
@@ -373,7 +373,7 @@ describe('History List workflow', () => {
     );
     commands.endGameProcess.mockReturnValueOnce(oldProcess.promise);
     const oldStart = workflow.start();
-    const oldRecovery = workflow.intents.endLeftoverGameProcess();
+    const oldRecovery = workflow.intents.endLeftoverGameProcess('/game');
     await Promise.resolve();
     workflow.dispose();
     commands.prepareHistoryThumbnails.mockRejectedValueOnce(
@@ -382,7 +382,7 @@ describe('History List workflow', () => {
     await workflow.start();
     const newProcess = deferred<boolean>();
     commands.endGameProcess.mockReturnValueOnce(newProcess.promise);
-    const newRecovery = workflow.intents.endLeftoverGameProcess();
+    const newRecovery = workflow.intents.endLeftoverGameProcess('/game');
     const current = workflow.getSnapshot();
     const changed = vi.fn();
     const unsubscribe = workflow.subscribe(changed);
@@ -411,9 +411,9 @@ describe('History List workflow', () => {
   it('does not start effects while stopped or start duplicate active lifecycles', async () => {
     const { commands, workflow } = fixture();
     await workflow.intents.refresh();
-    await expect(workflow.intents.endLeftoverGameProcess()).resolves.toBe(
-      'failed'
-    );
+    await expect(
+      workflow.intents.endLeftoverGameProcess('/game')
+    ).resolves.toBe('failed');
     expect(commands.listHistoryRuns).not.toHaveBeenCalled();
     expect(commands.endGameProcess).not.toHaveBeenCalled();
     await workflow.start();
@@ -421,9 +421,9 @@ describe('History List workflow', () => {
     expect(commands.listHistoryRuns).toHaveBeenCalledOnce();
     workflow.dispose();
     await workflow.intents.refresh();
-    await expect(workflow.intents.endLeftoverGameProcess()).resolves.toBe(
-      'failed'
-    );
+    await expect(
+      workflow.intents.endLeftoverGameProcess('/game')
+    ).resolves.toBe('failed');
     expect(commands.listHistoryRuns).toHaveBeenCalledOnce();
     expect(commands.endGameProcess).not.toHaveBeenCalled();
   });

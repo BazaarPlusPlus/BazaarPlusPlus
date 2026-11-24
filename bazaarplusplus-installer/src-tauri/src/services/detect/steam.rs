@@ -140,6 +140,13 @@ fn candidate_steam_paths() -> Vec<PathBuf> {
     candidates
 }
 
+fn steam_game_present(game: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    return super::is_valid_game_path(game);
+    #[cfg(not(target_os = "windows"))]
+    return game.exists();
+}
+
 fn get_game_path_from_single_steam_root(steam_path: &Path) -> Option<PathBuf> {
     crate::services::debug_log!(
         "[detect::steam] probing steam root={}",
@@ -156,7 +163,7 @@ fn get_game_path_from_single_steam_root(steam_path: &Path) -> Option<PathBuf> {
     }
 
     let candidate = steam_path.join("steamapps/common/The Bazaar");
-    if candidate.exists() {
+    if steam_game_present(&candidate) {
         crate::services::debug_log!(
             "[detect::steam] hit from default steam library root={} game_path={}",
             steam_path.display(),
@@ -195,17 +202,6 @@ fn get_game_path_from_detected_steam_roots(
         return Some(path);
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(path) = crate::services::game_path::find_existing_fallback_game_path() {
-            crate::services::debug_log!(
-                "[detect::steam] hit from common Windows candidate game_path={}",
-                path.display()
-            );
-            return Some(path);
-        }
-    }
-
     crate::services::debug_log!("[detect::steam] failed to resolve game path");
     None
 }
@@ -216,6 +212,8 @@ pub(crate) fn detect_installation_paths() -> SteamInstallPaths {
     let game_path = steam_path
         .as_deref()
         .and_then(|path| get_game_path_from_detected_steam_roots(path, &steam_roots));
+    #[cfg(target_os = "windows")]
+    let game_path = game_path.or_else(crate::services::game_path::find_existing_fallback_game_path);
     crate::services::debug_log!(
         "[detect::steam] detected startup paths steam_path={:?} game_path={:?}",
         steam_path.as_ref().map(|path| path.display().to_string()),
@@ -266,12 +264,26 @@ fn get_game_path_from_vdf(steam_path: &Path) -> Option<PathBuf> {
         .filter(|(_, has_app)| *has_app)
         .chain(parsed_folders.iter().filter(|(_, has_app)| !*has_app))
         .map(|(library_root, _)| PathBuf::from(library_root).join("steamapps/common/The Bazaar"))
-        .find(|candidate| candidate.exists())
+        .find(|candidate| steam_game_present(candidate))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn an_uninstalled_steam_copy_leaves_other_launchers_eligible() {
+        let steam = tempfile::tempdir().unwrap();
+        let game = steam.path().join("steamapps/common/The Bazaar");
+        std::fs::create_dir_all(game.join("BepInEx")).unwrap();
+        assert!(get_game_path_from_single_steam_root(steam.path()).is_none());
+        std::fs::write(game.join("TheBazaar.exe"), []).unwrap();
+        assert_eq!(
+            get_game_path_from_single_steam_root(steam.path()),
+            Some(game)
+        );
+    }
 
     #[test]
     fn test_parse_library_folders_marks_the_library_declaring_the_app() {
@@ -347,6 +359,7 @@ mod tests {
 
         std::fs::create_dir_all(&steamapps_dir).unwrap();
         std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("TheBazaar.exe"), []).unwrap();
 
         let library_root_string = library_root.to_string_lossy().replace('\\', "\\\\");
         let vdf = format!(
@@ -371,6 +384,12 @@ mod tests {
         std::fs::create_dir_all(&steamapps_dir).unwrap();
         std::fs::create_dir_all(listed_first.join("steamapps/common/The Bazaar")).unwrap();
         std::fs::create_dir_all(&declared_game_dir).unwrap();
+        for game in [
+            listed_first.join("steamapps/common/The Bazaar"),
+            declared_game_dir.clone(),
+        ] {
+            std::fs::write(game.join("TheBazaar.exe"), []).unwrap();
+        }
 
         let listed_first_string = listed_first.to_string_lossy().replace('\\', "\\\\");
         let declaring_string = declaring.to_string_lossy().replace('\\', "\\\\");
@@ -393,6 +412,7 @@ mod tests {
 
         std::fs::create_dir_all(primary_root.join("steamapps")).unwrap();
         std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("TheBazaar.exe"), []).unwrap();
 
         let path = get_game_path_from_detected_steam_roots(
             &primary_root,

@@ -43,7 +43,11 @@ export function InstallConfirmModal({
     >
       <ConfirmNote tone="neutral" icon={<BookOpen size={16} />}>
         <p className="text-text-1">{t('tutorialKicker')}</p>
-        <p>{t('installModalBody')}</p>
+        <p>
+          {t(
+            isWindowsPlatform() ? 'installModalBodyWindows' : 'installModalBody'
+          )}
+        </p>
         <a
           href="https://bazaarplusplus.com/tutorial"
           target="_blank"
@@ -59,7 +63,7 @@ export function InstallConfirmModal({
         <p>
           {t(
             isWindowsPlatform()
-              ? 'installSteamNotice'
+              ? 'installWindowsLauncherNotice'
               : willCloseSteam
                 ? 'installSteamNoticeMacos'
                 : 'installCloseGameNotice'

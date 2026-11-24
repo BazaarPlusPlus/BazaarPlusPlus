@@ -139,7 +139,7 @@ fn video_rows(game: &Path) -> i64 {
 }
 
 fn history(game: &Path) -> History {
-    History::at_with(Some(game.to_path_buf()), || false)
+    History::at_with(Some(game.to_path_buf()), |_| false)
         .unwrap()
         .with_cleanup_game_probe(|_| Ok(false))
 }
@@ -495,7 +495,7 @@ fn run_data_cleanup_retries_each_recorded_video_path() {
 fn an_empty_cleanup_plan_executes_while_the_game_is_reported_running() {
     let games = Games::new();
     let game = games.fresh();
-    let running = History::at_with(Some(game), || true)
+    let running = History::at_with(Some(game), |_| true)
         .unwrap()
         .with_cleanup_game_probe(|_| Ok(true));
 
@@ -615,7 +615,7 @@ fn history_reads_name_a_running_game() {
     let games = Games::new();
     let game = games.fresh();
     std::fs::write(paths::database_path(&game), b"not sqlite").unwrap();
-    let history = History::at_with(Some(game), || true).unwrap();
+    let history = History::at_with(Some(game), |_| true).unwrap();
 
     for (operation, problem) in [
         (

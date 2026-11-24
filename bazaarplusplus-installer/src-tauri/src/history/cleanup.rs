@@ -8,7 +8,6 @@ use std::sync::LazyLock;
 use crate::history::files::{resolve_stored_path, StoredPathReferences, StoredRelativePath};
 use crate::history::instant::local_day_start;
 use crate::history::queries::{open_cleanup_connection, open_connection};
-use crate::services::game_process::GameProcessProbe;
 
 /// Wire strings are a stable contract with the frontend preset buttons.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -176,7 +175,7 @@ pub(crate) fn execute_screenshot_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
     plan: &ScreenshotCleanupPlan,
-    game: &impl GameProcessProbe,
+    is_game_running: &impl Fn() -> anyhow::Result<bool>,
 ) -> anyhow::Result<ScreenshotCleanupResult> {
     let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let mut deleted_rows = 0i64;
@@ -184,7 +183,7 @@ pub(crate) fn execute_screenshot_cleanup_plan(
     let mut freed_bytes = 0i64;
     if !plan.items.is_empty() || !plan.orphan_files.is_empty() {
         let mut unlinks = UnlinkOutcome::default();
-        let mut session = CleanupSession::open(database_path, data_root, game)?;
+        let mut session = CleanupSession::open(database_path, is_game_running)?;
         let mut candidates = Vec::new();
         for chunk in plan.items.chunks(CLEANUP_CHUNK_SIZE) {
             let transaction = session.conn.transaction()?;
@@ -227,8 +226,7 @@ struct CleanupSession {
 impl CleanupSession {
     fn open(
         database_path: &Path,
-        data_root: &Path,
-        game: &impl GameProcessProbe,
+        is_game_running: &impl Fn() -> anyhow::Result<bool>,
     ) -> anyhow::Result<Self> {
         let conn = open_cleanup_connection(database_path)?;
         conn.execute_batch("PRAGMA locking_mode = EXCLUSIVE; BEGIN EXCLUSIVE; COMMIT;")
@@ -236,10 +234,7 @@ impl CleanupSession {
 
         // Probe after locking. The mod must finish a store write transaction before its capture writers start.
         // See the startup ordering in docs/history-storage.md.
-        let game_path = data_root
-            .parent()
-            .context("History Data Root has no game directory.")?;
-        match game.is_running(game_path) {
+        match is_game_running() {
             Ok(false) => Ok(Self { conn }),
             Ok(true) => Err(anyhow!("Close The Bazaar before cleaning up history.")),
             Err(err) => Err(anyhow!(
@@ -534,7 +529,7 @@ pub(crate) fn execute_run_data_cleanup_plan(
     database_path: &Path,
     data_root: &Path,
     plan: &RunDataCleanupPlan,
-    game: &impl GameProcessProbe,
+    is_game_running: &impl Fn() -> anyhow::Result<bool>,
 ) -> anyhow::Result<RunDataCleanupResult> {
     let screenshots_dir = crate::services::paths::screenshots_dir_in(data_root);
     let videos_dir = crate::services::paths::combat_replay_videos_dir_in(data_root);
@@ -543,7 +538,7 @@ pub(crate) fn execute_run_data_cleanup_plan(
     let mut deleted_files = 0i64;
     let mut freed_bytes = 0i64;
     if !plan.items.is_empty() || !plan.retry_videos.is_empty() {
-        let mut session = CleanupSession::open(database_path, data_root, game)?;
+        let mut session = CleanupSession::open(database_path, is_game_running)?;
         validate_run_cleanup_cascade_fks(&session.conn)?;
         let planned = PlannedRunChildren::of(plan);
         let mut deleted_items = Vec::new();
@@ -1190,7 +1185,6 @@ fn remove_empty_dated_directories(screenshots_dir: &Path) {
 mod tests {
     use super::{plan_screenshot_cleanup, CleanupCutoff, StorageCleanupPreset};
     use crate::history::mod_schema::create_mod_schema;
-    use crate::services::game_process::SystemGameProcessProbe;
     use chrono::{DateTime, FixedOffset, NaiveDate, SecondsFormat, TimeZone, Utc};
     use rusqlite::Connection;
     use std::collections::HashSet;
@@ -1259,12 +1253,7 @@ mod tests {
         today_local_date: NaiveDate,
     ) -> anyhow::Result<super::ScreenshotCleanupResult> {
         let plan = plan_screenshot_cleanup(database_path, data_root, cutoff, today_local_date)?;
-        super::execute_screenshot_cleanup_plan(
-            database_path,
-            data_root,
-            &plan,
-            &SystemGameProcessProbe,
-        )
+        super::execute_screenshot_cleanup_plan(database_path, data_root, &plan, &|| Ok(false))
     }
 
     fn execute_run_data_cleanup(
@@ -1273,12 +1262,7 @@ mod tests {
         cutoff: Option<&CleanupCutoff>,
     ) -> anyhow::Result<super::RunDataCleanupResult> {
         let plan = super::plan_run_data_cleanup(database_path, data_root, cutoff)?;
-        super::execute_run_data_cleanup_plan(
-            database_path,
-            data_root,
-            &plan,
-            &SystemGameProcessProbe,
-        )
+        super::execute_run_data_cleanup_plan(database_path, data_root, &plan, &|| Ok(false))
     }
 
     fn ms(rfc3339: &str) -> i64 {
@@ -1422,15 +1406,13 @@ mod tests {
                     Some(rusqlite::ErrorCode::DatabaseBusy)
                 );
             };
-            let probe = |_: &Path| {
+            let probe = || {
                 // The probe must run after exclusion is acquired. A game starting
                 // after this snapshot must initialize its store before writing files.
                 assert_writer_blocked();
                 Ok(false)
             };
-            let mut session =
-                super::CleanupSession::open(&fixture.database_path, &fixture.data_root, &probe)
-                    .unwrap();
+            let mut session = super::CleanupSession::open(&fixture.database_path, &probe).unwrap();
             let transaction = session.conn.transaction().unwrap();
             assert_eq!(
                 super::delete_screenshot_if_unprotected(&transaction, "old").unwrap(),
@@ -1465,16 +1447,8 @@ mod tests {
             let fixture = create_fixture();
             let image =
                 write_screenshot_file(&fixture.screenshots_dir, "2026-06-01/shot.png", b"keep");
-            let probe = |path: &Path| {
-                assert_eq!(path, fixture.data_root.parent().unwrap());
-                state.map_err(|message| anyhow::anyhow!(message))
-            };
-            assert!(super::CleanupSession::open(
-                &fixture.database_path,
-                &fixture.data_root,
-                &probe
-            )
-            .is_err());
+            let probe = || state.map_err(|message| anyhow::anyhow!(message));
+            assert!(super::CleanupSession::open(&fixture.database_path, &probe).is_err());
             assert_eq!(fs::read(image).unwrap(), b"keep");
             let writer = Connection::open(&fixture.database_path).unwrap();
             writer.busy_timeout(std::time::Duration::ZERO).unwrap();
@@ -1566,7 +1540,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
         assert_eq!(result.deleted_runs, 1);
@@ -1685,7 +1659,7 @@ mod tests {
                 &fixture.database_path,
                 &fixture.data_root,
                 &plan,
-                &SystemGameProcessProbe,
+                &|| Ok(false),
             )
             .unwrap();
             assert_eq!(
@@ -1754,7 +1728,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -1807,7 +1781,7 @@ mod tests {
                     &fixture.database_path,
                     &fixture.data_root,
                     &plan,
-                    &SystemGameProcessProbe,
+                    &|| Ok(false),
                 )
                 .unwrap();
                 assert_eq!(result.deleted_rows, 1);
@@ -1817,7 +1791,7 @@ mod tests {
                     &fixture.database_path,
                     &fixture.data_root,
                     &run_plan.unwrap(),
-                    &SystemGameProcessProbe,
+                    &|| Ok(false),
                 )
                 .unwrap();
                 assert_eq!(result.deleted_runs, 1);
@@ -1992,7 +1966,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -2073,7 +2047,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -2443,7 +2417,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -2496,7 +2470,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -2582,7 +2556,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -2632,7 +2606,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
         assert_eq!(result.deleted_runs, 0);
@@ -2707,7 +2681,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -2829,7 +2803,7 @@ mod tests {
             &fixture.database_path,
             &fixture.data_root,
             &plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 
@@ -3257,7 +3231,7 @@ mod tests {
             &fixture.database_path,
             &other_root,
             &other_plan,
-            &SystemGameProcessProbe,
+            &|| Ok(false),
         )
         .unwrap();
 

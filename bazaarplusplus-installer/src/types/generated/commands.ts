@@ -9,7 +9,7 @@ export const commands = {
 	getInstallState: (gamePath: string | null) => __TAURI_INVOKE<InstallState>("get_install_state", { gamePath }),
 	chooseGameDirectory: () => __TAURI_INVOKE<GameDirectorySelection>("choose_game_directory"),
 	installMod: (gamePath: string) => __TAURI_INVOKE<InstallState>("install_mod", { gamePath }),
-	resetBppData: (gamePath: string) => __TAURI_INVOKE<ResetBppDataResult>("reset_bpp_data", { gamePath }),
+	resetBppData: (gamePath: string, dataRootPath: string) => __TAURI_INVOKE<ResetBppDataResult>("reset_bpp_data", { gamePath, dataRootPath }),
 	resetBepinex: (gamePath: string) => __TAURI_INVOKE<ResetBepinexResult>("reset_bepinex", { gamePath }),
 	getLegacyDataState: (gamePath: string | null) => __TAURI_INVOKE<LegacyDataState>("get_legacy_data_state", { gamePath }),
 	/**
@@ -24,7 +24,7 @@ export const commands = {
 	 */
 	deleteLegacyRoot: (gamePath: string, name: string) => __TAURI_INVOKE<DeleteLegacyRootResult>("delete_legacy_root", { gamePath, name }),
 	uninstallMod: (gamePath: string) => __TAURI_INVOKE<InstallState>("uninstall_mod", { gamePath }),
-	launchGame: () => __TAURI_INVOKE<null>("launch_game"),
+	launchGame: (gamePath: string) => __TAURI_INVOKE<null>("launch_game", { gamePath }),
 	/**
 	 *  End a game process that outlived its window. Both History and Install stall
 	 *  on that state — one cannot read the mod database, the other refuses to touch
@@ -33,7 +33,7 @@ export const commands = {
 	 *  Returns whether a process was actually terminated: finding none means the
 	 *  state the caller was recovering from is already gone.
 	 */
-	endGameProcess: () => __TAURI_INVOKE<boolean>("end_game_process"),
+	endGameProcess: (gamePath: string) => __TAURI_INVOKE<boolean>("end_game_process", { gamePath }),
 	getStreamStatus: () => __TAURI_INVOKE<StreamServiceStatus>("get_stream_status"),
 	ensureStreamSession: () => __TAURI_INVOKE<StreamServiceStatus>("ensure_stream_session"),
 	prepareHistoryThumbnails: () => __TAURI_INVOKE<null>("prepare_history_thumbnails"),
@@ -242,6 +242,7 @@ export type InstallState = {
 	game: InstallGameState,
 	mod_state: InstallModState,
 	actions: InstallActions,
+	data_root_path: string | null,
 	has_resettable_data: boolean,
 	/**
 	 *  Whether a `BepInEx/` directory physically exists — gates the blunt

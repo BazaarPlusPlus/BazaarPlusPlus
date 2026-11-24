@@ -53,9 +53,10 @@ describe('native command adapter', () => {
     },
     {
       call: 'resetBppData',
-      run: (client: CommandAdapter) => client.resetBppData('/game'),
+      run: (client: CommandAdapter) =>
+        client.resetBppData('/game', '/game/data'),
       command: 'reset_bpp_data',
-      args: { gamePath: '/game' },
+      args: { gamePath: '/game', dataRootPath: '/game/data' },
       problem: {
         code: 'install_partial_failure',
         params: {

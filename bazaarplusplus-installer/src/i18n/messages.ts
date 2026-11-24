@@ -81,7 +81,7 @@ const zh = {
   modNeedsReinstall: '需要重新安装',
   installDone: '安装完成',
   resetDataConfirmTitle: '删除本地数据',
-  resetDataTarget: '目标：{path} 内的 BazaarPlusPlusV6 文件夹',
+  resetDataTarget: '将删除的文件夹：{path}',
   resetDataConfirmBody:
     '这会删除 The Bazaar 游戏目录中 BazaarPlusPlusV6 下的本地数据库、截图和回放。这包括尚未上传的对局数据。',
   resetDataConfirmKeepsInstall:
@@ -145,15 +145,14 @@ const zh = {
   installProblemDetectionFailed: '检测安装状态失败，请重试。',
   installProblemChooseDirectoryFailed: '无法打开游戏目录选择器，请重试。',
   installProblemInstallFailed:
-    '安装或修复失败。请退出 The Bazaar 与 Steam，检查目录权限后重试。',
+    '安装或修复失败。请退出游戏和启动器，检查目录权限后重试。',
   installProblemResetDataFailed:
     '重置本地数据失败，请关闭占用文件的程序后重试。',
   installProblemResetBepinexFailed:
     '重置 BepInEx 失败，请退出 The Bazaar 后重试。',
-  installProblemUninstallFailed:
-    '卸载失败，请退出 The Bazaar 与 Steam 后重试。',
+  installProblemUninstallFailed: '卸载失败，请退出游戏和启动器 后重试。',
   installProblemLaunchFailed:
-    '无法通过 Steam 启动游戏，请确认 Steam 正在运行后重试。',
+    '无法打开游戏启动器。请检查游戏目录和启动器安装后重试。',
   installProblemUnexpected: '处理安装状态时发生意外错误，请重试。',
   installProblemLegacyDataFailed: '无法读取旧版本数据文件夹，请重试。',
   installProblemLegacyDeleteFailed:
@@ -187,9 +186,10 @@ const zh = {
   installModalTitle: '安装 BazaarPlusPlus',
   tutorialKicker: '使用教程',
   installModalBody: '安装完成后，从 Steam 启动游戏即可使用。',
+  installModalBodyWindows:
+    '安装完成后，从 Steam 启动游戏，或在 Tempo Launcher 中点击 Play。',
   viewTutorial: '查看教程',
-  installSteamNotice:
-    '安装前请先关闭 Steam；如果 Steam 正在运行，请手动退出后再继续。',
+  installWindowsLauncherNotice: '请先退出游戏和启动器，再继续安装。',
   installSteamNoticeMacos: '请先退出游戏。继续安装将关闭 Steam。',
   installCloseGameNotice: '请先退出游戏，再继续安装。',
   installAcknowledge: '我了解使用第三方插件的风险，并自行承担。',
@@ -569,7 +569,7 @@ const en: Record<MessageKey, string> = {
   modNeedsReinstall: 'Reinstall required',
   installDone: 'Install complete',
   resetDataConfirmTitle: 'Delete local data',
-  resetDataTarget: 'Target: the BazaarPlusPlusV6 folder inside {path}',
+  resetDataTarget: 'Folder to delete: {path}',
   resetDataConfirmBody:
     'This deletes the local database, screenshots, and replays under BazaarPlusPlusV6 in The Bazaar install directory. This includes battle data that has not been uploaded yet.',
   resetDataConfirmKeepsInstall:
@@ -639,15 +639,15 @@ const en: Record<MessageKey, string> = {
   installProblemChooseDirectoryFailed:
     'The game directory picker could not be opened. Try again.',
   installProblemInstallFailed:
-    'Install or repair failed. Quit The Bazaar and Steam, check directory permissions, then retry.',
+    'Install or repair failed. Quit the game and its launcher, check directory permissions, then retry.',
   installProblemResetDataFailed:
     'Local data could not be reset. Close apps using those files, then retry.',
   installProblemResetBepinexFailed:
     'BepInEx could not be reset. Quit The Bazaar, then retry.',
   installProblemUninstallFailed:
-    'Uninstall failed. Quit The Bazaar and Steam, then retry.',
+    'Uninstall failed. Quit the game and its launcher, then retry.',
   installProblemLaunchFailed:
-    'The game could not be launched through Steam. Make sure Steam is running, then retry.',
+    'Could not open the game launcher. Check the game directory and launcher installation, then retry.',
   installProblemUnexpected:
     'Something unexpected happened while handling installation state. Try again.',
   installProblemLegacyDataFailed:
@@ -687,9 +687,11 @@ const en: Record<MessageKey, string> = {
   tutorialKicker: 'Tutorial',
   installModalBody:
     'After installation, launch the game from Steam to use the mod.',
+  installModalBodyWindows:
+    'After installation, start the game from Steam or click Play in Tempo Launcher.',
   viewTutorial: 'View tutorial',
-  installSteamNotice:
-    'Close Steam before installing. If Steam is running, quit it manually before continuing.',
+  installWindowsLauncherNotice:
+    'Quit the game and its launcher before installing.',
   installSteamNoticeMacos: 'Close the game first. Continuing will quit Steam.',
   installCloseGameNotice: 'Close the game before continuing.',
   installAcknowledge:

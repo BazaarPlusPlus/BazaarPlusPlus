@@ -31,6 +31,7 @@ export const emptyInstallState: InstallState = {
     can_uninstall: false,
     can_launch: false
   },
+  data_root_path: null,
   has_resettable_data: false,
   has_bepinex_files: false,
   warnings: [{ code: 'game_missing', params: {} }]

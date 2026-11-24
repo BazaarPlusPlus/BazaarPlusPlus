@@ -183,7 +183,9 @@ export function createHistoryListWorkflow(
     await refresh();
   }
 
-  function endLeftoverGameProcess(): Promise<EndGameProcessOutcome> {
+  function endLeftoverGameProcess(
+    gamePath: string
+  ): Promise<EndGameProcessOutcome> {
     if (!active) return Promise.resolve('failed');
     if (recovery) return recovery;
     // Establish ownership before invoking a command that may throw synchronously.
@@ -191,7 +193,7 @@ export function createHistoryListWorkflow(
       async () => {
         if (!active || recovery !== operation) return 'failed';
         try {
-          return (await commands.endGameProcess())
+          return (await commands.endGameProcess(gamePath))
             ? 'terminated'
             : 'already-exited';
         } catch {

@@ -6,7 +6,7 @@ use tauri_plugin_dialog::DialogExt;
 use crate::problem::SemanticProblem;
 use crate::services::{
     install::{
-        detect_install_state, install, launch_game_via_steam, run_delete_legacy_root,
+        detect_install_state, install, launch_selected_game, run_delete_legacy_root,
         run_get_legacy_data_presence, run_get_legacy_data_state, run_reset_bepinex,
         run_reset_bpp_data, run_uninstall, InstallRequest,
     },
@@ -57,8 +57,9 @@ pub async fn reset_bpp_data(
     app: tauri::AppHandle,
     stream_runtime: tauri::State<'_, StreamRuntime>,
     game_path: String,
+    data_root_path: String,
 ) -> Result<ResetBppDataResult, SemanticProblem> {
-    run_reset_bpp_data(app, stream_runtime, game_path).await
+    run_reset_bpp_data(app, stream_runtime, game_path, data_root_path).await
 }
 
 #[tauri::command]
@@ -114,10 +115,12 @@ pub async fn uninstall_mod(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn launch_game() -> Result<(), SemanticProblem> {
-    // Opening the Steam URL spawns a subprocess.
+pub async fn launch_game(game_path: String) -> Result<(), SemanticProblem> {
     let problem = |diagnostic: anyhow::Error| {
         crate::services::install::install_action_problem("launch", diagnostic)
     };
-    crate::problem::run_blocking(problem, move || launch_game_via_steam().map_err(problem)).await
+    crate::problem::run_blocking(problem, move || {
+        launch_selected_game(std::path::Path::new(&game_path)).map_err(problem)
+    })
+    .await
 }

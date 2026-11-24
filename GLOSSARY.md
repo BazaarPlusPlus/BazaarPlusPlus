@@ -107,7 +107,7 @@ _Avoid_: release R2 keys, per-bucket key pair
 ## Local data
 
 **Data Root** (数据根目录):
-The folder in the game directory where the mod keeps its local database, screenshots, and replays; on the Android Host, the sibling of the MelonLoader base directory under the game's external `files/`. The current name is `BazaarPlusPlusV6`; the mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
+The folder where the mod keeps its local database, screenshots, and replays. Steam installations keep it in the game directory. On Windows, Tempo Launcher installations keep it beside the replaceable game build in the same library. On the Android Host it is the sibling of the MelonLoader base directory under the game's external `files/`. The current name is `BazaarPlusPlusV6`. The mod's `PathConstants.DataRootDirectoryName` and the installer's `BAZAAR_DATA_DIRECTORY` must agree. Unrelated to the analyzer's `BPP_DATA_ROOT`.
 
 **Legacy Root** (旧数据根目录):
 A Data Root an earlier major version wrote (`BazaarPlusPlus/`, `BazaarPlusPlusV4/`, `BazaarPlusPlusV5/`), owned by the user. The mod never reads it; the installer measures it and deletes one only on the user's confirmation.

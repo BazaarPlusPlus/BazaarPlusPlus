@@ -34,7 +34,12 @@ internal static class UpdaterRun
     {
         try
         {
-            var dataRoot = Path.Combine(installRoot, DataRootDirectoryName);
+            var dataRoot = DesktopDataRoot.Resolve(
+                installRoot,
+                DataRootDirectoryName,
+                platformKey == WindowsPlatformKey,
+                message => log.Warn("updater.data_root.migration", ("detail", message))
+            );
             log.Info(
                 "updater.started",
                 ("version", Version),

@@ -15,29 +15,65 @@ pub(crate) fn process_is_running(target: &str) -> anyhow::Result<bool> {
         .any(|process| image_name_matches(&process.image_name, target)))
 }
 
-/// The Bazaar can outlive its window and keep the mod database open.
+/// Identify the selected copy while a query handle keeps the process ID alive.
 #[cfg(target_os = "windows")]
-pub(crate) fn terminate_processes(target: &str) -> anyhow::Result<u32> {
-    use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+pub(crate) fn inspect_game(target: &std::path::Path, terminate: bool) -> anyhow::Result<bool> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt as _;
+    use std::path::PathBuf;
+    use windows::core::PWSTR;
+    use windows::Win32::Foundation::ERROR_INVALID_PARAMETER;
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, TerminateProcess, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
+    };
 
-    let mut terminated = 0u32;
+    let target = match target.canonicalize() {
+        Ok(path) => path,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(err) => return Err(err.into()),
+    };
+    let name = target
+        .file_name()
+        .context("Game executable name is missing")?
+        .to_string_lossy();
+    let mut matched = false;
     for process in running_processes()?
-        .iter()
-        .filter(|process| image_name_matches(&process.image_name, target))
+        .into_iter()
+        .filter(|p| image_name_matches(&p.image_name, &name))
     {
-        // SAFETY: `OpenProcess` takes no pointers; a returned handle is owned
-        // by the guard, which closes it.
-        let Ok(handle) = (unsafe { OpenProcess(PROCESS_TERMINATE, false, process.id) }) else {
+        // SAFETY: successful calls return an owned handle, closed by OwnedHandle.
+        let query =
+            match unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process.id) } {
+                Ok(handle) => OwnedHandle(handle),
+                Err(err) if err.code() == ERROR_INVALID_PARAMETER.to_hresult() => continue,
+                Err(err) => return Err(err.into()),
+            };
+        let mut buffer = vec![0u16; 32768];
+        let mut size = buffer.len() as u32;
+        // SAFETY: size specifies the writable buffer capacity in UTF-16 units.
+        unsafe {
+            QueryFullProcessImageNameW(
+                query.0,
+                PROCESS_NAME_WIN32,
+                PWSTR(buffer.as_mut_ptr()),
+                &mut size,
+            )
+        }?;
+        let image = PathBuf::from(OsString::from_wide(&buffer[..size as usize]));
+        if image.canonicalize()? != target {
             continue;
-        };
-        let handle = OwnedHandle(handle);
-        // SAFETY: `handle` is a live process handle opened with
-        // `PROCESS_TERMINATE` access.
-        if unsafe { TerminateProcess(handle.0, 1) }.is_ok() {
-            terminated += 1;
         }
+        if !terminate {
+            return Ok(true);
+        }
+        // SAFETY: query keeps this verified process object alive while opening the termination handle.
+        let handle = OwnedHandle(unsafe { OpenProcess(PROCESS_TERMINATE, false, process.id) }?);
+        // SAFETY: handle was opened with termination access.
+        unsafe { TerminateProcess(handle.0, 1) }?;
+        matched = true;
     }
-    Ok(terminated)
+    Ok(matched)
 }
 
 #[cfg(target_os = "windows")]
@@ -98,4 +134,51 @@ fn image_name_from_entry(
     let name = &entry.szExeFile;
     let len = name.iter().position(|&c| c == 0).unwrap_or(name.len());
     String::from_utf16_lossy(&name[..len])
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    use super::inspect_game;
+    use std::os::windows::process::CommandExt as _;
+    use std::process::{Child, Command, Stdio};
+    use std::{fs, path::Path};
+
+    struct FixtureProcess(Child);
+
+    impl Drop for FixtureProcess {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    fn spawn(path: &Path) -> anyhow::Result<FixtureProcess> {
+        use anyhow::Context as _;
+        let ping = Path::new(&std::env::var_os("SystemRoot").context("Windows system directory")?)
+            .join("System32/ping.exe");
+        fs::create_dir_all(path.parent().context("fixture directory")?)?;
+        fs::copy(ping, path)?;
+        Ok(FixtureProcess(
+            Command::new(path)
+                .args(["-t", "127.0.0.1"])
+                .creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()?,
+        ))
+    }
+
+    #[test]
+    fn same_named_processes_are_inspected_and_ended_by_installation() {
+        let root = tempfile::tempdir().unwrap();
+        let steam = root.path().join("Steam/BppProcessFixture.exe");
+        let tempo = root.path().join("Tempo/BppProcessFixture.exe");
+        let mut first = spawn(&steam).unwrap();
+        let mut second = spawn(&tempo).unwrap();
+        assert!(inspect_game(&steam, false).unwrap());
+        assert!(inspect_game(&tempo, true).unwrap());
+        second.0.wait().unwrap();
+        assert!(!inspect_game(&tempo, false).unwrap());
+        assert!(first.0.try_wait().unwrap().is_none());
+    }
 }

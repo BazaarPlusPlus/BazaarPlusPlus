@@ -362,7 +362,7 @@ function HistoryProblemBanner({
 }: {
   problem: HistoryPageProblem;
   onRetry: () => void;
-  onEndGameProcess: () => Promise<EndGameProcessOutcome>;
+  onEndGameProcess: (gamePath: string) => Promise<EndGameProcessOutcome>;
   endingGameProcess: boolean;
 }) {
   const { t } = useI18n();
@@ -372,7 +372,7 @@ function HistoryProblemBanner({
   );
 
   const endGameProcess = async () => {
-    const outcome = await onEndGameProcess();
+    const outcome = await onEndGameProcess(problem.params.game_path);
     showToast({
       tone: outcome === 'failed' ? 'error' : 'success',
       message: t(endGameProcessMessageKey(outcome))

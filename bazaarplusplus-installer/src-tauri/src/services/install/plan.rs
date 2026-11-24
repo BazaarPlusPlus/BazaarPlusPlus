@@ -5,6 +5,7 @@ use crate::services::vdf::SteamLaunchOptionsState;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum InstallEffect {
     EnsureGameStopped,
+    MigrateTempoData,
     CloseSteam,
     InstallBepInEx,
     InstallTrampoline,
@@ -33,16 +34,16 @@ fn plan_install_for_platform(
         || (env.trampoline_current
             && launch_options_empty
             && !env.obsolete_macos_artifacts_present);
-    if payload_current && bootstrap_ready {
+    if payload_current && bootstrap_ready && !env.tempo_migration_pending {
         return Vec::new();
     }
 
-    let mut steps = Vec::new();
-    if requires_macos_bootstrap {
-        steps.push(InstallEffect::EnsureGameStopped);
-        if !launch_options_empty {
-            steps.push(InstallEffect::CloseSteam);
-        }
+    let mut steps = vec![InstallEffect::EnsureGameStopped];
+    if env.tempo_migration_pending {
+        steps.push(InstallEffect::MigrateTempoData);
+    }
+    if requires_macos_bootstrap && !launch_options_empty {
+        steps.push(InstallEffect::CloseSteam);
     }
     if !payload_current {
         steps.push(InstallEffect::InstallBepInEx);
@@ -91,6 +92,7 @@ mod tests {
                     steam_path: Some("steam".into()),
                     game_path: None,
                     game_path_valid: false,
+                    tempo_migration_pending: false,
                     bepinex_installed: installed,
                     bpp_version: version.map(str::to_owned),
                     bundled_bpp_version: bundled.map(str::to_owned),
@@ -116,7 +118,7 @@ mod tests {
                     if macos && !ready {
                         assert_eq!(steps.first(), Some(&EnsureGameStopped));
                     } else if !macos && !ready {
-                        assert_eq!(steps, vec![InstallBepInEx]);
+                        assert_eq!(steps, vec![EnsureGameStopped, InstallBepInEx]);
                     }
                     if macos == cfg!(target_os = "macos") {
                         assert_eq!(

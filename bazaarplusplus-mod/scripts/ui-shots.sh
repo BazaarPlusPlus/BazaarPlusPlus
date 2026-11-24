@@ -33,9 +33,9 @@ while [[ $# -gt 0 ]]; do
 done
 [[ ${#panels[@]} -gt 0 ]] || panels=(kit-gallery)
 
-root="$(game_root)"
+root="$(to_unix_path "$(game_root)")"
 [[ -n "$root" ]] || die "No game found; set BPP_GAME_ROOT."
-data="$root/BazaarPlusPlusV6"
+data="$(desktop_data_root "$root")"
 log="$root/BepInEx/LogOutput.log"
 command_file="$data/walkthrough-command.txt"
 [[ -d "$data" ]] || die "No Data Root at $data; start the game with the mod once."

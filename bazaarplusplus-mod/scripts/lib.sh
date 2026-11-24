@@ -68,6 +68,22 @@ to_unix_path() {
     fi
 }
 
+desktop_data_root() {
+    local build parent old stable layout
+    build="$(to_unix_path "$1")"
+    old="$build/BazaarPlusPlusV6"
+    parent="$(dirname "$build")"
+    layout="$(basename "$parent")/$(basename "$build")"
+    if [[ "$(host_platform)" == windows && "$(printf '%s' "$layout" | tr '[:upper:]' '[:lower:]')" == game/buildx64 ]]; then
+        stable="$parent/BazaarPlusPlusV6"
+        if [[ -d "$stable" || ( ! -e "$stable" && ! -d "$old" ) ]]; then
+            printf '%s' "$stable"
+            return
+        fi
+    fi
+    printf '%s' "$old"
+}
+
 # build/ManagedPath.props owns install discovery and lock resolution; ask it rather
 # than restating paths.
 discovered_prop() {

@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn database_exists_skips_a_selected_installation_without_a_database() {
+    fn database_exists_respects_the_selected_installation() {
         struct Row {
             selected: Option<&'static str>,
             startup: Option<&'static str>,
@@ -241,14 +241,14 @@ mod tests {
                 startup: Some("/startup"),
                 fallback: &["/fallback"],
                 with_database: &["/startup", "/fallback"],
-                expected: Some(("/startup", GamePathSource::Startup)),
+                expected: None,
             },
             Row {
                 selected: Some("/selected"),
                 startup: Some("/startup"),
                 fallback: &["/selected", "/fallback-1", "/fallback-2"],
                 with_database: &["/fallback-2"],
-                expected: Some(("/fallback-2", GamePathSource::Fallback)),
+                expected: None,
             },
             Row {
                 selected: Some("/selected"),

@@ -1,6 +1,8 @@
 use anyhow::Context as _;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -10,7 +12,7 @@ use crate::stream::runtime::StreamRuntime;
 #[derive(Clone, Default)]
 pub(crate) struct DataMaintenanceLock {
     gate: Arc<AsyncMutex<()>>,
-    database_generation: Arc<AtomicU64>,
+    generations: Arc<Mutex<HashMap<PathBuf, Arc<AtomicU64>>>>,
 }
 
 impl DataMaintenanceLock {
@@ -28,6 +30,7 @@ impl DataMaintenanceLock {
     pub(crate) async fn run_blocking_with_overlay_stopped<T, F>(
         &self,
         stream_runtime: &StreamRuntime,
+        game_path: &Path,
         task: F,
     ) -> anyhow::Result<T>
     where
@@ -35,21 +38,38 @@ impl DataMaintenanceLock {
         F: FnOnce() -> T + Send + 'static,
     {
         let guard = self.gate.clone().lock_owned().await;
-        self.database_generation.fetch_add(1, Ordering::SeqCst);
-        let ended = AdvanceOnDrop(self.database_generation.clone());
+        let generation = self.generation(&crate::services::paths::bpp_data_dir(game_path));
+        generation.fetch_add(1, Ordering::SeqCst);
+        let ended = AdvanceOnDrop(generation);
         let task = move || {
             // Dropped when the task returns or unwinds, while the lock is held.
             let _ended = ended;
             task()
         };
         stream_runtime
-            .exclusive_maintenance(|| run_on_blocking_pool(guard, task))
+            .exclusive_maintenance(game_path, || run_on_blocking_pool(guard, task))
             .await
     }
 
     /// Read before deriving database state and compare again under the lock to detect a concurrent Reset.
-    pub(crate) fn database_generation(&self) -> u64 {
-        self.database_generation.load(Ordering::SeqCst)
+    pub(crate) fn database_generation(&self, data_root: &Path) -> u64 {
+        self.generation(data_root).load(Ordering::SeqCst)
+    }
+
+    fn generation(&self, data_root: &Path) -> Arc<AtomicU64> {
+        // The directory itself can disappear during Reset. Its parent is stable.
+        let key = data_root
+            .parent()
+            .and_then(|p| p.canonicalize().ok())
+            .zip(data_root.file_name())
+            .map(|(p, name)| p.join(name))
+            .unwrap_or_else(|| data_root.to_owned());
+        self.generations
+            .lock()
+            .expect("maintenance generations poisoned")
+            .entry(key)
+            .or_default()
+            .clone()
     }
 }
 
@@ -120,12 +140,14 @@ mod tests {
         let reset = tokio::spawn({
             let lock = lock.clone();
             let stream_runtime = stream_runtime.clone();
+            let expected_root = data_dir.clone();
             let game_path = game_path.to_string_lossy().into_owned();
             async move {
                 crate::services::bepinex::reset_bpp_data_with(
                     &lock,
                     &stream_runtime,
                     game_path,
+                    expected_root,
                     probe,
                 )
                 .await
