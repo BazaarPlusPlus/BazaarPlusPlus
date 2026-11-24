@@ -12,8 +12,12 @@ const TEST_SITE_KEY = '1x00000000000000000000AA';
 const SITE_KEY: string =
   import.meta.env.VITE_TURNSTILE_SITE_KEY || TEST_SITE_KEY;
 
+/** The form the token is for; the server checks it against the route. */
+export type TurnstileAction = 'login' | 'register' | 'reset';
+
 type RenderOptions = {
   sitekey: string;
+  action: TurnstileAction;
   theme: 'dark';
   appearance: 'interaction-only';
   language: string;
@@ -73,7 +77,10 @@ export type Turnstile = {
  * A managed Turnstile widget that shows itself only when it needs the visitor.
  * It lives while `widget` is mounted, so a form step can drop it.
  */
-export function useTurnstile(locale: Locale): Turnstile {
+export function useTurnstile(
+  locale: Locale,
+  action: TurnstileAction
+): Turnstile {
   const widgetId = useRef<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -92,6 +99,7 @@ export function useTurnstile(locale: Locale): Turnstile {
         if (!mount.live) return;
         widgetId.current = api.render(element, {
           sitekey: SITE_KEY,
+          action,
           theme: 'dark',
           appearance: 'interaction-only',
           language: locale === 'zh' ? 'zh-CN' : 'en',
@@ -118,7 +126,7 @@ export function useTurnstile(locale: Locale): Turnstile {
         setUnavailable(false);
       };
     },
-    [locale]
+    [locale, action]
   );
 
   const reset = useCallback(() => {

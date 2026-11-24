@@ -65,7 +65,7 @@ function Login({ location, replacePage }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const signIn = useSignIn(replacePage);
-  const turnstile = useTurnstile(location.locale);
+  const turnstile = useTurnstile(location.locale, 'login');
   const login = useMutation({
     mutationFn: (token: string) =>
       postAccount('login', { email, password, turnstile_token: token }),
@@ -141,7 +141,7 @@ function CodeFlow({
   const [confirm, setConfirm] = useState('');
   const [mismatch, setMismatch] = useState(false);
   const signIn = useSignIn(replacePage);
-  const turnstile = useTurnstile(location.locale);
+  const turnstile = useTurnstile(location.locale, purpose);
   const start = useMutation({
     mutationFn: (token: string) =>
       postAccount(

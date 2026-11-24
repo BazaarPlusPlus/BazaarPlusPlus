@@ -45,8 +45,9 @@ jobs:
       WRANGLER_SEND_METRICS: 'false'
       # The public Turnstile site key of the account forms' widget. Preview and
       # production both reach the production server, which checks the tokens
-      # with the widget's secret (server deployment runbook, section 8).
-      VITE_TURNSTILE_SITE_KEY: ''
+      # with the widget's secret (server deployment runbook, section 8). The
+      # widget must list each host the forms run on.
+      VITE_TURNSTILE_SITE_KEY: '0x4AAAAAAGRHdkqh1ZrDnFGC'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

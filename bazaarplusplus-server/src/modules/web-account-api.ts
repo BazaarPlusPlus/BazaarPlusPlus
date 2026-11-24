@@ -484,7 +484,7 @@ async function handleRegisterStart(
   const secret = requireCodeSecret(env);
   const body = await readJsonObject(request);
   const email = readEmail(body);
-  await verifyTurnstile(request, env, body);
+  await verifyTurnstile(request, env, body, 'register');
   if ((await findAccountByEmail(env.DB, email)) === null) {
     await sendEmailChallenge(env, secret, email, 'register');
   }
@@ -559,7 +559,7 @@ async function handleLogin(
   const password = readPassword(body);
   // Before the per-email limiter, so requests without a solved check cannot
   // spend another player's login quota.
-  await verifyTurnstile(request, env, body);
+  await verifyTurnstile(request, env, body, 'login');
   // Counted for unknown emails too, so 429 never tells which emails exist.
   await enforceRateLimit(env.LOGIN_EMAIL_RATE_LIMITER, email);
 
@@ -598,7 +598,7 @@ async function handleResetStart(
   const secret = requireCodeSecret(env);
   const body = await readJsonObject(request);
   const email = readEmail(body);
-  await verifyTurnstile(request, env, body);
+  await verifyTurnstile(request, env, body, 'reset');
   if ((await findAccountByEmail(env.DB, email)) !== null) {
     await sendEmailChallenge(env, secret, email, 'reset');
   }

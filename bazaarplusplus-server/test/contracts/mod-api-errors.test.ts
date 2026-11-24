@@ -208,11 +208,12 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
     accountEnv
   );
 
-  const turnstile_token = 'turnstile-test-token';
+  // The test siteverify reports the action after the colon (vitest.config.ts).
+  const turnstile_token = 'turnstile-test-token:login';
   await handleWebApiRequest(
     webPost('/api/register/start', {
       email: 'err@example.com',
-      turnstile_token
+      turnstile_token: 'turnstile-test-token:register'
     }),
     accountEnv
   );

@@ -5,7 +5,7 @@ import { apiError } from '../errors';
 export const TURNSTILE_SITEVERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
-const SITEVERIFY_TIMEOUT_MS = 5_000;
+const SITEVERIFY_TIMEOUT_MS = 10_000;
 // Cloudflare documents tokens up to 2048 characters.
 const MAX_TOKEN_LENGTH = 2048;
 // Siteverify reports these when our secret is wrong: a server fault, not the visitor's.
@@ -15,15 +15,20 @@ function captchaFailed(): ReturnType<typeof apiError> {
   return apiError('captcha_failed', 'Bot check failed');
 }
 
+/** The form a token was solved for; the site sets it as the widget's `action`. */
+export type TurnstileAction = 'login' | 'register' | 'reset';
+
 /**
  * Checks the body's `turnstile_token` with Cloudflare siteverify, or throws
  * captcha_failed, captcha_unavailable, or internal_error (secret missing or
- * rejected). The token must have been solved on the host this request came to.
+ * rejected). The token must have been solved for this form's `action`, on the
+ * host this request came to.
  */
 export async function verifyTurnstile(
   request: Request,
   env: Env,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  action: TurnstileAction
 ): Promise<void> {
   const secret = env.TURNSTILE_SECRET_KEY?.trim();
   if (!secret) {
@@ -63,6 +68,7 @@ export async function verifyTurnstile(
   const result = outcome as {
     success?: unknown;
     hostname?: unknown;
+    action?: unknown;
     'error-codes'?: unknown;
   };
   const errorCodes = Array.isArray(result['error-codes'])
@@ -73,6 +79,7 @@ export async function verifyTurnstile(
   }
   if (
     result.success !== true ||
+    result.action !== action ||
     result.hostname !== new URL(request.url).hostname
   ) {
     throw captchaFailed();

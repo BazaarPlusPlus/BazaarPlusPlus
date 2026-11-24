@@ -16,6 +16,9 @@ const BIND_CODE = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
 const DEVICE_TOKEN = /^bppd_[A-Za-z0-9_-]{43}$/;
 // Any token passes under the test secret in vitest.config.ts.
 const TURNSTILE_TOKEN = 'turnstile-test-token';
+// The test siteverify reports the action after the colon (vitest.config.ts).
+const tokenFor = (action: 'login' | 'register' | 'reset') =>
+  `${TURNSTILE_TOKEN}:${action}`;
 
 interface CapturedEmail {
   to: string;
@@ -71,12 +74,13 @@ function webGet(
   );
 }
 
-// The routes that need a Turnstile token; webPost adds one unless the body
-// already names `turnstile_token` (even as undefined, which drops it).
-const TURNSTILE_PATHS = new Set([
-  '/api/register/start',
-  '/api/login',
-  '/api/password/reset/start'
+// The routes that need a Turnstile token, with the widget action each expects;
+// webPost adds a token unless the body already names `turnstile_token` (even
+// as undefined, which drops it).
+const TURNSTILE_PATHS = new Map<string, 'login' | 'register' | 'reset'>([
+  ['/api/register/start', 'register'],
+  ['/api/login', 'login'],
+  ['/api/password/reset/start', 'reset']
 ]);
 
 function webPost(
@@ -93,7 +97,7 @@ function webPost(
   if (cookie !== undefined) headers.Cookie = cookie;
   const withToken =
     TURNSTILE_PATHS.has(path) && !('turnstile_token' in body)
-      ? { ...body, turnstile_token: TURNSTILE_TOKEN }
+      ? { ...body, turnstile_token: tokenFor(TURNSTILE_PATHS.get(path)!) }
       : body;
   return handleWebApiRequest(
     new Request(`${origin}${path}`, {
@@ -457,7 +461,7 @@ describe('website registration, login, and password reset', () => {
         body: JSON.stringify({
           email: 'reset-race@example.com',
           password: PASSWORD,
-          turnstile_token: TURNSTILE_TOKEN
+          turnstile_token: tokenFor('login')
         })
       }),
       { ...harness.bindings, DB: racingDb }
@@ -710,10 +714,30 @@ describe('Turnstile on register start, login, and reset start', () => {
 
   test('a token solved on another host gets captcha_failed', async () => {
     const { harness } = sealedHarness();
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
-      Response.json({ success: true, hostname: 'evil.example' })
-    );
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      const token = (init!.body as FormData).get('response');
+      return Response.json({
+        success: true,
+        hostname: 'evil.example',
+        action: typeof token === 'string' ? token.split(':')[1] : undefined
+      });
+    });
     await expectRefused(harness, {}, 403, 'captcha_failed', false);
+  });
+
+  test('a token solved for another form gets captcha_failed', async () => {
+    const { harness } = sealedHarness();
+    // A login token replayed on the sign-up and reset forms, and the reverse.
+    for (const [path, fields] of STARTS) {
+      const other = path === '/api/login' ? 'register' : 'login';
+      const response = await webPost(harness, path, {
+        ...fields,
+        turnstile_token: tokenFor(other)
+      });
+      expect(response.status, path).toBe(403);
+      expect(await errorCode(response), path).toBe('captcha_failed');
+    }
+    expect(harness.sent).toEqual([]);
   });
 
   test('a siteverify outage gets retryable captcha_unavailable', async () => {
@@ -747,7 +771,7 @@ describe('Turnstile on register start, login, and reset start', () => {
         },
         body: JSON.stringify({
           email: 'human@example.com',
-          turnstile_token: 'solved-token'
+          turnstile_token: 'solved-token:register'
         })
       }),
       harness.bindings
@@ -763,7 +787,7 @@ describe('Turnstile on register start, login, and reset start', () => {
     const form = init.body as FormData;
     expect(Object.fromEntries(form)).toEqual({
       secret: env.TURNSTILE_SECRET_KEY,
-      response: 'solved-token',
+      response: 'solved-token:register',
       remoteip: '203.0.113.7'
     });
   });
@@ -1478,7 +1502,8 @@ describe('website account API', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       Response.json({
         success: true,
-        hostname: new URL(PREVIEW_ORIGIN).hostname
+        hostname: new URL(PREVIEW_ORIGIN).hostname,
+        action: 'register'
       })
     );
     expect(

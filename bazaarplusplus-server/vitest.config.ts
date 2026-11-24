@@ -14,7 +14,9 @@ const TURNSTILE_PASS_SECRET = '1x0000000000000000000000000000000AA';
 const TURNSTILE_FAIL_SECRET = '2x0000000000000000000000000000000AA';
 
 // Answers Turnstile siteverify the way Cloudflare answers its test secrets,
-// solved on bazaarplusplus.com; every other outbound request fails.
+// solved on bazaarplusplus.com; every other outbound request fails. A test
+// token `<anything>:<action>` reports that widget action, as a real token
+// carries the action its widget was rendered with.
 async function fakeSiteverify(request: Request): Promise<Response> {
   const url = new URL(request.url);
   if (
@@ -25,7 +27,9 @@ async function fakeSiteverify(request: Request): Promise<Response> {
   }
   const form = await request.formData();
   const secret = form.get('secret');
-  const pass = secret === TURNSTILE_PASS_SECRET && form.get('response') !== '';
+  const response = form.get('response');
+  const token = typeof response === 'string' ? response : '';
+  const pass = secret === TURNSTILE_PASS_SECRET && token !== '';
   const errorCodes =
     secret === TURNSTILE_PASS_SECRET || secret === TURNSTILE_FAIL_SECRET
       ? pass
@@ -35,6 +39,7 @@ async function fakeSiteverify(request: Request): Promise<Response> {
   return Response.json({
     success: pass,
     hostname: pass ? 'bazaarplusplus.com' : undefined,
+    action: pass ? token.split(':')[1] : undefined,
     'error-codes': errorCodes
   });
 }

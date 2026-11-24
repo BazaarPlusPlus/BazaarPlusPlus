@@ -214,7 +214,7 @@ requires recovery from an available D1 backup rather than a Worker rollback.
 
 ## 8. Turnstile for the website account forms
 
-`POST /api/register/start`, `/api/login`, and `/api/password/reset/start` require a Turnstile token ([ADR 0007](adr/0007-site-first-accounts.md)). The site reads the public site key at build time; this Worker holds the secret. Do the steps in this order, and ship the site and this Worker together:
+`POST /api/register/start`, `/api/login`, and `/api/password/reset/start` require a Turnstile token ([ADR 0007](adr/0007-site-first-accounts.md)). The site reads the public site key at build time; this Worker holds the secret. Each form renders the widget with its own action (`login`, `register`, `reset`), and this Worker accepts a token only when siteverify reports that action and the request's own host. Do the steps in this order, and ship the site and this Worker together:
 
 1. In the Cloudflare dashboard (Turnstile → Add widget), create one widget in **Managed** mode with the hostnames `bazaarplusplus.com`, `www.bazaarplusplus.com`, and the site's preview host `bazaarplusplus-site-preview.cauyxy.workers.dev`. The preview Worker binds this production Worker, so its tokens are checked with the same secret.
 2. Set the widget's secret on this Worker:
