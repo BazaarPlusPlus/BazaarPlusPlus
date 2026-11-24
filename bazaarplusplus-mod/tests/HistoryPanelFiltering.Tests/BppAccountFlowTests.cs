@@ -9,14 +9,11 @@ using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
-using BazaarPlusPlus.Localization;
 using BazaarPlusPlus.ModApi.Clients;
 using Xunit;
 
 public sealed class BppAccountFlowTests
 {
-    public BppAccountFlowTests() => L.Install(() => "zh-Hans", () => BppChineseLocaleMode.Mainland);
-
     [Fact]
     public void SessionStoreRoundTripsAtomicallyAndMatchesOnlyStoredAccount()
     {
@@ -189,7 +186,7 @@ public sealed class BppAccountFlowTests
                 )
             );
             await coordinator.TrySubmitBppAccountInputAsync("secret.alice@example.com");
-            Assert.Contains("重启游戏", state.BppAccountBannerMessage);
+            Assert.Contains("restart the game", state.BppAccountBannerMessage);
 
             // Privacy: game token, device token, and raw email never enter BppLog.
             BppLog.Flush();
