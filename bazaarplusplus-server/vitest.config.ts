@@ -10,6 +10,40 @@ import { defineConfig } from 'vitest/config';
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const migrationsPath = path.join(rootDir, 'migrations-v6');
 
+const TURNSTILE_PASS_SECRET = '1x0000000000000000000000000000000AA';
+const TURNSTILE_FAIL_SECRET = '2x0000000000000000000000000000000AA';
+
+// Answers Turnstile siteverify the way Cloudflare answers its test secrets,
+// solved on bazaarplusplus.com; every other outbound request fails. A test
+// token `<anything>:<action>` reports that widget action, as a real token
+// carries the action its widget was rendered with.
+async function fakeSiteverify(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  if (
+    request.method !== 'POST' ||
+    url.href !== 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+  ) {
+    return new Response('No outbound network in tests', { status: 502 });
+  }
+  const form = await request.formData();
+  const secret = form.get('secret');
+  const response = form.get('response');
+  const token = typeof response === 'string' ? response : '';
+  const pass = secret === TURNSTILE_PASS_SECRET && token !== '';
+  const errorCodes =
+    secret === TURNSTILE_PASS_SECRET || secret === TURNSTILE_FAIL_SECRET
+      ? pass
+        ? []
+        : ['invalid-input-response']
+      : ['invalid-input-secret'];
+  return Response.json({
+    success: pass,
+    hostname: pass ? 'bazaarplusplus.com' : undefined,
+    action: pass ? token.split(':')[1] : undefined,
+    'error-codes': errorCodes
+  });
+}
+
 export default defineConfig({
   plugins: [
     cloudflareTest(async () => ({
@@ -28,8 +62,12 @@ export default defineConfig({
           BAZAARDB_DELIVERY_TOKEN:
             'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
           ACCOUNT_CODE_SECRET: 'test-account-code-secret-for-vitest-only',
-          ACCOUNT_EMAIL_FROM: 'noreply@bazaarplusplus.com'
+          ACCOUNT_EMAIL_FROM: 'noreply@bazaarplusplus.com',
+          // Cloudflare's documented always-pass test secret.
+          TURNSTILE_SECRET_KEY: TURNSTILE_PASS_SECRET
         },
+        // Keeps tests offline: a fetch no test stubs reaches this stand-in.
+        outboundService: fakeSiteverify,
         isolatedStorage: true
       }
     }))

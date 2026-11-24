@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, test, vi } from 'vite-plus/test';
 
-import { createSpaLocation } from '../src/app/router';
+import { createSpaLocation, navigationPage, runHref } from '../src/app/router';
 
 function setup(href: string) {
   window.history.replaceState(null, '', href);
@@ -65,6 +65,22 @@ describe('deep SPA location interface', () => {
       locale: 'en',
       scope: { window: '1d', segment: 'all' }
     });
+  });
+
+  test('resolves a Run detail path and keeps it under My records', () => {
+    const { location } = setup('https://example.test/records/run%2F1?lang=en');
+    const current = location.current();
+
+    expect(current.route).toMatchObject({ page: 'run', runId: 'run/1' });
+    expect(navigationPage(current.route.page)).toBe('records');
+    expect(runHref('run/1', 'zh')).toBe('/records/run%2F1');
+    expect(
+      location.handleLinkClick({
+        href: 'https://example.test/records/other?lang=en',
+        button: 0
+      })
+    ).toBe(true);
+    expect(location.current().route).toMatchObject({ runId: 'other' });
   });
 
   test.each([

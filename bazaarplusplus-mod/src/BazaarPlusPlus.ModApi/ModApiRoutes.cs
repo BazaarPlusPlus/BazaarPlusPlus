@@ -9,8 +9,7 @@ internal sealed class ModApiRoutes
         UploadBundle = BuildAbsolute("/bundles");
         QueryGhostBattles = BuildAbsolute("/ghost-battles");
         Health = BuildAbsolute("/health");
-        AccountBindStart = BuildAbsolute("/account/bind/start");
-        AccountBindConfirm = BuildAbsolute("/account/bind/confirm");
+        AccountBind = BuildAbsolute("/account/bind");
         AccountDevices = BuildAbsolute("/account/devices");
         AccountMe = BuildAbsolute("/account/me");
     }
@@ -23,9 +22,7 @@ internal sealed class ModApiRoutes
 
     public string Health { get; }
 
-    public string AccountBindStart { get; }
-
-    public string AccountBindConfirm { get; }
+    public string AccountBind { get; }
 
     public string AccountDevices { get; }
 

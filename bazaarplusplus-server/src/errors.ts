@@ -20,19 +20,23 @@ export const API_ERROR_CODES = [
   'invalid_content_digest',
   'invalid_query',
   'invalid_body',
+  'invalid_bind_code',
+  'invalid_password',
   'window_not_settled',
   'unauthorized',
+  'invalid_credentials',
   'game_token_rejected',
   'invalid_verification_code',
   'insufficient_scope',
+  'captcha_failed',
   'not_found',
   'account_not_bound',
   'method_not_allowed',
   'bundle_id_conflict',
   'run_already_bundled',
   'account_mismatch',
-  'email_already_bound',
   'game_account_already_bound',
+  'email_already_registered',
   'window_expired',
   'content_length_required',
   'bundle_too_large',
@@ -46,7 +50,8 @@ export const API_ERROR_CODES = [
   'rate_limited',
   'internal_error',
   'game_api_unavailable',
-  'storage_unavailable'
+  'storage_unavailable',
+  'captcha_unavailable'
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

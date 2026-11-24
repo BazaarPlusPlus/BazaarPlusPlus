@@ -4,6 +4,7 @@ export interface Env {
   GHOST_BATTLE_RATE_LIMITER: RateLimit;
   BUNDLE_UPLOAD_RATE_LIMITER: RateLimit;
   ACCOUNT_RATE_LIMITER: RateLimit;
+  LOGIN_EMAIL_RATE_LIMITER: RateLimit;
   EMAIL?: SendEmail;
 
   R2_ACCOUNT_ID: string;
@@ -16,4 +17,5 @@ export interface Env {
   GITHUB_DISPATCH_TOKEN?: string;
   ACCOUNT_CODE_SECRET?: string;
   ACCOUNT_EMAIL_FROM?: string;
+  TURNSTILE_SECRET_KEY?: string;
 }

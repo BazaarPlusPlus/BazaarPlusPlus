@@ -28,7 +28,7 @@ public sealed partial class HistoryPanelCoordinator
             return;
         }
 
-        _state.BppAccountPhase = BppAccountFlowPhase.EnterEmail;
+        _state.BppAccountPhase = BppAccountFlowPhase.EnterBindCode;
         _requestUiRefresh();
     }
 
@@ -44,9 +44,6 @@ public sealed partial class HistoryPanelCoordinator
             return;
         }
 
-        _state.BppAccountPendingId = null;
-        _state.BppAccountPendingUserName = null;
-        _state.BppAccountPendingEmailMasked = null;
         _state.BppAccountPhase = BppAccountFlowPhase.ConfirmActivateDevice;
         _requestUiRefresh();
     }
@@ -55,11 +52,8 @@ public sealed partial class HistoryPanelCoordinator
     {
         switch (_state.BppAccountPhase)
         {
-            case BppAccountFlowPhase.EnterEmail:
-                await TryStartBppAccountBindAsync(input);
-                break;
-            case BppAccountFlowPhase.EnterCode:
-                await TryConfirmBppAccountBindAsync(input);
+            case BppAccountFlowPhase.EnterBindCode:
+                await TryBindBppAccountAsync(input);
                 break;
             case BppAccountFlowPhase.ConfirmActivateDevice:
                 await TryActivateBppAccountDeviceAsync();
@@ -67,7 +61,7 @@ public sealed partial class HistoryPanelCoordinator
         }
     }
 
-    public async Task TryStartBppAccountBindAsync(string? email)
+    public async Task TryBindBppAccountAsync(string? bindCode)
     {
         if (_state.BppAccountInProgress)
             return;
@@ -79,20 +73,23 @@ public sealed partial class HistoryPanelCoordinator
             SetBppAccountBanner(HistoryPanelText.BppAccount.SignedOut(), StatusSeverity.Failure);
             BppAccountLog.Skipped(
                 logRequestId,
-                BppAccountAction.BindStart,
+                BppAccountAction.Bind,
                 BppAccountLogReason.SignedOut
             );
             _requestUiRefresh();
             return;
         }
 
-        var trimmedEmail = email?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(trimmedEmail) || !trimmedEmail.Contains('@'))
+        var trimmedCode = bindCode?.Trim() ?? string.Empty;
+        if (trimmedCode.Length == 0)
         {
-            SetBppAccountBanner(HistoryPanelText.BppAccount.EmptyEmail(), StatusSeverity.Failure);
+            SetBppAccountBanner(
+                HistoryPanelText.BppAccount.EmptyBindCode(),
+                StatusSeverity.Failure
+            );
             BppAccountLog.Skipped(
                 logRequestId,
-                BppAccountAction.BindStart,
+                BppAccountAction.Bind,
                 BppAccountLogReason.EmptyInput
             );
             _requestUiRefresh();
@@ -107,7 +104,7 @@ public sealed partial class HistoryPanelCoordinator
             );
             BppAccountLog.Skipped(
                 logRequestId,
-                BppAccountAction.BindStart,
+                BppAccountAction.Bind,
                 BppAccountLogReason.ClientUnavailable
             );
             _requestUiRefresh();
@@ -124,7 +121,7 @@ public sealed partial class HistoryPanelCoordinator
             );
             BppAccountLog.Failed(
                 logRequestId,
-                BppAccountAction.BindStart,
+                BppAccountAction.Bind,
                 BppAccountLogReason.GameAuthUnavailable
             );
             _requestUiRefresh();
@@ -136,11 +133,11 @@ public sealed partial class HistoryPanelCoordinator
         _requestUiRefresh();
 
         var sessionVersion = _session.Version;
-        BppAccountBindStartResult result;
+        BppAccountDeviceResult result;
         try
         {
-            result = await _modApiSession.StartBppAccountBindAsync(
-                trimmedEmail,
+            result = await _modApiSession.BindBppAccountAsync(
+                trimmedCode,
                 auth.AccessToken,
                 accountId!,
                 auth.Platform,
@@ -159,7 +156,7 @@ public sealed partial class HistoryPanelCoordinator
             );
             BppAccountLog.Failed(
                 logRequestId,
-                BppAccountAction.BindStart,
+                BppAccountAction.Bind,
                 BppAccountLogReason.RequestTimeout
             );
             _requestUiRefresh();
@@ -176,7 +173,7 @@ public sealed partial class HistoryPanelCoordinator
             );
             BppAccountLog.Failed(
                 logRequestId,
-                BppAccountAction.BindStart,
+                BppAccountAction.Bind,
                 BppAccountLogReason.UnexpectedException
             );
             _requestUiRefresh();
@@ -198,167 +195,7 @@ public sealed partial class HistoryPanelCoordinator
             ObserveAccount();
             BppAccountLog.Skipped(
                 logRequestId,
-                BppAccountAction.BindStart,
-                BppAccountLogReason.AccountChanged
-            );
-            _requestUiRefresh();
-            return;
-        }
-
-        if (result.Succeeded)
-        {
-            _state.BppAccountPendingId = result.PendingId;
-            _state.BppAccountPendingUserName = result.UserName;
-            _state.BppAccountPendingEmailMasked = result.EmailMasked;
-            _state.BppAccountPhase = BppAccountFlowPhase.EnterCode;
-            SetBppAccountBanner(null, StatusSeverity.Neutral);
-            BppAccountLog.Succeeded(logRequestId, BppAccountAction.BindStart);
-            _requestUiRefresh();
-            return;
-        }
-
-        if (string.Equals(result.ErrorCode, "game_account_already_bound", StringComparison.Ordinal))
-        {
-            _state.BppAccountPendingId = null;
-            _state.BppAccountPendingUserName = null;
-            _state.BppAccountPendingEmailMasked = result.ConflictEmailMasked;
-            _state.BppAccountPhase = BppAccountFlowPhase.ConfirmActivateDevice;
-            SetBppAccountBanner(null, StatusSeverity.Neutral);
-            BppAccountLog.Failed(
-                logRequestId,
-                BppAccountAction.BindStart,
-                BppAccountLogReason.GameAccountAlreadyBound
-            );
-            _requestUiRefresh();
-            return;
-        }
-
-        BppAccountLog.Failed(
-            logRequestId,
-            BppAccountAction.BindStart,
-            BppAccountLog.MapServerError(result.ErrorCode)
-        );
-        SetBppAccountBanner(
-            HistoryPanelText.BppAccount.MapError(result.ErrorCode),
-            StatusSeverity.Failure
-        );
-        _requestUiRefresh();
-    }
-
-    public async Task TryConfirmBppAccountBindAsync(string? code)
-    {
-        if (_state.BppAccountInProgress)
-            return;
-
-        var logRequestId = NewLogRequestId();
-        var accountId = RefreshBppAccountIdentityFromGame(clearBanner: false);
-        var pendingId = _state.BppAccountPendingId;
-        if (string.IsNullOrWhiteSpace(accountId) || string.IsNullOrWhiteSpace(pendingId))
-        {
-            ClearPendingBppAccountFlow();
-            SetBppAccountBanner(HistoryPanelText.BppAccount.SignedOut(), StatusSeverity.Failure);
-            BppAccountLog.Skipped(
-                logRequestId,
-                BppAccountAction.BindConfirm,
-                BppAccountLogReason.SignedOut
-            );
-            _requestUiRefresh();
-            return;
-        }
-
-        var trimmedCode = code?.Trim() ?? string.Empty;
-        if (trimmedCode.Length != 6 || !trimmedCode.All(char.IsDigit))
-        {
-            SetBppAccountBanner(HistoryPanelText.BppAccount.EmptyCode(), StatusSeverity.Failure);
-            BppAccountLog.Skipped(
-                logRequestId,
-                BppAccountAction.BindConfirm,
-                BppAccountLogReason.EmptyInput
-            );
-            _requestUiRefresh();
-            return;
-        }
-
-        if (_modApiSession == null)
-        {
-            SetBppAccountBanner(
-                HistoryPanelText.BppAccount.MapError("transport_error"),
-                StatusSeverity.Failure
-            );
-            BppAccountLog.Skipped(
-                logRequestId,
-                BppAccountAction.BindConfirm,
-                BppAccountLogReason.ClientUnavailable
-            );
-            _requestUiRefresh();
-            return;
-        }
-
-        _state.BppAccountInProgress = true;
-        SetBppAccountBanner(HistoryPanelText.BppAccount.Working(), StatusSeverity.Pending);
-        _requestUiRefresh();
-
-        var sessionVersion = _session.Version;
-        BppAccountDeviceResult result;
-        try
-        {
-            result = await _modApiSession.ConfirmBppAccountBindAsync(
-                pendingId!,
-                trimmedCode,
-                _session.Token
-            );
-        }
-        catch (OperationCanceledException)
-        {
-            if (!_session.IsCurrent(sessionVersion))
-                return;
-            _state.BppAccountInProgress = false;
-            SetBppAccountBanner(
-                HistoryPanelText.BppAccount.MapError("request_timeout"),
-                StatusSeverity.Failure
-            );
-            BppAccountLog.Failed(
-                logRequestId,
-                BppAccountAction.BindConfirm,
-                BppAccountLogReason.RequestTimeout
-            );
-            _requestUiRefresh();
-            return;
-        }
-        catch
-        {
-            if (!_session.IsCurrent(sessionVersion))
-                return;
-            _state.BppAccountInProgress = false;
-            SetBppAccountBanner(
-                HistoryPanelText.BppAccount.MapError("transport_error"),
-                StatusSeverity.Failure
-            );
-            BppAccountLog.Failed(
-                logRequestId,
-                BppAccountAction.BindConfirm,
-                BppAccountLogReason.UnexpectedException
-            );
-            _requestUiRefresh();
-            return;
-        }
-
-        if (!_session.IsCurrent(sessionVersion))
-            return;
-
-        _state.BppAccountInProgress = false;
-        if (
-            !string.Equals(
-                NormalizeAccountId(_profileAccountId()),
-                accountId,
-                StringComparison.Ordinal
-            )
-        )
-        {
-            ObserveAccount();
-            BppAccountLog.Skipped(
-                logRequestId,
-                BppAccountAction.BindConfirm,
+                BppAccountAction.Bind,
                 BppAccountLogReason.AccountChanged
             );
             _requestUiRefresh();
@@ -378,14 +215,14 @@ public sealed partial class HistoryPanelCoordinator
                 HistoryPanelText.BppAccount.BindSucceeded(),
                 StatusSeverity.Success
             );
-            BppAccountLog.Succeeded(logRequestId, BppAccountAction.BindConfirm);
+            BppAccountLog.Succeeded(logRequestId, BppAccountAction.Bind);
             _requestUiRefresh();
             return;
         }
 
         BppAccountLog.Failed(
             logRequestId,
-            BppAccountAction.BindConfirm,
+            BppAccountAction.Bind,
             BppAccountLog.MapServerError(result.ErrorCode)
         );
         SetBppAccountBanner(
@@ -679,9 +516,6 @@ public sealed partial class HistoryPanelCoordinator
     {
         _state.BppAccountPhase = BppAccountFlowPhase.Idle;
         _state.BppAccountInProgress = false;
-        _state.BppAccountPendingId = null;
-        _state.BppAccountPendingUserName = null;
-        _state.BppAccountPendingEmailMasked = null;
     }
 
     private void SetBppAccountBanner(string? message, StatusSeverity severity)

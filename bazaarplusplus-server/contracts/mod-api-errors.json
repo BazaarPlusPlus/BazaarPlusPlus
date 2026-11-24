@@ -25,6 +25,18 @@
       "meaning": "Missing, malformed, or invalid JSON request body"
     },
     {
+      "code": "invalid_bind_code",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Bind Code is malformed, unknown, or expired"
+    },
+    {
+      "code": "invalid_password",
+      "status": 400,
+      "retryable": false,
+      "meaning": "Password is shorter than 8 or longer than 128 characters"
+    },
+    {
       "code": "window_not_settled",
       "status": 400,
       "retryable": false,
@@ -34,7 +46,13 @@
       "code": "unauthorized",
       "status": 401,
       "retryable": false,
-      "meaning": "Missing or invalid service or device token"
+      "meaning": "Missing or invalid service token, Device Token, or web session"
+    },
+    {
+      "code": "invalid_credentials",
+      "status": 401,
+      "retryable": false,
+      "meaning": "Email or password is wrong"
     },
     {
       "code": "game_token_rejected",
@@ -55,16 +73,22 @@
       "meaning": "Service token does not grant access to the route"
     },
     {
+      "code": "captcha_failed",
+      "status": 403,
+      "retryable": false,
+      "meaning": "Turnstile token is missing, invalid, spent, or from another host"
+    },
+    {
       "code": "not_found",
       "status": 404,
       "retryable": false,
-      "meaning": "Unknown route"
+      "meaning": "Unknown route, or a Run the signed-in account does not own"
     },
     {
       "code": "account_not_bound",
       "status": 404,
       "retryable": false,
-      "meaning": "Game account is not bound to a BPP Account"
+      "meaning": "Game account is not linked to a BPP Account"
     },
     {
       "code": "method_not_allowed",
@@ -91,16 +115,16 @@
       "meaning": "Official game account ID differs from the claimed game account ID"
     },
     {
-      "code": "email_already_bound",
-      "status": 409,
-      "retryable": false,
-      "meaning": "Email is already bound to another game account"
-    },
-    {
       "code": "game_account_already_bound",
       "status": 409,
       "retryable": false,
-      "meaning": "Game account is already bound to an email"
+      "meaning": "Game account is linked to another BPP Account, or this BPP Account is already linked"
+    },
+    {
+      "code": "email_already_registered",
+      "status": 409,
+      "retryable": false,
+      "meaning": "A BPP Account already uses this email"
     },
     {
       "code": "window_expired",
@@ -185,6 +209,12 @@
       "status": 503,
       "retryable": true,
       "meaning": "Storage, email delivery, signing, or rate limiter unavailable"
+    },
+    {
+      "code": "captcha_unavailable",
+      "status": 503,
+      "retryable": true,
+      "meaning": "Turnstile siteverify is unavailable or timed out"
     }
   ]
 }

@@ -13,6 +13,11 @@ export interface CommitTimes {
   availableAtMs: number;
   storedAtMs: number;
   verifiedAccountId?: string | null;
+  // The BPP Account the Device Token belongs to; the Run Summary is written only
+  // while that account is still the one linked to the game account.
+  verifiedBppAccountId?: string | null;
+  // True when the Run segment was copied to the linked account's run detail.
+  detailStored?: boolean;
 }
 
 interface ExistingBundleRow {
@@ -193,11 +198,13 @@ function buildStatements(
                 `INSERT INTO run_summaries (
                   run_id, game_account_id, status, game_mode, hero,
                   started_at_ms, ended_at_ms, day, victories, losses,
-                  final_player_rank, final_player_rating, final_player_rating_delta, stored_at_ms
+                  final_player_rank, final_player_rating, final_player_rating_delta, stored_at_ms,
+                  detail_stored
                 )
-                SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14
+                SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
                 WHERE EXISTS (
-                  SELECT 1 FROM bpp_accounts WHERE game_account_id = ?2
+                  SELECT 1 FROM bpp_accounts
+                  WHERE game_account_id = ?2 AND account_id = ?16
                 )
                 ON CONFLICT(run_id) DO NOTHING`
               )
@@ -215,7 +222,9 @@ function buildStatements(
                 descriptor.runProjection.final_player_rank,
                 descriptor.runProjection.final_player_rating,
                 descriptor.runProjection.final_player_rating_delta,
-                times.storedAtMs
+                times.storedAtMs,
+                times.detailStored === true ? 1 : 0,
+                times.verifiedBppAccountId ?? null
               )
           }
         ]

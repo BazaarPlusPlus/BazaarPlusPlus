@@ -27,7 +27,12 @@ function artDirectory(files: string[]) {
   for (const file of files) fs.writeFileSync(path.join(dir, file), file);
   fs.writeFileSync(
     path.join(dir, 'index.json'),
-    JSON.stringify({ version: 1, game: { buildid: '7', gameData: 'e1' } })
+    JSON.stringify({
+      version: 1,
+      game: { buildid: '7', gameData: 'e1' },
+      cards: {},
+      names: {}
+    })
   );
   return dir;
 }
@@ -55,4 +60,19 @@ test('the art is stale until the index has both the buildid and the GameData', a
   await expect(stale(`${index}.missing`, 'e1')).resolves.toMatchObject({
     stale: true
   });
+});
+
+test('an index without card names is stale, so the next run publishes them', async () => {
+  const index = path.join(artDirectory([]), 'index.json');
+  fs.writeFileSync(
+    index,
+    JSON.stringify({ version: 1, game: { buildid: '7', gameData: 'e1' } })
+  );
+  await expect(
+    cardArtStale(
+      index,
+      () => ({ buildid: '7' }),
+      async () => 'e1'
+    )
+  ).resolves.toMatchObject({ stale: true });
 });

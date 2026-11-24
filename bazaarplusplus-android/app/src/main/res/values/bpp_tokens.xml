@@ -31,6 +31,7 @@
   <color name="bpp_tier_bronze">#FFCA9464</color>
   <color name="bpp_tier_silver">#FFBFC3CA</color>
   <color name="bpp_tier_diamond">#FF7CC6EE</color>
+  <color name="bpp_tier_legendary">#FFFF7043</color>
   <color name="bpp_backdrop">#8C000000</color>
   <color name="bpp_window_close">#FFC42B1C</color>
   <dimen name="bpp_space_2">2dp</dimen>

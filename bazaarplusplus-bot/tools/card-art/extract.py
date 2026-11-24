@@ -3,7 +3,9 @@
 # dependencies = ["UnityPy==1.25.4", "Pillow==12.0.0"]
 # ///
 """The live GameData is required because the depot copy lags behind.
-Previous entries preserve Card Art for Runs from older patches.
+Previous entries preserve Card Art and names for Runs from older patches.
+The index maps each TemplateId to its art file (`cards`, items and skills) and to its
+English title (`names`, every card GameData has, encounters included).
 """
 
 import argparse
@@ -19,9 +21,6 @@ import sys
 import tempfile
 import warnings
 import zipfile
-
-import UnityPy
-from PIL import Image
 
 # A Large card is 3 board units wide; at 2x it needs about 400 px of the square art.
 ITEM_HEIGHT = 400
@@ -97,6 +96,7 @@ def unity_version(data_dir):
 
 
 def game_cards(game_data_zip):
+    """Item and skill rows for art, and the English title of every card (encounters too)."""
     with zipfile.ZipFile(game_data_zip) as archive:
         name = next(n for n in archive.namelist() if n.endswith("GameData.db"))
         with tempfile.TemporaryDirectory() as directory:
@@ -106,11 +106,37 @@ def game_cards(game_data_zip):
                 """SELECT Id, json_extract(Data, '$."$type"'), json_extract(Data, '$.ArtKey')
                    FROM cards WHERE json_extract(Data, '$."$type"') IN ('TCardItem', 'TCardSkill')"""
             ).fetchall()
+            titles = database.execute(
+                """SELECT Id, json_extract(Data, '$.Localization.Title.Text') FROM cards"""
+            ).fetchall()
             database.close()
-    return rows
+    names = {
+        template_id: title.strip()
+        for template_id, title in titles
+        if isinstance(title, str) and title.strip()
+    }
+    return rows, names
+
+
+def card_index(cards, names, current, previous, buildid, gamedata_etag):
+    """The published index. A TemplateId GameData no longer has keeps its earlier art and name,
+    so Runs from older patches still resolve."""
+    cards, names = dict(cards), dict(names)
+    for key, mapping in (("cards", cards), ("names", names)):
+        for template_id, value in (previous or {}).get(key, {}).items():
+            if template_id not in current:
+                mapping.setdefault(template_id, value)
+    return {
+        "version": 1,
+        "game": {"buildid": buildid, "gameData": gamedata_etag},
+        "cards": dict(sorted(cards.items())),
+        "names": dict(sorted(names.items())),
+    }
 
 
 def webp(image, height, mode):
+    from PIL import Image
+
     image = image.convert(mode)
     width = max(1, round(image.width * height / image.height))
     image = image.resize((width, height), Image.LANCZOS)
@@ -129,6 +155,8 @@ def main():
     parser.add_argument("--gamedata-etag")
     parser.add_argument("--previous")
     args = parser.parse_args()
+
+    import UnityPy
 
     warnings.filterwarnings("ignore", module="UnityPy")
     UnityPy.config.FALLBACK_UNITY_VERSION = unity_version(args.data_dir)
@@ -185,7 +213,7 @@ def main():
 
     cards = {}
     counts = {"TCardItem": [0, 0], "TCardSkill": [0, 0]}
-    rows = game_cards(args.game_data)
+    rows, names = game_cards(args.game_data)
     for template_id, kind, art_key in rows:
         if not art_key:
             continue
@@ -202,22 +230,21 @@ def main():
             counts[kind][0] += 1
 
     items, skills = counts["TCardItem"], counts["TCardSkill"]
-    summary = {"items": items, "skills": skills, "files": len(set(cards.values()))}
+    summary = {
+        "items": items,
+        "skills": skills,
+        "files": len(set(cards.values())),
+        "names": len(names),
+    }
     print(json.dumps(summary))
     if items[0] < items[1] * MIN_ITEM_SHARE or skills[0] < skills[1] * MIN_SKILL_SHARE:
         raise SystemExit(f"too few cards resolved: {summary}")
+    previous = None
     if args.previous and os.path.exists(args.previous):
         with open(args.previous) as file:
-            previous = json.load(file).get("cards", {})
-        current = {row[0] for row in rows}
-        for template_id, name in previous.items():
-            if template_id not in current:
-                cards[template_id] = name
-    index = {
-        "version": 1,
-        "game": {"buildid": args.buildid, "gameData": args.gamedata_etag},
-        "cards": dict(sorted(cards.items())),
-    }
+            previous = json.load(file)
+    current = {row[0] for row in rows} | set(names)
+    index = card_index(cards, names, current, previous, args.buildid, args.gamedata_etag)
     with open(os.path.join(args.out_dir, "index.json"), "w") as file:
         json.dump(index, file, separators=(",", ":"))
 

@@ -6,10 +6,12 @@ import apiReference from '../../docs/api-reference.md?raw';
 import type { Env } from '../../src/env';
 import { ApiErrorResponse } from '../../src/http/schemas';
 import worker from '../../src/index';
+import { handleWebApiRequest } from '../../src/modules/web-account-api';
 import {
   contentDigest,
   makeBundleFixture,
   sealBundle,
+  sha256Hex,
   uploadRequest
 } from '../fixtures/bundle';
 
@@ -35,8 +37,12 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
     string,
     { code: string; status: number; retryable: boolean }
   >();
-  async function record(request: Request, bindings: Env = env) {
-    const response = await worker.fetch(request, bindings);
+  async function record(
+    request: Request,
+    bindings: Env = env,
+    handler: (request: Request, env: Env) => Promise<Response> = worker.fetch
+  ) {
+    const response = await handler(request, bindings);
     const body = await response.json<{
       error: { code: string; retryable: boolean };
     }>();
@@ -53,6 +59,9 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
       contract.codes.find(({ code }) => code === actual.code)
     ).toMatchObject(actual);
     observed.set(actual.code, actual);
+  }
+  function recordWeb(request: Request, bindings: Env) {
+    return record(request, bindings, handleWebApiRequest);
   }
   function request(path: string, init?: RequestInit) {
     return new Request(`https://worker.test${path}`, init);
@@ -149,128 +158,154 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
     await record(uploadRequest(conflicting.body, conflicting.headers));
   }
 
-  // Account route error codes exercised through real HTTP requests.
+  // Account route error codes exercised through real HTTP requests: the mod's
+  // routes through the default entry, the website's through WebApi.
   const jsonPost = (path: string, body: unknown) =>
     request(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: typeof body === 'string' ? body : JSON.stringify(body)
     });
+  const sent: string[] = [];
   const accountEnv: Env = {
     ...env,
+    ACCOUNT_RATE_LIMITER: { limit: async () => ({ success: true }) },
+    LOGIN_EMAIL_RATE_LIMITER: { limit: async () => ({ success: true }) },
     EMAIL: {
-      send: async () => ({ messageId: 'msg-error-contract' })
+      send: async (message: unknown) => {
+        sent.push((message as { text: string }).text);
+        return { messageId: 'msg-error-contract' };
+      }
     }
   };
-  await record(jsonPost('/account/bind/start', '{not-json'), accountEnv);
+  const site = 'https://bazaarplusplus.com';
+  const webPost = (path: string, body: unknown, cookie?: string) =>
+    new Request(`${site}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: site,
+        ...(cookie === undefined ? {} : { Cookie: cookie })
+      },
+      body: JSON.stringify(body)
+    });
+  const lastCode = () => /验证码：([0-9]{6})/.exec(sent.at(-1) ?? '')?.[1];
+  const claim = (gameAccountId: string) => ({
+    game_token: 'tok',
+    game_account_id: gameAccountId,
+    platform: 'Steam',
+    flavor: 'Paid'
+  });
+  const official = (id: string) =>
+    new Response(JSON.stringify({ id, userName: 'Name' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+  await record(jsonPost('/account/devices', '{not-json'), accountEnv);
   await record(
-    jsonPost('/account/bind/confirm', {
-      pending_id: 'missing-pending-id',
-      code: '123456'
+    jsonPost('/account/bind', { bind_code: 'bad', ...claim('acct-err-1') }),
+    accountEnv
+  );
+
+  // The test siteverify reports the action after the colon (vitest.config.ts).
+  const turnstile_token = 'turnstile-test-token:login';
+  await handleWebApiRequest(
+    webPost('/api/register/start', {
+      email: 'err@example.com',
+      turnstile_token: 'turnstile-test-token:register'
     }),
+    accountEnv
+  );
+  const code = lastCode();
+  await recordWeb(
+    webPost('/api/register/confirm', {
+      email: 'err@example.com',
+      code,
+      password: 'short'
+    }),
+    accountEnv
+  );
+  await recordWeb(
+    webPost('/api/register/confirm', {
+      email: 'err@example.com',
+      code: code === '000000' ? '111111' : '000000',
+      password: 'long enough password'
+    }),
+    accountEnv
+  );
+  await env.DB.prepare(
+    `INSERT INTO bpp_accounts (account_id, email, password_hash, created_at_ms, updated_at_ms)
+     VALUES ('acct-taken', 'err@example.com', 'x', 1, 1)`
+  ).run();
+  await recordWeb(
+    webPost('/api/register/confirm', {
+      email: 'err@example.com',
+      code,
+      password: 'long enough password'
+    }),
+    accountEnv
+  );
+  await recordWeb(
+    webPost('/api/login', {
+      email: 'err@example.com',
+      password: 'long enough password',
+      turnstile_token
+    }),
+    accountEnv
+  );
+  await recordWeb(
+    webPost('/api/login', {
+      email: 'err@example.com',
+      password: 'long enough password'
+    }),
+    accountEnv
+  );
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO bpp_accounts (account_id, email, password_hash, game_account_id, created_at_ms, updated_at_ms)
+       VALUES ('acct-linked', 'linked@example.com', 'x', 'acct-bound', 1, 1)`
+    ),
+    env.DB.prepare(
+      `INSERT INTO bpp_web_sessions (session_hash, account_id, created_at_ms, expires_at_ms)
+       VALUES (?1, 'acct-linked', 1, ?2)`
+    ).bind(
+      await sha256Hex(new TextEncoder().encode('A'.repeat(43))),
+      Date.now() + 60_000
+    )
+  ]);
+  await recordWeb(
+    webPost('/api/bind-code', {}, `__Host-bpp_session=${'A'.repeat(43)}`),
     accountEnv
   );
 
   const fetchSpy = vi.spyOn(globalThis, 'fetch');
   try {
-    fetchSpy.mockResolvedValueOnce(new Response('denied', { status: 401 }));
-    await record(
-      jsonPost('/account/devices', {
-        game_token: 'tok-rejected',
-        game_account_id: 'acct-err-1',
-        platform: 'Steam',
-        flavor: 'Paid'
+    fetchSpy.mockRejectedValueOnce(new Error('siteverify timed out'));
+    await recordWeb(
+      webPost('/api/login', {
+        email: 'err@example.com',
+        password: 'long enough password',
+        turnstile_token
       }),
       accountEnv
     );
+
+    fetchSpy.mockResolvedValueOnce(new Response('denied', { status: 401 }));
+    await record(jsonPost('/account/devices', claim('acct-err-1')), accountEnv);
 
     fetchSpy.mockResolvedValueOnce(
       new Response('bad gateway', { status: 502 })
     );
-    await record(
-      jsonPost('/account/devices', {
-        game_token: 'tok-down',
-        game_account_id: 'acct-err-1',
-        platform: 'Steam',
-        flavor: 'Paid'
-      }),
-      accountEnv
-    );
+    await record(jsonPost('/account/devices', claim('acct-err-1')), accountEnv);
 
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: 'acct-other', userName: 'Other' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    );
-    await record(
-      jsonPost('/account/devices', {
-        game_token: 'tok-mismatch',
-        game_account_id: 'acct-err-1',
-        platform: 'Steam',
-        flavor: 'Paid'
-      }),
-      accountEnv
-    );
+    fetchSpy.mockResolvedValueOnce(official('acct-other'));
+    await record(jsonPost('/account/devices', claim('acct-err-1')), accountEnv);
 
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ id: 'acct-unbound', userName: 'Unbound' }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    );
+    fetchSpy.mockResolvedValueOnce(official('acct-unbound'));
     await record(
-      jsonPost('/account/devices', {
-        game_token: 'tok-unbound',
-        game_account_id: 'acct-unbound',
-        platform: 'Steam',
-        flavor: 'Paid'
-      }),
-      accountEnv
-    );
-
-    await env.DB.prepare(
-      `INSERT INTO bpp_accounts (game_account_id, email, user_name, created_at_ms, updated_at_ms)
-       VALUES ('acct-bound', 'taken@example.com', 'BoundUser', 1000, 1000)`
-    ).run();
-
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ id: 'acct-bound', userName: 'BoundUser' }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    );
-    await record(
-      jsonPost('/account/bind/start', {
-        email: 'fresh@example.com',
-        game_token: 'tok-bound-game',
-        game_account_id: 'acct-bound',
-        platform: 'Steam',
-        flavor: 'Paid'
-      }),
-      accountEnv
-    );
-
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: 'acct-new', userName: 'NewUser' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    );
-    await record(
-      jsonPost('/account/bind/start', {
-        email: 'taken@example.com',
-        game_token: 'tok-taken-email',
-        game_account_id: 'acct-new',
-        platform: 'Steam',
-        flavor: 'Paid'
-      }),
+      jsonPost('/account/devices', claim('acct-unbound')),
       accountEnv
     );
   } finally {

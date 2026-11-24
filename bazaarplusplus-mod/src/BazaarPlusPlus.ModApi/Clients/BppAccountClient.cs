@@ -19,8 +19,8 @@ internal sealed class BppAccountClient
         _routes = routes ?? throw new ArgumentNullException(nameof(routes));
     }
 
-    public async Task<BppAccountBindStartResult> StartBindAsync(
-        string email,
+    public async Task<BppAccountDeviceResult> BindAsync(
+        string bindCode,
         string gameToken,
         string gameAccountId,
         string platform,
@@ -30,61 +30,14 @@ internal sealed class BppAccountClient
     {
         var payload = new JObject
         {
-            ["email"] = email,
+            ["bind_code"] = bindCode,
             ["game_token"] = gameToken,
             ["game_account_id"] = gameAccountId,
             ["platform"] = platform,
             ["flavor"] = flavor,
         };
         var (parsed, transportError) = await PostJsonAsync(
-                _routes.AccountBindStart,
-                payload,
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        if (parsed == null)
-            return BppAccountBindStartResult.Failure(transportError ?? "transport_error");
-
-        if (parsed.IsSuccess && parsed.StatusCode == 200)
-        {
-            try
-            {
-                var body = JObject.Parse(parsed.Body);
-                var pendingId = ReadString(body, "pending_id");
-                var userName = ReadString(body, "user_name");
-                var emailMasked = ReadString(body, "email_masked");
-                var expiresAtMs = body["expires_at_ms"]?.Value<long?>() ?? 0L;
-                if (pendingId != null && userName != null && emailMasked != null)
-                {
-                    return BppAccountBindStartResult.Success(
-                        pendingId,
-                        userName,
-                        emailMasked,
-                        expiresAtMs
-                    );
-                }
-            }
-            catch { }
-            return BppAccountBindStartResult.Failure("invalid_response", parsed.StatusCode);
-        }
-
-        var errorCode = ResolveErrorCode(parsed);
-        var conflictEmailMasked =
-            errorCode == "game_account_already_bound"
-                ? TryReadErrorDetailString(parsed.Body, "email_masked")
-                : null;
-        return BppAccountBindStartResult.Failure(errorCode, parsed.StatusCode, conflictEmailMasked);
-    }
-
-    public async Task<BppAccountDeviceResult> ConfirmBindAsync(
-        string pendingId,
-        string code,
-        CancellationToken cancellationToken
-    )
-    {
-        var payload = new JObject { ["pending_id"] = pendingId, ["code"] = code };
-        var (parsed, transportError) = await PostJsonAsync(
-                _routes.AccountBindConfirm,
+                _routes.AccountBind,
                 payload,
                 cancellationToken
             )
@@ -247,70 +200,12 @@ internal sealed class BppAccountClient
             ? response.Error.Code!
             : response.UserCode;
 
-    private static string? TryReadErrorDetailString(string body, string field)
-    {
-        try
-        {
-            var root = JObject.Parse(body);
-            if (root["error"] is JObject error && error["details"] is JObject details)
-                return ReadString(details, field);
-        }
-        catch { }
-        return null;
-    }
-
     private static string? ReadString(JObject source, string name)
     {
         var value =
             source[name]?.Type == JTokenType.String ? source[name]?.Value<string>()?.Trim() : null;
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
-}
-
-public readonly struct BppAccountBindStartResult
-{
-    private BppAccountBindStartResult(
-        bool succeeded,
-        string? pendingId,
-        string? userName,
-        string? emailMasked,
-        long expiresAtMs,
-        string? errorCode,
-        int? statusCode,
-        string? conflictEmailMasked
-    )
-    {
-        Succeeded = succeeded;
-        PendingId = pendingId;
-        UserName = userName;
-        EmailMasked = emailMasked;
-        ExpiresAtMs = expiresAtMs;
-        ErrorCode = errorCode;
-        StatusCode = statusCode;
-        ConflictEmailMasked = conflictEmailMasked;
-    }
-
-    public bool Succeeded { get; }
-    public string? PendingId { get; }
-    public string? UserName { get; }
-    public string? EmailMasked { get; }
-    public long ExpiresAtMs { get; }
-    public string? ErrorCode { get; }
-    public int? StatusCode { get; }
-    public string? ConflictEmailMasked { get; }
-
-    public static BppAccountBindStartResult Success(
-        string pendingId,
-        string userName,
-        string emailMasked,
-        long expiresAtMs
-    ) => new(true, pendingId, userName, emailMasked, expiresAtMs, null, 200, null);
-
-    public static BppAccountBindStartResult Failure(
-        string errorCode,
-        int? statusCode = null,
-        string? conflictEmailMasked = null
-    ) => new(false, null, null, null, 0L, errorCode, statusCode, conflictEmailMasked);
 }
 
 public readonly struct BppAccountDeviceResult

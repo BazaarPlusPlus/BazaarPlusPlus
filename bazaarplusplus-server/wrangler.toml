@@ -65,5 +65,15 @@ namespace_id = "1004"
 limit = 20
 period = 60
 
+[[ratelimits]]
+name = "LOGIN_EMAIL_RATE_LIMITER"
+# Keyed by normalized email, so password guesses against one account stay
+# bounded across client addresses. Unique in the account.
+namespace_id = "1005"
+
+[ratelimits.simple]
+limit = 10
+period = 60
+
 [[send_email]]
 name = "EMAIL"

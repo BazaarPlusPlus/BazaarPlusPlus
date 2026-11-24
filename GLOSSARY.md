@@ -90,7 +90,7 @@ The online game of each platform and its Game Code Identity, as two objects in t
 _Avoid_: game-libs manifest, Steam buildid pin
 
 **Card Art** (卡图):
-The game's own item and skill art, one WebP per distinct art, extracted from the Steam online branch's Addressables bundles and keyed by TemplateId through the live GameData (ADR 0020). It is served at `https://cdn.bazaarplusplus.com/card-art/` with an `index.json` that maps each TemplateId to its content-addressed file; `.github/workflows/card-art.yml` replaces the index when the online buildid or the GameData moves. The QQ bot draws boards with it.
+The game's own item and skill art, one WebP per distinct art, extracted from the Steam online branch's Addressables bundles and keyed by TemplateId through the live GameData (ADR 0020). It is served at `https://cdn.bazaarplusplus.com/card-art/` with an `index.json` that maps each TemplateId to its content-addressed file (`cards`) and to its English title (`names`, every card type, encounters included); encounters have no art, since the art download takes only the item and skill bundles; `.github/workflows/card-art.yml` replaces the index when the online buildid or the GameData moves, or when the published index has no `names`. The QQ bot draws boards with it.
 
 ## Mod hosts
 
@@ -137,13 +137,16 @@ A PvP battle in which a player's uploaded build fought inside another player's r
 ## Accounts
 
 **BPP Account** (BPP 账号):
-A one-to-one link between one normalized email address and one game account ID, verified against the official game account summary API and stored in the server's D1 (`bpp_accounts`, server ADR 0006). Distinct from the QQ bot's Binding.
+A site account: one normalized email address and a password, created on bazaarplusplus.com and stored in the server's D1 (`bpp_accounts`, server ADR 0007). It is optionally linked to one game account ID, verified against the official game account summary API when the mod redeems a Bind Code; unlinking keeps the account. Distinct from the QQ bot's Binding.
+
+**Bind Code** (绑定码):
+An 8-character code from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` that an unlinked BPP Account generates on the site, valid 10 minutes, one per account; a new code replaces the previous one. The player types it into the mod's History panel, and `POST /account/bind` redeems it once to link the game account. D1 stores only its HMAC.
 
 **Device Token** (设备令牌):
-A per-device bearer credential (`bppd_` followed by 32 random bytes as unpadded base64url) issued by the server for a bound BPP Account and stored as a SHA-256 hash in D1. The mod stores it in the Data Root and sends it on Bundle uploads, Ghost queries (shadow auth), and `GET /account/me`. Unbinding revokes all Device Tokens for that account.
+A per-device bearer credential (`bppd_` followed by 32 random bytes as unpadded base64url) issued by the server for a linked BPP Account and stored as a SHA-256 hash in D1. The mod stores it in the Data Root and sends it on Bundle uploads, Ghost queries (shadow auth), and `GET /account/me`. Unlinking revokes all Device Tokens for that account.
 
 **Run Summary** (每局摘要):
-One long-lived D1 row (`run_summaries`) recording the terminal `projection.run` fields of a Run uploaded with a matching Device Token for a bound BPP Account, excluding opponent account IDs and display names. Retained across 15-day Bundle pruning and deleted immediately when the BPP Account is unbound.
+One long-lived D1 row (`run_summaries`) recording the terminal `projection.run` fields of a Run uploaded with a matching Device Token for a linked BPP Account. With it the server keeps that Run's Run segment as stored Run detail (`account-runs/<account_id>/<run_id>.run` in R2, `detail_stored`), which the site decodes to show the Run. Retained across Bundle retention and deleted immediately when the game account is unlinked or the BPP Account deleted.
 
 ## Design
 

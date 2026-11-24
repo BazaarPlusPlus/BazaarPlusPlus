@@ -31,8 +31,7 @@ public enum GhostBattleFilter
 public enum BppAccountFlowPhase
 {
     Idle,
-    EnterEmail,
-    EnterCode,
+    EnterBindCode,
     ConfirmActivateDevice,
 }
 
@@ -128,12 +127,6 @@ public sealed class HistoryPanelState
     public string? BppAccountEmailMasked { get; set; }
 
     public string? BppAccountLocalDisplayName { get; set; }
-
-    public string? BppAccountPendingId { get; set; }
-
-    public string? BppAccountPendingUserName { get; set; }
-
-    public string? BppAccountPendingEmailMasked { get; set; }
 
     public string? BppAccountBannerMessage { get; set; }
 

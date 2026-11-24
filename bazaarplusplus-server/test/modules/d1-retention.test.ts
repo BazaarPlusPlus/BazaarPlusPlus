@@ -119,3 +119,62 @@ test('a failed batch preserves earlier progress and fails the scheduled invocati
     hasMore: false
   });
 });
+
+test('scheduled retention prunes expired sessions and Bind Codes and day-old email challenges, never accounts or tokens', async () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const hash = (fill: string) => fill.repeat(64);
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO bpp_accounts (
+      account_id, email, password_hash, game_account_id, created_at_ms, updated_at_ms
+    ) VALUES ('acct-a', 'a@example.com', 'x', 'game-a', 1, 1),
+             ('acct-b', 'b@example.com', 'x', NULL, 1, 1)`),
+    env.DB.prepare(`INSERT INTO bpp_web_sessions (session_hash, account_id, created_at_ms, expires_at_ms)
+      VALUES (?1, 'acct-a', 1, ?3), (?2, 'acct-a', 1, ?4)`).bind(
+      hash('1'),
+      hash('2'),
+      NOW - 1,
+      NOW + 1
+    ),
+    env.DB.prepare(`INSERT INTO bpp_bind_codes (code_hash, account_id, created_at_ms, expires_at_ms)
+      VALUES (?1, 'acct-a', 1, ?3), (?2, 'acct-b', 1, ?4)`).bind(
+      hash('3'),
+      hash('4'),
+      NOW - 1,
+      NOW + 1
+    ),
+    env.DB.prepare(`INSERT INTO bpp_email_challenges (
+      challenge_id, purpose, email, code_hmac, created_at_ms, expires_at_ms
+    ) VALUES ('old', 'register', 'a@example.com', 'h', 1, ?1),
+             ('recent', 'reset', 'a@example.com', 'h', 1, ?2)`).bind(
+      NOW - DAY_MS - 1,
+      NOW - DAY_MS + 1
+    ),
+    env.DB.prepare(`INSERT INTO bpp_device_tokens (token_hash, account_id, game_account_id, created_at_ms)
+      VALUES (?1, 'acct-a', 'game-a', 1)`).bind(hash('5'))
+  ]);
+
+  vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  await worker.scheduled(createScheduledController({ scheduledTime: NOW }), {
+    DB: env.DB
+  } as Cloudflare.Env);
+
+  const keys = async (sql: string) =>
+    (await env.DB.prepare(sql).all<{ key: string }>()).results.map(
+      ({ key }) => key
+    );
+  expect(
+    await keys('SELECT session_hash AS key FROM bpp_web_sessions')
+  ).toEqual([hash('2')]);
+  expect(await keys('SELECT code_hash AS key FROM bpp_bind_codes')).toEqual([
+    hash('4')
+  ]);
+  expect(
+    await keys('SELECT challenge_id AS key FROM bpp_email_challenges')
+  ).toEqual(['recent']);
+  expect(
+    await keys('SELECT account_id AS key FROM bpp_accounts ORDER BY account_id')
+  ).toEqual(['acct-a', 'acct-b']);
+  expect(await keys('SELECT token_hash AS key FROM bpp_device_tokens')).toEqual(
+    [hash('5')]
+  );
+});
