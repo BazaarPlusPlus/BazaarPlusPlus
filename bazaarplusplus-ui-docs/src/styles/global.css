@@ -23,7 +23,16 @@ body {
   @apply grid sm:grid-cols-2 lg:grid-cols-3 rounded-panel border border-line bg-panel p-2;
 }
 .gallery {
-  @apply grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3;
+  @apply flex flex-wrap items-start gap-3;
+}
+.gallery .bpp-card {
+  width: calc(var(--space-24) * 4);
+}
+.gallery .bpp-card[data-size='2'] {
+  width: calc(var(--space-24) * 8);
+}
+.gallery .bpp-card[data-size='3'] {
+  width: calc(var(--space-24) * 12);
 }
 summary {
   @apply cursor-pointer;

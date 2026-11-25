@@ -80,6 +80,7 @@ export function CardTile({
     <Element
       type={card.onOpen ? 'button' : undefined}
       onClick={card.onOpen}
+      data-size={card.size ?? undefined}
       className={`bpp-card ${tierClass(card.tier)} ${enchantClass(card.enchant)} ${card.enchant ? 'bpp-card-enchant' : ''} ${caption ? 'bpp-card-caption' : ''}`}
       title={[card.name, card.tierLabel, card.enchantLabel]
         .filter(Boolean)
