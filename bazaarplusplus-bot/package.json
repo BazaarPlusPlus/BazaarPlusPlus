@@ -15,7 +15,7 @@
     "build": "wrangler deploy --dry-run --outdir dist/webhook && wrangler deploy -c wrangler.consumer.toml --dry-run --outdir dist/consumer"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "2.0.0"
+    "@cloudflare/puppeteer": "2.0.1"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.23.0",
