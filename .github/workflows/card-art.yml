@@ -1,7 +1,7 @@
 name: Card Art
 
 # Keeps the public Card Art set (root ADR 0020) in step with the game. Every
-# six hours it compares the Steam online buildid and the live GameData ETag
+# six hours it compares the Steam online buildid and both GameData and translation ETags
 # with the published card-art/index.json. When either moved, it downloads the
 # art bundles, extracts them and publishes the new set. A failure only fails
 # this workflow; the next run tries again.
@@ -45,7 +45,12 @@ jobs:
         env:
           STEAM_SNAPSHOT_LOGIN: ${{ secrets.STEAM_SNAPSHOT_LOGIN }}
         run: |
-          curl -fsS https://cdn.bazaarplusplus.com/card-art/index.json -o "$RUNNER_TEMP/previous.json" || rm -f "$RUNNER_TEMP/previous.json"
+          status=$(curl -sS -w '%{http_code}' https://cdn.bazaarplusplus.com/card-art/index.json -o "$RUNNER_TEMP/previous.json")
+          case "$status" in
+            200) ;;
+            404) rm "$RUNNER_TEMP/previous.json" ;;
+            *) echo "Previous Card Art index returned HTTP $status" >&2; exit 1 ;;
+          esac
           state="$(just release::card-art stale "$RUNNER_TEMP/previous.json" | tail -n 1)"
           echo "stale=$(jq -r .stale <<< "$state")" >> "$GITHUB_OUTPUT"
           echo "Card Art source: $state" >> "$GITHUB_STEP_SUMMARY"
@@ -57,16 +62,26 @@ jobs:
         run: |
           source="$(just release::card-art download "$RUNNER_TEMP/game" | tail -n 1)"
           echo "buildid=$(jq -r .buildid <<< "$source")" >> "$GITHUB_OUTPUT"
+          echo "zh=$(jq -r .zh <<< "$source")" >> "$GITHUB_OUTPUT"
           echo "gamedata=$(jq -r .gameData <<< "$source")" >> "$GITHUB_OUTPUT"
       - name: Extract
         if: steps.stale.outputs.stale == 'true'
         env:
           BUILDID: ${{ steps.download.outputs.buildid }}
+          ZH: ${{ steps.download.outputs.zh }}
           GAMEDATA: ${{ steps.download.outputs.gamedata }}
         run: |
           previous=()
           if [ -f "$RUNNER_TEMP/previous.json" ]; then previous=(--previous "$RUNNER_TEMP/previous.json"); fi
-          just bot::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -f "$RUNNER_TEMP/previous.json" ] && jq -e '.version >= 2' "$RUNNER_TEMP/previous.json" >/dev/null; then
+            for locale in en zh; do
+              file=$(jq -r --arg locale "$locale" '.text[$locale] // empty' "$RUNNER_TEMP/previous.json")
+              if [ -z "$file" ]; then continue; fi
+              [[ "$file" =~ ^text-${locale}-[0-9a-f]{20}\.json$ ]]
+              curl -fsS "https://cdn.bazaarplusplus.com/card-art/$file" -o "$RUNNER_TEMP/$file"
+            done
+          fi
+          just bot::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" --zh-etag "$ZH" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish
         if: steps.stale.outputs.stale == 'true'
         env:

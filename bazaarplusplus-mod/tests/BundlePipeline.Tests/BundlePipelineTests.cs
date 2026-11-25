@@ -12,6 +12,7 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Core.Runtime;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
+using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Game.PvpBattles;
 using BazaarPlusPlus.Game.PvpBattles.Persistence;
 using BazaarPlusPlus.Host;
@@ -174,11 +175,6 @@ public sealed class BundlePipelineTests : IDisposable
             "A pending Bundle keeps the stream rows a reseal would rebuild it from."
         );
         artifacts.RecordQueue("run-only", database, "run-seal-001");
-        SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-seal-001';");
-        Check.That(
-            Count(database, "bundle_outbox", "run-seal-001") == 1,
-            "The outbox must not FK-block Run deletion."
-        );
 
         CreateRun(store, "run-screenshot", minute: 60, screenshotRequested: true);
         var capturedAtUtc = PipelineInputs.Base.AddMinutes(61).AddSeconds(50);
@@ -304,6 +300,12 @@ public sealed class BundlePipelineTests : IDisposable
         );
         artifacts.RecordQueue("corrupt-replay:sealed", database, "run-corrupt-replay");
 
+        SealInputs.Execute(database, "DELETE FROM runs WHERE run_id='run-corrupt-replay';");
+        Check.That(
+            Count(database, "bundle_outbox", "run-corrupt-replay") == 1,
+            "The outbox must not FK-block Run deletion."
+        );
+
         await UploadStage.RunAsync(
             dataRoot,
             artifacts,
@@ -315,6 +317,40 @@ public sealed class BundlePipelineTests : IDisposable
                 "run-replay-held",
                 "run-corrupt-replay",
             ]
+        );
+
+        CreateRun(store, "run-normal", minute: 300, screenshotRequested: false, gameMode: "Normal");
+        store.AppendEvent(
+            "run-normal",
+            new RunLogEvent
+            {
+                RunId = "run-normal",
+                Seq = 1,
+                Ts = PipelineInputs.Base.AddMinutes(300),
+                Kind = RunMessageStreamKinds.Command,
+                Command = "SendInitializeRun",
+            }
+        );
+        CompleteRun(store, "run-normal", minute: 300);
+        await coordinator.ReconcileAsync(CancellationToken.None);
+        Check.That(
+            Count(database, "run_events", "run-seal-001") == 3,
+            "Seal discovery keeps the uploaded Run's command and response."
+        );
+        var history = new HistoryPanelRepository(database);
+        history.DeleteRun("run-seal-001");
+        Check.That(
+            Count(database, "run_events", "run-seal-001") == 0,
+            "Deleting the uploaded Run removes its events."
+        );
+        Check.That(
+            Count(database, "run_events", "run-normal") == 1,
+            "The finished Normal Run keeps its stream."
+        );
+        history.DeleteRun("run-normal");
+        Check.That(
+            Count(database, "run_events", "run-normal") == 0,
+            "Deleting the Normal Run removes its stream."
         );
 
         // Seal these runs after the upload stage to keep their oversized inputs out of its scenarios.
@@ -332,7 +368,8 @@ public sealed class BundlePipelineTests : IDisposable
         RunLogStore store,
         string runId,
         int minute,
-        bool screenshotRequested
+        bool screenshotRequested,
+        string gameMode = "Ranked"
     ) =>
         store.CreateRun(
             new RunLogCreateRequest
@@ -340,7 +377,7 @@ public sealed class BundlePipelineTests : IDisposable
                 RunId = runId,
                 StartedAtUtc = PipelineInputs.Base.AddMinutes(minute),
                 Hero = "Vanessa",
-                GameMode = "Ranked",
+                GameMode = gameMode,
                 PlayerAccountId = "account-001",
                 BundleScreenshotRequested = screenshotRequested,
                 ModVersion = "5.0.0",

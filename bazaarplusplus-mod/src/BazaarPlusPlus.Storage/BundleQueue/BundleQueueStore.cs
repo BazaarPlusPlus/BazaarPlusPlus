@@ -67,26 +67,6 @@ public sealed class BundleQueueStore : SqliteStoreBase
                 AND NOT ({runAlias}.victories IS 0 AND {runAlias}.losses IS 0)
             """;
 
-    // A pending outbox row still needs these stream rows if an invalid artifact triggers resealing.
-    public void DeleteSpentMessageStreams() =>
-        Execute(
-            $"""
-            DELETE FROM {RunLogSchema.RunEventsTableName}
-            WHERE kind IN ($message, $command)
-              AND run_id NOT IN (
-                  SELECT r.run_id FROM {RunLogSchema.RunsTableName} AS r
-                  WHERE r.status = 'active'
-                     OR {ProtectedRunCondition("r")}
-                     OR EXISTS (
-                         SELECT 1 FROM {RunLogSchema.BundleOutboxTableName} AS r_pending
-                         WHERE r_pending.run_id = r.run_id AND r_pending.status = 'pending'
-                     )
-              );
-            """,
-            ("$message", RunMessageStreamKinds.Message),
-            ("$command", RunMessageStreamKinds.Command)
-        );
-
     public void EnsureEligibleJobs(TimeSpan inputConvergenceWindow)
     {
         using var connection = OpenConnection();

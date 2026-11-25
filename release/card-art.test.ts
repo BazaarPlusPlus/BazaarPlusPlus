@@ -22,14 +22,21 @@ function memoryStore() {
   };
 }
 
+const text = {
+  en: 'text-en-' + 'a'.repeat(20) + '.json',
+  zh: 'text-zh-' + 'b'.repeat(20) + '.json'
+};
+
 function artDirectory(files: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-card-art-'));
-  for (const file of files) fs.writeFileSync(path.join(dir, file), file);
+  for (const file of [...files, ...Object.values(text)])
+    fs.writeFileSync(path.join(dir, file), file);
   fs.writeFileSync(
     path.join(dir, 'index.json'),
     JSON.stringify({
-      version: 1,
-      game: { buildid: '7', gameData: 'e1' },
+      version: 2,
+      text,
+      game: { buildid: '7', gameData: 'e1', zh: 'e1' },
       cards: {},
       names: {}
     })
@@ -40,8 +47,8 @@ function artDirectory(files: string[]) {
 test('a publish writes each art file, then the index last', async () => {
   const art = 'a'.repeat(20) + '.webp';
   const store = memoryStore();
-  await expect(publishCardArt(artDirectory([art]), store)).resolves.toBe(1);
-  expect(store.order).toEqual([art, 'index.json']);
+  await expect(publishCardArt(artDirectory([art]), store)).resolves.toBe(3);
+  expect(store.order).toEqual([art, text.en, text.zh, 'index.json']);
 });
 
 test('a publish refuses a file that is not a content digest', async () => {
@@ -75,4 +82,20 @@ test('an index without card names is stale, so the next run publishes them', asy
       async () => 'e1'
     )
   ).resolves.toMatchObject({ stale: true });
+});
+
+test('a changed translation or missing locale triggers a backfill', async () => {
+  const index = path.join(artDirectory([]), 'index.json');
+  const run = () => ({ buildid: '7' });
+  expect(
+    (
+      await cardArtStale(index, run, async (url) =>
+        url.endsWith('.bytes') ? 'new' : 'e1'
+      )
+    ).stale
+  ).toBe(true);
+  const previous = JSON.parse(fs.readFileSync(index, 'utf8'));
+  delete previous.text.zh;
+  fs.writeFileSync(index, JSON.stringify(previous));
+  expect((await cardArtStale(index, run, async () => 'e1')).stale).toBe(true);
 });
