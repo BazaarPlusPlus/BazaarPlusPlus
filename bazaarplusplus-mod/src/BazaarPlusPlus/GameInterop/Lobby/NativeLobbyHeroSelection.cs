@@ -5,6 +5,7 @@ using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.UI.MainMenu;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace BazaarPlusPlus.GameInterop.Lobby;
 
@@ -28,6 +29,7 @@ internal sealed class NativeLobbyHeroSelection
     private readonly RectTransform _loadout;
     private CanvasGroup? _heroSelectMask;
     private Vector2 _loadoutPosition;
+    private bool _loadoutLayoutRefreshed;
 
     private NativeLobbyHeroSelection(
         MainMenuBaseView view,
@@ -80,10 +82,42 @@ internal sealed class NativeLobbyHeroSelection
         _heroSelectMask.blocksRaycasts = false;
         _heroSelectMask.interactable = false;
         _loadout.anchoredPosition = _loadoutPosition + Vector2.up * loadoutRise;
+        _loadoutLayoutRefreshed = false;
+        EnsureLoadoutLayout();
+    }
+
+    internal void EnsureLoadoutLayout()
+    {
+        if (!Exists || !_loadout.gameObject.activeInHierarchy)
+        {
+            _loadoutLayoutRefreshed = false;
+            return;
+        }
+        if (_loadoutLayoutRefreshed)
+            return;
+
+        _loadoutLayoutRefreshed = true;
+        foreach (var text in _loadout.GetComponentsInChildren<TMP_Text>(includeInactive: false))
+            text.ForceMeshUpdate(ignoreActiveState: false, forceTextReparsing: true);
+        foreach (
+            var autoWidth in _loadout.GetComponentsInChildren<AutoButtonPreferredWidth>(
+                includeInactive: false
+            )
+        )
+            autoWidth.Recalculate();
+        foreach (
+            var layout in _loadout.GetComponentsInChildren<LayoutGroup>(includeInactive: false)
+        )
+        {
+            if (layout.transform is RectTransform rect && rect != _loadout)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+        }
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_loadout);
     }
 
     internal void Detach()
     {
+        _loadoutLayoutRefreshed = false;
         if (_heroSelectMask == null)
             return;
         if (_loadout != null)

@@ -58,7 +58,6 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         if (
             _config?.EnableClassicHeroSelectionConfig.Value != true
             || SceneLoader.ActiveScene != SceneID.HeroSelectScene
-            || SceneLoader.IsTransitioning
             || Data.HasActiveRun
         )
         {
@@ -68,26 +67,32 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
 
         if (_controls != null)
         {
-            var input = !NativeLobbyHeroSelection.IsPopupOpen;
+            var input = !NativeLobbyHeroSelection.IsPopupOpen && !SceneLoader.IsTransitioning;
             _controls.interactable = input;
             _controls.blocksRaycasts = input;
             AnimateGlows();
         }
-
-        if (Time.unscaledTime < _nextRefresh)
-            return;
-        _nextRefresh = Time.unscaledTime + .2f;
 
         if (_native?.Exists != true)
         {
             RemovePanel();
             _native = NativeLobbyHeroSelection.TryBind();
         }
-        if (
-            _native?.CanShow != true
-            || !Services.TryGet<HeroManager>(out var heroManager)
-            || heroManager == null
-        )
+        if (_native?.CanShow != true)
+        {
+            RemovePanel();
+            ReadyArt();
+            return;
+        }
+
+        if (_root != null)
+        {
+            _native.EnsureLoadoutLayout();
+            if (Time.unscaledTime < _nextRefresh)
+                return;
+        }
+
+        if (!Services.TryGet<HeroManager>(out var heroManager) || heroManager == null)
         {
             RemovePanel();
             return;
@@ -96,6 +101,7 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         var art = ReadyArt();
         if (art == null)
             return;
+        var justBuilt = false;
         if (_root == null)
         {
             BuildPanel(_native, heroManager, art);
@@ -103,7 +109,10 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
                 return;
             if (PlayerPreferences.Data.RandomHeroEnabled && !_tiles.Any(IsRandomCandidate))
                 IncludeAllOwnedHeroes();
+            justBuilt = true;
         }
+
+        _nextRefresh = Time.unscaledTime + .2f;
 
         var random = PlayerPreferences.Data.RandomHeroEnabled;
         var selected = Data.SelectedHero;
@@ -117,6 +126,8 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
                 ? owned && NativeLobbyHeroSelection.IsHeroInRandomPool(tile.Hero)
                 : selected == tile.Hero;
             tile.GlowTargetVisible = highlighted;
+            if (justBuilt)
+                ApplyGlowImmediate(tile, highlighted);
             tile.NamePlate.gameObject.SetActive(highlighted);
             if (highlighted)
                 tile.Name.text = heroManager.GetHeroName(tile.Hero);
@@ -125,6 +136,16 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         _randomLabel!.text = RandomLabel.Resolve(L.CurrentLanguageCode, L.CurrentMode);
         _randomMark!.gameObject.SetActive(random);
         _randomButton!.interactable = hasOwnedHero;
+    }
+
+    private static void ApplyGlowImmediate(HeroTile tile, bool visible)
+    {
+        var progress = visible ? 1f : 0f;
+        tile.GlowProgress = progress;
+        var glow = tile.Glow;
+        glow.gameObject.SetActive(visible);
+        glow.rectTransform.localScale = Vector3.one * (visible ? 1f : GlowHiddenScale);
+        glow.canvasRenderer.SetAlpha(progress);
     }
 
     private void AnimateGlows()
@@ -192,7 +213,8 @@ internal sealed class ClassicHeroSelectionController : MonoBehaviour
         _root.pivot = new Vector2(0f, 1f);
         _root.anchoredPosition = new Vector2(60f, 29f);
         _controls = _root.gameObject.AddComponent<CanvasGroup>();
-        _controls.interactable = _controls.blocksRaycasts = !NativeLobbyHeroSelection.IsPopupOpen;
+        _controls.interactable = _controls.blocksRaycasts =
+            !NativeLobbyHeroSelection.IsPopupOpen && !SceneLoader.IsTransitioning;
         var kit = new DesktopKit(font);
         if (art.Backdrop != null)
         {
