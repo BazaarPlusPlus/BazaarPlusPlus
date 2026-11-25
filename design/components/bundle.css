@@ -1361,7 +1361,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   --bpp-tier: var(--tier-silver);
 }
 .bpp-tier-gold {
-  --bpp-tier: var(--accent);
+  --bpp-tier: var(--tier-gold);
 }
 .bpp-tier-diamond {
   --bpp-tier: var(--tier-diamond);
@@ -1479,6 +1479,31 @@ html[data-bpp-platform='windows'] .bpp-header {
   padding: var(--space-2);
   text-align: center;
   color: var(--text-2);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+/* On a tile the border carries the tier and the inner ring the enchantment; their words stay
+   for screen readers and the title. A tile wide enough for the word shows the enchantment. */
+.bpp-card .bpp-tier-label,
+.bpp-board-card .bpp-enchant {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.bpp-board-card {
+  container: bpp-board-card / inline-size;
+}
+@container bpp-board-card (min-width: 4rem) {
+  .bpp-board-card .bpp-enchant {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    padding-inline: var(--space-4);
+  }
 }
 .bpp-card-art {
   position: absolute;

@@ -49,6 +49,7 @@
   <color name="bpp_enchant_mossy">#FF8FE930</color>
   <color name="bpp_tier_bronze">#FFCA9464</color>
   <color name="bpp_tier_silver">#FFBFC3CA</color>
+  <color name="bpp_tier_gold">#FFF2C94C</color>
   <color name="bpp_tier_diamond">#FF7CC6EE</color>
   <color name="bpp_tier_legendary">#FFFF7043</color>
   <color name="bpp_backdrop">#8C000000</color>

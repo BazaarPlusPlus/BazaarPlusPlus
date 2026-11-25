@@ -122,7 +122,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 
 ## Game objects on the web
 
-A board preserves the ten sockets and each item’s width. Skills sit below it in capture order. Use the card name when art is unavailable, a tier word with the tier border, and a localized word beside each enchantment dot. The product supplies observation labels and computes changes between battles.
+A board preserves the ten sockets and each item’s width. Skills sit below it in capture order. The tier border and the enchantment ring carry quality and enchantment on a tile; their words appear in chips, in the title and where a tile has room. The product supplies observation labels and computes changes between battles.
 
 ## Android App
 
