@@ -8,8 +8,11 @@ The index maps each TemplateId to its art file (`cards`, items and skills) and t
 English title (`names`, every card GameData has, encounters included).
 """
 
+from collections import Counter
 from contextlib import closing, contextmanager
 from pathlib import Path
+
+from enchantment_fx import MaterialExporter
 
 import argparse
 import glob
@@ -409,7 +412,7 @@ def game_cards(database):
     return rows, names
 
 
-def card_index(cards, names, current, previous, buildid, gamedata_etag, zh_etag, text):
+def card_index(cards, names, current, previous, buildid, gamedata_etag, zh_etag, text, fx=None):
     """The published index. A TemplateId GameData no longer has keeps its earlier art and name,
     so Runs from older patches still resolve."""
     cards, names = dict(cards), dict(names)
@@ -417,7 +420,11 @@ def card_index(cards, names, current, previous, buildid, gamedata_etag, zh_etag,
         for template_id, value in (previous or {}).get(key, {}).items():
             if template_id not in current:
                 mapping.setdefault(template_id, value)
+    retained_fx = {
+        key: file for key, file in (previous or {}).get("fx", {}).items() if key not in current
+    }
     return {
+        **({"fx": retained_fx | fx} if fx is not None else {}),
         "version": 2,
         "text": text,
         "game": {"buildid": buildid, "gameData": gamedata_etag, "zh": zh_etag},
@@ -447,6 +454,9 @@ def main():
     parser.add_argument("--gamedata-etag")
     parser.add_argument("--zh-etag", required=True)
     parser.add_argument("--previous")
+    parser.add_argument(
+        "--require-fx", action="store_true", help="gate FX coverage for publication"
+    )
     args = parser.parse_args()
 
     import UnityPy
@@ -460,9 +470,23 @@ def main():
         glob.glob(os.path.join(streaming, "aa", "*", "card_*_assets_all.bundle"))
         + glob.glob(os.path.join(streaming, "aa", "*", "skills_assets_all.bundle"))
     )
+    bundles = [b for b in bundles if Path(b).name != "card_vfx_assets_all.bundle"]
     if not bundles:
         raise SystemExit("no card or skill bundles under StreamingAssets/aa")
     env = UnityPy.load(*bundles)
+    exporter = None
+    try:
+        for name in ("shaders_cards", "textures_fx"):
+            bundle = Path(bundles[0]).with_name(name + "_assets_all.bundle")
+            if not bundle.is_file():
+                raise FileNotFoundError(bundle.name)
+            env.load_file(str(bundle))
+        shader = next(
+            r.read() for p, r in env.container.items() if p.endswith("/PremiumCard.shader")
+        )
+        exporter = MaterialExporter(shader, Path(args.out_dir))
+    except Exception as error:
+        print(f"Enchantment FX unavailable: {error}", file=sys.stderr)
     objects = {}
     for path, reader in env.container.items():
         # A sprite and its texture share a path; the sprite holds the cut-out.
@@ -484,6 +508,9 @@ def main():
         files_by_art[art_key] = name
         return name
 
+    fx_by_art = {}
+    fx_by_material = {}
+
     def item_art(art_key):
         card_data = asset(art_key)
         if card_data is None or card_data.type.name != "MonoBehaviour":
@@ -492,10 +519,21 @@ def main():
         material = asset(reference.get("m_AssetGUID", ""))
         if material is None or material.type.name != "Material":
             return None
-        for name, texture in material.read().m_SavedProperties.m_TexEnvs:
+        material = material.read()
+        for name, texture in material.m_SavedProperties.m_TexEnvs:
             if name == "_MainTex" and texture.m_Texture.path_id:
                 texture = texture.m_Texture.deref_parse_as_object()
-                return save(art_key, texture.image, ITEM_HEIGHT, "RGB")
+                art = save(art_key, texture.image, ITEM_HEIGHT, "RGB")
+                if exporter is not None:
+                    try:
+                        reader = material.object_reader
+                        identity = (reader.assets_file.name, reader.path_id)
+                        if identity not in fx_by_material:
+                            fx_by_material[identity] = exporter.export(material, art, ITEM_HEIGHT)
+                        fx_by_art[art_key] = fx_by_material[identity]
+                    except Exception as error:
+                        print(f"skip FX {art_key}: {error}", file=sys.stderr)
+                return art
         return None
 
     def skill_art(art_key):
@@ -519,6 +557,7 @@ def main():
             Path(args.out_dir),
         )
         rows, names = game_cards(database)
+        current = {row[0] for row in database.execute("SELECT id FROM cards")}
     for template_id, kind, art_key in rows:
         if not art_key:
             continue
@@ -534,8 +573,25 @@ def main():
             cards[template_id] = name
             counts[kind][0] += 1
 
+    fx = {
+        key: fx_by_art[art] for key, kind, art in rows if kind == "TCardItem" and art in fx_by_art
+    }
+    material_counts = Counter(fx.values())
+    by_size = Counter()
+    resolved_masks = 0
+    for file, count in material_counts.items():
+        descriptor = json.loads((Path(args.out_dir) / file).read_bytes())
+        by_size[descriptor["size"]] += count
+        if "file" in descriptor["textures"]["_EnchantmentMask"]:
+            resolved_masks += count
     items, skills = counts["TCardItem"], counts["TCardSkill"]
     summary = {
+        "fx": {
+            "items": len(fx),
+            "materials": len(material_counts),
+            "sizes": by_size,
+            "masks": resolved_masks,
+        },
         "items": items,
         "skills": skills,
         "files": len(set(cards.values())),
@@ -544,12 +600,22 @@ def main():
     print(json.dumps(summary))
     if items[0] < items[1] * MIN_ITEM_SHARE or skills[0] < skills[1] * MIN_SKILL_SHARE:
         raise SystemExit(f"too few cards resolved: {summary}")
-    current = {row[0] for row in rows} | set(names)
     index = card_index(
-        cards, names, current, previous, args.buildid, args.gamedata_etag, args.zh_etag, text
+        cards,
+        names,
+        current,
+        previous,
+        args.buildid,
+        args.gamedata_etag,
+        args.zh_etag,
+        text,
+        fx if fx else None,
     )
     with open(os.path.join(args.out_dir, "index.json"), "w") as file:
         json.dump(index, file, separators=(",", ":"))
+    # All 1,428 resolved item illustrations in build 26592248 have a material and mask.
+    if args.require_fx and (not fx or resolved_masks < items[0] * MIN_ITEM_SHARE):
+        raise SystemExit(f"too few Enchantment FX masks for publication: {summary}")
 
 
 if __name__ == "__main__":

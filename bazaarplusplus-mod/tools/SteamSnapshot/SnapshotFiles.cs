@@ -43,7 +43,7 @@ public static class SnapshotFiles
         }
         if (selected.All(file => file.Target != $"Data/StreamingAssets/{CatalogFile}"))
             throw new InvalidDataException($"The depot has no StreamingAssets/{CatalogFile}");
-        if (selected.All(file => !file.Target.EndsWith(".bundle", StringComparison.Ordinal)))
+        if (selected.All(file => !IsIllustrationBundle(Path.GetFileName(file.Target))))
             throw new InvalidDataException("The depot has no card or skill bundle");
         return selected;
     }
@@ -63,6 +63,12 @@ public static class SnapshotFiles
         if (rest.Length != 2)
             return false;
         var name = rest[1];
+        return IsIllustrationBundle(name)
+            || name is "shaders_cards_assets_all.bundle" or "textures_fx_assets_all.bundle";
+    }
+
+    private static bool IsIllustrationBundle(string name)
+    {
         return name == "skills_assets_all.bundle"
             || (
                 name.StartsWith("card_", StringComparison.Ordinal)

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -24,6 +25,22 @@ export const GAME_DATA_URL =
 const ZH_URL = 'https://data.playthebazaar.com/static/translations/zh-CN.bytes';
 const locales = ['en', 'zh'] as const;
 
+const materialFile = /^fx-([0-9a-f]{20})\.json$/;
+const textureFile = /^tex-([0-9a-f]{20})\.png$/;
+const artFile = /^([0-9a-f]{20})\.webp$/;
+
+function validFx(fx: unknown): fx is Record<string, string> {
+  return (
+    !!fx &&
+    typeof fx === 'object' &&
+    !Array.isArray(fx) &&
+    Object.keys(fx).length > 0 &&
+    Object.values(fx).every(
+      (file) => typeof file === 'string' && materialFile.test(file)
+    )
+  );
+}
+
 function isTextFile(locale: string, name: unknown): name is string {
   return (
     typeof name === 'string' &&
@@ -42,6 +59,7 @@ export interface CardArtSource {
 
 interface CardArtIndex {
   version?: number;
+  fx?: Record<string, string>;
   text?: Partial<Record<(typeof locales)[number], string>>;
   game?: Partial<CardArtSource>;
   /** TemplateId → English title; an index from before it existed is republished. */
@@ -83,6 +101,7 @@ export async function cardArtStale(
       published.game?.gameData !== gameData ||
       published.game?.zh !== zh ||
       published.version !== 2 ||
+      !validFx(published.fx) ||
       locales.some((locale) => !isTextFile(locale, published.text?.[locale])) ||
       published.names === undefined,
     buildid: String(buildid),
@@ -137,15 +156,57 @@ export async function publishCardArt(
     .filter((name) => name.endsWith('.webp'))
     .sort();
   if (!files.length) throw new Error(`${directory} holds no Card Art`);
+  if (!validFx(index.fx)) throw new Error('missing Enchantment FX materials');
+  const uploaded = new Set<string>();
+  async function verifyAndPublish(name: string, pattern: RegExp, mime: string) {
+    const digest = pattern.exec(name)?.[1];
+    if (!digest) throw new Error(`unexpected Enchantment FX filename: ${name}`);
+    const local = path.join(directory, name);
+    // Retired items reference objects from a previous publish.
+    const bytes = fs.existsSync(local)
+      ? fs.readFileSync(local)
+      : (await store.get(name))?.bytes;
+    if (
+      !bytes ||
+      createHash('sha256').update(bytes).digest('hex').slice(0, 20) !== digest
+    )
+      throw new Error(`missing or corrupt Enchantment FX dependency: ${name}`);
+    if (fs.existsSync(local)) {
+      await putImmutable(store, name, bytes, mime);
+      uploaded.add(name);
+    }
+    return bytes;
+  }
   for (const file of files) {
-    if (!/^[0-9a-f]{20}\.webp$/.test(file))
+    if (!artFile.test(file))
       throw new Error(`unexpected Card Art file: ${file}`);
-    await putImmutable(
-      store,
-      file,
-      fs.readFileSync(path.join(directory, file)),
-      'image/webp'
+    await verifyAndPublish(file, artFile, 'image/webp');
+  }
+  const verifiedTextures = new Set(files);
+  for (const name of new Set(Object.values(index.fx))) {
+    const bytes = await verifyAndPublish(
+      name,
+      materialFile,
+      'application/json'
     );
+    const material = JSON.parse(bytes.toString('utf8'));
+    if (material.version !== 1 || !material.textures?._MainTex?.file)
+      throw new Error(`invalid Enchantment FX material: ${name}`);
+    for (const [slot, binding] of Object.entries(material.textures) as [
+      string,
+      { file?: string; default?: string }
+    ][]) {
+      if (binding.file === undefined && typeof binding.default === 'string')
+        continue;
+      const file = binding.file;
+      const main = slot === '_MainTex';
+      const pattern = main ? artFile : textureFile;
+      if (!file || !pattern.test(file))
+        throw new Error(`invalid texture in ${name}: ${slot}`);
+      if (verifiedTextures.has(file)) continue;
+      await verifyAndPublish(file, pattern, main ? 'image/webp' : 'image/png');
+      verifiedTextures.add(file);
+    }
   }
   for (const locale of locales) {
     const name = index.text?.[locale];
@@ -159,7 +220,7 @@ export async function publishCardArt(
     );
   }
   await putReplaceable(store, CARD_ART_INDEX, indexBytes, 'application/json');
-  return files.length + locales.length;
+  return uploaded.size + locales.length;
 }
 
 if (import.meta.main) {
