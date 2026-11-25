@@ -25,16 +25,23 @@ function material(
 describe('PremiumCard program selection', () => {
   it.each([
     ['Ethereal', 'SHINY'],
-    ['Golden', 'GOLDEN'],
-    ['Heavy', 'HEAVY'],
-    ['Icy', 'ICY'],
-    ['Mossy', 'MOSSY'],
-    ['Mystical', 'MYSTICAL'],
-    ['Shielded', 'TEMPERED']
+    ['Icy', 'ICY']
   ] as const)('uses the static frame for %s', async (enchant, keyword) => {
     expect(
       await fragment(material(enchant, keyword), enchant, false)
     ).toBeNull();
+  });
+
+  it.each([
+    ['Golden', 'GOLDEN'],
+    ['Heavy', 'HEAVY'],
+    ['Mossy', 'MOSSY'],
+    ['Mystical', 'MYSTICAL'],
+    ['Shielded', 'TEMPERED']
+  ] as const)('renders %s on small materials', async (enchant, keyword) => {
+    expect(
+      await fragment(material(enchant, keyword), enchant, false)
+    ).toContain('vec3 effect()');
   });
 
   it('checks the material revision and the Tiny geometry independently of the enchantment', async () => {

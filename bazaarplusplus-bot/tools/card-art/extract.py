@@ -579,9 +579,15 @@ def main():
     material_counts = Counter(fx.values())
     by_size = Counter()
     resolved_masks = 0
+    textures = set()
     for file, count in material_counts.items():
         descriptor = json.loads((Path(args.out_dir) / file).read_bytes())
         by_size[descriptor["size"]] += count
+        textures.update(
+            binding["file"]
+            for slot, binding in descriptor["textures"].items()
+            if slot != "_MainTex" and "file" in binding
+        )
         if "file" in descriptor["textures"]["_EnchantmentMask"]:
             resolved_masks += count
     items, skills = counts["TCardItem"], counts["TCardSkill"]
@@ -589,6 +595,11 @@ def main():
         "fx": {
             "items": len(fx),
             "materials": len(material_counts),
+            "textures": len(textures),
+            "bytes": sum(
+                (Path(args.out_dir) / name).stat().st_size
+                for name in textures | material_counts.keys()
+            ),
             "sizes": by_size,
             "masks": resolved_masks,
         },

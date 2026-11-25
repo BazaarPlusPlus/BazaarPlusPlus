@@ -26,7 +26,7 @@ const ZH_URL = 'https://data.playthebazaar.com/static/translations/zh-CN.bytes';
 const locales = ['en', 'zh'] as const;
 
 const materialFile = /^fx-([0-9a-f]{20})\.json$/;
-const textureFile = /^tex-([0-9a-f]{20})\.png$/;
+const textureFile = /^tex-([0-9a-f]{20})\.webp$/;
 const artFile = /^([0-9a-f]{20})\.webp$/;
 
 function validFx(fx: unknown): fx is Record<string, string> {
@@ -153,7 +153,7 @@ export async function publishCardArt(
   const index = JSON.parse(indexBytes.toString('utf8')) as CardArtIndex;
   const files = fs
     .readdirSync(directory)
-    .filter((name) => name.endsWith('.webp'))
+    .filter((name) => name.endsWith('.webp') && !textureFile.test(name))
     .sort();
   if (!files.length) throw new Error(`${directory} holds no Card Art`);
   if (!validFx(index.fx)) throw new Error('missing Enchantment FX materials');
@@ -204,7 +204,7 @@ export async function publishCardArt(
       if (!file || !pattern.test(file))
         throw new Error(`invalid texture in ${name}: ${slot}`);
       if (verifiedTextures.has(file)) continue;
-      await verifyAndPublish(file, pattern, main ? 'image/webp' : 'image/png');
+      await verifyAndPublish(file, pattern, 'image/webp');
       verifiedTextures.add(file);
     }
   }

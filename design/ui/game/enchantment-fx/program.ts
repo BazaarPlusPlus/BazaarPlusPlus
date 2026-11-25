@@ -139,6 +139,17 @@ const programs: Partial<
     }
   >
 > = {
+  Mystical: {
+    keyword: 'MYSTICAL',
+    module: () => import('./programs/mystical')
+  },
+  Mossy: { keyword: 'MOSSY', module: () => import('./programs/mossy') },
+  Golden: { keyword: 'GOLDEN', module: () => import('./programs/golden') },
+  Heavy: { keyword: 'HEAVY', module: () => import('./programs/heavy') },
+  Shielded: {
+    keyword: 'TEMPERED',
+    module: () => import('./programs/tempered')
+  },
   Shiny: {
     keyword: 'DAZZLING',
     allSizes: true,

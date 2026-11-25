@@ -93,37 +93,37 @@
     "_Turbo_Lightning": "white"
   },
   "textures": {
-    "tex-78e061614adad0900d3e.png": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-81b2444435e52c6e53e7.png": [256, 256, 0, 1, 0, 0, 1, 0.0, 2],
-    "tex-3dce099e4343166fa3dd.png": [128, 128, 0, 1, 1, 1, 1, 0.0, 2],
-    "tex-33cd7356fbe75b5c4a87.png": [1024, 1024, 0, 1, 0, 0, 0, 0.0, 2],
-    "tex-1b84ad7aa89599c063f8.png": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
-    "tex-eb505e67c7a0d1d63f53.png": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
-    "tex-eee27e2b6e7f55988fb9.png": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-d362c9fd72073d3b2b3e.png": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
-    "tex-92b827ae4fef7a684c62.png": [256, 256, 0, 1, 1, 1, 1, 0.0, 2],
-    "tex-db357a7fd74ab85d92bd.png": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-b683ecf047531d0d0a6f.png": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-274eda6aac6b60d80bc9.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-a9bd02595e2ebbfda948.webp": [256, 256, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-38b6e536f692d837e391.webp": [128, 128, 0, 1, 1, 1, 1, 0.0, 2],
+    "tex-a63637292199fd31e5c8.webp": [1024, 1024, 0, 1, 0, 0, 0, 0.0, 2],
+    "tex-388643c301d479904191.webp": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-595af37c3ea64ab11f95.webp": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
+    "tex-eaf74edf742e3ff12cd0.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-ec37e51ddc68d9902785.webp": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-115186735cd80f8ffcb6.webp": [256, 256, 0, 1, 1, 1, 1, 0.0, 2],
+    "tex-1ad8c5666ca8f655d3d5.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-ae603d7d131fe3019b7d.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
     "5d5cfe691cdcfafb1071.webp": [1024, 1024, 1, 1, 1, 1, 1, 0.0, 2],
-    "tex-286a66c0e383e56cb00e.png": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-85ef06cb25be7ba45c7a.png": [512, 512, 0, 1, 0, 0, 1, 0.0, 2],
-    "tex-f77bbaeeeb51da2792d7.png": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-f680709110e32deeb7d3.png": [2048, 256, 0, 1, 0, 0, 2, 0.0, 2],
-    "tex-35ebc57a6d6bd3c39c3a.png": [512, 512, 1, 10, 0, 0, 1, 0.0, 2],
-    "tex-93c391f9f9fdcb14faf9.png": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-d54a9494aaf6448e46c2.png": [256, 256, 0, 1, 1, 1, 0, 0.0, 2],
-    "tex-25a8fd2c9171ef9b413c.png": [128, 128, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-1ce2a51dce49fdaed529.png": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
-    "tex-bd186cca6c3ac2234c0a.png": [256, 256, 1, 1, 2, 2, 1, 0.0, 2],
-    "tex-2ca5665827a408341494.png": [256, 256, 0, 1, 0, 0, 1, 0.0, 2],
-    "tex-1ceaee72f87ae8029d90.png": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-6863b9a8e83ad87a35ed.png": [512, 512, 0, 1, 0, 0, 1, 0.0, 2],
-    "tex-f2b3f59e0a87dc14c4e9.png": [1024, 512, 0, 1, 1, 1, 1, 0.0, 1],
-    "tex-fb2d24cc3fe2b492c057.png": [128, 128, 0, 1, 1, 1, 1, 0.0, 2],
-    "tex-7b02f75b71b2a388e152.png": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
-    "tex-3cdc6971983ccf08cc74.png": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
+    "tex-8b891bd77454c86a06e0.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-94e1f6f62f21bd0393b6.webp": [512, 512, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-1c2c25c7e1a017382c31.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-0e30b03ba03a977b736a.webp": [2048, 256, 0, 1, 0, 0, 2, 0.0, 2],
+    "tex-74dc92225c08d9231ec6.webp": [512, 512, 1, 10, 0, 0, 1, 0.0, 2],
+    "tex-ab92fb49d2718d42203c.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-aeea69d24c93e627a6a2.webp": [256, 256, 0, 1, 1, 1, 0, 0.0, 2],
+    "tex-8ec5545ed44b76b82cbe.webp": [128, 128, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-4321bb92276e5aad674b.webp": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-3e0db79857efefe15ed9.webp": [256, 256, 1, 1, 2, 2, 1, 0.0, 2],
+    "tex-834ccc5f5bd00d8bd3cd.webp": [256, 256, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-a7033c5323ae0d38686f.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-0641f0543ceb5af22916.webp": [512, 512, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-3ad8b9b5bbea062f022e.webp": [1024, 512, 0, 1, 1, 1, 1, 0.0, 1],
+    "tex-5a709ad7d59e322277ad.webp": [128, 128, 0, 1, 1, 1, 1, 0.0, 2],
+    "tex-56c1286815c2d33b2c9c.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-f9565cfe9b900f12a898.webp": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
     "9cea12aedcc7d4aab689.webp": [1024, 1024, 1, 1, 1, 1, 1, 0.0, 2],
-    "tex-5379f651a8b8e4e9c04c.png": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
+    "tex-372e51cea2b4d7d09093.webp": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
     "1116db5b081a454623a5.webp": [1024, 1024, 1, 1, 1, 1, 1, 0.0, 2]
   },
   "items": [
@@ -131,7 +131,7 @@
       "id": "03842226-6605-466f-9ea3-a8a2dbea67e1",
       "title": "Atlas",
       "size": "medium",
-      "descriptor": "fx-c51e1ed1dfa6c995f635.json",
+      "descriptor": "fx-72aab9608222827b38d6.json",
       "keywords": [
         "_CRDSIZE_MEDIUM",
         "_DEBUG_OFF",
@@ -172,95 +172,119 @@
         ]
       },
       "slots": {
-        "_AngularAura": ["tex-78e061614adad0900d3e.png", 1.0, 1.0, 0.0, 0.0],
-        "_CardHighlight": ["tex-81b2444435e52c6e53e7.png", 1.0, 1.0, 0.0, 0.0],
-        "_ChaoticFlowmap": ["tex-3dce099e4343166fa3dd.png", 1.0, 1.0, 0.0, 0.0],
+        "_AngularAura": ["tex-274eda6aac6b60d80bc9.webp", 1.0, 1.0, 0.0, 0.0],
+        "_CardHighlight": ["tex-a9bd02595e2ebbfda948.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ChaoticFlowmap": [
+          "tex-38b6e536f692d837e391.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
         "_DazzlingGlintMap": [
-          "tex-33cd7356fbe75b5c4a87.png",
+          "tex-a63637292199fd31e5c8.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_DazzlingStar2": ["tex-1b84ad7aa89599c063f8.png", 1.0, 1.0, 0.0, 0.0],
+        "_DazzlingStar2": ["tex-388643c301d479904191.webp", 1.0, 1.0, 0.0, 0.0],
         "_EnchantmentMask": [
-          "tex-eb505e67c7a0d1d63f53.png",
+          "tex-595af37c3ea64ab11f95.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_FierySparks": ["tex-eee27e2b6e7f55988fb9.png", 1.0, 1.0, 0.0, 0.0],
-        "_Golden_FXFlare": ["tex-d362c9fd72073d3b2b3e.png", 1.0, 1.0, 0.0, 0.0],
-        "_HeartTexture": ["tex-92b827ae4fef7a684c62.png", 1.0, 1.0, 0.0, 0.0],
+        "_FierySparks": ["tex-eaf74edf742e3ff12cd0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Golden_FXFlare": [
+          "tex-ec37e51ddc68d9902785.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_HeartTexture": ["tex-115186735cd80f8ffcb6.webp", 1.0, 1.0, 0.0, 0.0],
         "_IcyOverlayNoise": [
-          "tex-db357a7fd74ab85d92bd.png",
+          "tex-1ad8c5666ca8f655d3d5.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_IcyShards": ["tex-b683ecf047531d0d0a6f.png", 1.0, 1.0, 0.0, 0.0],
+        "_IcyShards": ["tex-ae603d7d131fe3019b7d.webp", 1.0, 1.0, 0.0, 0.0],
         "_MainTex": ["5d5cfe691cdcfafb1071.webp", 1.0, 1.0, 0.0, 0.0],
-        "_Mossy_Noise": ["tex-286a66c0e383e56cb00e.png", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_Noise": ["tex-8b891bd77454c86a06e0.webp", 1.0, 1.0, 0.0, 0.0],
         "_Mossy_OuterFlare": [
-          "tex-85ef06cb25be7ba45c7a.png",
+          "tex-94e1f6f62f21bd0393b6.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
         "_MysticalBorealLines": [
-          "tex-f77bbaeeeb51da2792d7.png",
+          "tex-1c2c25c7e1a017382c31.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_MysticalRunes": ["tex-f680709110e32deeb7d3.png", 1.0, 1.0, 0.0, 0.0],
-        "_NewSmoke": ["tex-35ebc57a6d6bd3c39c3a.png", 1.0, 1.0, 0.0, 0.0],
+        "_MysticalRunes": ["tex-0e30b03ba03a977b736a.webp", 1.0, 1.0, 0.0, 0.0],
+        "_NewSmoke": ["tex-74dc92225c08d9231ec6.webp", 1.0, 1.0, 0.0, 0.0],
         "_ObsidianTexture": [
-          "tex-93c391f9f9fdcb14faf9.png",
+          "tex-ab92fb49d2718d42203c.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_OffsetMask": ["tex-d54a9494aaf6448e46c2.png", 1.0, 1.0, 0.0, 0.0],
-        "_PrismaticNoise": ["tex-25a8fd2c9171ef9b413c.png", 1.0, 1.0, 0.0, 0.0],
+        "_OffsetMask": ["tex-aeea69d24c93e627a6a2.webp", 1.0, 1.0, 0.0, 0.0],
+        "_PrismaticNoise": [
+          "tex-8ec5545ed44b76b82cbe.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
         "_PrismaticRainbow": [
-          "tex-1ce2a51dce49fdaed529.png",
+          "tex-4321bb92276e5aad674b.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
         "_Prismatic_Flares": [
-          "tex-bd186cca6c3ac2234c0a.png",
+          "tex-3e0db79857efefe15ed9.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_Shared_Smoke": ["tex-2ca5665827a408341494.png", 1.0, 1.0, 0.0, 0.0],
-        "_ShinyNoise": ["tex-1ceaee72f87ae8029d90.png", 1.0, 1.0, 0.0, 0.0],
+        "_Shared_Smoke": ["tex-834ccc5f5bd00d8bd3cd.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ShinyNoise": ["tex-a7033c5323ae0d38686f.webp", 1.0, 1.0, 0.0, 0.0],
         "_TemperedCrystal": [
-          "tex-6863b9a8e83ad87a35ed.png",
+          "tex-0641f0543ceb5af22916.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_TinyBlocks": ["tex-f2b3f59e0a87dc14c4e9.png", 1.0, 1.0, 0.0, 0.0],
-        "_TriangleTex": ["tex-fb2d24cc3fe2b492c057.png", 1.0, 1.0, 0.0, 0.0],
-        "_Turbo_Lightning": ["tex-7b02f75b71b2a388e152.png", 1.0, 1.0, 0.0, 0.0]
+        "_TinyBlocks": ["tex-3ad8b9b5bbea062f022e.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TriangleTex": ["tex-5a709ad7d59e322277ad.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Turbo_Lightning": [
+          "tex-56c1286815c2d33b2c9c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ]
       }
     },
     {
       "id": "616089ae-766e-4f55-b4a1-d38f6a882ef1",
       "title": "Submarine",
       "size": "large",
-      "descriptor": "fx-2f0f051c70564f69d911.json",
+      "descriptor": "fx-b7c01d86f4529dd2c5f8.json",
       "keywords": [
         "_CRDSIZE_LARGE",
         "_DEBUG_OFF",
@@ -305,95 +329,119 @@
         ]
       },
       "slots": {
-        "_AngularAura": ["tex-78e061614adad0900d3e.png", 1.0, 1.0, 0.0, 0.0],
-        "_CardHighlight": ["tex-81b2444435e52c6e53e7.png", 1.0, 1.0, 0.0, 0.0],
-        "_ChaoticFlowmap": ["tex-3dce099e4343166fa3dd.png", 1.0, 1.0, 0.0, 0.0],
+        "_AngularAura": ["tex-274eda6aac6b60d80bc9.webp", 1.0, 1.0, 0.0, 0.0],
+        "_CardHighlight": ["tex-a9bd02595e2ebbfda948.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ChaoticFlowmap": [
+          "tex-38b6e536f692d837e391.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
         "_DazzlingGlintMap": [
-          "tex-33cd7356fbe75b5c4a87.png",
+          "tex-a63637292199fd31e5c8.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_DazzlingStar2": ["tex-1b84ad7aa89599c063f8.png", 1.0, 1.0, 0.0, 0.0],
+        "_DazzlingStar2": ["tex-388643c301d479904191.webp", 1.0, 1.0, 0.0, 0.0],
         "_EnchantmentMask": [
-          "tex-3cdc6971983ccf08cc74.png",
+          "tex-f9565cfe9b900f12a898.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_FierySparks": ["tex-eee27e2b6e7f55988fb9.png", 1.0, 1.0, 0.0, 0.0],
-        "_Golden_FXFlare": ["tex-d362c9fd72073d3b2b3e.png", 1.0, 1.0, 0.0, 0.0],
-        "_HeartTexture": ["tex-92b827ae4fef7a684c62.png", 1.0, 1.0, 0.0, 0.0],
+        "_FierySparks": ["tex-eaf74edf742e3ff12cd0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Golden_FXFlare": [
+          "tex-ec37e51ddc68d9902785.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_HeartTexture": ["tex-115186735cd80f8ffcb6.webp", 1.0, 1.0, 0.0, 0.0],
         "_IcyOverlayNoise": [
-          "tex-db357a7fd74ab85d92bd.png",
+          "tex-1ad8c5666ca8f655d3d5.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_IcyShards": ["tex-b683ecf047531d0d0a6f.png", 1.0, 1.0, 0.0, 0.0],
+        "_IcyShards": ["tex-ae603d7d131fe3019b7d.webp", 1.0, 1.0, 0.0, 0.0],
         "_MainTex": ["9cea12aedcc7d4aab689.webp", 1.0, 1.0, 0.0, 0.0],
-        "_Mossy_Noise": ["tex-286a66c0e383e56cb00e.png", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_Noise": ["tex-8b891bd77454c86a06e0.webp", 1.0, 1.0, 0.0, 0.0],
         "_Mossy_OuterFlare": [
-          "tex-85ef06cb25be7ba45c7a.png",
+          "tex-94e1f6f62f21bd0393b6.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
         "_MysticalBorealLines": [
-          "tex-f77bbaeeeb51da2792d7.png",
+          "tex-1c2c25c7e1a017382c31.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_MysticalRunes": ["tex-f680709110e32deeb7d3.png", 1.0, 1.0, 0.0, 0.0],
-        "_NewSmoke": ["tex-35ebc57a6d6bd3c39c3a.png", 1.0, 1.0, 0.0, 0.0],
+        "_MysticalRunes": ["tex-0e30b03ba03a977b736a.webp", 1.0, 1.0, 0.0, 0.0],
+        "_NewSmoke": ["tex-74dc92225c08d9231ec6.webp", 1.0, 1.0, 0.0, 0.0],
         "_ObsidianTexture": [
-          "tex-93c391f9f9fdcb14faf9.png",
+          "tex-ab92fb49d2718d42203c.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_OffsetMask": ["tex-d54a9494aaf6448e46c2.png", 1.0, 1.0, 0.0, 0.0],
-        "_PrismaticNoise": ["tex-25a8fd2c9171ef9b413c.png", 1.0, 1.0, 0.0, 0.0],
+        "_OffsetMask": ["tex-aeea69d24c93e627a6a2.webp", 1.0, 1.0, 0.0, 0.0],
+        "_PrismaticNoise": [
+          "tex-8ec5545ed44b76b82cbe.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
         "_PrismaticRainbow": [
-          "tex-1ce2a51dce49fdaed529.png",
+          "tex-4321bb92276e5aad674b.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
         "_Prismatic_Flares": [
-          "tex-bd186cca6c3ac2234c0a.png",
+          "tex-3e0db79857efefe15ed9.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_Shared_Smoke": ["tex-2ca5665827a408341494.png", 1.0, 1.0, 0.0, 0.0],
-        "_ShinyNoise": ["tex-1ceaee72f87ae8029d90.png", 1.0, 1.0, 0.0, 0.0],
+        "_Shared_Smoke": ["tex-834ccc5f5bd00d8bd3cd.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ShinyNoise": ["tex-a7033c5323ae0d38686f.webp", 1.0, 1.0, 0.0, 0.0],
         "_TemperedCrystal": [
-          "tex-6863b9a8e83ad87a35ed.png",
+          "tex-0641f0543ceb5af22916.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_TinyBlocks": ["tex-f2b3f59e0a87dc14c4e9.png", 1.0, 1.0, 0.0, 0.0],
-        "_TriangleTex": ["tex-fb2d24cc3fe2b492c057.png", 1.0, 1.0, 0.0, 0.0],
-        "_Turbo_Lightning": ["tex-7b02f75b71b2a388e152.png", 1.0, 1.0, 0.0, 0.0]
+        "_TinyBlocks": ["tex-3ad8b9b5bbea062f022e.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TriangleTex": ["tex-5a709ad7d59e322277ad.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Turbo_Lightning": [
+          "tex-56c1286815c2d33b2c9c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ]
       }
     },
     {
       "id": "f7fede6f-1b60-47f4-b4bb-bca041d498dd",
       "title": "Admiral's Badge",
       "size": "small",
-      "descriptor": "fx-e9696fe8005a29c97c84.json",
+      "descriptor": "fx-a7725f349ee5c3714d38.json",
       "keywords": [
         "_CRDSIZE_SMALL",
         "_DEBUG_OFF",
@@ -435,88 +483,112 @@
         ]
       },
       "slots": {
-        "_AngularAura": ["tex-78e061614adad0900d3e.png", 1.0, 1.0, 0.0, 0.0],
-        "_CardHighlight": ["tex-81b2444435e52c6e53e7.png", 1.0, 1.0, 0.0, 0.0],
-        "_ChaoticFlowmap": ["tex-3dce099e4343166fa3dd.png", 1.0, 1.0, 0.0, 0.0],
+        "_AngularAura": ["tex-274eda6aac6b60d80bc9.webp", 1.0, 1.0, 0.0, 0.0],
+        "_CardHighlight": ["tex-a9bd02595e2ebbfda948.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ChaoticFlowmap": [
+          "tex-38b6e536f692d837e391.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
         "_DazzlingGlintMap": [
-          "tex-33cd7356fbe75b5c4a87.png",
+          "tex-a63637292199fd31e5c8.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_DazzlingStar2": ["tex-1b84ad7aa89599c063f8.png", 1.0, 1.0, 0.0, 0.0],
+        "_DazzlingStar2": ["tex-388643c301d479904191.webp", 1.0, 1.0, 0.0, 0.0],
         "_EnchantmentMask": [
-          "tex-5379f651a8b8e4e9c04c.png",
+          "tex-372e51cea2b4d7d09093.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_FierySparks": ["tex-eee27e2b6e7f55988fb9.png", 1.0, 1.0, 0.0, 0.0],
-        "_Golden_FXFlare": ["tex-d362c9fd72073d3b2b3e.png", 1.0, 1.0, 0.0, 0.0],
-        "_HeartTexture": ["tex-92b827ae4fef7a684c62.png", 1.0, 1.0, 0.0, 0.0],
+        "_FierySparks": ["tex-eaf74edf742e3ff12cd0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Golden_FXFlare": [
+          "tex-ec37e51ddc68d9902785.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_HeartTexture": ["tex-115186735cd80f8ffcb6.webp", 1.0, 1.0, 0.0, 0.0],
         "_IcyOverlayNoise": [
-          "tex-db357a7fd74ab85d92bd.png",
+          "tex-1ad8c5666ca8f655d3d5.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_IcyShards": ["tex-b683ecf047531d0d0a6f.png", 1.0, 1.0, 0.0, 0.0],
+        "_IcyShards": ["tex-ae603d7d131fe3019b7d.webp", 1.0, 1.0, 0.0, 0.0],
         "_MainTex": ["1116db5b081a454623a5.webp", 1.0, 1.0, 0.0, 0.0],
-        "_Mossy_Noise": ["tex-286a66c0e383e56cb00e.png", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_Noise": ["tex-8b891bd77454c86a06e0.webp", 1.0, 1.0, 0.0, 0.0],
         "_Mossy_OuterFlare": [
-          "tex-85ef06cb25be7ba45c7a.png",
+          "tex-94e1f6f62f21bd0393b6.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
         "_MysticalBorealLines": [
-          "tex-f77bbaeeeb51da2792d7.png",
+          "tex-1c2c25c7e1a017382c31.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_MysticalRunes": ["tex-f680709110e32deeb7d3.png", 1.0, 1.0, 0.0, 0.0],
-        "_NewSmoke": ["tex-35ebc57a6d6bd3c39c3a.png", 1.0, 1.0, 0.0, 0.0],
+        "_MysticalRunes": ["tex-0e30b03ba03a977b736a.webp", 1.0, 1.0, 0.0, 0.0],
+        "_NewSmoke": ["tex-74dc92225c08d9231ec6.webp", 1.0, 1.0, 0.0, 0.0],
         "_ObsidianTexture": [
-          "tex-93c391f9f9fdcb14faf9.png",
+          "tex-ab92fb49d2718d42203c.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_OffsetMask": ["tex-d54a9494aaf6448e46c2.png", 1.0, 1.0, 0.0, 0.0],
-        "_PrismaticNoise": ["tex-25a8fd2c9171ef9b413c.png", 1.0, 1.0, 0.0, 0.0],
+        "_OffsetMask": ["tex-aeea69d24c93e627a6a2.webp", 1.0, 1.0, 0.0, 0.0],
+        "_PrismaticNoise": [
+          "tex-8ec5545ed44b76b82cbe.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
         "_PrismaticRainbow": [
-          "tex-1ce2a51dce49fdaed529.png",
+          "tex-4321bb92276e5aad674b.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
         "_Prismatic_Flares": [
-          "tex-bd186cca6c3ac2234c0a.png",
+          "tex-3e0db79857efefe15ed9.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_Shared_Smoke": ["tex-2ca5665827a408341494.png", 1.0, 1.0, 0.0, 0.0],
-        "_ShinyNoise": ["tex-1ceaee72f87ae8029d90.png", 1.0, 1.0, 0.0, 0.0],
+        "_Shared_Smoke": ["tex-834ccc5f5bd00d8bd3cd.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ShinyNoise": ["tex-a7033c5323ae0d38686f.webp", 1.0, 1.0, 0.0, 0.0],
         "_TemperedCrystal": [
-          "tex-6863b9a8e83ad87a35ed.png",
+          "tex-0641f0543ceb5af22916.webp",
           1.0,
           1.0,
           0.0,
           0.0
         ],
-        "_TinyBlocks": ["tex-f2b3f59e0a87dc14c4e9.png", 1.0, 1.0, 0.0, 0.0],
-        "_TriangleTex": ["tex-fb2d24cc3fe2b492c057.png", 1.0, 1.0, 0.0, 0.0],
-        "_Turbo_Lightning": ["tex-7b02f75b71b2a388e152.png", 1.0, 1.0, 0.0, 0.0]
+        "_TinyBlocks": ["tex-3ad8b9b5bbea062f022e.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TriangleTex": ["tex-5a709ad7d59e322277ad.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Turbo_Lightning": [
+          "tex-56c1286815c2d33b2c9c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ]
       }
     }
   ],

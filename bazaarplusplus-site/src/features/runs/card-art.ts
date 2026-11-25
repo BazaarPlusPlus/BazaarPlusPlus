@@ -100,7 +100,7 @@ export function useCardArt(): ArtLookup {
               queryFn: async ({ signal }) => {
                 if (
                   !FILE.test(filename) &&
-                  !/^tex-[0-9a-f]{20}\.png$/.test(filename)
+                  !/^tex-[0-9a-f]{20}\.webp$/.test(filename)
                 )
                   throw new Error('Invalid texture filename');
                 const response = await fetch(CARD_ART_PATH + filename, {

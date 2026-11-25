@@ -33,7 +33,7 @@ function artDirectory(files: string[]) {
   const digest = (data: string) =>
     createHash('sha256').update(data).digest('hex').slice(0, 20);
   const art = digest('art') + '.webp';
-  const texture = 'tex-' + digest('mask') + '.png';
+  const texture = 'tex-' + digest('mask') + '.webp';
   const descriptor = JSON.stringify({
     version: 1,
     textures: { _MainTex: { file: art }, _EnchantmentMask: { file: texture } }
@@ -121,7 +121,7 @@ test('a missing packed texture prevents index replacement', async () => {
   fs.unlinkSync(
     path.join(
       dir,
-      fs.readdirSync(dir).find((name) => name.endsWith('.png'))!
+      fs.readdirSync(dir).find((name) => name.startsWith('tex-'))!
     )
   );
   const store = memoryStore();

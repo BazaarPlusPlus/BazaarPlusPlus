@@ -1,5 +1,5 @@
 {
-  "material": "fx-16bba6bcfae8798a73de.json",
+  "material": "fx-edf136207698e6e0fd7a.json",
   "cases": [
     {
       "effect": "Deadly",
@@ -129,7 +129,7 @@
     },
     {
       "effect": "Shiny",
-      "material": "fx-d71258846d66bb9eb040.json",
+      "material": "fx-a723493446530b8e6615.json",
       "time": 1,
       "x": 264,
       "y": 264,
@@ -137,7 +137,7 @@
     },
     {
       "effect": "Shiny",
-      "material": "fx-d71258846d66bb9eb040.json",
+      "material": "fx-a723493446530b8e6615.json",
       "time": 2,
       "x": 264,
       "y": 264,
@@ -145,7 +145,7 @@
     },
     {
       "effect": "Shiny",
-      "material": "fx-c9bd94fd30028851fd31.json",
+      "material": "fx-90726eefb9e751ff0e92.json",
       "time": 1,
       "x": 232,
       "y": 248,
@@ -153,11 +153,81 @@
     },
     {
       "effect": "Shiny",
-      "material": "fx-c9bd94fd30028851fd31.json",
+      "material": "fx-90726eefb9e751ff0e92.json",
       "time": 2,
       "x": 232,
       "y": 248,
       "image": "SubmarineShiny2.png"
+    },
+    {
+      "effect": "Golden",
+      "time": 1,
+      "x": 8,
+      "y": 88,
+      "image": "Golden1.png"
+    },
+    {
+      "effect": "Golden",
+      "time": 2,
+      "x": 168,
+      "y": 56,
+      "image": "Golden2.png"
+    },
+    {
+      "effect": "Heavy",
+      "time": 1,
+      "x": 56,
+      "y": 168,
+      "image": "Heavy1.png"
+    },
+    {
+      "effect": "Heavy",
+      "time": 2,
+      "x": 360,
+      "y": 184,
+      "image": "Heavy2.png"
+    },
+    {
+      "effect": "Mossy",
+      "time": 1,
+      "x": 8,
+      "y": 104,
+      "image": "Mossy1.png"
+    },
+    {
+      "effect": "Mossy",
+      "time": 2,
+      "x": 40,
+      "y": 72,
+      "image": "Mossy2.png"
+    },
+    {
+      "effect": "Mystical",
+      "time": 1,
+      "x": 72,
+      "y": 360,
+      "image": "Mystical1.png"
+    },
+    {
+      "effect": "Mystical",
+      "time": 2,
+      "x": 8,
+      "y": 280,
+      "image": "Mystical2.png"
+    },
+    {
+      "effect": "Shielded",
+      "time": 1,
+      "x": 8,
+      "y": 136,
+      "image": "Shielded1.png"
+    },
+    {
+      "effect": "Shielded",
+      "time": 2,
+      "x": 296,
+      "y": 200,
+      "image": "Shielded2.png"
     }
   ]
 }

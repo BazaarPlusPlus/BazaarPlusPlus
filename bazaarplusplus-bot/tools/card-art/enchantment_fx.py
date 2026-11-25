@@ -36,9 +36,36 @@ def immutable(output, prefix, suffix, data):
     return filename
 
 
-def png(image):
+POLAR_TEXTURES = {"_MysticalRunes", "_MysticalBorealLines"}
+
+
+def texture_limit(slot):
+    if slot in POLAR_TEXTURES or slot in (
+        "_EnchantmentMask", "_Mossy_Noise", "_Shared_Smoke", "_DazzlingGlintMap"
+    ):
+        return 256
+    return 128
+
+
+def texture_size(width, height, slot):
+    limit = texture_limit(slot)
+    if slot in POLAR_TEXTURES:
+        # Polar sampling magnifies the strip. Preserve its short axis and fine lines.
+        return [min(side, limit) for side in (width, height)]
+    scale = min(1, limit / max(width, height))
+    return [max(1, round(side * scale)) for side in (width, height)]
+
+
+def texture_webp(image, size):
+    from PIL import Image
+
+    image = image.convert("RGBA")
+    if image.size != tuple(size):
+        # Packed channels are independent signals; RGBA resizing premultiplies by alpha.
+        bands = [band.resize(size, Image.Resampling.BOX) for band in image.split()]
+        image = Image.merge("RGBA", bands)
     buffer = io.BytesIO()
-    image.convert("RGBA").save(buffer, "PNG")
+    image.save(buffer, "WEBP", lossless=True, exact=True, method=4)
     return buffer.getvalue()
 
 
@@ -69,19 +96,20 @@ class MaterialExporter:
         if not slot or not slot.m_Texture.path_id:
             return {"default": self.properties[name].m_DefTexture.m_DefaultName, "st": transform}
         ref = slot.m_Texture.deref()
-        key = (ref.assets_file.name, ref.path_id, art if name == "_MainTex" else None)
+        profile = art if name == "_MainTex" else (texture_limit(name), name in POLAR_TEXTURES)
+        key = (ref.assets_file.name, ref.path_id, profile)
         if key not in self.texture_files:
             tex = ref.read()
             width = tex.m_Width
             source_height = tex.m_Height
-            size = [width, source_height]
             # This profile samples RGB or RG from the illustration. Packed effect maps
             # need all four source channels, including RGB under transparent pixels.
             if name == "_MainTex":
                 filename = art
                 size = [max(1, round(width * height / source_height)), height]
             else:
-                filename = immutable(self.output, "tex-", ".png", png(tex.image))
+                size = texture_size(width, source_height, name)
+                filename = immutable(self.output, "tex-", ".webp", texture_webp(tex.image, size))
             settings = tex.m_TextureSettings
             self.texture_files[key] = {
                 "file": filename,

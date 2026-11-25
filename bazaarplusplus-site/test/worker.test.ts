@@ -95,8 +95,8 @@ describe('Card Art proxy', () => {
       'public, max-age=31536000, immutable'
     ],
     [
-      '/card-art/tex-0123456789abcdef0123.png',
-      'image/png',
+      '/card-art/tex-0123456789abcdef0123.webp',
+      'image/webp',
       'public, max-age=31536000, immutable'
     ],
     ...['en', 'zh'].map((locale) => [
@@ -157,7 +157,8 @@ describe('Card Art proxy', () => {
     ['/card-art/text-en-latest.json', 'GET'],
     ['/card-art/text-fr-0123456789abcdef0123.json', 'GET'],
     ['/card-art/fx-123.json', 'GET'],
-    ['/card-art/sub/tex-0123456789abcdef0123.png', 'GET'],
+    ['/card-art/tex-0123456789abcdef0123.png', 'GET'],
+    ['/card-art/sub/tex-0123456789abcdef0123.webp', 'GET'],
     ['/card-art/other.json', 'GET'],
     ['/card-art/index.json', 'POST']
   ])('%s %s is a 404 without an upstream request', async (path, method) => {

@@ -316,17 +316,17 @@ class MaterialTest(unittest.TestCase):
             reader = Obj(path_id=i, assets_file=Obj(name="fixture"), read=lambda tex=texture: tex)
             textures[file] = Obj(path_id=i, deref=lambda ref=reader: ref)
 
-        # Only the encoded PNG bytes are substituted with their recorded content address.
+        # Only the encoded WebP bytes are substituted with their recorded content address.
         # The production exporter resolves defaults, assembles bindings and hashes the JSON.
         write = fx.immutable
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(fx, "png", lambda file: file),
+            patch.object(fx, "texture_webp", lambda file, size: file),
             patch.object(
                 fx,
                 "immutable",
                 lambda out, prefix, suffix, data: (
-                    data if suffix == ".png" else write(out, prefix, suffix, data)
+                    data if suffix == ".webp" else write(out, prefix, suffix, data)
                 ),
             ),
         ):
@@ -378,6 +378,13 @@ class MaterialTest(unittest.TestCase):
         self.assertIn(golden["skill"], index["cards"])
         self.assertNotIn(golden["skill"], index["fx"])
 
+    def test_web_dimensions_preserve_packed_mask_aspect_and_polar_strip_height(self):
+        from enchantment_fx import texture_size
+
+        self.assertEqual(texture_size(1024, 512, "_EnchantmentMask"), [256, 128])
+        self.assertEqual(texture_size(2048, 256, "_MysticalRunes"), [256, 256])
+        self.assertEqual(texture_size(128, 64, "_Shared_Smoke"), [128, 64])
+
     def test_data_texture_preserves_hidden_rgb_and_alpha(self):
         import io
 
@@ -385,12 +392,14 @@ class MaterialTest(unittest.TestCase):
             from PIL import Image
         except ImportError:
             self.skipTest("needs the extractor's locked Pillow")
-        from enchantment_fx import png
+        from enchantment_fx import texture_webp
 
         pixels = bytes([9, 77, 239, 0, 43, 81, 255, 127])
         source = Image.frombytes("RGBA", (2, 1), pixels)
-        with Image.open(io.BytesIO(png(source))) as decoded:
+        with Image.open(io.BytesIO(texture_webp(source, source.size))) as decoded:
             self.assertEqual(decoded.tobytes(), pixels)
+        with Image.open(io.BytesIO(texture_webp(source, (1, 1)))) as decoded:
+            self.assertEqual(decoded.getpixel((0, 0)), (26, 79, 247, 64))
 
 
 if __name__ == "__main__":
