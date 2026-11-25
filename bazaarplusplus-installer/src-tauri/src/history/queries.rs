@@ -330,6 +330,9 @@ fn map_run_row_from_statement(row: &rusqlite::Row<'_>) -> rusqlite::Result<RunRo
 
 fn map_battle_fields(row: &rusqlite::Row<'_>) -> rusqlite::Result<BattleFields> {
     Ok(BattleFields {
+        recorded_at_ms: row.get(16)?,
+        encounter_id: row.get(17)?,
+        combat_kind: row.get(18)?,
         battle_id: row.get(0)?,
         day: row.get(1)?,
         hour: row.get(2)?,
@@ -364,7 +367,8 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<H
               b.battle_id, b.day, b.hour, b.result,
               b.opponent_hero, b.opponent_name, b.opponent_rank, b.opponent_rating,
               cv.video_id, cv.status, cv.file_size_bytes, cv.duration_ms,
-              s.player_hand_json, s.player_skills_json, s.opponent_hand_json, s.opponent_skills_json
+              s.player_hand_json, s.player_skills_json, s.opponent_hand_json, s.opponent_skills_json,
+              b.recorded_at_ms, b.encounter_id, b.combat_kind
             from battles b
             left join battle_snapshots s on s.battle_id = b.battle_id
             left join combat_replay_videos cv on cv.video_id = (

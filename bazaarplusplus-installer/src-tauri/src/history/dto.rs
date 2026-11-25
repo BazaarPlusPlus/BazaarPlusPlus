@@ -53,6 +53,37 @@ pub struct HistoryRunRow {
 pub struct HistoryRunDetail {
     pub run: HistoryRunDetailRow,
     pub battles: Vec<HistoryBattleRow>,
+    pub decision_path: DecisionPathSection,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum DecisionPathSection {
+    Absent,
+    Available {
+        frames: Vec<LocalStreamFrame>,
+        events: Vec<CombatEvent>,
+    },
+    Unreadable,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
+pub struct CombatEvent {
+    pub seq: i64,
+    pub timestamp_ms: i64,
+    pub kind: String,
+    pub body: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
+pub struct LocalStreamFrame {
+    pub seq: i64,
+    pub timestamp_ms: i64,
+    pub kind: String,
+    pub message_base64: Option<String>,
+    pub command: Option<String>,
+    pub command_args_json: Option<String>,
+    pub responds_to_seq: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
@@ -77,6 +108,9 @@ pub struct HistoryRunDetailRow {
 
 #[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
 pub struct HistoryBattleRow {
+    pub recorded_at_ms: i64,
+    pub encounter_id: Option<String>,
+    pub combat_kind: String,
     pub battle_id: String,
     pub day: Option<i64>,
     pub hour: Option<i64>,

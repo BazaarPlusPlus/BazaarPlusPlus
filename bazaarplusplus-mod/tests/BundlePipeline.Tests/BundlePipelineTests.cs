@@ -47,6 +47,39 @@ public sealed class BundlePipelineTests : IDisposable
     }
 
     [Fact]
+    public void Local_command_row_preserves_nested_64_bit_arguments()
+    {
+        var store = new RunLogStore(new TestPaths(_root));
+        CreateRun(store, "r", 0, false);
+        store.AppendEvent(
+            "r",
+            new RunLogEvent
+            {
+                RunId = "r",
+                Seq = 2,
+                Ts = PipelineInputs.Base,
+                Kind = RunMessageStreamKinds.Command,
+                Command = "Select",
+                CommandArgs = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["z"] = new Newtonsoft.Json.Linq.JObject { ["id"] = long.MaxValue },
+                    ["a"] = 1,
+                },
+            }
+        );
+        using var conn = new SqliteConnection($"Data Source={PathConstants.RunLogDatabase(_root)}");
+        conn.Open();
+        using var command = conn.CreateCommand();
+        command.CommandText = "select payload_json from run_events where run_id='r' and seq=2";
+        Xunit.Assert.Equal(
+            TestInputs
+                .Fixture("tests/BundlePipeline.Tests/fixtures/local-stream-command.json")
+                .TrimEnd(),
+            command.ExecuteScalar()
+        );
+    }
+
+    [Fact]
     public void The_shared_projects_load_their_desktop_output()
     {
         var mismatch = SharedTargetPin.Mismatch(SharedTargetPin.Desktop);

@@ -18,7 +18,7 @@ BazaarPlusPlus Installer is a Tauri 2 desktop app for installing and managing th
 - **Final Board** — the items on a run's board in its last local battle whose board the mod captured; socket effects are not items. The analyzer's Build Identity is computed from the same board in Bundles.
 - **Key Card** — one item a History List filter asks the Final Board to hold, chosen by template id and shown under the game's own title for it.
 - **History Thumbnail** — the cropped strip of a run's screenshot on a History List card, served under a process-local source bound to the installation the page was read from. Distinct from the OBS overlay's strip, which follows the captured stream installation.
-- **Run Detail** — the view of one history run, its battles, screenshot, and recorded videos.
+- **Run Detail** — the day-first view of one history run, its battles, recorded Decision path, screenshot, and videos.
 - **Stored path** — a path the mod stored relative to one directory of the Data Root, such as a screenshot or video path; History reads every one through one literal rule ([History and storage](docs/history-storage.md#stored-paths)).
 - **Data Root**, **Legacy Root** — defined in [the root glossary](../GLOSSARY.md). The Install page lists and deletes Legacy Roots one at a time ([Install and reset](docs/install-reset.md#legacy-roots)).
 - **Reset local data** — explicit deletion of the current Data Root, distinct from uninstall, which preserves every Data Root.

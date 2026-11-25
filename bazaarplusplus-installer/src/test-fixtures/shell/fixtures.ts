@@ -160,8 +160,12 @@ export const runDetail: HistoryRunDetail = {
     screenshot_id: null,
     player_name: 'Fixture Player'
   },
+  decision_path: { state: 'absent' },
   battles: [
     {
+      recorded_at_ms: 0,
+      encounter_id: null,
+      combat_kind: 'PVP',
       battle_id: 'battle-1',
       day: 1,
       hour: 2,
@@ -204,6 +208,9 @@ export const runDetail: HistoryRunDetail = {
       }
     },
     {
+      recorded_at_ms: 0,
+      encounter_id: null,
+      combat_kind: 'PVP',
       battle_id: 'battle-2',
       day: 2,
       hour: 4,

@@ -1,3 +1,4 @@
+import { decisionDays } from '@bpp/runs/decisions';
 import { useQuery } from '@tanstack/react-query';
 import {
   Badge,
@@ -192,16 +193,12 @@ function Decisions({
     queryKey: [...ACCOUNT_QUERY, 'run-decisions', detail.runId],
     enabled: !!detail.stream,
     queryFn: async () =>
-      (await import('./message-stream/decision-path')).buildDecisionPath(
-        detail
-      ),
+      (await import('@bpp/runs/decision-path')).buildDecisionPath(detail),
     staleTime: Infinity,
     retry: false
   });
   const visits = path.data?.visits ?? [];
-  const days = [
-    ...new Set([...steps.map((s) => s.battle.day), ...visits.map((v) => v.day)])
-  ].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
+  const days = decisionDays(steps, (s) => s.battle.day, visits);
   const battles = new Map(steps.map((s) => [s.battle.id, s.battle]));
   const status = detail.streamOmitted
     ? copy.path.omitted
@@ -213,8 +210,7 @@ function Decisions({
   return (
     <>
       <ol className="flex flex-col gap-3">
-        {days.map((day) => {
-          const rows = visits.filter((v) => v.day === day);
+        {days.map(({ day, visits: rows, battles: daySteps }) => {
           return (
             <DayCard
               key={day ?? 'unknown'}
@@ -223,13 +219,11 @@ function Decisions({
                   ? copy.path.unknownDay
                   : fillCopy(copy.day, { day })
               }
-              battles={steps
-                .filter((s) => s.battle.day === day)
-                .map((step) => (
-                  <div key={step.battle.id} className="flex flex-col gap-3">
-                    <StepBody step={step} art={art} locale={locale} />
-                  </div>
-                ))}
+              battles={daySteps.map((step) => (
+                <div key={step.battle.id} className="flex flex-col gap-3">
+                  <StepBody step={step} art={art} locale={locale} />
+                </div>
+              ))}
               decisionsLabel={copy.path.decisions}
               decisions={
                 (!!detail.stream || detail.streamOmitted) &&

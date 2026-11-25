@@ -229,7 +229,7 @@ function translateObject(
           ctx,
           `${path}[${key}]`,
           item,
-          `${moved.name} is at index ${[...keysOf.get(moved.name)!].sort((a, b) => a - b).join(' or ')} across builds`
+          `${moved.name} is at index ${[...(keysOf.get(moved.name) ?? [])].sort((a, b) => a - b).join(' or ')} across builds`
         )
       ]);
       return;

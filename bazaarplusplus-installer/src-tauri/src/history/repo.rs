@@ -115,6 +115,7 @@ pub fn get_history_run_detail(
     super::battle_cards::resolve_titles(&mut battles, names);
 
     Ok(Some(HistoryRunDetailDto {
+        decision_path: super::decision_path::read(&conn, run_id),
         run: map_run_to_detail_row(row, screenshot_id, player_name),
         battles,
     }))
@@ -309,6 +310,9 @@ mod tests {
         assert_eq!(
             detail.battles[0],
             HistoryBattleRow {
+                recorded_at_ms: 1779273000000,
+                encounter_id: None,
+                combat_kind: "PVP".into(),
                 battle_id: "battle-1".to_string(),
                 day: Some(8),
                 hour: Some(1),

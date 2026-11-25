@@ -7,10 +7,7 @@ import { join, resolve } from 'node:path';
 
 import { describe, expect, test } from 'vite-plus/test';
 
-import type {
-  GameMessageSchema,
-  SchemaSource
-} from '../src/features/runs/message-stream/schema';
+import type { GameMessageSchema, SchemaSource } from '../message-stream/schema';
 import {
   SCHEMA_PATH,
   snapshotSource,

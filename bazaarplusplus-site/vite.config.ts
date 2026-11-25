@@ -16,8 +16,7 @@ export default defineConfig({
       'e2e/__snapshots__/**',
       'test-results/**',
       'playwright-report/**',
-      // Written by tools/message-schema/generate.ts, whose check compares the exact bytes.
-      'src/features/runs/message-stream/game-message-schema.json',
+
       // Goldens and fixtures the tests compare byte for byte.
       'test/fixtures/run-stream.*'
     ]
@@ -79,16 +78,37 @@ export default defineConfig({
   plugins: lazyPlugins(() => [react(), tailwindcss()]),
   // Shared @bpp/ui files resolve React from the site because design/ui has no node_modules.
   resolve: {
-    alias: {
-      '@bpp/ui': fileURLToPath(
-        new URL('../design/ui/index.ts', import.meta.url)
-      )
-    },
+    alias: [
+      {
+        find: /^@bpp\/runs\/msgpack$/,
+        replacement: fileURLToPath(
+          new URL('../runs/msgpack.ts', import.meta.url)
+        )
+      },
+      {
+        find: /^@bpp\/runs\/decisions$/,
+        replacement: fileURLToPath(
+          new URL('../runs/decisions.ts', import.meta.url)
+        )
+      },
+      {
+        find: /^@bpp\/runs\/decision-path$/,
+        replacement: fileURLToPath(
+          new URL('../runs/message-stream/decision-path.ts', import.meta.url)
+        )
+      },
+      {
+        find: '@bpp/ui',
+        replacement: fileURLToPath(
+          new URL('../design/ui/index.ts', import.meta.url)
+        )
+      }
+    ],
     dedupe: ['react', 'react-dom']
   },
   server: {
     fs: {
-      allow: [searchForWorkspaceRoot(process.cwd()), '../design']
+      allow: [searchForWorkspaceRoot(process.cwd()), '../design', '../runs']
     }
   }
 });

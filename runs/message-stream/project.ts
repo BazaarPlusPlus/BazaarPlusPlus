@@ -490,7 +490,7 @@ function settle(pending: Pending, state: RunState) {
       const bought = fused ? fused.into : id;
       if (bought !== null && evidence.purchased.has(bought)) {
         done = true;
-        entry.amount = evidence.purchased.get(bought)!;
+        entry.amount = evidence.purchased.get(bought) ?? null;
         entry.result = fused?.tier ?? null;
         // The game's own price context, not a zero price, makes a pick free.
         if (pending.before.free) entry.verb = 'picked';
@@ -510,13 +510,13 @@ function settle(pending: Pending, state: RunState) {
     case 'SendSellCard':
       if (id !== null && evidence.sold.has(id)) {
         done = true;
-        entry.amount = evidence.sold.get(id)!;
+        entry.amount = evidence.sold.get(id) ?? null;
       }
       break;
     case 'SendMoveItem':
       if (id !== null && evidence.moved.has(id)) {
         done = true;
-        entry.target = evidence.moved.get(id)!;
+        entry.target = evidence.moved.get(id) ?? null;
       }
       break;
     case 'SendReRollSelection':

@@ -174,7 +174,9 @@
 </div>
 </div>
 </section>
-<div class="bpp-panel overflow-hidden">
+<ol class="flex flex-col gap-3">
+<li class="bpp-panel bpp-day-card">
+<h2 class="bpp-day-title">第 1 天</h2>
 <div class="overflow-x-auto">
 <table class="bpp-table">
 <colgroup>
@@ -188,7 +190,6 @@
 </colgroup>
 <thead>
 <tr>
-<th scope="col">天数</th>
 <th scope="col">结果</th>
 <th scope="col">对手英雄</th>
 <th scope="col">对手玩家</th>
@@ -199,7 +200,6 @@
 </thead>
 <tbody>
 <tr>
-<td class="is-num">1</td>
 <td class="font-semibold text-success">胜</td>
 <td class="font-medium" title="Pygmalien">皮格马利翁</td>
 <td class="is-muted" title="Opponent A">Opponent A</td>
@@ -220,7 +220,7 @@
 </td>
 </tr>
 <tr>
-<td colspan="7">
+<td colspan="6">
 <div class="flex flex-col gap-2 whitespace-normal">
 <div class="bpp-board">
 <span aria-hidden="true" class="bpp-board-slot" style="grid-column: 1;">
@@ -297,8 +297,35 @@
 </div>
 </td>
 </tr>
+</tbody>
+</table>
+</div>
+</li>
+<li class="bpp-panel bpp-day-card">
+<h2 class="bpp-day-title">第 2 天</h2>
+<div class="overflow-x-auto">
+<table class="bpp-table">
+<colgroup>
+<col style="width: 7%;">
+<col style="width: 9%;">
+<col style="width: 17%;">
+<col style="width: 21%;">
+<col style="width: 15%;">
+<col style="width: 10%;">
+<col style="width: 21%;">
+</colgroup>
+<thead>
 <tr>
-<td class="is-num">2</td>
+<th scope="col">结果</th>
+<th scope="col">对手英雄</th>
+<th scope="col">对手玩家</th>
+<th scope="col">段位</th>
+<th scope="col">段位分</th>
+<th scope="col" class="text-right">视频</th>
+</tr>
+</thead>
+<tbody>
+<tr>
 <td class="font-semibold text-danger">负</td>
 <td class="font-medium" title="Dooley">杜利</td>
 <td class="is-muted">-</td>
@@ -312,7 +339,7 @@
 </td>
 </tr>
 <tr>
-<td colspan="7">
+<td colspan="6">
 <div class="flex flex-col gap-2 whitespace-normal">
 <div class="bpp-board-state">未记录阵容</div>
 <span class="bpp-skill-state">未记录技能</span>
@@ -331,7 +358,8 @@
 </tbody>
 </table>
 </div>
-</div>
+</li>
+</ol>
 </div>
 </div>
 </div>

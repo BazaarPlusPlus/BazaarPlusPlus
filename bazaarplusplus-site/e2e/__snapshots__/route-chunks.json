@@ -1,7 +1,7 @@
 {
   "support": {
     "scripts": {
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [
       "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
@@ -13,7 +13,7 @@
   },
   "tutorial": {
     "scripts": {
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [],
     "icons": {
@@ -23,7 +23,7 @@
   },
   "download": {
     "scripts": {
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [
       "https://cdn.bazaarplusplus.com/game-status/android.json",
@@ -40,8 +40,8 @@
   "heroes": {
     "scripts": {
       "HeroBadge.js": 620,
-      "index.js": 107725,
-      "route-pages.js": 7868
+      "index.js": 108397,
+      "route-pages.js": 7873
     },
     "external": [
       "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
@@ -53,10 +53,10 @@
   },
   "login": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6155,
+      "account-ui.js": 1459,
+      "AccountPage.js": 6207,
       "HeroBadge.js": 620,
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -68,10 +68,10 @@
   },
   "register": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6155,
+      "account-ui.js": 1459,
+      "AccountPage.js": 6207,
       "HeroBadge.js": 620,
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -83,10 +83,10 @@
   },
   "reset": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6155,
+      "account-ui.js": 1459,
+      "AccountPage.js": 6207,
       "HeroBadge.js": 620,
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -98,10 +98,10 @@
   },
   "account": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6155,
+      "account-ui.js": 1459,
+      "AccountPage.js": 6207,
       "HeroBadge.js": 620,
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [],
     "icons": {
@@ -111,10 +111,10 @@
   },
   "records": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6155,
+      "account-ui.js": 1459,
+      "AccountPage.js": 6207,
       "HeroBadge.js": 620,
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [],
     "icons": {
@@ -124,10 +124,10 @@
   },
   "run": {
     "scripts": {
-      "account-ui.js": 1461,
+      "account-ui.js": 1459,
       "HeroBadge.js": 620,
-      "index.js": 107725,
-      "RunPage.js": 7973
+      "index.js": 108397,
+      "RunPage.js": 7415
     },
     "external": [],
     "icons": {
@@ -137,7 +137,7 @@
   },
   "not-found": {
     "scripts": {
-      "index.js": 107725
+      "index.js": 108397
     },
     "external": [],
     "icons": {
