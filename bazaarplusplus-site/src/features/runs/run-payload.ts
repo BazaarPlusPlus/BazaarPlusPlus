@@ -1,6 +1,7 @@
+import { combatFacts } from '@bpp/runs/decisions';
 import type { CardSize } from '@bpp/ui';
-import type { StreamFrame } from './message-stream/stream';
-import { decodeMessagePack } from './msgpack';
+import type { BattleMarker, StreamFrame } from '@bpp/runs/decisions';
+import { decodeMessagePack } from '@bpp/runs/msgpack';
 
 /** The Run segment layout is bazaarplusplus-mod/docs/contracts/run-payload-v6.md. */
 const PAYLOAD_FORMAT_VERSION = 6;
@@ -53,8 +54,7 @@ export type RunDetail = {
   streamOmitted: boolean;
   /** RunFactsV6 key 25: `desktop` or `android`, null when not recorded. */
   platform: string | null;
-  /** The Seq of each Battle's `pvp_combat_recorded` event, by Battle id. */
-  battleSeqs: Map<string, number>;
+  markers: BattleMarker[];
   /** Card names by TemplateId, from every card set of the Run's Battles. */
   cardNames: Map<string, string>;
 };
@@ -146,54 +146,6 @@ function battle(value: unknown): RunBattle {
   };
 }
 
-function pveEvent(value: unknown): RunBattle | null {
-  const event = fields(value, 4);
-  if (event[2] !== 'pve_combat_recorded' || typeof event[3] !== 'string') {
-    return null;
-  }
-  let body: Record<string, unknown>;
-  try {
-    body = JSON.parse(event[3]) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-  const number = (key: string) =>
-    typeof body[key] === 'number' && Number.isSafeInteger(body[key])
-      ? body[key]
-      : null;
-  return {
-    id: `event-${integer(event[0])}`,
-    source: 'pve-event',
-    recordedAtMs: integer(event[1]),
-    day: number('day'),
-    hour: number('hour'),
-    encounterId:
-      typeof body.encounter_id === 'string' ? body.encounter_id : null,
-    pvp: false,
-    outcome:
-      body.winner === 'Player'
-        ? 'win'
-        : body.loser === 'Player'
-          ? 'loss'
-          : null,
-    opponentHero: null,
-    hand: MISSING,
-    skills: MISSING
-  };
-}
-
-/** A captured monster-combat Battle already shows the fight its event describes. */
-function sameFight(event: RunBattle, captured: RunBattle): boolean {
-  return (
-    !captured.pvp &&
-    captured.day === event.day &&
-    captured.hour === event.hour &&
-    (captured.encounterId === null ||
-      event.encounterId === null ||
-      captured.encounterId === event.encounterId)
-  );
-}
-
 async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
   if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
     throw new Error('Run is not gzip');
@@ -244,21 +196,6 @@ function streamFrame(value: unknown): StreamFrame {
   };
 }
 
-function battleSeq(value: unknown): [string, number] | null {
-  const event = fields(value, 4);
-  if (event[2] !== 'pvp_combat_recorded' || typeof event[3] !== 'string') {
-    return null;
-  }
-  try {
-    const body = JSON.parse(event[3]) as { battle_id?: unknown };
-    return typeof body.battle_id === 'string'
-      ? [body.battle_id, integer(event[0])]
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 function cardNames(battles: unknown[]): Map<string, string> {
   const names = new Map<string, string>();
   for (const b of battles) {
@@ -302,10 +239,38 @@ export async function decodeRunPayload(
   const events = root[4] == null ? [] : fields(root[4], 0);
   const facts = fields(root[3], 1);
   const degradation = root[7] == null ? null : fields(root[7], 1);
-  const pve = events
-    .map(pveEvent)
-    .filter((event): event is RunBattle => event !== null)
-    .filter((event) => !battles.some((b) => sameFight(event, b)));
+  const { markers, eventBattles } = combatFacts(
+    battles,
+    events.flatMap((value) => {
+      const [seq, timestamp, kind, body] = fields(value, 4);
+      if (
+        (kind !== 'pvp_combat_recorded' && kind !== 'pve_combat_recorded') ||
+        typeof body !== 'string'
+      )
+        return [];
+      return [
+        {
+          seq: integer(seq),
+          timestamp_ms: integer(timestamp),
+          kind,
+          body
+        }
+      ];
+    })
+  );
+  const pve: RunBattle[] = eventBattles.map((b) => ({
+    id: b.id,
+    day: b.day,
+    hour: b.hour,
+    encounterId: b.encounterId,
+    pvp: b.pvp,
+    outcome: b.outcome,
+    recordedAtMs: b.recordedAtMs,
+    source: 'pve-event',
+    opponentHero: null,
+    hand: MISSING,
+    skills: MISSING
+  }));
   return {
     runId,
     hero: text(facts[0]),
@@ -322,9 +287,7 @@ export async function decodeRunPayload(
       degradation !== null &&
       fields(degradation[0], 0).includes('message_stream_omitted'),
     platform: facts.length > 25 ? optionalText(facts[25]) : null,
-    battleSeqs: new Map(
-      events.map(battleSeq).filter((e): e is [string, number] => e !== null)
-    ),
+    markers,
     cardNames: cardNames(rawBattles)
   };
 }

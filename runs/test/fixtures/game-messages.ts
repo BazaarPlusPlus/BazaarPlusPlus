@@ -1,7 +1,7 @@
-import schemaJson from '../../src/features/runs/message-stream/game-message-schema.json';
-import type { GameMessageSchema } from '../../src/features/runs/message-stream/schema';
-import type { StreamFrame } from '../../src/features/runs/message-stream/stream';
-import { encodeMessagePack } from './run-payload';
+import schemaJson from '../../message-stream/game-message-schema.json';
+import type { GameMessageSchema } from '../../message-stream/schema';
+import type { StreamFrame } from '../../message-stream/stream';
+import { encodeMessagePack } from './encode';
 
 export const SCHEMA = schemaJson as GameMessageSchema;
 

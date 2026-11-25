@@ -121,11 +121,32 @@ export default defineConfig({
   plugins: lazyPlugins(() => [tailwindcss(), react()]),
   // The shared Web library has no node_modules of its own, so it resolves React from this project.
   resolve: {
-    alias: {
-      '@bpp/ui': fileURLToPath(
-        new URL('../design/ui/index.ts', import.meta.url)
-      )
-    },
+    alias: [
+      {
+        find: /^@bpp\/runs\/msgpack$/,
+        replacement: fileURLToPath(
+          new URL('../runs/msgpack.ts', import.meta.url)
+        )
+      },
+      {
+        find: /^@bpp\/runs\/decisions$/,
+        replacement: fileURLToPath(
+          new URL('../runs/decisions.ts', import.meta.url)
+        )
+      },
+      {
+        find: /^@bpp\/runs\/decision-path$/,
+        replacement: fileURLToPath(
+          new URL('../runs/message-stream/decision-path.ts', import.meta.url)
+        )
+      },
+      {
+        find: '@bpp/ui',
+        replacement: fileURLToPath(
+          new URL('../design/ui/index.ts', import.meta.url)
+        )
+      }
+    ],
     dedupe: ['react', 'react-dom']
   },
   define: {
@@ -151,7 +172,7 @@ export default defineConfig({
       ignored: ['**/src-tauri/**']
     },
     fs: {
-      allow: [searchForWorkspaceRoot(process.cwd()), '../design']
+      allow: [searchForWorkspaceRoot(process.cwd()), '../design', '../runs']
     }
   }
 });

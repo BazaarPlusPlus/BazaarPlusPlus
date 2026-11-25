@@ -90,6 +90,9 @@ pub fn map_run_to_detail_row(
 }
 
 pub(super) struct BattleFields {
+    pub recorded_at_ms: i64,
+    pub encounter_id: Option<String>,
+    pub combat_kind: String,
     pub(super) battle_id: String,
     pub(super) day: Option<i64>,
     pub(super) hour: Option<i64>,
@@ -112,6 +115,9 @@ pub(super) fn map_battle_row(
     video: Option<BattleVideoFields>,
 ) -> HistoryBattleRow {
     HistoryBattleRow {
+        recorded_at_ms: battle.recorded_at_ms,
+        encounter_id: battle.encounter_id,
+        combat_kind: battle.combat_kind,
         battle_id: battle.battle_id,
         day: battle.day,
         hour: battle.hour,
@@ -161,6 +167,9 @@ mod tests {
 
     fn battle_fields(opponent_hero: Option<&str>) -> BattleFields {
         BattleFields {
+            recorded_at_ms: 0,
+            encounter_id: None,
+            combat_kind: "PVP".into(),
             battle_id: "battle-1".to_string(),
             day: Some(8),
             hour: Some(1),

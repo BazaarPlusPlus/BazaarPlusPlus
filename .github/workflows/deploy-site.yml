@@ -19,6 +19,7 @@ on:
       - bazaarplusplus-site/**
       - design/components/bundle.css
       - design/tailwind-theme.css
+      - runs/**
       - design/ui/**
       - design/ui-classes.ts
       - bazaarplusplus-installer/src/styles/tokens.css

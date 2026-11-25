@@ -3,11 +3,8 @@ import { describe, expect, test } from 'vite-plus/test';
 import {
   projectDecisions,
   type DecisionEntry
-} from '../src/features/runs/message-stream/project';
-import {
-  MessageStream,
-  type StreamFrame
-} from '../src/features/runs/message-stream/stream';
+} from '../message-stream/project';
+import { MessageStream, type StreamFrame } from '../message-stream/stream';
 import {
   SCHEMA,
   command,
@@ -17,8 +14,8 @@ import {
   netError,
   stateSync
 } from './fixtures/game-messages';
-import { projectVisits } from '../src/features/runs/message-stream/visits';
-import { encodeMessagePack } from './fixtures/run-payload';
+import { projectVisits } from '../message-stream/visits';
+import { encodeMessagePack } from './fixtures/encode';
 
 const SHOP = { state: 'Encounter', selection: ['itm_a', 'itm_b'] };
 

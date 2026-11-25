@@ -1,4 +1,4 @@
-// The Game Message Schema generator. See src/features/runs/message-stream/schema.ts.
+// The Game Message Schema generator. See runs/message-stream/schema.ts.
 //
 //   bun tools/message-schema/generate.ts [snapshot...]   merge snapshots under
 //       bazaarplusplus-mod/game-libs/ into the committed schema (default: the Snapshot Lock's
@@ -16,7 +16,7 @@ import path from 'node:path';
 import type {
   GameMessageSchema,
   SchemaSource
-} from '../../src/features/runs/message-stream/schema';
+} from '../../message-stream/schema';
 import {
   EMPTY_SCHEMA,
   mergeSource,
@@ -25,15 +25,15 @@ import {
   type Extraction
 } from './merge';
 
-const SITE = path.resolve(import.meta.dirname, '../..');
-const GAME_LIBS = path.resolve(SITE, '../bazaarplusplus-mod/game-libs');
+const RUNS = path.resolve(import.meta.dirname, '../..');
+const GAME_LIBS = path.resolve(RUNS, '../bazaarplusplus-mod/game-libs');
 const LOCK = path.resolve(
-  SITE,
+  RUNS,
   '../bazaarplusplus-mod/build/game-libs.lock.json'
 );
 export const SCHEMA_PATH = path.join(
-  SITE,
-  'src/features/runs/message-stream/game-message-schema.json'
+  RUNS,
+  'message-stream/game-message-schema.json'
 );
 
 type Manifest = {
@@ -150,7 +150,7 @@ function generate(names: string[]) {
   }
   fs.writeFileSync(SCHEMA_PATH, serializeSchema(schema));
   process.stderr.write(
-    `Wrote ${path.relative(SITE, SCHEMA_PATH)}: ${schema.sources.length} sources, ${Object.keys(schema.types).length} types\n`
+    `Wrote ${path.relative(RUNS, SCHEMA_PATH)}: ${schema.sources.length} sources, ${Object.keys(schema.types).length} types\n`
   );
 }
 

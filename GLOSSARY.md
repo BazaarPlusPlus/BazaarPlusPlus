@@ -126,6 +126,14 @@ The immutable unit of upload, storage, and delivery: exactly one Run and zero or
 **Run**:
 The immutable facts, battles, card state, and replay inputs of one completed game run, carried inside a Bundle. It excludes the Screenshot.
 
+**Game Message Schema** (游戏消息结构):
+The MessagePack layout of the game's network messages (member keys, union tags, enum values, by qualified type name), merged from every Game Assembly Snapshot read and recording which build each entry came from. A Run's Run Message Stream is read with it.
+_Avoid_: message map, proto
+
+**Decision path** (决策路径):
+The Run detail read per day and hour from the Run Message Stream: what was offered, what the player did with it and the Battle that followed.
+_Avoid_: replay, timeline (the Battle list)
+
 **Run Message Stream**:
 The messages the game received and the commands it sent during one run, as the game's own bytes and in order. Both mod Hosts record it and the Run carries it (`bazaarplusplus-mod/docs/adr/0028-record-the-run-message-stream.md`).
 _Avoid_: event stream, replay (a replay is one battle)

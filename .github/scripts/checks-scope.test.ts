@@ -44,6 +44,10 @@ const expectScopes = (files: string[], scopes: string[]) =>
   );
 
 test('root documents, each project and global inputs select their daily gates', () => {
+  expectScopes(
+    ['runs/decisions.ts'],
+    ['release', 'installer-frontend', 'site']
+  );
   expectScopes(['README.md', 'AGENTS.md', 'docs/development.md'], ['release']);
   expectScopes(['bazaarplusplus-server/bun.lock'], ['server']);
   expectScopes(['bazaarplusplus-bot/src/consumer.ts'], ['bot']);
@@ -121,6 +125,10 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/bundle-seal-eligibility.json',
+      ['mod', 'installer']
+    ],
+    [
+      'bazaarplusplus-mod/tests/BundlePipeline.Tests/fixtures/local-stream-command.json',
       ['mod', 'installer']
     ],
     [

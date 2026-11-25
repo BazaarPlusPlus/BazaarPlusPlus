@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { Blob as NodeBlob } from 'node:buffer';
 import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import {
@@ -54,8 +55,12 @@ function detail(runId = 'run-1'): HistoryRunDetail {
       screenshot_id: 's1',
       player_name: null
     },
+    decision_path: { state: 'absent' },
     battles: [
       {
+        recorded_at_ms: 0,
+        encounter_id: null,
+        combat_kind: 'PVP',
         battle_id: 'battle-1',
         day: 1,
         hour: 2,
@@ -272,4 +277,87 @@ describe('battle boards', () => {
       expect(disclosure.textContent).toContain('未记录技能');
     }
   );
+});
+describe('local decision path', () => {
+  it('keeps captured boards and video actions when stream rows are unreadable', async () => {
+    const data = detail();
+    data.decision_path = { state: 'unreadable' };
+    vi.mocked(commands.getHistoryRunDetail).mockResolvedValue(data);
+    await render();
+    expect(container.textContent).toContain(
+      'Couldn’t read this run’s message stream.'
+    );
+    expect(
+      container.querySelector('button[title="Delete video"]')
+    ).not.toBeNull();
+    expect(container.querySelector('.bpp-board-state')).not.toBeNull();
+  });
+
+  it('places an event-only fight on its recorded day and keeps the original sequence in the inspector', async () => {
+    const data = detail();
+    data.decision_path = {
+      state: 'available',
+      frames: [
+        {
+          seq: 11,
+          timestamp_ms: 10,
+          kind: 'stream_message',
+          message_base64: 'AQ==',
+          command: null,
+          command_args_json: null,
+          responds_to_seq: null
+        }
+      ],
+      events: [
+        {
+          seq: 12,
+          timestamp_ms: 20,
+          kind: 'pve_combat_recorded',
+          body: '{"day":4,"hour":2,"winner":"Player","encounter_id":"monster-1"}'
+        }
+      ]
+    };
+    vi.mocked(commands.getHistoryRunDetail).mockResolvedValue(data);
+    await render();
+    expect(container.textContent).toContain('Day 4');
+    await act(async () => vi.dynamicImportSettled());
+    expect(container.textContent).toContain('Raw frames');
+    const frameDetails = Array.from(container.querySelectorAll('details')).find(
+      (d) => d.querySelector('summary')?.textContent === 'Raw frames'
+    )!;
+    await act(async () => {
+      frameDetails.open = true;
+      frameDetails.dispatchEvent(new Event('toggle'));
+    });
+    expect(frameDetails.querySelector('option')?.value).toBe('11');
+    expect(
+      JSON.parse(frameDetails.querySelector('pre')!.textContent)
+    ).toMatchObject({ Seq: 11, Message: { $raw: 1 } });
+    const blobs: NodeBlob[] = [];
+    const downloads: string[] = [];
+    vi.stubGlobal('Blob', NodeBlob);
+    vi.stubGlobal('URL', {
+      createObjectURL(blob: NodeBlob) {
+        blobs.push(blob);
+        return 'blob:local';
+      },
+      revokeObjectURL: vi.fn()
+    });
+    const anchor = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloads.push(this.download);
+      });
+    try {
+      for (const button of frameDetails.querySelectorAll('button'))
+        await act(async () => button.click());
+      expect(downloads).toEqual(['frame-11.bin', 'run-message-stream.json']);
+      expect(new Uint8Array(await blobs[0].arrayBuffer())).toEqual(
+        new Uint8Array([1])
+      );
+      expect(JSON.parse(await blobs[1].text())[0].Seq).toBe(11);
+    } finally {
+      anchor.mockRestore();
+    }
+  });
 });

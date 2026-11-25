@@ -23,7 +23,11 @@ const detail: HistoryRunDetail = {
     screenshot_id: 'shot-1',
     player_name: 'Player'
   },
+  decision_path: { state: 'absent' },
   battles: ['battle-1', 'battle-2'].map((battle_id) => ({
+    recorded_at_ms: 0,
+    encounter_id: null,
+    combat_kind: 'PVP',
     battle_id,
     day: 1,
     hour: 2,

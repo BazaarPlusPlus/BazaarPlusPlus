@@ -16,19 +16,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
-import schemaJson from '../../src/features/runs/message-stream/game-message-schema.json';
-import type { GameMessageSchema } from '../../src/features/runs/message-stream/schema';
+import schemaJson from '../../../runs/message-stream/game-message-schema.json';
+import type { GameMessageSchema } from '../../../runs/message-stream/schema';
 import {
   SchemaIndex,
   TMap,
   TObject,
   translateMessage,
   type Translated
-} from '../../src/features/runs/message-stream/translate';
-import { unwrapMessage } from '../../src/features/runs/message-stream/wire';
-import { decodeMessagePackValue, MpMap } from '../../src/features/runs/msgpack';
+} from '../../../runs/message-stream/translate';
+import { unwrapMessage } from '../../../runs/message-stream/wire';
+import { decodeMessagePackValue, MpMap } from '../../../runs/msgpack';
 import { gzipRun } from '../../test/fixtures/run-payload';
-import { rewriteStrings, wrapLz4BlockArray } from './rewrite';
+import {
+  rewriteStrings,
+  wrapLz4BlockArray
+} from '../../../runs/test/fixtures/rewrite';
 
 export const FIXTURE_RUN_ID = '00000000-0000-4000-8000-000000000001';
 export const FIXTURE_ACCOUNT_ID = '00000000-0000-4000-8000-000000000002';

@@ -2,19 +2,16 @@
 
 import { describe, expect, test } from 'vite-plus/test';
 
-import { decompressLz4Block } from '../src/features/runs/message-stream/lz4';
-import { unwrapMessage } from '../src/features/runs/message-stream/wire';
+import { decompressLz4Block } from '../message-stream/lz4';
+import { unwrapMessage } from '../message-stream/wire';
 import {
   decodeMessagePack,
   decodeMessagePackValue,
   MpExt,
   MpMap
-} from '../src/features/runs/msgpack';
-import {
-  compressLz4Block,
-  wrapLz4BlockArray
-} from '../tools/run-fixture/rewrite';
-import { encodeMessagePack } from './fixtures/run-payload';
+} from '../msgpack';
+import { compressLz4Block, wrapLz4BlockArray } from './fixtures/rewrite';
+import { encodeMessagePack } from './fixtures/encode';
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 const text = (value: string) => new TextEncoder().encode(value);

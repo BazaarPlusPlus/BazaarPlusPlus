@@ -185,6 +185,10 @@ export const SHARED_INPUTS: [string, string[]][] = [
     'bazaarplusplus-mod/tests/BundleQueueSqliteStore.Tests/fixtures/',
     ['installer']
   ],
+  [
+    'bazaarplusplus-mod/tests/BundlePipeline.Tests/fixtures/local-stream-command.json',
+    ['installer']
+  ],
   // Battle snapshot JSON (AGENTS.md): installer History reads the mod's golden.
   [
     'bazaarplusplus-mod/tests/BundlePipeline.Tests/fixtures/battle-snapshots.golden.txt',
@@ -385,6 +389,9 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
           for (const consumer of consumers)
             select(consumer, `Shared input: ${file}`);
       }
+    } else if (file.startsWith('runs/')) {
+      for (const scope of ['installer-frontend', 'site', 'release'])
+        select(scope, file);
     } else if (file.startsWith('design/')) {
       // The release lane includes design::check, which verifies outputs consumed by the apps.
       for (const consumer of [

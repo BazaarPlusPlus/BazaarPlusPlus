@@ -19,6 +19,7 @@ export default defineConfig({
             'scripts/**/*.test.ts',
             '.github/scripts/*.test.ts',
             'design/*.test.ts',
+            'runs/**/*.test.ts',
             '.agents/skills/*/scripts/*.test.ts'
           ]
         }

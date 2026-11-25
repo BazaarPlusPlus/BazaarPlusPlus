@@ -1806,3 +1806,17 @@ button.bpp-visit-identity {
   padding: var(--space-12);
   color: var(--text-2);
 }
+
+.bpp-decision-gain {
+  color: var(--success);
+}
+.bpp-decision-amount {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.bpp-frame-json {
+  max-block-size: 20rem;
+  max-inline-size: 100%;
+  overflow: auto;
+}

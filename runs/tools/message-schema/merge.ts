@@ -2,8 +2,8 @@ import type {
   GameMessageSchema,
   SchemaSource,
   SchemaType
-} from '../../src/features/runs/message-stream/schema';
-import { SCHEMA_ROOT } from '../../src/features/runs/message-stream/schema';
+} from '../../message-stream/schema';
+import { SCHEMA_ROOT } from '../../message-stream/schema';
 
 /** What extract.cs prints for one assembly. */
 export type Extraction = {
@@ -108,8 +108,9 @@ function same(a: Set<string>, b: Set<string>): boolean {
 
 function fromModel(model: Model): GameMessageSchema {
   const types: Record<string, SchemaType> = {};
-  for (const name of [...model.types.keys()].sort(byText)) {
-    const type = model.types.get(name)!;
+  for (const [name, type] of [...model.types].sort(([a], [b]) =>
+    byText(a, b)
+  )) {
     const sources = sorted(type.sources);
     /** Sets `sources` on an entry whose sources differ from its type's. */
     const own = <T extends object>(entry: T, set: Set<string>): T => {

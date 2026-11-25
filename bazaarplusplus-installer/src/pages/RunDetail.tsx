@@ -1,3 +1,4 @@
+import { LocalDays } from '../features/history/LocalDays';
 import {
   ArrowLeft,
   FileQuestion,
@@ -226,89 +227,106 @@ export default function RunDetail() {
             </div>
           </section>
 
-          <div className="bpp-panel overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="bpp-table">
-                <colgroup>
-                  <col style={{ width: '7%' }} />
-                  <col style={{ width: '9%' }} />
-                  <col style={{ width: '17%' }} />
-                  <col style={{ width: '21%' }} />
-                  <col style={{ width: '15%' }} />
-                  <col style={{ width: '10%' }} />
-                  <col style={{ width: '21%' }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th scope="col">{t('battleColDay')}</th>
-                    <th scope="col">{t('battleColResult')}</th>
-                    <th scope="col">{t('battleColOpponentHero')}</th>
-                    <th scope="col">{t('battleColOpponentPlayer')}</th>
-                    <th scope="col">{t('battleColRank')}</th>
-                    <th scope="col">{t('battleColRating')}</th>
-                    <th scope="col" className="text-right">
-                      {t('battleColVideo')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detail.battles.length === 0 ? (
+          <LocalDays
+            detail={detail}
+            art={art}
+            empty={
+              <StatusPanel
+                headingLevel={3}
+                kind="empty"
+                framed={false}
+                icon={<Video />}
+                title={t('noLocalBattles')}
+                body={t('noLocalBattlesDescription')}
+                actions={
+                  <Button
+                    size="sm"
+                    onClick={() => void page.refresh()}
+                    disabled={page.busy}
+                    busy={page.refreshing}
+                    icon={<RefreshCw />}
+                  >
+                    {t('refresh')}
+                  </Button>
+                }
+              />
+            }
+            renderBattles={(dayBattles) => (
+              <div className="overflow-x-auto">
+                <table className="bpp-table">
+                  <colgroup>
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '9%' }} />
+                    <col style={{ width: '17%' }} />
+                    <col style={{ width: '21%' }} />
+                    <col style={{ width: '15%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '21%' }} />
+                  </colgroup>
+                  <thead>
                     <tr>
-                      <td colSpan={7}>
-                        <StatusPanel
-                          headingLevel={3}
-                          kind="empty"
-                          framed={false}
-                          icon={<Video />}
-                          title={t('noLocalBattles')}
-                          body={t('noLocalBattlesDescription')}
-                          actions={
-                            <Button
-                              size="sm"
-                              onClick={() => void page.refresh()}
-                              disabled={page.busy}
-                              busy={page.refreshing}
-                              icon={<RefreshCw />}
-                            >
-                              {t('refresh')}
-                            </Button>
-                          }
-                        />
-                      </td>
+                      <th scope="col">{t('battleColResult')}</th>
+                      <th scope="col">{t('battleColOpponentHero')}</th>
+                      <th scope="col">{t('battleColOpponentPlayer')}</th>
+                      <th scope="col">{t('battleColRank')}</th>
+                      <th scope="col">{t('battleColRating')}</th>
+                      <th scope="col" className="text-right">
+                        {t('battleColVideo')}
+                      </th>
                     </tr>
-                  ) : (
-                    detail.battles.map((battle) => (
-                      <BattleRow
-                        key={battle.battle_id}
-                        art={art}
-                        battle={battle}
-                        page={page}
-                        onRequestDelete={(target) => {
-                          if (!target.video) return;
-                          deleteOperation.controller.request({
-                            kind: 'delete-video',
-                            battleId: target.battle_id,
-                            videoId: target.video.video_id,
-                            runStartedAt: detail.run.started_at_utc,
-                            day: target.day,
-                            opponent:
-                              [
-                                target.opponent_name,
-                                target.opponent_hero &&
-                                  formatHero(target.opponent_hero, t)
-                              ]
-                                .filter(Boolean)
-                                .join(' · ') || '-',
-                            durationMs: target.video.duration_ms
-                          });
-                        }}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  </thead>
+                  <tbody>
+                    {dayBattles.map((battle) =>
+                      'battle_id' in battle ? (
+                        <BattleRow
+                          key={battle.battle_id}
+                          art={art}
+                          battle={battle}
+                          page={page}
+                          onRequestDelete={(target) => {
+                            if (!target.video) return;
+                            deleteOperation.controller.request({
+                              kind: 'delete-video',
+                              battleId: target.battle_id,
+                              videoId: target.video.video_id,
+                              runStartedAt: detail.run.started_at_utc,
+                              day: target.day,
+                              opponent:
+                                [
+                                  target.opponent_name,
+                                  target.opponent_hero &&
+                                    formatHero(target.opponent_hero, t)
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ') || '-',
+                              durationMs: target.video.duration_ms
+                            });
+                          }}
+                        />
+                      ) : (
+                        <tr key={battle.id}>
+                          <td>
+                            {battle.outcome &&
+                              t(
+                                battle.outcome === 'win'
+                                  ? 'battleResultWin'
+                                  : 'battleResultLoss'
+                              )}
+                          </td>
+                          <td colSpan={5}>
+                            {t('path_monster')}{' '}
+                            {battle.encounterId?.slice(0, 8)}{' '}
+                            {battle.hour !== null &&
+                              t('path_hour', { n: battle.hour })}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          />
         </>
       ) : null}
 
@@ -405,9 +423,6 @@ function BattleRow({
   return (
     <>
       <tr>
-        <td className="is-num">
-          {battle.day === null ? '-' : String(battle.day)}
-        </td>
         <td className={`font-semibold ${toneColorClass(battleResult.tone)}`}>
           {t(battleResult.key)}
         </td>
@@ -472,13 +487,13 @@ function BattleRow({
       </tr>
 
       <tr>
-        <td colSpan={7}>
+        <td colSpan={6}>
           <BattleBoards battle={battle} art={art} />
         </td>
       </tr>
       {failure && (
         <tr>
-          <td colSpan={7}>
+          <td colSpan={6}>
             <RunDetailProblemBanner
               problem={failure.problem}
               onRetry={retryFailure}

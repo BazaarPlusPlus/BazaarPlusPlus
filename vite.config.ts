@@ -6,7 +6,8 @@ const ignorePatterns = [
   // A symlink to .agents/skills, which is checked under its real path.
   '.claude/**',
   // oxfmt aligns tables by character count, which breaks Chinese tables.
-  '**/*.md'
+  '**/*.md',
+  'runs/message-stream/game-message-schema.json'
 ];
 
 export default defineConfig({

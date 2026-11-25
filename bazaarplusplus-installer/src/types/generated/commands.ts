@@ -47,6 +47,7 @@ export const commands = {
 	getHistoryRunDetail: (runId: string) => __TAURI_INVOKE<{
 	run: HistoryRunDetailRow,
 	battles: HistoryBattleRow[],
+	decision_path: DecisionPathSection,
 } | null>("get_history_run_detail", { runId }),
 	getCardArtIndex: () => __TAURI_INVOKE<{ [key in string]: string }>("get_card_art_index"),
 	revealRunScreenshot: (runId: string) => __TAURI_INVOKE<null>("reveal_run_screenshot", { runId }),
@@ -94,6 +95,15 @@ export type AppLinks = {
 	supporter_list: string,
 };
 
+export type CombatEvent = {
+	seq: number,
+	timestamp_ms: number,
+	kind: string,
+	body: string,
+};
+
+export type DecisionPathSection = { state: "absent" } | { state: "available"; frames: LocalStreamFrame[]; events: CombatEvent[] } | { state: "unreadable" };
+
 export type DeleteLegacyRootResult = {
 	/**  False when the root was already gone: nothing was deleted. */
 	removed: boolean,
@@ -116,6 +126,9 @@ export type HistoryBattleCard = {
 };
 
 export type HistoryBattleRow = {
+	recorded_at_ms: number,
+	encounter_id: string | null,
+	combat_kind: string,
 	battle_id: string,
 	day: number | null,
 	hour: number | null,
@@ -162,6 +175,7 @@ export type HistoryResultFilter = "all" | "win" | "loss";
 export type HistoryRunDetail = {
 	run: HistoryRunDetailRow,
 	battles: HistoryBattleRow[],
+	decision_path: DecisionPathSection,
 };
 
 export type HistoryRunDetailRow = {
@@ -333,6 +347,16 @@ export type LegacyDataState = {
  *  installer; it never contains the current Data Root.
  */
 export type LegacyRoot = "BazaarPlusPlus" | "BazaarPlusPlusV4" | "BazaarPlusPlusV5";
+
+export type LocalStreamFrame = {
+	seq: number,
+	timestamp_ms: number,
+	kind: string,
+	message_base64: string | null,
+	command: string | null,
+	command_args_json: string | null,
+	responds_to_seq: number | null,
+};
 
 export type ResetBepinexResult = {
 	state: InstallState,

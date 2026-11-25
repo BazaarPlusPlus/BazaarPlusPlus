@@ -96,7 +96,8 @@ export class MessageStream {
       }
       this.decoded.set(frame.seq, found);
       if (this.decoded.size > CACHED_MESSAGES) {
-        this.decoded.delete(this.decoded.keys().next().value!);
+        const oldest = this.decoded.keys().next();
+        if (!oldest.done) this.decoded.delete(oldest.value);
       }
     }
     return found;
@@ -119,13 +120,13 @@ export class MessageStream {
       }
     }
     const message =
-      decoded === null
+      decoded === null || frame.message === null
         ? null
         : decoded.ok
           ? this.platform === 'android'
             ? { $layout: 'inferred', ...(readable(decoded.value) as object) }
             : readable(decoded.value)
-          : { $bytes: base64(frame.message!), $error: decoded.error };
+          : { $bytes: base64(frame.message), $error: decoded.error };
     const out: Parameters<typeof stringifyJson>[0] = {
       Seq: frame.seq,
       TimestampMs: frame.timestampMs,

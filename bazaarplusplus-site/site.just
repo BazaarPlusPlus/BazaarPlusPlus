@@ -3,7 +3,7 @@ set positional-arguments
 
 # Check types, lint, formatting, that the Game Message Schema is in generated form, and the production build.
 check:
-    bun tools/message-schema/generate.ts check
+    bun ../runs/tools/message-schema/generate.ts check
     bun run typecheck
     bun run lint
     bun run format:check
@@ -26,7 +26,7 @@ e2e mode="golden" *args:
 # Merge Game Assembly Snapshots under bazaarplusplus-mod/game-libs/ into the Game Message Schema
 # (default: the lock's macOS and Android entries on disk). Needs the .NET SDK.
 message-schema *snapshots:
-    bun tools/message-schema/generate.ts "$@"
+    bun ../runs/tools/message-schema/generate.ts "$@"
 
 # Start the development server.
 dev:
