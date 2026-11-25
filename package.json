@@ -18,10 +18,10 @@
     "playwright": "1.65.1",
     "smol-toml": "^1.9.1",
     "typescript": "^7.0.2",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.6.0",
-    "vite-plus": "1.6.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
+    "vite-plus": "1.7.0"
   },
   "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.6.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000"
   }
 }
