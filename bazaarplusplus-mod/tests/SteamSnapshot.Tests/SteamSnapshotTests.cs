@@ -64,7 +64,9 @@ public sealed class SteamSnapshotTests
             $"{Data}/StreamingAssets/aa/StandaloneWindows64/card_vanessa_assets_all.bundle",
             $"{Data}/StreamingAssets/aa/StandaloneWindows64/card_vfx_assets_all.bundle",
             $"{Data}/StreamingAssets/aa/StandaloneWindows64/cardback_spring_assets_all.bundle",
+            $"{Data}/StreamingAssets/aa/StandaloneWindows64/shaders_cards_assets_all.bundle",
             $"{Data}/StreamingAssets/aa/StandaloneWindows64/skills_assets_all.bundle",
+            $"{Data}/StreamingAssets/aa/StandaloneWindows64/textures_fx_assets_all.bundle",
         ]);
 
         Assert.Equal(
@@ -72,9 +74,23 @@ public sealed class SteamSnapshotTests
                 "Data/globalgamemanagers",
                 "Data/StreamingAssets/aa/catalog.bin",
                 "Data/StreamingAssets/aa/StandaloneWindows64/card_vanessa_assets_all.bundle",
+                "Data/StreamingAssets/aa/StandaloneWindows64/shaders_cards_assets_all.bundle",
                 "Data/StreamingAssets/aa/StandaloneWindows64/skills_assets_all.bundle",
+                "Data/StreamingAssets/aa/StandaloneWindows64/textures_fx_assets_all.bundle",
             ],
             files.Select(file => file.Target)
+        );
+    }
+
+    [Fact]
+    public void SelectCardArt_refuses_a_depot_with_only_effects()
+    {
+        Assert.Throws<InvalidDataException>(() =>
+            SnapshotFiles.SelectCardArt([
+                "TheBazaar_Data/globalgamemanagers",
+                "TheBazaar_Data/StreamingAssets/aa/catalog.bin",
+                "TheBazaar_Data/StreamingAssets/aa/StandaloneWindows64/textures_fx_assets_all.bundle",
+            ])
         );
     }
 

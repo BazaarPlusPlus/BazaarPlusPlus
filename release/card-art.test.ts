@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,6 +30,21 @@ const text = {
 
 function artDirectory(files: string[]) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-card-art-'));
+  const digest = (data: string) =>
+    createHash('sha256').update(data).digest('hex').slice(0, 20);
+  const art = digest('art') + '.webp';
+  const texture = 'tex-' + digest('mask') + '.webp';
+  const descriptor = JSON.stringify({
+    version: 1,
+    textures: { _MainTex: { file: art }, _EnchantmentMask: { file: texture } }
+  });
+  const material = 'fx-' + digest(descriptor) + '.json';
+  for (const [name, bytes] of [
+    [art, 'art'],
+    [texture, 'mask'],
+    [material, descriptor]
+  ])
+    fs.writeFileSync(path.join(dir, name), bytes);
   for (const file of [...files, ...Object.values(text)])
     fs.writeFileSync(path.join(dir, file), file);
   fs.writeFileSync(
@@ -37,7 +53,8 @@ function artDirectory(files: string[]) {
       version: 2,
       text,
       game: { buildid: '7', gameData: 'e1', zh: 'e1' },
-      cards: {},
+      cards: { example: art },
+      fx: { example: material },
       names: {}
     })
   );
@@ -45,10 +62,9 @@ function artDirectory(files: string[]) {
 }
 
 test('a publish writes each art file, then the index last', async () => {
-  const art = 'a'.repeat(20) + '.webp';
   const store = memoryStore();
-  await expect(publishCardArt(artDirectory([art]), store)).resolves.toBe(3);
-  expect(store.order).toEqual([art, text.en, text.zh, 'index.json']);
+  await expect(publishCardArt(artDirectory([]), store)).resolves.toBe(5);
+  expect(store.order.at(-1)).toBe('index.json');
 });
 
 test('a publish refuses a file that is not a content digest', async () => {
@@ -98,4 +114,52 @@ test('a changed translation or missing locale triggers a backfill', async () => 
   delete previous.text.zh;
   fs.writeFileSync(index, JSON.stringify(previous));
   expect((await cardArtStale(index, run, async () => 'e1')).stale).toBe(true);
+});
+
+test('a missing packed texture prevents index replacement', async () => {
+  const dir = artDirectory([]);
+  fs.unlinkSync(
+    path.join(
+      dir,
+      fs.readdirSync(dir).find((name) => name.startsWith('tex-'))!
+    )
+  );
+  const store = memoryStore();
+  await expect(publishCardArt(dir, store)).rejects.toThrow(
+    'missing or corrupt'
+  );
+  expect(store.order).not.toContain('index.json');
+});
+
+test('the published v2 index before Enchantment FX needs backfill', async () => {
+  const index = path.join(artDirectory([]), 'index.json');
+  const previous = JSON.parse(fs.readFileSync(index, 'utf8'));
+  delete previous.fx;
+  fs.writeFileSync(index, JSON.stringify(previous));
+  expect(
+    (
+      await cardArtStale(
+        index,
+        () => ({ buildid: '7' }),
+        async () => 'e1'
+      )
+    ).stale
+  ).toBe(true);
+});
+
+test('retired material and packed textures can resolve from an earlier immutable publish', async () => {
+  const store = memoryStore();
+  const dir = artDirectory([]);
+  await publishCardArt(dir, store);
+  for (const file of fs
+    .readdirSync(dir)
+    .filter((name) => name.startsWith('tex-') || name.startsWith('fx-')))
+    fs.unlinkSync(path.join(dir, file));
+  store.order.length = 0;
+  await publishCardArt(dir, store);
+  expect(
+    store.order.some(
+      (file) => file.startsWith('tex-') || file.startsWith('fx-')
+    )
+  ).toBe(false);
 });

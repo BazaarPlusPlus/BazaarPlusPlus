@@ -1,0 +1,596 @@
+{
+  "buildid": "26592248",
+  "defaults": {
+    "_AbsorptionMaskMax": 1.0,
+    "_AbsorptionMaskMin": 0.0,
+    "_CrystalUOffset": 0.0,
+    "_CrystalVOffset": 0.0,
+    "_EnchantmentDirectionX": 0.0,
+    "_EnchantmentDirectionY": 0.0,
+    "_EnchantmentFlareScale": 1.0,
+    "_EnchantmentUCenter": 0.0,
+    "_EnchantmentVCenter": 0.0,
+    "_FieryDistortion": 0.3499999940395355,
+    "_FireDistortionScaling": 1.0,
+    "_FireFlowDirectionRotation": 0.0,
+    "_FireFlowSpeed": 0.032999999821186066,
+    "_FireFlowStrenght": 0.0,
+    "_FlowSpeed": 0.032999999821186066,
+    "_FlowStrenght": 0.3499999940395355,
+    "_GlowMaskMax": 1.0,
+    "_GlowMaskMin": 0.0,
+    "_GoldenBrightness": 0.30000001192092896,
+    "_GoldenContrast": 1.0,
+    "_IceCrystalsScale": 0.30000001192092896,
+    "_ItemCutoutBias": 0.4705868065357208,
+    "_MysticalHue": [
+      0.6274510025978088, 0.3137255012989044, 0.9254903197288513,
+      0.43137261271476746
+    ],
+    "_ObsidianBrightness1": 0.0,
+    "_OutlineTempered": 0.30000001192092896,
+    "_PrismaticUVSpeed": [
+      -0.004999999888241291, -0.0024999999441206455, 0.0, 0.0
+    ],
+    "_RandomnessWiggle": 0.0,
+    "_ShimmerScale": 1.0,
+    "_ShimmerUOffset": 0.0,
+    "_ShimmerVOffset": 0.0,
+    "_ShinyFlowScale": 0.5,
+    "_ShinyGlintHeight": 0.0,
+    "_ShinyNoiseTile": 1.0,
+    "_Size": 1.0,
+    "_TinyBlocksDensity": 1.0,
+    "_TinyBlocksDrift": 0.05000000074505806,
+    "_TinyBlocksEdge": 1.0,
+    "_TinyBlocksFace": 0.41999998688697815,
+    "_TinyBlocksFaceVariation": 0.3499999940395355,
+    "_TinyBlocksGlow": 1.1200000047683716,
+    "_TinyBlocksOpacity": 1.0,
+    "_TinyBlocksSeed": [3712.0, 0.0, 0.0, 0.0],
+    "_TinyBlocksShell": 1.0,
+    "_TinyBlocksSizeVariation": 0.2800000011920929,
+    "_TinyBlocksSpeed": 1.0,
+    "_TinyBlurFeather": 0.012000000104308128,
+    "_TinyBlurStrength": 0.1599999964237213,
+    "_TinyEchoScale": 0.75,
+    "_TinyEchoScaleOverlay": 0.6000000238418579,
+    "_TinyIcyShardScale": 1.25,
+    "_TinyOffsetterX": 0.0,
+    "_TinyOffsetterY": 0.0,
+    "_TinyParticleScale": 1.0,
+    "_TinyScalar": 0.0,
+    "_TinyTransitionWidth": 0.1599999964237213
+  },
+  "textureDefaults": {
+    "_AngularAura": "white",
+    "_CardHighlight": "white",
+    "_ChaoticFlowmap": "white",
+    "_DazzlingGlintMap": "white",
+    "_DazzlingStar2": "white",
+    "_EnchantmentMask": "white",
+    "_FierySparks": "white",
+    "_Golden_FXFlare": "white",
+    "_HeartTexture": "white",
+    "_IcyOverlayNoise": "white",
+    "_IcyShards": "white",
+    "_MainTex": "white",
+    "_Mossy_Noise": "white",
+    "_Mossy_OuterFlare": "white",
+    "_MysticalBorealLines": "white",
+    "_MysticalRunes": "white",
+    "_NewSmoke": "white",
+    "_ObsidianTexture": "white",
+    "_OffsetMask": "white",
+    "_PrismaticNoise": "white",
+    "_PrismaticRainbow": "white",
+    "_Prismatic_Flares": "white",
+    "_Shared_Smoke": "white",
+    "_ShinyNoise": "white",
+    "_TemperedCrystal": "white",
+    "_TinyBlocks": "black",
+    "_TriangleTex": "white",
+    "_Turbo_Lightning": "white"
+  },
+  "textures": {
+    "tex-274eda6aac6b60d80bc9.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-a9bd02595e2ebbfda948.webp": [256, 256, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-38b6e536f692d837e391.webp": [128, 128, 0, 1, 1, 1, 1, 0.0, 2],
+    "tex-a63637292199fd31e5c8.webp": [1024, 1024, 0, 1, 0, 0, 0, 0.0, 2],
+    "tex-388643c301d479904191.webp": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-595af37c3ea64ab11f95.webp": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
+    "tex-eaf74edf742e3ff12cd0.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-ec37e51ddc68d9902785.webp": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-115186735cd80f8ffcb6.webp": [256, 256, 0, 1, 1, 1, 1, 0.0, 2],
+    "tex-1ad8c5666ca8f655d3d5.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-ae603d7d131fe3019b7d.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "5d5cfe691cdcfafb1071.webp": [1024, 1024, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-8b891bd77454c86a06e0.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-94e1f6f62f21bd0393b6.webp": [512, 512, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-1c2c25c7e1a017382c31.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-0e30b03ba03a977b736a.webp": [2048, 256, 0, 1, 0, 0, 2, 0.0, 2],
+    "tex-74dc92225c08d9231ec6.webp": [512, 512, 1, 10, 0, 0, 1, 0.0, 2],
+    "tex-ab92fb49d2718d42203c.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-aeea69d24c93e627a6a2.webp": [256, 256, 0, 1, 1, 1, 0, 0.0, 2],
+    "tex-8ec5545ed44b76b82cbe.webp": [128, 128, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-4321bb92276e5aad674b.webp": [256, 256, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-3e0db79857efefe15ed9.webp": [256, 256, 1, 1, 2, 2, 1, 0.0, 2],
+    "tex-834ccc5f5bd00d8bd3cd.webp": [256, 256, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-a7033c5323ae0d38686f.webp": [1024, 1024, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-0641f0543ceb5af22916.webp": [512, 512, 0, 1, 0, 0, 1, 0.0, 2],
+    "tex-3ad8b9b5bbea062f022e.webp": [1024, 512, 0, 1, 1, 1, 1, 0.0, 1],
+    "tex-5a709ad7d59e322277ad.webp": [128, 128, 0, 1, 1, 1, 1, 0.0, 2],
+    "tex-56c1286815c2d33b2c9c.webp": [512, 512, 1, 1, 0, 0, 1, 0.0, 2],
+    "tex-f9565cfe9b900f12a898.webp": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
+    "9cea12aedcc7d4aab689.webp": [1024, 1024, 1, 1, 1, 1, 1, 0.0, 2],
+    "tex-372e51cea2b4d7d09093.webp": [256, 256, 0, 1, 1, 1, 2, 0.0, 2],
+    "1116db5b081a454623a5.webp": [1024, 1024, 1, 1, 1, 1, 1, 0.0, 2]
+  },
+  "items": [
+    {
+      "id": "03842226-6605-466f-9ea3-a8a2dbea67e1",
+      "title": "Atlas",
+      "size": "medium",
+      "descriptor": "fx-72aab9608222827b38d6.json",
+      "keywords": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_UNENCHANTED"
+      ],
+      "floats": {
+        "_AbsorptionMaskMax": 0.1889999955892563,
+        "_CrystalUOffset": 0.34599998593330383,
+        "_CrystalVOffset": 0.4790000021457672,
+        "_EnchantmentFlareScale": 0.5799999833106995,
+        "_EnchantmentUCenter": 0.024000000208616257,
+        "_FieryDistortion": -0.3199999928474426,
+        "_FireDistortionScaling": 0.8100000023841858,
+        "_FireFlowDirectionRotation": 7.5,
+        "_FireFlowSpeed": 0.22100000083446503,
+        "_FireFlowStrenght": 0.039000000804662704,
+        "_FlowStrenght": 0.6899999976158142,
+        "_GlowMaskMax": 0.0,
+        "_GlowMaskMin": 0.18799999356269836,
+        "_GoldenBrightness": -0.25,
+        "_GoldenContrast": 2.7100000381469727,
+        "_IceCrystalsScale": 0.4000000059604645,
+        "_ItemCutoutBias": 0.15199999511241913,
+        "_ObsidianBrightness1": 0.3499999940395355,
+        "_OutlineTempered": 3.0,
+        "_ShinyFlowScale": 0.026000000536441803,
+        "_ShinyGlintHeight": 0.2680000066757202,
+        "_ShinyNoiseTile": 2.049999952316284,
+        "_TinyEchoScale": 0.7770000100135803,
+        "_TinyEchoScaleOverlay": 0.7099999785423279,
+        "_TinyOffsetterX": 0.20000000298023224,
+        "_TinyOffsetterY": 0.3400000035762787,
+        "_TinyScalar": 0.6299999952316284
+      },
+      "colors": {
+        "_MysticalHue": [
+          0.6274510025978088, 0.3137255012989044, 0.9254903197288513, 1.0
+        ]
+      },
+      "slots": {
+        "_AngularAura": ["tex-274eda6aac6b60d80bc9.webp", 1.0, 1.0, 0.0, 0.0],
+        "_CardHighlight": ["tex-a9bd02595e2ebbfda948.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ChaoticFlowmap": [
+          "tex-38b6e536f692d837e391.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_DazzlingGlintMap": [
+          "tex-a63637292199fd31e5c8.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_DazzlingStar2": ["tex-388643c301d479904191.webp", 1.0, 1.0, 0.0, 0.0],
+        "_EnchantmentMask": [
+          "tex-595af37c3ea64ab11f95.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_FierySparks": ["tex-eaf74edf742e3ff12cd0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Golden_FXFlare": [
+          "tex-ec37e51ddc68d9902785.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_HeartTexture": ["tex-115186735cd80f8ffcb6.webp", 1.0, 1.0, 0.0, 0.0],
+        "_IcyOverlayNoise": [
+          "tex-1ad8c5666ca8f655d3d5.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_IcyShards": ["tex-ae603d7d131fe3019b7d.webp", 1.0, 1.0, 0.0, 0.0],
+        "_MainTex": ["5d5cfe691cdcfafb1071.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_Noise": ["tex-8b891bd77454c86a06e0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_OuterFlare": [
+          "tex-94e1f6f62f21bd0393b6.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_MysticalBorealLines": [
+          "tex-1c2c25c7e1a017382c31.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_MysticalRunes": ["tex-0e30b03ba03a977b736a.webp", 1.0, 1.0, 0.0, 0.0],
+        "_NewSmoke": ["tex-74dc92225c08d9231ec6.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ObsidianTexture": [
+          "tex-ab92fb49d2718d42203c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_OffsetMask": ["tex-aeea69d24c93e627a6a2.webp", 1.0, 1.0, 0.0, 0.0],
+        "_PrismaticNoise": [
+          "tex-8ec5545ed44b76b82cbe.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_PrismaticRainbow": [
+          "tex-4321bb92276e5aad674b.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_Prismatic_Flares": [
+          "tex-3e0db79857efefe15ed9.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_Shared_Smoke": ["tex-834ccc5f5bd00d8bd3cd.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ShinyNoise": ["tex-a7033c5323ae0d38686f.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TemperedCrystal": [
+          "tex-0641f0543ceb5af22916.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_TinyBlocks": ["tex-3ad8b9b5bbea062f022e.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TriangleTex": ["tex-5a709ad7d59e322277ad.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Turbo_Lightning": [
+          "tex-56c1286815c2d33b2c9c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "id": "616089ae-766e-4f55-b4a1-d38f6a882ef1",
+      "title": "Submarine",
+      "size": "large",
+      "descriptor": "fx-b7c01d86f4529dd2c5f8.json",
+      "keywords": [
+        "_CRDSIZE_LARGE",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_UNENCHANTED",
+        "_SHIMMERDEBUG_ON"
+      ],
+      "floats": {
+        "_AbsorptionMaskMax": 0.5080000162124634,
+        "_AbsorptionMaskMin": 0.30300000309944153,
+        "_CrystalVOffset": 0.2290000021457672,
+        "_EnchantmentDirectionX": -0.03359999880194664,
+        "_EnchantmentDirectionY": -0.03539999946951866,
+        "_EnchantmentFlareScale": 0.8119999766349792,
+        "_EnchantmentUCenter": 0.024000000208616257,
+        "_EnchantmentVCenter": -0.050999999046325684,
+        "_FieryDistortion": 0.25,
+        "_FireFlowDirectionRotation": -1.399999976158142,
+        "_FireFlowSpeed": 0.0632999986410141,
+        "_FireFlowStrenght": 0.02500000037252903,
+        "_GlowMaskMax": 0.42800000309944153,
+        "_GlowMaskMin": 0.5609999895095825,
+        "_GoldenBrightness": -0.25,
+        "_GoldenContrast": 1.2000000476837158,
+        "_IceCrystalsScale": 0.4099999964237213,
+        "_ItemCutoutBias": 0.5059999823570251,
+        "_ObsidianBrightness1": 0.24699999392032623,
+        "_OutlineTempered": 3.0399999618530273,
+        "_RandomnessWiggle": 0.21799999475479126,
+        "_ShimmerScale": 0.9200000166893005,
+        "_ShimmerVOffset": 0.0689999982714653,
+        "_ShinyGlintHeight": 0.1860000044107437,
+        "_ShinyNoiseTile": 2.6700000762939453,
+        "_TinyEchoScale": 0.7580000162124634,
+        "_TinyEchoScaleOverlay": 0.6399999856948853,
+        "_TinyOffsetterX": 0.10000000149011612,
+        "_TinyOffsetterY": 0.1899999976158142,
+        "_TinyScalar": 0.8299999833106995
+      },
+      "colors": {
+        "_MysticalHue": [
+          0.6274510025978088, 0.3137255012989044, 0.9254903197288513, 1.0
+        ]
+      },
+      "slots": {
+        "_AngularAura": ["tex-274eda6aac6b60d80bc9.webp", 1.0, 1.0, 0.0, 0.0],
+        "_CardHighlight": ["tex-a9bd02595e2ebbfda948.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ChaoticFlowmap": [
+          "tex-38b6e536f692d837e391.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_DazzlingGlintMap": [
+          "tex-a63637292199fd31e5c8.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_DazzlingStar2": ["tex-388643c301d479904191.webp", 1.0, 1.0, 0.0, 0.0],
+        "_EnchantmentMask": [
+          "tex-f9565cfe9b900f12a898.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_FierySparks": ["tex-eaf74edf742e3ff12cd0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Golden_FXFlare": [
+          "tex-ec37e51ddc68d9902785.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_HeartTexture": ["tex-115186735cd80f8ffcb6.webp", 1.0, 1.0, 0.0, 0.0],
+        "_IcyOverlayNoise": [
+          "tex-1ad8c5666ca8f655d3d5.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_IcyShards": ["tex-ae603d7d131fe3019b7d.webp", 1.0, 1.0, 0.0, 0.0],
+        "_MainTex": ["9cea12aedcc7d4aab689.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_Noise": ["tex-8b891bd77454c86a06e0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_OuterFlare": [
+          "tex-94e1f6f62f21bd0393b6.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_MysticalBorealLines": [
+          "tex-1c2c25c7e1a017382c31.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_MysticalRunes": ["tex-0e30b03ba03a977b736a.webp", 1.0, 1.0, 0.0, 0.0],
+        "_NewSmoke": ["tex-74dc92225c08d9231ec6.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ObsidianTexture": [
+          "tex-ab92fb49d2718d42203c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_OffsetMask": ["tex-aeea69d24c93e627a6a2.webp", 1.0, 1.0, 0.0, 0.0],
+        "_PrismaticNoise": [
+          "tex-8ec5545ed44b76b82cbe.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_PrismaticRainbow": [
+          "tex-4321bb92276e5aad674b.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_Prismatic_Flares": [
+          "tex-3e0db79857efefe15ed9.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_Shared_Smoke": ["tex-834ccc5f5bd00d8bd3cd.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ShinyNoise": ["tex-a7033c5323ae0d38686f.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TemperedCrystal": [
+          "tex-0641f0543ceb5af22916.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_TinyBlocks": ["tex-3ad8b9b5bbea062f022e.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TriangleTex": ["tex-5a709ad7d59e322277ad.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Turbo_Lightning": [
+          "tex-56c1286815c2d33b2c9c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "id": "f7fede6f-1b60-47f4-b4bb-bca041d498dd",
+      "title": "Admiral's Badge",
+      "size": "small",
+      "descriptor": "fx-a7725f349ee5c3714d38.json",
+      "keywords": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_UNENCHANTED",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "floats": {
+        "_AbsorptionMaskMax": 0.25099998712539673,
+        "_CrystalUOffset": 0.8220000267028809,
+        "_CrystalVOffset": 0.8460000157356262,
+        "_EnchantmentDirectionX": -0.03929999843239784,
+        "_EnchantmentDirectionY": -0.02500000037252903,
+        "_EnchantmentFlareScale": 1.215999960899353,
+        "_EnchantmentUCenter": 0.11400000005960464,
+        "_EnchantmentVCenter": -0.0949999988079071,
+        "_FieryDistortion": -0.2370000034570694,
+        "_FireDistortionScaling": 0.6240000128746033,
+        "_FireFlowDirectionRotation": -3.069999933242798,
+        "_FireFlowSpeed": 0.19499999284744263,
+        "_FireFlowStrenght": -0.17900000512599945,
+        "_FlowSpeed": 0.2070000022649765,
+        "_FlowStrenght": 0.367000013589859,
+        "_GlowMaskMax": 0.0,
+        "_GlowMaskMin": 0.28999999165534973,
+        "_GoldenBrightness": -0.19900000095367432,
+        "_GoldenContrast": 1.6399999856948853,
+        "_IceCrystalsScale": 0.4620000123977661,
+        "_ItemCutoutBias": 0.3889999985694885,
+        "_OutlineTempered": 2.0,
+        "_RandomnessWiggle": 0.20399999618530273,
+        "_ShimmerScale": 1.2300000190734863,
+        "_ShimmerUOffset": 0.33000001311302185,
+        "_ShimmerVOffset": 0.5339999794960022,
+        "_ShinyNoiseTile": 1.9040000438690186
+      },
+      "colors": {
+        "_MysticalHue": [
+          0.6274510025978088, 0.3137255012989044, 0.9254902005195618, 1.0
+        ]
+      },
+      "slots": {
+        "_AngularAura": ["tex-274eda6aac6b60d80bc9.webp", 1.0, 1.0, 0.0, 0.0],
+        "_CardHighlight": ["tex-a9bd02595e2ebbfda948.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ChaoticFlowmap": [
+          "tex-38b6e536f692d837e391.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_DazzlingGlintMap": [
+          "tex-a63637292199fd31e5c8.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_DazzlingStar2": ["tex-388643c301d479904191.webp", 1.0, 1.0, 0.0, 0.0],
+        "_EnchantmentMask": [
+          "tex-372e51cea2b4d7d09093.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_FierySparks": ["tex-eaf74edf742e3ff12cd0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Golden_FXFlare": [
+          "tex-ec37e51ddc68d9902785.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_HeartTexture": ["tex-115186735cd80f8ffcb6.webp", 1.0, 1.0, 0.0, 0.0],
+        "_IcyOverlayNoise": [
+          "tex-1ad8c5666ca8f655d3d5.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_IcyShards": ["tex-ae603d7d131fe3019b7d.webp", 1.0, 1.0, 0.0, 0.0],
+        "_MainTex": ["1116db5b081a454623a5.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_Noise": ["tex-8b891bd77454c86a06e0.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Mossy_OuterFlare": [
+          "tex-94e1f6f62f21bd0393b6.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_MysticalBorealLines": [
+          "tex-1c2c25c7e1a017382c31.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_MysticalRunes": ["tex-0e30b03ba03a977b736a.webp", 1.0, 1.0, 0.0, 0.0],
+        "_NewSmoke": ["tex-74dc92225c08d9231ec6.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ObsidianTexture": [
+          "tex-ab92fb49d2718d42203c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_OffsetMask": ["tex-aeea69d24c93e627a6a2.webp", 1.0, 1.0, 0.0, 0.0],
+        "_PrismaticNoise": [
+          "tex-8ec5545ed44b76b82cbe.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_PrismaticRainbow": [
+          "tex-4321bb92276e5aad674b.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_Prismatic_Flares": [
+          "tex-3e0db79857efefe15ed9.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_Shared_Smoke": ["tex-834ccc5f5bd00d8bd3cd.webp", 1.0, 1.0, 0.0, 0.0],
+        "_ShinyNoise": ["tex-a7033c5323ae0d38686f.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TemperedCrystal": [
+          "tex-0641f0543ceb5af22916.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "_TinyBlocks": ["tex-3ad8b9b5bbea062f022e.webp", 1.0, 1.0, 0.0, 0.0],
+        "_TriangleTex": ["tex-5a709ad7d59e322277ad.webp", 1.0, 1.0, 0.0, 0.0],
+        "_Turbo_Lightning": [
+          "tex-56c1286815c2d33b2c9c.webp",
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "skill": "b49dd22b-ef95-4f7e-954e-556e1e431d4a"
+}

@@ -1,0 +1,239 @@
+{
+  "keywords": {
+    "Deadly": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DANGEROUS"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DANGEROUS",
+        "_ISTINY_ON"
+      ]
+    },
+    "Ethereal": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_SHINY"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_SHINY",
+        "_ISTINY_ON"
+      ]
+    },
+    "Fiery": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_FIERY"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_FIERY",
+        "_ISTINY_ON"
+      ]
+    },
+    "Golden": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_GOLDEN"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_GOLDEN",
+        "_ISTINY_ON"
+      ]
+    },
+    "Heavy": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_HEAVY"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_HEAVY",
+        "_ISTINY_ON"
+      ]
+    },
+    "Icy": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_ICY"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_ICY",
+        "_ISTINY_ON"
+      ]
+    },
+    "Mossy": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_MOSSY"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MOSSY",
+        "_ISTINY_ON"
+      ]
+    },
+    "Mystical": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MYSTICAL"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MYSTICAL",
+        "_ISTINY_ON"
+      ]
+    },
+    "Obsidian": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_OBSIDIAN"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_OBSIDIAN",
+        "_ISTINY_ON"
+      ]
+    },
+    "Radiant": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_PRISMATIC"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_PRISMATIC",
+        "_ISTINY_ON"
+      ]
+    },
+    "Restorative": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_RESTORATIVE"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_RESTORATIVE",
+        "_ISTINY_ON"
+      ]
+    },
+    "Shielded": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TEMPERED"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TEMPERED",
+        "_ISTINY_ON"
+      ]
+    },
+    "Shiny": {
+      "normal": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DAZZLING"
+      ],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DAZZLING",
+        "_ISTINY_ON"
+      ]
+    },
+    "Tiny": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_TINY"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TINY",
+        "_ISTINY_ON"
+      ]
+    },
+    "Toxic": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_TOXIC"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TOXIC",
+        "_ISTINY_ON"
+      ]
+    },
+    "Turbo": {
+      "normal": ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_TURBO"],
+      "tiny": [
+        "_CRDSIZE_MEDIUM",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TURBO",
+        "_ISTINY_ON"
+      ]
+    }
+  },
+  "profile": "premium-card-v1",
+  "size": "medium",
+  "textures": {
+    "_DazzlingGlintMap": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-2a483d33920a7e108d85.webp",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [1024, 1024],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_DazzlingStar2": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-7d4709181ce314deb590.webp",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_EnchantmentMask": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-b005d241036e7b12c6cd.webp",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_MainTex": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "a46df86814d98b8cfcc2.webp",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [1024, 1024],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    }
+  },
+  "values": {
+    "_AbsorptionMaskMax": 0.1889999955892563,
+    "_AbsorptionMaskMin": 0.0,
+    "_GlowMaskMax": 0.0,
+    "_GlowMaskMin": 0.18799999356269836,
+    "_ItemCutoutBias": 0.15199999511241913,
+    "_ShimmerScale": 1.0,
+    "_ShimmerUOffset": 0.0,
+    "_ShimmerVOffset": 0.0
+  },
+  "version": 1
+}

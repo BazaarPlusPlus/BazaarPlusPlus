@@ -144,21 +144,40 @@ pub async fn execute_storage_cleanup(
     .await
 }
 
+#[derive(serde::Deserialize)]
+struct CardArtIndex {
+    cards: std::collections::HashMap<String, String>,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_card_art_index() -> Result<std::collections::HashMap<String, String>, String> {
-    #[derive(serde::Deserialize)]
-    struct Index {
-        cards: std::collections::HashMap<String, String>,
-    }
     let _ = rustls::crypto::ring::default_provider().install_default();
     let response = reqwest::get("https://cdn.bazaarplusplus.com/card-art/index.json")
         .await
         .and_then(reqwest::Response::error_for_status)
         .map_err(|error| error.to_string())?;
     Ok(response
-        .json::<Index>()
+        .json::<CardArtIndex>()
         .await
         .map_err(|error| error.to_string())?
         .cards)
+}
+
+#[cfg(test)]
+mod card_art_tests {
+    use super::CardArtIndex;
+
+    #[test]
+    fn projects_plain_art_from_indexes_with_or_without_materials() {
+        for index in [
+            r#"{"version":2,"cards":{"item":"face.webp"}}"#,
+            r#"{"version":2,"cards":{"item":"face.webp"},"fx":{"item":"fx-0123456789abcdef0123.json"}}"#,
+        ] {
+            assert_eq!(
+                serde_json::from_str::<CardArtIndex>(index).unwrap().cards["item"],
+                "face.webp"
+            );
+        }
+    }
 }

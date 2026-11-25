@@ -2,7 +2,7 @@ import { env } from 'cloudflare:test';
 import { afterEach, expect, test, vi } from 'vitest';
 import webhook from '../src/webhook';
 import { signature, validSignature } from '../src/qq';
-import { Data } from '../src/data';
+import { cardArt, Data } from '../src/data';
 import { handleJob } from '../src/consumer';
 import type { Job } from '../src/env';
 const job: Job = {
@@ -135,3 +135,15 @@ test('help uses passive replies and a fixed sequence; expired jobs do no work', 
   await handleJob({ ...job, timestamp: Date.now() - 300_000 }, env);
   expect(requests).toHaveLength(count);
 });
+
+test.each([{}, { fx: { item: 'fx-0123456789abcdef0123.json' } }])(
+  'reads plain art with optional Enchantment FX',
+  async (extra) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      Response.json({ version: 2, cards: { item: 'face.webp' }, ...extra })
+    );
+    expect(await cardArt(new AbortController().signal)).toEqual({
+      item: 'face.webp'
+    });
+  }
+);
