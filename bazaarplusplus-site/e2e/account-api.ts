@@ -236,9 +236,44 @@ export async function mockCardArt(
       '/card-art/',
       ''
     );
+    const en = 'text-en-0123456789abcdef0123.json';
+    if (file === en) {
+      await route.fulfill({
+        json: {
+          version: 1,
+          locale: 'en',
+          tagLabels: { Instrument: 'Instrument' },
+          cards: {
+            'd6c55b70-fcc7-454c-af9c-06b99d2d01e3': {
+              title: 'Tambourine',
+              size: 'Medium',
+              tags: ['Instrument'],
+              attributes: {},
+              startingTier: 'Silver',
+              lines: [],
+              enchantments: {
+                Shiny: {
+                  tags: [],
+                  lines: [
+                    {
+                      id: 0,
+                      available: true,
+                      resolved: 'full',
+                      tiers: ['Silver'],
+                      segments: [{ text: 'This has +1 Multicast.' }]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      });
+      return;
+    }
     if (file === 'index.json') {
       await route.fulfill({
-        json: { version: 1, game: {}, cards: files, names }
+        json: { version: 2, game: {}, cards: files, names, text: { en } }
       });
       return;
     }

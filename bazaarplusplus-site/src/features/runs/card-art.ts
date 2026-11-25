@@ -5,6 +5,7 @@ const CARD_ART_PATH = '/card-art/';
 const FILE = /^[0-9a-f]{8,64}\.webp$/;
 
 type CardArtIndex = {
+  text?: Partial<Record<'en' | 'zh', unknown>>;
   files: Map<string, string>;
   /** English titles from GameData, every card type; empty for an index from before them. */
   names: Map<string, string>;
@@ -13,7 +14,11 @@ type CardArtIndex = {
 async function loadCardArtIndex(signal: AbortSignal): Promise<CardArtIndex> {
   const response = await fetch(CARD_ART_PATH + 'index.json', { signal });
   if (!response.ok) throw new Error(`Card Art index ${response.status}`);
-  const body = (await response.json()) as { cards?: unknown; names?: unknown };
+  const body = (await response.json()) as {
+    cards?: unknown;
+    names?: unknown;
+    text?: CardArtIndex['text'];
+  };
   if (!body.cards || typeof body.cards !== 'object') {
     throw new Error('Invalid Card Art index');
   }
@@ -29,10 +34,10 @@ async function loadCardArtIndex(signal: AbortSignal): Promise<CardArtIndex> {
       if (typeof name === 'string') names.set(templateId.toLowerCase(), name);
     }
   }
-  return { files, names };
+  return { files, names, text: body.text };
 }
 
-function useCardArtIndex() {
+export function useCardArtIndex() {
   return useQuery({
     queryKey: ['card-art-index'],
     queryFn: ({ signal }) => loadCardArtIndex(signal),

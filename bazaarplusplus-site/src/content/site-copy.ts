@@ -297,6 +297,15 @@ type LocalizedSiteCopy = {
     pve: string;
     win: string;
     loss: string;
+    cardDetail: {
+      close: string;
+      enchantments: string;
+      sizes: Record<string, string>;
+      ammo: string;
+      cooldown: string;
+      seconds: string;
+      unavailable: string;
+    };
     notRecorded: string;
     emptyBoard: string;
     skills: string;
@@ -471,6 +480,15 @@ const zh: LocalizedSiteCopy = {
     pve: 'PvE',
     win: '胜',
     loss: '负',
+    cardDetail: {
+      close: '关闭',
+      enchantments: '附魔',
+      sizes: { Small: '小型', Medium: '中型', Large: '大型' },
+      ammo: '弹药',
+      cooldown: '冷却',
+      seconds: '秒',
+      unavailable: '不可用'
+    },
     notRecorded: '未记录阵容',
     emptyBoard: '空阵容',
     skills: '技能',
@@ -961,6 +979,15 @@ const en: LocalizedSiteCopy = {
     pve: 'PvE',
     win: 'Win',
     loss: 'Loss',
+    cardDetail: {
+      close: 'Close',
+      enchantments: 'Enchantments',
+      sizes: { Small: 'Small', Medium: 'Medium', Large: 'Large' },
+      ammo: 'Ammo',
+      cooldown: 'Cooldown',
+      seconds: 's',
+      unavailable: 'Unavailable'
+    },
     notRecorded: 'Board not recorded',
     emptyBoard: 'Empty board',
     skills: 'Skills',

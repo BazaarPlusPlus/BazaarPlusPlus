@@ -33,6 +33,7 @@ import {
 } from '../account/account-ui';
 import { useCardArt, useCardNames } from './card-art';
 import { gameCard } from './game-card';
+import { CardDetails, useOpenCard } from './CardDetails';
 import DecisionPath from './DecisionPath';
 import { decodeRunPayload, type RunCard, type RunDetail } from './run-payload';
 import {
@@ -52,10 +53,15 @@ function tierName(locale: Locale, tier: string | null): string {
   return tier ? (getSiteCopy(locale).account.tiers[tier] ?? tier) : '';
 }
 
-function tiles(diff: CardDiff | null, art: ArtLookup, locale: Locale) {
+function tiles(
+  diff: CardDiff | null,
+  art: ArtLookup,
+  locale: Locale,
+  open: ReturnType<typeof useOpenCard>
+) {
   return (
     diff?.cards.map((card) => ({
-      ...gameCard(card, cardName(card), art, locale),
+      ...gameCard(card, cardName(card), art, locale, open),
       id: card.instanceId,
       slot: card.slot,
       size: card.size,
@@ -126,6 +132,7 @@ function StepBody({
   showDay?: boolean;
 }) {
   const copy = getSiteCopy(locale).account;
+  const open = useOpenCard();
   const { battle } = step;
   return (
     <>
@@ -156,12 +163,12 @@ function StepBody({
         <div className="grid gap-3 lg:grid-cols-[minmax(0,48rem)_minmax(0,1fr)] lg:gap-6">
           <div className="flex min-w-0 flex-col gap-2">
             <Board
-              cards={tiles(step.board, art, locale)}
+              cards={tiles(step.board, art, locale, open)}
               missingLabel={copy.notRecorded}
               emptyLabel={copy.emptyBoard}
             />
             <SkillStrip
-              cards={tiles(step.skills, art, locale)}
+              cards={tiles(step.skills, art, locale, open)}
               missingLabel={copy.missingSkills}
               emptyLabel={copy.emptySkills}
               label={copy.skills}
@@ -374,7 +381,9 @@ export default function RunPage({ location, replacePage }: Props) {
         ))}
       {run &&
         (run.has_detail ? (
-          <Timeline runId={runId} locale={locale} />
+          <CardDetails locale={locale} key={runId}>
+            <Timeline runId={runId} locale={locale} />
+          </CardDetails>
         ) : (
           <StatusPanel kind="empty" title={copy.noDetail} />
         ))}
