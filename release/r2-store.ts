@@ -403,7 +403,7 @@ export function createR2Store({
         ifMatch,
         ifNoneMatch = false,
         contentType = 'application/octet-stream'
-      } = {}
+      }: PutOptions = {}
     ) {
       if (Boolean(ifMatch) === Boolean(ifNoneMatch))
         throw new Error(
