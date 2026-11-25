@@ -361,6 +361,7 @@ test('a Run detail decodes the stored Run into a decision timeline', async ({
 
   const steps = page.getByRole('main').locator('ol > li');
   await expect(steps).toHaveCount(7);
+  await expect(page.getByText('当天决策')).toHaveCount(0);
   await expect(steps.nth(0)).toContainText('第 1 天');
   await expect(steps.nth(0)).toContainText('Pygmalien');
   await expect(steps.nth(0)).toContainText('负');
@@ -413,7 +414,7 @@ test('a Run detail decodes the stored Run into a decision timeline', async ({
   });
 });
 
-test('a Run with a Run Message Stream reads as a decision path per day and hour', async ({
+test('a Run with a Run Message Stream groups shops, choices and fights inside its days', async ({
   page
 }) => {
   await mockAccountApi(page, streamRunHandlers());
@@ -428,63 +429,48 @@ test('a Run with a Run Message Stream reads as a decision path per day and hour'
   const main = page.getByRole('main');
   const days = main.getByRole('heading', { level: 2 });
   await expect(days.first()).toHaveText('Day 1');
-  await expect(days).toHaveCount(13);
-
-  const day1 = main
-    .locator('ol > li')
-    .filter({ has: page.getByRole('heading', { name: 'Day 1', exact: true }) });
-  const hour1 = day1.locator('li.bpp-panel').filter({ hasText: 'Hour 1' });
-  // The shop as it was shown, then what was done with it.
-  await expect(hour1).toContainText('Offered');
-  await expect(hour1).toContainText('Ande');
-  await expect(hour1).toContainText('Mantis Shrimp');
-  await expect(hour1).toContainText('2 gold');
-  await expect(hour1).toContainText('Reroll 2 gold, 1 left');
-  await expect(hour1).toContainText('Bought');
-  await expect(hour1).toContainText('Rerolled');
-  await expect(hour1).toContainText('−2 gold');
-  await expect(hour1).toContainText('Left');
-  // A trade shows its recorded amount; the net change only when it differs.
-  await expect(hour1).not.toContainText(/net [−+]/);
-  // A change of zero is no change.
-  await expect(main).not.toContainText('−0 ');
-  const hour = (day: number, n: number) =>
-    main
-      .locator('ol > li')
-      .filter({
-        has: page.getByRole('heading', { name: `Day ${day}`, exact: true })
-      })
-      .locator('li.bpp-panel')
-      .filter({ hasText: `Hour ${n}` });
-  await expect(hour(10, 4)).toContainText('16 gold');
-  await expect(hour(10, 4)).toContainText('net −13 gold');
-  await expect(hour(3, 4)).toContainText('1 gold');
-  await expect(hour(3, 4)).toContainText('net +6 gold');
-
-  // The PvP Battle sits in its hour with the board, as before.
-  const hour6 = day1.locator('li.bpp-panel').filter({ hasText: 'Hour 6' });
-  await expect(hour6).toContainText('PvP');
-  await expect(hour6).toContainText('Win');
-
-  // A command nothing answered says so.
-  await expect(main.getByText('No response')).toHaveCount(1);
-
-  // Each step opens its raw frames, all six fields as readable JSON.
-  const raw = hour1.getByRole('button', { name: 'Raw frames' }).first();
-  await raw.click();
-  await expect(raw).toHaveAttribute('aria-expanded', 'true');
-  const json = hour1.locator('pre').first();
-  await expect(json).toContainText('"Seq": 7');
-  await expect(json).toContainText(
-    '"$type": "BazaarGameShared.Infra.Messages.NetMessageGameSim"'
-  );
-  await expect(json).toContainText('"$tag": ');
-  await expect(json).toContainText('"RespondsToSeq": 6');
-  await expect(json).toContainText('"CommandArgsJson": null');
+  const day = (n: number) =>
+    main.locator('li.bpp-day-card').filter({
+      has: page.getByRole('heading', { name: `Day ${n}`, exact: true })
+    });
+  await expect(day(1).getByText('Win', { exact: true }).first()).toBeVisible();
+  const decisions = day(1).locator('details').first();
+  await expect(decisions).not.toHaveAttribute('open', '');
+  await decisions.getByText('Day decisions').click();
+  const shop = decisions.locator('li').filter({ hasText: 'Ande' });
+  await expect(shop).toContainText('Shop');
+  await shop.getByRole('button', { name: /^Ande/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Ande' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(shop).toContainText('Bought');
+  await expect(shop).toContainText('Mantis Shrimp');
+  await expect(shop).toContainText('Rerolls ×1');
+  await expect(shop).toContainText('net −6 gold');
+  await shop.getByText('Not taken').click();
+  await expect(shop.getByText('b23c5988')).toBeVisible();
   await expect(
-    hour1.getByRole('button', { name: 'Download bytes' }).first()
+    decisions
+      .locator('li')
+      .filter({ hasText: 'Flute' })
+      .filter({ hasText: 'Chose' })
+  ).toHaveCount(1);
+  await expect(
+    decisions.locator('li').filter({ hasText: 'PvP' })
+  ).toContainText('Win');
+  await day(3).getByText('Day decisions').click();
+  await expect(
+    day(3).locator('li').filter({ hasText: 'Pedestal' })
+  ).toContainText('Upgraded');
+  await expect(
+    page.getByRole('button', { name: 'Download all frames' })
+  ).toHaveCount(0);
+  await main.getByText('Raw frames', { exact: true }).click();
+  await main.getByLabel('Frame sequence').selectOption('7');
+  await expect(main.locator('pre')).toContainText('"RespondsToSeq": 6');
+  await expect(
+    main.getByRole('button', { name: 'Download bytes' })
   ).toBeVisible();
-
+  await main.getByText('Raw frames', { exact: true }).click();
   await page.screenshot({
     path: test.info().outputPath('run-path-1280.png'),
     fullPage: true

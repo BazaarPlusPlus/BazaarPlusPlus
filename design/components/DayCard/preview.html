@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Day card</title>
+    <link
+      rel="stylesheet"
+      href="../../../bazaarplusplus-installer/src/styles/tokens.css"
+    />
+    <link rel="stylesheet" href="../bundle.css" />
+    <style>
+      body {
+        background: var(--bg-canvas);
+        color: var(--text-1);
+        font-family: var(--font-ui);
+        padding: var(--space-16);
+      }
+    </style>
+  </head>
+  <body>
+    <ol>
+      <li class="bpp-panel bpp-day-card">
+        <h2 class="bpp-day-title">Day 1</h2>
+        <div class="bpp-board">
+          <span class="bpp-board-slot" style="grid-column: 1"></span
+          ><span class="bpp-board-slot" style="grid-column: 2"></span
+          ><span class="bpp-board-slot" style="grid-column: 3"></span
+          ><span class="bpp-board-slot" style="grid-column: 4"></span
+          ><span class="bpp-board-slot" style="grid-column: 5"></span
+          ><span class="bpp-board-slot" style="grid-column: 6"></span
+          ><span class="bpp-board-slot" style="grid-column: 7"></span
+          ><span class="bpp-board-slot" style="grid-column: 8"></span
+          ><span class="bpp-board-slot" style="grid-column: 9"></span
+          ><span class="bpp-board-slot" style="grid-column: 10"></span>
+          <div class="bpp-board-card" style="grid-column: 3/span 3">
+            <span class="bpp-card bpp-tier-bronze"
+              ><span class="bpp-card-face">Bass</span
+              ><span class="bpp-tier-label">Bronze</span></span
+            >
+          </div>
+        </div>
+        <details class="bpp-day-decisions">
+          <summary>Day decisions</summary>
+          <ol>
+            <li class="bpp-visit-row">
+              <strong>Shop</strong>
+              <span class="bpp-card-chip bpp-tier-bronze">Ande</span> Bought
+              Mantis Shrimp · −2 gold
+            </li>
+          </ol>
+        </details>
+      </li>
+    </ol>
+  </body>
+</html>

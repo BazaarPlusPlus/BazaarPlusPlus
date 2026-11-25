@@ -1,18 +1,15 @@
 import schemaJson from './game-message-schema.json';
 import type { RunDetail } from '../run-payload';
-import {
-  groupByHour,
-  projectDecisions,
-  type DecisionEntry,
-  type HourGroup
-} from './project';
+import { projectDecisions, type DecisionEntry } from './project';
 import type { GameMessageSchema } from './schema';
 import { MessageStream } from './stream';
+
+import { projectVisits, type Visit } from './visits';
 
 export type DecisionPath = {
   stream: MessageStream;
   entries: DecisionEntry[];
-  hours: HourGroup[];
+  visits: Visit[];
 };
 
 /** The decision path of a Run with a Run Message Stream; loaded on demand with the schema. */
@@ -25,7 +22,7 @@ export async function buildDecisionPath(
     schemaJson as GameMessageSchema,
     detail.platform
   );
-  const entries = await projectDecisions(
+  const { entries, contexts } = await projectDecisions(
     stream,
     detail.battles.map((battle) => ({
       id: battle.id,
@@ -36,8 +33,9 @@ export async function buildDecisionPath(
       recordedAtMs: battle.recordedAtMs,
       day: battle.day,
       hour: battle.hour,
+      encounterId: battle.encounterId,
       pvp: battle.pvp
     }))
   );
-  return { stream, entries, hours: groupByHour(entries) };
+  return { stream, entries, visits: projectVisits(entries, contexts) };
 }

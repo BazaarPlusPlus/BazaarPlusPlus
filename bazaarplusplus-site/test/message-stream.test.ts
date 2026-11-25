@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { beforeAll, describe, expect, test } from 'vite-plus/test';
 
 import { buildDecisionPath } from '../src/features/runs/message-stream/decision-path';
-import { tradeGold } from '../src/features/runs/message-stream/trade';
+import { projectVisits } from '../src/features/runs/message-stream/visits';
 import {
   projectDecisions,
   type DecisionEntry
@@ -155,7 +155,15 @@ describe('Run Message Stream translation of a real Run (sanitized)', () => {
       'Turbo'
     ]);
     const actual =
-      path.entries.map((e) => line(e, detail.cardNames)).join('\n') + '\n';
+      path.entries.map((e) => line(e, detail.cardNames)).join('\n') +
+      '\n\n' +
+      path.visits
+        .map(
+          (v) =>
+            `D${v.day ?? '-'}H${v.hour ?? '-'} ${v.kind} ${card(v.encounter, detail.cardNames)} | ${v.actions.map((a) => a.order).join(',')} | ${v.closed ? 'not taken' : 'offered'} ${v.remaining.map((c) => card(c, detail.cardNames)).join(', ')} | gold ${v.gold ?? '?'} health ${v.health ?? '?'}${v.battleId ? ' ' + v.battleId : ''}`
+        )
+        .join('\n') +
+      '\n';
     expect(actual).toBe(golden(PATH_GOLDEN, actual));
   });
 });
@@ -430,19 +438,52 @@ describe('Frames as a reader sees them', () => {
     expect(fresh.cachedMessages).toBeLessThanOrEqual(16);
   });
 
-  test('the real Run shows recorded prices next to a differing balance change', async () => {
-    const path = (await buildDecisionPath(detail))!;
-    const at = (seqs: number[]) =>
-      path.entries.find(
-        (e) => e.kind === 'action' && e.frames.join() === seqs.join()
-      ) as Extract<DecisionEntry, { kind: 'action' }>;
-    expect([at([559, 560]).verb, tradeGold(at([559, 560]))]).toEqual([
-      'bought',
-      { amount: 16, net: -13 }
-    ]);
-    expect([at([167, 168]).verb, tradeGold(at([167, 168]))]).toEqual([
-      'sold',
-      { amount: 1, net: 6 }
-    ]);
+  test('visits follow confirmed destinations, subchoices, pedestal transitions and reconnect baselines', async () => {
+    const { visits } = (await buildDecisionPath(detail))!;
+    const at = (order: number) =>
+      visits.find((v) => v.actions.some((a) => a.order === order))!;
+    expect(at(6)).toMatchObject({
+      day: 1,
+      hour: 1,
+      kind: 'shop',
+      gold: -6,
+      rerollFees: [2],
+      closed: true
+    });
+    expect(at(6).remaining).toHaveLength(4);
+    expect(at(18)).toBe(at(20));
+    expect(at(159)).toBe(at(163));
+    expect(at(163).kind).toBe('pedestal');
+    expect(at(263).actions[0].outcome).toBe('no-response');
+    expect(at(263)).not.toBe(at(268));
+    expect(at(167).actions.find((a) => a.order === 167)).toMatchObject({
+      amount: 1,
+      gold: 6
+    });
+    expect(at(559).actions.find((a) => a.order === 559)).toMatchObject({
+      amount: 16,
+      gold: -13
+    });
+    expect(
+      visits.flatMap((v) => (v.battleId ? [v.battleId] : []))
+    ).toHaveLength(13);
+  });
+
+  test('an unreadable delta leaves offers unresolved and places activity only after the actual sync', async () => {
+    const damaged = structuredClone(stream.frames);
+    damaged.find((f) => f.seq === 11)!.message = new Uint8Array([0xc1]);
+    const { entries, contexts } = await projectDecisions(
+      new MessageStream(damaged, SCHEMA, 'desktop'),
+      [],
+      0
+    );
+    const visits = projectVisits(entries, contexts);
+    expect(visits.find((v) => v.order === 7)?.closed).toBe(false);
+    expect(visits.find((v) => v.actions.some((a) => a.order === 12))?.day).toBe(
+      null
+    );
+    expect(
+      visits.find((v) => v.actions.some((a) => a.order === 268))?.day
+    ).toBe(5);
   });
 });

@@ -316,7 +316,25 @@ type LocalizedSiteCopy = {
     detailError: string;
     notFound: string;
     path: {
-      hour: string;
+      decisions: string;
+      unknownDay: string;
+      notTaken: string;
+      noVisits: string;
+      moves: string;
+      rerolls: string;
+      frame: string;
+      kinds: Record<
+        | 'shop'
+        | 'event'
+        | 'monster'
+        | 'pvp'
+        | 'pedestal'
+        | 'encounter'
+        | 'activity'
+        | 'levelUp'
+        | 'loot',
+        string
+      >;
       verbs: Record<
         | 'start'
         | 'reconnect'
@@ -335,14 +353,11 @@ type LocalizedSiteCopy = {
         string
       >;
       offered: string;
-      free: string;
       gold: string;
       net: string;
       health: string;
-      reroll: string;
       attempted: string;
       noResponse: string;
-      update: string;
       undecoded: string;
       rawFrames: string;
       downloadBytes: string;
@@ -519,7 +534,24 @@ const zh: LocalizedSiteCopy = {
     detailError: '未能读取这局的战斗详情。',
     notFound: '找不到这局。',
     path: {
-      hour: '第 {hour} 小时',
+      decisions: '当天决策',
+      unknownDay: '日期未知',
+      notTaken: '未选',
+      noVisits: '没有记录当天的决策。',
+      moves: '移动 {n} 次',
+      rerolls: '刷新 {n} 次',
+      frame: '消息序号',
+      kinds: {
+        shop: '商店',
+        event: '事件',
+        monster: '怪物',
+        pvp: 'PvP',
+        pedestal: '祭坛',
+        encounter: '遭遇',
+        activity: '行动',
+        levelUp: '升级',
+        loot: '战利品'
+      },
       verbs: {
         start: '开局',
         reconnect: '重新连接',
@@ -537,14 +569,11 @@ const zh: LocalizedSiteCopy = {
         other: '指令'
       },
       offered: '可选',
-      free: '免费',
       gold: '{n} 金币',
       net: '净 {n} 金币',
       health: '{n} 生命',
-      reroll: '刷新 {cost} 金币，剩 {left} 次',
       attempted: '未生效',
       noResponse: '无响应',
-      update: '状态更新',
       undecoded: '无法读取的消息',
       rawFrames: '原始消息',
       downloadBytes: '下载字节',
@@ -1018,7 +1047,24 @@ const en: LocalizedSiteCopy = {
     detailError: 'Couldn’t load the battle details of this run.',
     notFound: 'This run wasn’t found.',
     path: {
-      hour: 'Hour {hour}',
+      decisions: 'Day decisions',
+      unknownDay: 'Unknown day',
+      notTaken: 'Not taken',
+      noVisits: 'No decisions recorded for this day.',
+      moves: 'Moves ×{n}',
+      rerolls: 'Rerolls ×{n}',
+      frame: 'Frame sequence',
+      kinds: {
+        shop: 'Shop',
+        event: 'Event',
+        monster: 'Monster',
+        pvp: 'PvP',
+        pedestal: 'Pedestal',
+        encounter: 'Encounter',
+        activity: 'Activity',
+        levelUp: 'Level up',
+        loot: 'Loot'
+      },
       verbs: {
         start: 'Started',
         reconnect: 'Reconnected',
@@ -1036,14 +1082,11 @@ const en: LocalizedSiteCopy = {
         other: 'Command'
       },
       offered: 'Offered',
-      free: 'Free',
       gold: '{n} gold',
       net: 'net {n} gold',
       health: '{n} health',
-      reroll: 'Reroll {cost} gold, {left} left',
       attempted: 'Not applied',
       noResponse: 'No response',
-      update: 'Update',
       undecoded: 'Unreadable message',
       rawFrames: 'Raw frames',
       downloadBytes: 'Download bytes',

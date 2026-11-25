@@ -1707,3 +1707,29 @@ strong.bpp-effect-value {
 .bpp-detail-enchant .bpp-enchant {
   font-size: var(--type-small);
 }
+
+.bpp-day-card {
+  display: grid;
+  gap: var(--space-12);
+  padding: var(--space-16);
+}
+.bpp-day-title {
+  margin: 0;
+  font-size: var(--type-body);
+}
+.bpp-day-decisions {
+  border-block-start: 1px solid var(--line);
+  padding-block-start: var(--space-8);
+  font-size: var(--type-small);
+}
+.bpp-day-decisions summary {
+  cursor: pointer;
+}
+.bpp-visit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding-block: var(--space-8);
+  border-block-end: 1px solid var(--line);
+}

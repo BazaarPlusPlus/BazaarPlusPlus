@@ -2,10 +2,8 @@ import { describe, expect, test } from 'vite-plus/test';
 
 import {
   projectDecisions,
-  type DecisionEntry,
-  type Verb
+  type DecisionEntry
 } from '../src/features/runs/message-stream/project';
-import { tradeGold } from '../src/features/runs/message-stream/trade';
 import {
   MessageStream,
   type StreamFrame
@@ -19,6 +17,7 @@ import {
   netError,
   stateSync
 } from './fixtures/game-messages';
+import { projectVisits } from '../src/features/runs/message-stream/visits';
 import { encodeMessagePack } from './fixtures/run-payload';
 
 const SHOP = { state: 'Encounter', selection: ['itm_a', 'itm_b'] };
@@ -47,7 +46,9 @@ function opening(): StreamFrame[] {
 }
 
 async function project(frames: StreamFrame[]): Promise<DecisionEntry[]> {
-  return projectDecisions(new MessageStream(frames, SCHEMA, 'desktop'), [], 0);
+  return (
+    await projectDecisions(new MessageStream(frames, SCHEMA, 'desktop'), [], 0)
+  ).entries;
 }
 
 function only<K extends DecisionEntry['kind']>(
@@ -59,10 +60,80 @@ function only<K extends DecisionEntry['kind']>(
   );
 }
 
-const trade = (verb: Verb, amount: number | null, gold: number | null) =>
-  ({ verb, amount, gold }) as Extract<DecisionEntry, { kind: 'action' }>;
-
 describe('Decision path projection', () => {
+  test('tag observations follow the instance across sparse updates and freeze on the selected parent', async () => {
+    const frames = [
+      message(
+        1,
+        stateSync({
+          day: 1,
+          hour: 0,
+          gold: 10,
+          health: 300,
+          state: 'Choice',
+          selection: ['second'],
+          cards: [
+            {
+              id: 'first',
+              templateId: 'same',
+              type: 'EventEncounter',
+              price: 0,
+              tags: ['Merchant']
+            },
+            {
+              id: 'second',
+              templateId: 'same',
+              type: 'EventEncounter',
+              price: 0,
+              tags: ['Event']
+            }
+          ]
+        })
+      ),
+      message(2, gameSim({ prices: { second: 5 } })),
+      command(3, 'SendSelectEncounter', { id: 'second' }),
+      message(
+        4,
+        gameSim({
+          day: 1,
+          hour: 1,
+          events: [events.purchased('second', 0)],
+          current: {
+            state: 'Encounter',
+            encounter: 'same',
+            selection: ['reward']
+          }
+        }),
+        3
+      ),
+      message(5, gameSim({ tags: { second: [] } })),
+      command(6, 'SendMoveItem', { id: 'second' }),
+      message(7, gameSim({ tags: { second: ['Merchant'] } })),
+      command(8, 'SendMoveItem', { id: 'second' }),
+      message(9, gameSim({ events: [events.dealt('second', 'replacement')] })),
+      command(10, 'SendMoveItem', { id: 'second' })
+    ];
+    const { entries, contexts } = await projectDecisions(
+      new MessageStream(frames, SCHEMA, 'desktop'),
+      [],
+      0
+    );
+    expect(only(entries, 'action').map((a) => a.card?.tag)).toEqual([
+      'Event',
+      null,
+      'Merchant',
+      null
+    ]);
+    expect(only(entries, 'offer')[1].encounter).toMatchObject({
+      instanceId: 'second',
+      tag: 'Event'
+    });
+    expect(projectVisits(entries, contexts)[0]).toMatchObject({
+      kind: 'event',
+      hour: 1
+    });
+  });
+
   test('an offer keeps each card and price as it was shown', async () => {
     const entries = await project([
       ...opening(),
@@ -234,6 +305,7 @@ describe('Decision path projection', () => {
     expect(offers.at(-1)?.cards).toEqual([
       {
         instanceId: 'itm_z',
+        tag: null,
         templateId: 'zzzz',
         type: 'Item',
         tier: 'Bronze',
@@ -326,7 +398,7 @@ describe('Decision path projection', () => {
       { id: 'pve', seq: 3, recordedAtMs: 0, day: 2, hour: 3, pvp: false },
       { id: 'pvp', seq: 8, recordedAtMs: 0, day: 2, hour: 6, pvp: true }
     ];
-    const entries = await projectDecisions(
+    const { entries } = await projectDecisions(
       new MessageStream(frames, SCHEMA, 'desktop'),
       battles,
       0
@@ -444,26 +516,5 @@ describe('Decision path projection', () => {
       ['upgraded', 'done', 'Gold'],
       ['rerolled', 'attempted', null]
     ]);
-  });
-
-  test('a row shows the recorded price, and the balance change only where it differs', () => {
-    expect(tradeGold(trade('bought', 16, -13))).toEqual({
-      amount: 16,
-      net: -13
-    });
-    expect(tradeGold(trade('bought', 4, -4))).toEqual({
-      amount: 4,
-      net: null
-    });
-    expect(tradeGold(trade('picked', 0, 0))).toEqual({ amount: 0, net: null });
-    expect(tradeGold(trade('sold', 1, 6))).toEqual({ amount: 1, net: 6 });
-    expect(tradeGold(trade('rerolled', null, -3))).toEqual({
-      amount: null,
-      net: -3
-    });
-    expect(tradeGold(trade('moved', null, 0))).toEqual({
-      amount: null,
-      net: null
-    });
   });
 });
