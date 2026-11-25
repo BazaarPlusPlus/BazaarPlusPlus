@@ -1,23 +1,16 @@
 import { useState, type ReactNode } from 'react';
-import { Badge, Button } from '@bpp/ui';
+import { Badge, Button, CardChip, CardTile, enchantments } from '@bpp/ui';
 
 import type { Locale } from '../../app/router';
 import { fillCopy, getSiteCopy } from '../../content/site-copy';
 import type { DecisionPath as Path } from './message-stream/decision-path';
 import type { CardRef, DecisionEntry } from './message-stream/project';
+import { gameCard } from './game-card';
 import { tradeGold } from './message-stream/trade';
 import type { MessageStream } from './message-stream/stream';
 
 type ArtLookup = (templateId: string) => string | null;
 type Action = Extract<DecisionEntry, { kind: 'action' }>;
-
-const TIER_COLOR: Record<string, string> = {
-  Bronze: 'var(--tier-bronze)',
-  Silver: 'var(--tier-silver)',
-  Gold: 'var(--accent)',
-  Diamond: 'var(--tier-diamond)',
-  Legendary: 'var(--tier-legendary)'
-};
 
 /** A card's name by TemplateId, or null when none is known. */
 type Names = (templateId: string) => string | null;
@@ -35,75 +28,12 @@ function shortId(card: CardRef, locale: Locale): string {
   return card.templateId?.slice(0, 8) ?? card.instanceId;
 }
 
-function Art({
-  card,
-  art,
-  names,
-  className
-}: {
-  card: CardRef;
-  art: ArtLookup;
-  names: Names;
-  className: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  const url = failed || !card.templateId ? null : art(card.templateId);
-  const label = cardName(card, names) ?? card.templateId ?? card.instanceId;
-  return (
-    <span
-      className={`flex shrink-0 items-center justify-center overflow-hidden border-2 bg-hover ${className}`}
-      style={{
-        borderColor: TIER_COLOR[card.tier ?? ''] ?? 'var(--line-strong)'
-      }}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt={label}
-          loading="lazy"
-          decoding="async"
-          onError={() => setFailed(true)}
-          className="size-full object-cover"
-        />
-      ) : (
-        <span className="sr-only">{label}</span>
-      )}
-    </span>
-  );
-}
-
-/** A card inline: art, then its name, or its TemplateId when no name is known. */
-function Chip({
-  card,
-  art,
-  names,
-  locale
-}: {
-  card: CardRef;
-  art: ArtLookup;
-  names: Names;
-  locale: Locale;
-}) {
-  const tiers = getSiteCopy(locale).account.tiers;
-  const name = cardName(card, names);
-  return (
-    <span
-      className="inline-flex min-w-0 items-center gap-1.5"
-      title={card.templateId ?? card.instanceId}
-    >
-      <Art
-        card={card}
-        art={art}
-        names={names}
-        className="size-6 rounded-inner"
-      />
-      <span className="min-w-0 truncate text-text-1">
-        {name ?? shortId(card, locale)}
-      </span>
-      {card.tier && (
-        <span className="text-text-3">{tiers[card.tier] ?? card.tier}</span>
-      )}
-    </span>
+function pathCard(card: CardRef, art: ArtLookup, names: Names, locale: Locale) {
+  return gameCard(
+    card,
+    cardName(card, names) ?? shortId(card, locale),
+    art,
+    locale
   );
 }
 
@@ -239,11 +169,9 @@ function Offer({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small">
         <span className="font-medium text-text-2">{copy.path.offered}</span>
         {entry.encounter && (
-          <Chip
-            card={entry.encounter}
-            art={art}
-            names={names}
-            locale={locale}
+          <CardChip
+            card={pathCard(entry.encounter, art, names, locale)}
+            title={entry.encounter.templateId ?? entry.encounter.instanceId}
           />
         )}
         {entry.rerollCost !== null && entry.rerollsRemaining !== null && (
@@ -257,22 +185,14 @@ function Offer({
       </div>
       <ul className="flex flex-wrap gap-2">
         {entry.cards.map((card) => {
-          const name = cardName(card, names);
+          const display = pathCard(card, art, names, locale);
           return (
             <li
               key={card.instanceId}
               className="flex w-16 flex-col gap-1"
               title={card.templateId ?? card.instanceId}
             >
-              <Art
-                card={card}
-                art={art}
-                names={names}
-                className="size-16 rounded-control"
-              />
-              <span className="line-clamp-2 text-micro leading-tight break-words text-text-2">
-                {name ?? shortId(card, locale)}
-              </span>
+              <CardTile card={display} caption />
               {(entry.free || card.price !== null) && (
                 <span className="text-micro text-accent tabular-nums">
                   {entry.free
@@ -301,7 +221,10 @@ function ActionLine({
 }) {
   const copy = getSiteCopy(locale).account;
   const first = actions[0];
-  const tiers = copy.tiers;
+  const resultName = (value: string) => {
+    const enchant = enchantments.find((name) => name === value);
+    return enchant ? copy.enchantments[enchant] : (copy.tiers[value] ?? value);
+  };
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small">
       <span className="font-medium text-text-2">
@@ -313,12 +236,13 @@ function ActionLine({
           className="inline-flex min-w-0 items-center gap-x-2"
         >
           {action.card && (
-            <Chip card={action.card} art={art} names={names} locale={locale} />
+            <CardChip
+              card={pathCard(action.card, art, names, locale)}
+              title={action.card.templateId ?? action.card.instanceId}
+            />
           )}
           {action.result && (
-            <span className="text-accent">
-              → {tiers[action.result] ?? action.result}
-            </span>
+            <span className="text-accent">→ {resultName(action.result)}</span>
           )}
           <Gold action={action} locale={locale} />
           <Delta value={action.health} copy={copy.path.health} />

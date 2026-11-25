@@ -1,3 +1,4 @@
+import type { Enchantment } from '@bpp/ui';
 import type { AndroidSource } from '../features/download/installer';
 import type { HeroMetricsSegment } from '../features/heroes/hero-metrics-dataset';
 import type {
@@ -287,6 +288,9 @@ type LocalizedSiteCopy = {
     more: string;
     outcomes: Record<RunOutcomeTier, string>;
     winLoss: string;
+    enchantments: Record<Enchantment, string>;
+    emptySkills: string;
+    missingSkills: string;
     tiers: Record<string, string>;
     day: string;
     pvp: string;
@@ -470,6 +474,26 @@ const zh: LocalizedSiteCopy = {
     notRecorded: '未记录阵容',
     emptyBoard: '空阵容',
     skills: '技能',
+    emptySkills: '无技能',
+    missingSkills: '未记录技能',
+    enchantments: {
+      Deadly: '致命',
+      Ethereal: '空灵',
+      Fiery: '炽焰',
+      Golden: '黄金',
+      Heavy: '沉重',
+      Icy: '寒冰',
+      Mystical: '神秘',
+      Obsidian: '黑曜石',
+      Radiant: '辉耀',
+      Restorative: '回复',
+      Shielded: '护盾',
+      Shiny: '闪亮',
+      Tiny: '迷你',
+      Toxic: '毒素',
+      Turbo: '疾速',
+      Mossy: '长青'
+    },
     added: '新增',
     left: '离场',
     tierUp: '升级',
@@ -940,6 +964,26 @@ const en: LocalizedSiteCopy = {
     notRecorded: 'Board not recorded',
     emptyBoard: 'Empty board',
     skills: 'Skills',
+    emptySkills: 'No skills',
+    missingSkills: 'Skills not recorded',
+    enchantments: {
+      Deadly: 'Deadly',
+      Ethereal: 'Ethereal',
+      Fiery: 'Fiery',
+      Golden: 'Golden',
+      Heavy: 'Heavy',
+      Icy: 'Icy',
+      Mystical: 'Mystical',
+      Obsidian: 'Obsidian',
+      Radiant: 'Radiant',
+      Restorative: 'Restorative',
+      Shielded: 'Shielded',
+      Shiny: 'Shiny',
+      Tiny: 'Tiny',
+      Toxic: 'Toxic',
+      Turbo: 'Turbo',
+      Mossy: 'Mossy'
+    },
     added: 'New',
     left: 'Left the board',
     tierUp: 'Upgraded',
