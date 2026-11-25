@@ -1585,7 +1585,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-card-chip-art {
   position: relative;
-  width: var(--space-24);
+  aspect-ratio: 1;
   height: var(--space-24);
   overflow: hidden;
   border-radius: var(--r-inner);
@@ -1801,7 +1801,6 @@ button.bpp-visit-identity {
 }
 .bpp-decision-card .bpp-card-chip > .bpp-card-chip-art {
   flex: none;
-  width: var(--control-sm);
   height: var(--control-sm);
   background: var(--bg-selected);
 }
@@ -1834,7 +1833,6 @@ button.bpp-visit-identity {
 .bpp-detail-art[data-size='3'] {
   aspect-ratio: 3 / 2;
 }
-.bpp-card-chip-art[data-size],
 .bpp-detail-art[data-size] {
   width: auto;
 }

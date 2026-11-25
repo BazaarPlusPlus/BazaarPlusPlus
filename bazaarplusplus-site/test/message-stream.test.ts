@@ -403,6 +403,11 @@ describe('Frames as a reader sees them', () => {
       rerollFees: [2],
       closed: true
     });
+    const bought = at(8).actions.find((a) => a.order === 8);
+    expect(bought).toMatchObject({ verb: 'bought', card: { size: 1 } });
+    expect(detail.cardNames.get(bought!.card!.templateId!)).toBe(
+      'Mantis Shrimp'
+    );
     expect(at(6).remaining).toHaveLength(4);
     expect(at(18)).toBe(at(20));
     expect(at(159)).toBe(at(163));

@@ -447,6 +447,16 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   await expect(page.getByRole('dialog', { name: 'Ande' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(shop).toContainText('Bought');
+  const shrimpArt = shop
+    .locator('.bpp-decision-card')
+    .getByRole('button', { name: /Mantis Shrimp/ })
+    .locator('.bpp-card-chip-art');
+  await expect(shrimpArt).toHaveAttribute('data-size', '1');
+  const ratio = await shrimpArt.evaluate((el) => {
+    const { width, height } = el.getBoundingClientRect();
+    return width / height;
+  });
+  expect(ratio).toBe(0.5);
   await shop
     .locator('.bpp-decision-card')
     .getByRole('button', { name: /Mantis Shrimp/ })
