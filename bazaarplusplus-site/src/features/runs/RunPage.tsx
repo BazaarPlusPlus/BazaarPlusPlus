@@ -1,10 +1,11 @@
-import { decisionDays } from '@bpp/runs/decisions';
+import { dayMoments, decisionDays } from '@bpp/runs/decisions';
 import { useQuery } from '@tanstack/react-query';
 import {
   Badge,
   Board,
   SkillStrip,
   Button,
+  DecisionExplorer,
   DayCard,
   StatusPanel
 } from '@bpp/ui';
@@ -35,7 +36,7 @@ import {
 import { useCardArt, useCardNames } from './card-art';
 import { gameCard } from './game-card';
 import { CardDetails, useOpenCard } from './CardDetails';
-import { DecisionVisit, StreamDebug } from './DayDecisions';
+import { SiteMoment, DecisionVisit, StreamDebug } from './DayDecisions';
 import { decodeRunPayload, type RunCard, type RunDetail } from './run-payload';
 import {
   buildTimeline,
@@ -211,6 +212,9 @@ function Decisions({
     <>
       <ol className="flex flex-col gap-3">
         {days.map(({ day, visits: rows, battles: daySteps }) => {
+          const moments = dayMoments(rows, path.data);
+          const names = (id: string) =>
+            gameNames(id) ?? detail.cardNames.get(id) ?? null;
           return (
             <DayCard
               key={day ?? 'unknown'}
@@ -228,20 +232,34 @@ function Decisions({
               decisions={
                 (!!detail.stream || detail.streamOmitted) &&
                 (rows.length ? (
-                  <ol>
+                  <DecisionExplorer
+                    ids={[...moments.keys()]}
+                    previous={copy.path.previous}
+                    next={copy.path.next}
+                    render={(seq) => (
+                      <SiteMoment
+                        row={moments.get(seq)!}
+                        art={art}
+                        names={names}
+                        locale={locale}
+                      />
+                    )}
+                  >
                     {rows.map((v) => (
                       <DecisionVisit
                         key={v.battleId ?? v.order}
+                        opening={
+                          path.data?.openings.get(v.battleId ?? '')
+                            ?.responseSeq ?? undefined
+                        }
                         visit={v}
                         battle={battles.get(v.battleId ?? '')}
                         art={art}
-                        names={(id) =>
-                          gameNames(id) ?? detail.cardNames.get(id) ?? null
-                        }
+                        names={names}
                         locale={locale}
                       />
                     ))}
-                  </ol>
+                  </DecisionExplorer>
                 ) : (
                   <p>{status}</p>
                 ))

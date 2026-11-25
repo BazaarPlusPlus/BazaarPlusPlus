@@ -1837,3 +1837,87 @@ button.bpp-visit-identity {
 .bpp-detail-art[data-size] {
   width: auto;
 }
+
+.bpp-decision-explorer {
+  display: grid;
+  gap: var(--space-16);
+  align-items: start;
+}
+.bpp-decision-explorer[data-wide='true'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.bpp-moment {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  overflow-wrap: anywhere;
+}
+.bpp-decision-explorer[data-wide='true'] .bpp-moment {
+  position: sticky;
+  top: var(--space-16);
+  margin-top: var(--space-12);
+}
+.bpp-moment-title {
+  display: none;
+}
+.bpp-decision-explorer[data-wide='true'] .bpp-moment-title {
+  display: block;
+}
+.bpp-moment-nav,
+.bpp-moment-offers,
+.bpp-moment-totals {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+.bpp-moment-offers > div {
+  display: grid;
+  align-content: start;
+  padding: var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  max-width: 100%;
+}
+.bpp-moment-offers > [data-chosen='true'] {
+  border-color: var(--accent);
+}
+.bpp-moment-nav button,
+.bpp-moment-button {
+  padding: var(--space-6);
+  color: var(--accent);
+  text-align: start;
+  min-height: var(--control-md);
+  cursor: pointer;
+}
+.bpp-moment-button[aria-current='true'] {
+  font-weight: bold;
+  text-decoration: underline;
+}
+.bpp-moment-nav button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.bpp-moment-button:focus-visible,
+.bpp-moment-nav button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.bpp-moment-totals > div {
+  flex: 1;
+}
+.bpp-decision-row:has(.bpp-moment-button) {
+  position: relative;
+}
+.bpp-decision-row .bpp-moment-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.bpp-decision-row .bpp-card-chip {
+  position: relative;
+}
+.bpp-decision-row:has([aria-current='true']) {
+  background: var(--bg-selected);
+}

@@ -1,5 +1,11 @@
-import { presentVisit } from '@bpp/runs/decisions';
 import {
+  type DayMoment,
+  presentMoment,
+  presentVisit
+} from '@bpp/runs/decisions';
+import {
+  MomentPanel,
+  useDecisionSelection,
   Badge,
   FrameInspector,
   DecisionVisitRow,
@@ -87,12 +93,14 @@ export function StreamDebug({
 }
 
 export function DecisionVisit({
+  opening,
   visit,
   battle,
   art,
   names,
   locale
 }: {
+  opening?: number;
   visit: Visit;
   battle?: RunBattle;
   art: ArtLookup;
@@ -105,6 +113,7 @@ export function DecisionVisit({
   const display = (c: CardRef) => pathCard(c, art, names, locale, open);
   const outcome = battle?.outcome;
   const text = { ...labels, ...labels.kinds, ...labels.verbs };
+  const selection = useDecisionSelection();
   const view = presentVisit(
     visit,
     battle && {
@@ -112,7 +121,9 @@ export function DecisionVisit({
       opponentHero: battle.opponentHero ? heroName(battle.opponentHero) : null
     },
     display,
-    (key, params) => (params ? fillCopy(text[key], params) : text[key])
+    (key, params) => (params ? fillCopy(text[key], params) : text[key]),
+    selection?.active,
+    opening
   );
   return (
     <DecisionVisitRow
@@ -130,6 +141,39 @@ export function DecisionVisit({
           (copy.tiers[result] ?? result)
         );
       }}
+    />
+  );
+}
+
+export function SiteMoment({
+  row,
+  art,
+  names,
+  locale
+}: {
+  row: DayMoment;
+  art: ArtLookup;
+  names: Names;
+  locale: Locale;
+}) {
+  const open = useOpenCard(),
+    labels = getSiteCopy(locale).account.path;
+  const title = [
+    row.visit.day !== null &&
+      fillCopy(getSiteCopy(locale).account.day, { day: row.visit.day }),
+    row.visit.hour !== null && fillCopy(labels.hour, { n: row.visit.hour }),
+    { ...labels, ...labels.verbs, ...labels.kinds }[row.verb]
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <MomentPanel
+      labels={{ ...labels, skills: getSiteCopy(locale).account.skills }}
+      title={title}
+      reroll={row.verb === 'rerolled'}
+      view={presentMoment(row.moment, (c) =>
+        pathCard(c, art, names, locale, open)
+      )}
     />
   );
 }

@@ -417,6 +417,7 @@ test('a Run detail decodes the stored Run into a decision timeline', async ({
 test('a Run with a Run Message Stream groups shops, choices and fights inside its days', async ({
   page
 }) => {
+  test.slow();
   await mockAccountApi(page, streamRunHandlers());
   // The index names the first shop; the Run's own Battles name the cards it fought with.
   await mockCardArt(page, [], undefined, {
@@ -437,13 +438,19 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   const decisions = day(1).locator('details').first();
   await expect(decisions).not.toHaveAttribute('open', '');
   await decisions.getByText('Day decisions').click();
-  const shop = decisions.locator('li').filter({ hasText: 'Ande' });
+  const shop = decisions
+    .locator('.bpp-visit-row')
+    .filter({ hasText: 'Visited Ande' })
+    .first();
   await expect(shop).toContainText('Hour 1');
-  await shop.getByRole('button', { name: /Visited Ande/ }).click();
+  await shop.locator('.bpp-visit-art').click();
   await expect(page.getByRole('dialog', { name: 'Ande' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(shop).toContainText('Bought');
-  await shop.getByRole('button', { name: /Mantis Shrimp/ }).click();
+  await shop
+    .locator('.bpp-decision-card')
+    .getByRole('button', { name: /Mantis Shrimp/ })
+    .click();
   await expect(
     page.getByRole('dialog', { name: 'Mantis Shrimp' })
   ).toBeVisible();
@@ -480,19 +487,39 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   ).toBeVisible();
   await main.getByText('Raw frames', { exact: true }).click();
   await day(3).getByText('Day decisions').click();
-  await page.screenshot({
-    path: test.info().outputPath('run-path-1280.png'),
-    fullPage: true
+  const bought = shop.getByRole('button', {
+    name: 'Bought · Mantis Shrimp',
+    exact: true
   });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expectNoHorizontalScroll(page);
-  await decisions
-    .locator('.bpp-visit-row')
-    .first()
-    .evaluate((el) => el.scrollIntoView({ block: 'center' }));
-  await page.screenshot({
-    path: test.info().outputPath('run-path-390.png')
-  });
+  await bought.click();
+  const panel = decisions.locator('.bpp-moment');
+  await expect(panel).toContainText('Chosen');
+  await bought.press('ArrowDown');
+  await expect(
+    shop.getByRole('button', { name: 'Rerolled', exact: true })
+  ).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(bought).toBeFocused();
+  async function checkWidth(width: number) {
+    await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
+    await expect(decisions.locator('.bpp-decision-explorer')).toHaveAttribute(
+      'data-wide',
+      String(width === 1280)
+    );
+    await expectNoHorizontalScroll(page);
+    expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+      true
+    );
+    await expect(panel.locator('.bpp-board-slot')).toHaveCount(20);
+    await bought.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+    if (width !== 320)
+      await page.screenshot({
+        path: test.info().outputPath('moment-' + width + '.png')
+      });
+  }
+  await checkWidth(1280);
+  await checkWidth(390);
+  await checkWidth(320);
 });
 
 test('a Run without stored detail shows its summary, and an unknown Run is not found', async ({

@@ -134,6 +134,94 @@ describe('Run Message Stream translation of a real Run (sanitized)', () => {
     ).toBe(true);
   });
 
+  test('each fight opening exactly matches the captured player and retains the selected offer through a fuse', async () => {
+    const path = (await buildDecisionPath(detail))!;
+    const anchors = [
+      66, 125, 186, 233, 305, 360, 415, 498, 541, 572, 615, 702, 739
+    ];
+    expect(detail.battles).toHaveLength(anchors.length);
+    for (const [index, battle] of detail.battles.entries()) {
+      const opening = path.openings.get(battle.id);
+      expect({ [battle.id]: opening?.responseSeq }).toEqual({
+        [battle.id]: anchors[index]
+      });
+      for (const section of ['hand', 'skills'] as const) {
+        const expected = battle[section];
+        expect(expected.status).not.toBe('missing');
+        const actual =
+          section === 'hand'
+            ? opening?.snapshot?.board
+            : opening?.snapshot?.skills;
+        const fields = (
+          cards: readonly {
+            instanceId: string;
+            templateId: string | null;
+            tier: string | null;
+            enchant: string | null;
+            slot?: number | null;
+            size?: number;
+          }[]
+        ) =>
+          cards
+            .map((c) => ({
+              instanceId: c.instanceId,
+              templateId: c.templateId,
+              tier: c.tier,
+              enchant: c.enchant,
+              ...(section === 'hand' ? { slot: c.slot, size: c.size } : {})
+            }))
+            .sort((a, b) => a.instanceId.localeCompare(b.instanceId));
+        const location = [
+          battle.id,
+          battle.day,
+          battle.hour,
+          section,
+          anchors[index]
+        ].join('/');
+        expect({ [location]: actual && fields(actual) }).toEqual({
+          [location]: fields(expected.cards)
+        });
+      }
+    }
+    const before = path.moments.get(365),
+      after = path.moments.get(367);
+    expect(after?.responseSeq).toBe(368);
+    expect(after?.chosen).toBe('skl_sLZZBEV');
+    expect(after?.offer?.map((c) => c.instanceId)).toContain(after?.chosen);
+    expect(
+      before?.snapshot?.skills
+        ?.filter((c) => c.instanceId === 'skl_sUEjzLM')
+        .map((c) => c.tier)
+    ).toEqual(['Silver']);
+    expect(
+      after?.snapshot?.skills
+        ?.filter((c) => c.instanceId === 'skl_sUEjzLM')
+        .map((c) => c.tier)
+    ).toEqual(['Gold']);
+    expect(after?.snapshot?.skills?.map((c) => c.instanceId)).not.toContain(
+      after?.chosen
+    );
+    expect(path.moments.get(263)?.snapshot).toBeNull();
+    expect(path.moments.get(6)?.encounter?.instanceId).toBe(
+      path.moments.get(6)?.chosen
+    );
+    const pve = await projectDecisions(
+      stream,
+      [
+        {
+          id: 'first-monster',
+          day: 1,
+          hour: 3,
+          seq: 25,
+          pvp: false,
+          recordedAtMs: 0
+        }
+      ],
+      0
+    );
+    expect(pve.openings.get('first-monster')?.responseSeq).toBe(23);
+    expect(pve.moments.get(22)?.responseSeq).toBe(24);
+  });
   test('every frame is reachable from the decision path, which matches its golden', async () => {
     const path = (await buildDecisionPath(detail))!;
     const reached = new Set(path.entries.flatMap((e) => e.frames));

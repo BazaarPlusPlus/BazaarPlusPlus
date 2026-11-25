@@ -23,7 +23,7 @@ const cardAttr = (name: string) => enumValue('ECardAttributeType', name);
 const state = (name: string) => enumValue('ERunState', name);
 
 /** IGameSimEvent cases, by their union tag in the schema. */
-function eventTag(type: string): number {
+export function eventTag(type: string): number {
   const union = Object.entries(SCHEMA.types).find(([n]) =>
     n.endsWith('.IGameSimEvent')
   )?.[1];
