@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import type { CardSize, CardTier, Enchantment } from './types';
 
+import type { CardFx } from './enchantment-fx/program';
+import { FxFace } from './enchantment-fx/Face';
+
 export type GameCard = {
+  fx?: CardFx;
   name: string;
   art: string | null;
   tier: CardTier | null;
@@ -87,6 +91,9 @@ export function CardTile({
           alt={caption ? '' : card.name}
           fallback={caption ? '' : card.name}
         />
+        {card.fx && card.enchant && (
+          <FxFace source={card.fx} enchant={card.enchant} />
+        )}
       </span>
       {caption && <span className="bpp-card-name">{card.name}</span>}
       <TierLabel label={card.tierLabel} />
@@ -124,6 +131,9 @@ export function CardChip({
       {(card.art || placeholder) && (
         <span className="bpp-card-chip-art" data-size={card.size ?? undefined}>
           <CardArt src={card.art} alt="" fallback="" />
+          {card.fx && card.enchant && (
+            <FxFace source={card.fx} enchant={card.enchant} still />
+          )}
         </span>
       )}
       <span>{card.name}</span>

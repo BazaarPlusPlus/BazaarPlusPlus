@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import type { CardFx, FxMaterial } from '@bpp/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 /** The site Worker serves Card Art same-origin from cdn.bazaarplusplus.com/card-art/. */
 const CARD_ART_PATH = '/card-art/';
@@ -57,9 +59,62 @@ export function useCardArtIndex() {
 }
 
 /** Card Art by TemplateId; null until the index loads, or when it fails. */
-export function useCardArt(): (templateId: string) => string | null {
-  const index = useCardArtIndex();
-  return (templateId) => index.data?.files.get(templateId) ?? null;
+export type ArtLookup = ((templateId: string) => string | null) & {
+  fx?: (
+    templateId: string,
+    tiny: boolean,
+    slots?: number
+  ) => CardFx | undefined;
+};
+
+export function useCardArt(): ArtLookup {
+  const index = useCardArtIndex().data;
+  const client = useQueryClient();
+  return useMemo(() => {
+    const sources = new Map<string, CardFx>();
+    const art: ArtLookup = (id) => index?.files.get(id.toLowerCase()) ?? null;
+    const fx = (id: string, tiny: boolean, slots?: number) => {
+      const path = index?.fx.get(id.toLowerCase());
+      if (!path) return;
+      const key = path + String(tiny) + String(slots);
+      if (!sources.has(key))
+        sources.set(key, {
+          tiny,
+          slots,
+          material: () =>
+            client.fetchQuery({
+              queryKey: ['card-material', path],
+              staleTime: Infinity,
+              retry: false,
+              queryFn: async ({ signal }) => {
+                const response = await fetch(path, { signal });
+                if (!response.ok) throw new Error('Unavailable card material');
+                return (await response.json()) as FxMaterial;
+              }
+            }),
+          texture: (filename) =>
+            client.fetchQuery({
+              queryKey: ['card-texture', filename],
+              staleTime: Infinity,
+              retry: false,
+              queryFn: async ({ signal }) => {
+                if (
+                  !FILE.test(filename) &&
+                  !/^tex-[0-9a-f]{20}\.png$/.test(filename)
+                )
+                  throw new Error('Invalid texture filename');
+                const response = await fetch(CARD_ART_PATH + filename, {
+                  signal
+                });
+                if (!response.ok) throw new Error('Unavailable card texture');
+                return response.blob();
+              }
+            })
+        });
+      return sources.get(key);
+    };
+    return Object.assign(art, { fx });
+  }, [index, client]);
 }
 
 /** A card's English title from the Card Art index; null until it loads or when unknown. */

@@ -1,0 +1,163 @@
+{
+  "material": "fx-16bba6bcfae8798a73de.json",
+  "cases": [
+    {
+      "effect": "Deadly",
+      "time": 1,
+      "x": 8,
+      "y": 104,
+      "image": "Deadly1.png"
+    },
+    {
+      "effect": "Deadly",
+      "time": 2,
+      "x": 56,
+      "y": 72,
+      "image": "Deadly2.png"
+    },
+    {
+      "effect": "Fiery",
+      "time": 1,
+      "x": 56,
+      "y": 72,
+      "image": "Fiery1.png"
+    },
+    {
+      "effect": "Fiery",
+      "time": 2,
+      "x": 104,
+      "y": 88,
+      "image": "Fiery2.png"
+    },
+    {
+      "effect": "Obsidian",
+      "time": 1,
+      "x": 296,
+      "y": 168,
+      "image": "Obsidian1.png"
+    },
+    {
+      "effect": "Obsidian",
+      "time": 2,
+      "x": 296,
+      "y": 168,
+      "image": "Obsidian2.png"
+    },
+    {
+      "effect": "Radiant",
+      "time": 1,
+      "x": 40,
+      "y": 56,
+      "image": "Radiant1.png"
+    },
+    {
+      "effect": "Radiant",
+      "time": 2,
+      "x": 8,
+      "y": 72,
+      "image": "Radiant2.png"
+    },
+    {
+      "effect": "Restorative",
+      "time": 1,
+      "x": 296,
+      "y": 24,
+      "image": "Restorative1.png"
+    },
+    {
+      "effect": "Restorative",
+      "time": 2,
+      "x": 168,
+      "y": 216,
+      "image": "Restorative2.png"
+    },
+    {
+      "effect": "Shiny",
+      "time": 1,
+      "x": 24,
+      "y": 120,
+      "image": "Shiny1.png"
+    },
+    {
+      "effect": "Shiny",
+      "time": 2,
+      "x": 24,
+      "y": 120,
+      "image": "Shiny2.png"
+    },
+    {
+      "effect": "Tiny",
+      "time": 1,
+      "x": 312,
+      "y": 136,
+      "image": "Tiny1.png"
+    },
+    {
+      "effect": "Tiny",
+      "time": 2,
+      "x": 312,
+      "y": 136,
+      "image": "Tiny2.png"
+    },
+    {
+      "effect": "Toxic",
+      "time": 1,
+      "x": 56,
+      "y": 72,
+      "image": "Toxic1.png"
+    },
+    {
+      "effect": "Toxic",
+      "time": 2,
+      "x": 136,
+      "y": 104,
+      "image": "Toxic2.png"
+    },
+    {
+      "effect": "Turbo",
+      "time": 1,
+      "x": 88,
+      "y": 168,
+      "image": "Turbo1.png"
+    },
+    {
+      "effect": "Turbo",
+      "time": 2,
+      "x": 360,
+      "y": 152,
+      "image": "Turbo2.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-d71258846d66bb9eb040.json",
+      "time": 1,
+      "x": 264,
+      "y": 264,
+      "image": "AtlasShiny1.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-d71258846d66bb9eb040.json",
+      "time": 2,
+      "x": 264,
+      "y": 264,
+      "image": "AtlasShiny2.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-c9bd94fd30028851fd31.json",
+      "time": 1,
+      "x": 232,
+      "y": 248,
+      "image": "SubmarineShiny1.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-c9bd94fd30028851fd31.json",
+      "time": 2,
+      "x": 232,
+      "y": 248,
+      "image": "SubmarineShiny2.png"
+    }
+  ]
+}

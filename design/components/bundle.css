@@ -1484,7 +1484,7 @@ html[data-bpp-platform='windows'] .bpp-header {
   overflow-wrap: break-word;
   hyphens: auto;
 }
-/* On a tile the border carries the tier and the inner ring the enchantment; their words stay
+/* On a tile the frame blends the enchantment and tier colours; their words stay
    for screen readers and the title. A tile wide enough for the word shows the enchantment. */
 .bpp-card .bpp-tier-label,
 .bpp-decision-card .bpp-tier-label,
@@ -1596,11 +1596,22 @@ html[data-bpp-platform='windows'] .bpp-header {
   font-size: var(--type-micro);
 }
 
-.bpp-card-enchant .bpp-card-face::after {
-  content: '';
+.bpp-card-enchant {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-panel), var(--bg-panel)) padding-box,
+    linear-gradient(
+        135deg,
+        var(--bpp-enchant-mark, var(--bpp-enchant)),
+        var(--bpp-tier, var(--line-strong))
+      )
+      border-box;
+}
+.bpp-card-fx {
   position: absolute;
   inset: 0;
-  border: var(--space-2) solid var(--bpp-enchant-mark, var(--bpp-enchant));
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 .bpp-card-caption .bpp-card-face {

@@ -68,3 +68,4 @@ export {
 } from './game/CardDetail';
 export { DayCard, VisitRow, DecisionVisitRow } from './game/DayCard';
 export { FrameInspector } from './game/FrameInspector';
+export type { CardFx, FxMaterial } from './game/enchantment-fx/program';

@@ -6,7 +6,7 @@ Scope: the installer app, the website, and the start screen of the Android App (
 
 - **One dark theme.** It is used before and after games, often at night. The ground is a warm near-black (`bg-canvas`) and the system does not follow the OS into a light theme.
 - **Hierarchy comes from fills, not shadows.** `bg-canvas` → `bg-sidebar` → `bg-panel` → `bg-hover` → `bg-selected` step up in lightness, and panels add only a 1px `line`. `shadow-float` is reserved for floating layers: dialogs, menus, popovers and toasts.
-- **No decorative effects.** No gradients, frosted glass, glows, text shadows or vignettes. These made the old installer feel heavy.
+- **No decorative effects.** UI chrome uses no gradients, frosted glass, glows, text shadows or vignettes. These made the old installer feel heavy.
 - **Amber is emphasis only.** Use `accent` for the primary button, the selected rail icon, key numbers, links and the focus ring. `success`, `warning` and `danger` only carry status and never decorate.
 - **Let the layout do the explaining.** Grouping, alignment and order carry meaning, so text does not have to. Give each thing one label and no secondary line that restates it: no subtitle under a clear title, no hint under a clear field, no description under a self-explanatory row.
 - **Everything sits on a shared line.** Each element shares an edge, a centre line or a baseline with its neighbour. Nothing is placed by eye.
@@ -94,7 +94,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 - Use `--ease` (cubic-bezier(0.2, 0, 0, 1)) with `--t-fast` (100ms) for hover, press and colour changes, and `--t-base` (160ms) for anything entering: routes, dialogs, menus, toasts.
 - Route changes are instant, and new content fades in from 0.55 opacity over `--t-base`. Dialogs and menus enter with opacity plus a scale from 0.98, and toasts slide 4px.
 - Busy is always the Loader2 spinner (0.8s linear), and a busy badge dot pulses (1.2s). There are no progress bars, except the Android App launcher's download progress (see **Android App**).
-- Respect `prefers-reduced-motion`: every animation and transition collapses to 1ms.
+- Respect `prefers-reduced-motion`: interface animations and transitions collapse to 1ms. Animated game art displays a still frame.
 
 ## States and focus
 
@@ -122,7 +122,7 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 
 ## Game objects on the web
 
-A board preserves the ten sockets and each item’s width. Skills sit below it in capture order. The tier border and the enchantment ring carry quality and enchantment on a tile; their words appear in chips, in the title and where a tile has room. The product supplies observation labels and computes changes between battles.
+A board preserves the ten sockets and each item’s width. Skills sit below it in capture order. Game objects may use the game’s look. An enchanted item blends its enchantment and tier colours around the frame and may animate its recorded material over the art; their words appear in chips, in the title and where a tile has room. The product supplies observation labels and computes changes between battles.
 
 ## Android App
 

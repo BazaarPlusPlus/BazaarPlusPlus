@@ -1,0 +1,482 @@
+{
+  "keywords": {
+    "Deadly": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DANGEROUS",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DANGEROUS",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Ethereal": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_SHINY",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_SHINY",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Fiery": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_FIERY",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_FIERY",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Golden": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_GOLDEN",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_GOLDEN",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Heavy": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_HEAVY",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_HEAVY",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Icy": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_ICY",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_ICY",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Mossy": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MOSSY",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MOSSY",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Mystical": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MYSTICAL",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_MYSTICAL",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Obsidian": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_OBSIDIAN",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_OBSIDIAN",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Radiant": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_PRISMATIC",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_PRISMATIC",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Restorative": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_RESTORATIVE",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_RESTORATIVE",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Shielded": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TEMPERED",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TEMPERED",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Shiny": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DAZZLING",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_DAZZLING",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Tiny": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TINY",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TINY",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Toxic": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TOXIC",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TOXIC",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    },
+    "Turbo": {
+      "normal": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TURBO",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ],
+      "tiny": [
+        "_CRDSIZE_SMALL",
+        "_DEBUG_OFF",
+        "_ENCHANTMENTSTATUS_TURBO",
+        "_ISTINY_ON",
+        "_MAINTEXTUREFLOWMAP_FLOAT273_ON"
+      ]
+    }
+  },
+  "profile": "premium-card-v1",
+  "size": "small",
+  "textures": {
+    "_AngularAura": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-6308ea2d6a8430107c85.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [512, 512],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_CardHighlight": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-36115000e0ee406d8523.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_ChaoticFlowmap": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-8bb5a7bdd56fd5ebe230.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [128, 128],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_DazzlingGlintMap": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-b20f8bf69ef91102e63b.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [1024, 1024],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_DazzlingStar2": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-ef5a32a5d867cfbdc702.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_EnchantmentMask": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-e3f2d664b6764f8adb8d.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_FierySparks": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-c2c880ab76c327c20755.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [1024, 1024],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_HeartTexture": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-2bf747025da715f6f013.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_MainTex": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "e6469c034955dd4bec1a.webp",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [1024, 1024],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_Mossy_OuterFlare": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-5654583a2626025c926b.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [512, 512],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_NewSmoke": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-e77e943a1baa94b6b84e.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [512, 512],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_ObsidianTexture": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-433a039a1ac45c8351db.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [1024, 1024],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_PrismaticNoise": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-2748de2a18fea7787721.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [128, 128],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_PrismaticRainbow": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-77627b5b2ace6db18de9.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [1, 1]
+    },
+    "_Prismatic_Flares": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-ac2602be586978dc581f.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_Shared_Smoke": {
+      "aniso": 2,
+      "colorSpace": 0,
+      "file": "tex-88691f468aa80847c004.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [256, 256],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    },
+    "_Turbo_Lightning": {
+      "aniso": 2,
+      "colorSpace": 1,
+      "file": "tex-505925cc97ada827f6a5.png",
+      "filter": 1,
+      "mipBias": 0.0,
+      "mipCount": 1,
+      "size": [48, 48],
+      "sourceSize": [512, 512],
+      "st": [1.0, 1.0, 0.0, 0.0],
+      "wrap": [0, 0]
+    }
+  },
+  "values": {
+    "_AbsorptionMaskMax": 0.25099998712539673,
+    "_AbsorptionMaskMin": 0.0,
+    "_EnchantmentDirectionX": -0.03929999843239784,
+    "_EnchantmentDirectionY": -0.02500000037252903,
+    "_EnchantmentFlareScale": 1.215999960899353,
+    "_EnchantmentUCenter": 0.11400000005960464,
+    "_EnchantmentVCenter": -0.0949999988079071,
+    "_FieryDistortion": -0.2370000034570694,
+    "_FireDistortionScaling": 0.6240000128746033,
+    "_FireFlowDirectionRotation": -3.069999933242798,
+    "_FireFlowSpeed": 0.19499999284744263,
+    "_FireFlowStrenght": -0.17900000512599945,
+    "_GlowMaskMax": 0.0,
+    "_GlowMaskMin": 0.28999999165534973,
+    "_ItemCutoutBias": 0.3889999985694885,
+    "_ObsidianBrightness1": 0.0,
+    "_PrismaticUVSpeed": [
+      -0.004999999888241291, -0.0024999999441206455, 0.0, 0.0
+    ],
+    "_RandomnessWiggle": 0.20399999618530273,
+    "_ShimmerScale": 1.2300000190734863,
+    "_ShimmerUOffset": 0.33000001311302185,
+    "_ShimmerVOffset": 0.5339999794960022,
+    "_ShinyGlintHeight": 0.0,
+    "_Size": 1.0,
+    "_TinyBlurFeather": 0.012000000104308128,
+    "_TinyEchoScale": 0.75
+  },
+  "version": 1
+}
