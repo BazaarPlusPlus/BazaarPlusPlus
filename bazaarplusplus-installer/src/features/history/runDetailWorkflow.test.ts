@@ -32,6 +32,10 @@ const detail: HistoryRunDetail = {
     opponent_name: null,
     opponent_rank: null,
     opponent_rating: null,
+    player_board: null,
+    player_skills: null,
+    opponent_board: null,
+    opponent_skills: null,
     video: {
       video_id: `video-${battle_id}`,
       status: 'completed',

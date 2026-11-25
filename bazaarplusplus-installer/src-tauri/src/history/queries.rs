@@ -363,8 +363,10 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<H
             select
               b.battle_id, b.day, b.hour, b.result,
               b.opponent_hero, b.opponent_name, b.opponent_rank, b.opponent_rating,
-              cv.video_id, cv.status, cv.file_size_bytes, cv.duration_ms
+              cv.video_id, cv.status, cv.file_size_bytes, cv.duration_ms,
+              s.player_hand_json, s.player_skills_json, s.opponent_hand_json, s.opponent_skills_json
             from battles b
+            left join battle_snapshots s on s.battle_id = b.battle_id
             left join combat_replay_videos cv on cv.video_id = (
               select video_id
               from combat_replay_videos
@@ -378,7 +380,7 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<H
     )?;
     let rows = stmt.query_map([run_id], |row| {
         let video_id: Option<String> = row.get(8)?;
-        Ok(map_battle_row(
+        let mut battle = map_battle_row(
             map_battle_fields(row)?,
             video_id.map(|video_id| BattleVideoFields {
                 video_id,
@@ -386,7 +388,12 @@ pub fn load_battle_rows(conn: &Connection, run_id: &str) -> anyhow::Result<Vec<H
                 file_size_bytes: row.get(10).ok().flatten(),
                 duration_ms: row.get(11).ok().flatten(),
             }),
-        ))
+        );
+        battle.player_board = super::battle_cards::read_set(row.get(12)?, "Item");
+        battle.player_skills = super::battle_cards::read_set(row.get(13)?, "Skill");
+        battle.opponent_board = super::battle_cards::read_set(row.get(14)?, "Item");
+        battle.opponent_skills = super::battle_cards::read_set(row.get(15)?, "Skill");
+        Ok(battle)
     })?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(anyhow::Error::from)

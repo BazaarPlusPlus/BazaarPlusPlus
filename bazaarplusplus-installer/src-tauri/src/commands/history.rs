@@ -143,3 +143,22 @@ pub async fn execute_storage_cleanup(
     )
     .await
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_card_art_index() -> Result<std::collections::HashMap<String, String>, String> {
+    #[derive(serde::Deserialize)]
+    struct Index {
+        cards: std::collections::HashMap<String, String>,
+    }
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let response = reqwest::get("https://cdn.bazaarplusplus.com/card-art/index.json")
+        .await
+        .and_then(reqwest::Response::error_for_status)
+        .map_err(|error| error.to_string())?;
+    Ok(response
+        .json::<Index>()
+        .await
+        .map_err(|error| error.to_string())?
+        .cards)
+}

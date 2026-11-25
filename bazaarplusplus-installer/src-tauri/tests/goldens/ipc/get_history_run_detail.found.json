@@ -26,6 +26,10 @@
       "opponent_name": null,
       "opponent_rank": null,
       "opponent_rating": null,
+      "player_board": null,
+      "player_skills": null,
+      "opponent_board": null,
+      "opponent_skills": null,
       "video": null
     },
     {
@@ -37,6 +41,10 @@
       "opponent_name": "Opponent A",
       "opponent_rank": "Silver",
       "opponent_rating": 1400,
+      "player_board": null,
+      "player_skills": null,
+      "opponent_board": null,
+      "opponent_skills": null,
       "video": {
         "video_id": "video-1",
         "status": "COMPLETED",

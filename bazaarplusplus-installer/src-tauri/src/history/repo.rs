@@ -98,6 +98,7 @@ pub fn list_history_runs(
 pub fn get_history_run_detail(
     database_path: &Path,
     run_id: &str,
+    names: &GameCardNames,
 ) -> Result<Option<HistoryRunDetail>, HistoryReadError> {
     if !database_path.exists() {
         return Ok(None);
@@ -110,7 +111,8 @@ pub fn get_history_run_detail(
     };
     let screenshot_id = primary_screenshot(&conn, run_id)?.map(|screenshot| screenshot.id);
     let player_name = local_player_name(&conn, run_id)?;
-    let battles = load_battle_rows(&conn, run_id)?;
+    let mut battles = load_battle_rows(&conn, run_id)?;
+    super::battle_cards::resolve_titles(&mut battles, names);
 
     Ok(Some(HistoryRunDetailDto {
         run: map_run_to_detail_row(row, screenshot_id, player_name),
@@ -286,9 +288,19 @@ mod tests {
             ",
         )
         .unwrap();
+        let snapshot = include_str!("../../../../bazaarplusplus-mod/tests/BundlePipeline.Tests/fixtures/battle-snapshots.golden.txt");
+        let sets: Vec<_> = snapshot
+            .lines()
+            .map(|line| line.split_once(' ').unwrap().1)
+            .collect();
+        conn.execute(
+            "insert into battle_snapshots (battle_id, player_hand_json, player_skills_json, opponent_hand_json, opponent_skills_json)
+             values ('battle-2', ?1, ?2, ?3, ?4)",
+            rusqlite::params_from_iter(sets),
+        ).unwrap();
         drop(conn);
 
-        let detail = get_history_run_detail(&database_path, "run-win")
+        let detail = get_history_run_detail(&database_path, "run-win", &GameCardNames::none())
             .unwrap()
             .unwrap();
         assert_eq!(detail.run.player_name.as_deref(), Some("cauyxy"));
@@ -305,6 +317,10 @@ mod tests {
                 opponent_name: Some("Opponent A".to_string()),
                 opponent_rank: Some("Diamond III".to_string()),
                 opponent_rating: Some(1410),
+                player_board: None,
+                player_skills: None,
+                opponent_board: None,
+                opponent_skills: None,
                 video: Some(HistoryBattleVideo {
                     video_id: "video-new".to_string(),
                     status: "COMPLETED".to_string(),
@@ -315,12 +331,27 @@ mod tests {
         );
         assert_eq!(detail.battles[1].battle_id, "battle-2");
         assert_eq!(detail.battles[1].result, "loss");
-        assert_eq!(detail.battles[1].video, None);
+        let battle = &detail.battles[1];
+        assert_eq!(battle.video, None);
+        let board = battle.player_board.as_ref().unwrap();
+        assert_eq!(board.len(), 1);
+        assert_eq!(board[0].name, "Pigomorph");
+        assert_eq!(board[0].size, 2);
+        assert_eq!(board[0].slot, Some(3));
+        assert_eq!(board[0].tier.as_deref(), Some("Silver"));
+        assert_eq!(board[0].enchant.as_deref(), Some("Golden"));
+        let skills = battle.player_skills.as_ref().unwrap();
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "Coup de Grâce \"终结\"");
+        assert_eq!(skills[0].slot, None);
+        assert_eq!(skills[0].enchant, None);
+        assert_eq!(battle.opponent_board.as_deref(), Some([].as_slice()));
+        assert_eq!(battle.opponent_skills, None);
 
         assert!(delete_battle_video(&database_path, &video_dir, "battle-1", "video-new").unwrap());
         assert!(!dated_videos_dir.join("new.mp4").exists());
 
-        let detail = get_history_run_detail(&database_path, "run-win")
+        let detail = get_history_run_detail(&database_path, "run-win", &GameCardNames::none())
             .unwrap()
             .unwrap();
         assert_eq!(

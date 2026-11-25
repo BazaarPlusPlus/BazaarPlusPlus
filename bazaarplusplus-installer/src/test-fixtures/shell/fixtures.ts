@@ -170,6 +170,32 @@ export const runDetail: HistoryRunDetail = {
       opponent_name: 'Opponent A',
       opponent_rank: 'Silver',
       opponent_rating: 1400,
+      player_board: [
+        {
+          instance_id: 'hand-0',
+          template_id: 'pigomorph',
+          name: 'Pigomorph',
+          name_zh: null,
+          size: 2,
+          slot: 3,
+          tier: 'Silver',
+          enchant: 'Golden'
+        }
+      ],
+      player_skills: [
+        {
+          instance_id: 'skill-0',
+          template_id: 'coup',
+          name: 'Coup de Grâce',
+          name_zh: null,
+          size: 1,
+          slot: null,
+          tier: 'Gold',
+          enchant: null
+        }
+      ],
+      opponent_board: [],
+      opponent_skills: null,
       video: {
         video_id: 'video-1',
         status: 'completed',
@@ -186,6 +212,10 @@ export const runDetail: HistoryRunDetail = {
       opponent_name: null,
       opponent_rank: null,
       opponent_rating: null,
+      player_board: null,
+      player_skills: null,
+      opponent_board: null,
+      opponent_skills: null,
       video: null
     }
   ]

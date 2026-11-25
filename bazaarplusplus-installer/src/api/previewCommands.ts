@@ -49,6 +49,7 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     applyOverlayCropCode: async (code) => ({ ...defaultCropSettings, code }),
     resetOverlayCrop: async () => defaultCropSettings,
     listHistoryRuns: async () => emptyHistoryRunList,
+    getCardArtIndex: async () => ({}),
     getHistoryRunDetail: async () => null,
     revealRunScreenshot: async () => null,
     revealBattleVideo: async () => null,

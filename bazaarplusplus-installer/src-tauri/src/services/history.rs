@@ -237,7 +237,12 @@ impl History {
         &self,
         run_id: &str,
     ) -> Result<Option<HistoryRunDetail>, SemanticProblem> {
-        get_history_run_detail(&self.paths.database_path, run_id).map_err(|error| {
+        get_history_run_detail(
+            &self.paths.database_path,
+            run_id,
+            &GameCardNames::installed(),
+        )
+        .map_err(|error| {
             history_read_problem_with("get_run_detail", &self.paths.game_path, error, || {
                 (self.is_game_running)(&self.paths.game_path)
             })
@@ -245,8 +250,12 @@ impl History {
     }
 
     fn run_detail(&self, run_id: &str) -> anyhow::Result<HistoryRunDetail> {
-        get_history_run_detail(&self.paths.database_path, run_id)?
-            .with_context(|| format!("History run {run_id} was not found."))
+        get_history_run_detail(
+            &self.paths.database_path,
+            run_id,
+            &GameCardNames::installed(),
+        )?
+        .with_context(|| format!("History run {run_id} was not found."))
     }
 
     pub(crate) fn reveal_run_screenshot(&self, run_id: &str) -> Result<(), SemanticProblem> {

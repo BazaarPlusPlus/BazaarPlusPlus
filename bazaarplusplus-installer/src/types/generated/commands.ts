@@ -48,6 +48,7 @@ export const commands = {
 	run: HistoryRunDetailRow,
 	battles: HistoryBattleRow[],
 } | null>("get_history_run_detail", { runId }),
+	getCardArtIndex: () => __TAURI_INVOKE<{ [key in string]: string }>("get_card_art_index"),
 	revealRunScreenshot: (runId: string) => __TAURI_INVOKE<null>("reveal_run_screenshot", { runId }),
 	revealBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<null>("reveal_battle_video", { battleId, videoId }),
 	deleteBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<HistoryRunDetail>("delete_battle_video", { battleId, videoId }),
@@ -103,6 +104,17 @@ export type GameDirectorySelection = {
 	game_path: string | null,
 };
 
+export type HistoryBattleCard = {
+	instance_id: string,
+	template_id: string,
+	name: string,
+	name_zh: string | null,
+	size: number,
+	slot: number | null,
+	tier: string | null,
+	enchant: string | null,
+};
+
 export type HistoryBattleRow = {
 	battle_id: string,
 	day: number | null,
@@ -112,6 +124,10 @@ export type HistoryBattleRow = {
 	opponent_name: string | null,
 	opponent_rank: string | null,
 	opponent_rating: number | null,
+	player_board: HistoryBattleCard[] | null,
+	player_skills: HistoryBattleCard[] | null,
+	opponent_board: HistoryBattleCard[] | null,
+	opponent_skills: HistoryBattleCard[] | null,
 	video: HistoryBattleVideo | null,
 };
 
