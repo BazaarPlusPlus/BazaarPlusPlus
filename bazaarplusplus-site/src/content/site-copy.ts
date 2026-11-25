@@ -316,7 +316,28 @@ type LocalizedSiteCopy = {
     detailError: string;
     notFound: string;
     path: {
+      decisions: string;
+      unknownDay: string;
       hour: string;
+      visited: string;
+      fought: string;
+      notTaken: string;
+      noVisits: string;
+      moves: string;
+      rerolls: string;
+      frame: string;
+      kinds: Record<
+        | 'shop'
+        | 'event'
+        | 'monster'
+        | 'pvp'
+        | 'pedestal'
+        | 'encounter'
+        | 'activity'
+        | 'levelUp'
+        | 'loot',
+        string
+      >;
       verbs: Record<
         | 'start'
         | 'reconnect'
@@ -335,14 +356,11 @@ type LocalizedSiteCopy = {
         string
       >;
       offered: string;
-      free: string;
       gold: string;
       net: string;
       health: string;
-      reroll: string;
       attempted: string;
       noResponse: string;
-      update: string;
       undecoded: string;
       rawFrames: string;
       downloadBytes: string;
@@ -519,7 +537,27 @@ const zh: LocalizedSiteCopy = {
     detailError: '未能读取这局的战斗详情。',
     notFound: '找不到这局。',
     path: {
-      hour: '第 {hour} 小时',
+      decisions: '当天决策',
+      unknownDay: '日期未知',
+      hour: '第 {n} 小时',
+      visited: '拜访 {name}',
+      fought: '迎战 {name}',
+      notTaken: '未选 {n} 件',
+      noVisits: '没有记录当天的决策。',
+      moves: '移动 {n} 次',
+      rerolls: '刷新 {n} 次',
+      frame: '消息序号',
+      kinds: {
+        shop: '商店',
+        event: '事件',
+        monster: '怪物',
+        pvp: 'PvP',
+        pedestal: '祭坛',
+        encounter: '遭遇',
+        activity: '遭遇之间',
+        levelUp: '升级',
+        loot: '战利品'
+      },
       verbs: {
         start: '开局',
         reconnect: '重新连接',
@@ -529,22 +567,19 @@ const zh: LocalizedSiteCopy = {
         sold: '出售',
         rerolled: '刷新',
         moved: '移动',
-        skill: '技能',
+        skill: '学会',
         upgraded: '升级',
         enchanted: '附魔',
         committed: '提交',
         left: '离开',
         other: '指令'
       },
-      offered: '可选',
-      free: '免费',
+      offered: '可选 {n} 件',
       gold: '{n} 金币',
       net: '净 {n} 金币',
       health: '{n} 生命',
-      reroll: '刷新 {cost} 金币，剩 {left} 次',
       attempted: '未生效',
       noResponse: '无响应',
-      update: '状态更新',
       undecoded: '无法读取的消息',
       rawFrames: '原始消息',
       downloadBytes: '下载字节',
@@ -1018,7 +1053,27 @@ const en: LocalizedSiteCopy = {
     detailError: 'Couldn’t load the battle details of this run.',
     notFound: 'This run wasn’t found.',
     path: {
-      hour: 'Hour {hour}',
+      decisions: 'Day decisions',
+      unknownDay: 'Unknown day',
+      hour: 'Hour {n}',
+      visited: 'Visited {name}',
+      fought: 'Fought {name}',
+      notTaken: 'Passed over {n}',
+      noVisits: 'No decisions recorded for this day.',
+      moves: 'Moved ×{n}',
+      rerolls: 'Rerolled ×{n}',
+      frame: 'Frame sequence',
+      kinds: {
+        shop: 'Shop',
+        event: 'Event',
+        monster: 'Monster',
+        pvp: 'PvP',
+        pedestal: 'Pedestal',
+        encounter: 'Encounter',
+        activity: 'Between encounters',
+        levelUp: 'Level up',
+        loot: 'Loot'
+      },
       verbs: {
         start: 'Started',
         reconnect: 'Reconnected',
@@ -1028,22 +1083,19 @@ const en: LocalizedSiteCopy = {
         sold: 'Sold',
         rerolled: 'Rerolled',
         moved: 'Moved',
-        skill: 'Skill',
+        skill: 'Learned',
         upgraded: 'Upgraded',
         enchanted: 'Enchanted',
         committed: 'Committed',
         left: 'Left',
         other: 'Command'
       },
-      offered: 'Offered',
-      free: 'Free',
+      offered: 'Offered {n}',
       gold: '{n} gold',
       net: 'net {n} gold',
       health: '{n} health',
-      reroll: 'Reroll {cost} gold, {left} left',
       attempted: 'Not applied',
       noResponse: 'No response',
-      update: 'Update',
       undecoded: 'Unreadable message',
       rawFrames: 'Raw frames',
       downloadBytes: 'Download bytes',

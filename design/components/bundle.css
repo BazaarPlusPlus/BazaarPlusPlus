@@ -1485,6 +1485,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 /* On a tile the border carries the tier and the inner ring the enchantment; their words stay
    for screen readers and the title. A tile wide enough for the word shows the enchantment. */
 .bpp-card .bpp-tier-label,
+.bpp-decision-card .bpp-tier-label,
 .bpp-board-card .bpp-enchant {
   position: absolute;
   width: 1px;
@@ -1706,4 +1707,102 @@ strong.bpp-effect-value {
 }
 .bpp-detail-enchant .bpp-enchant {
   font-size: var(--type-small);
+}
+
+.bpp-day-card {
+  display: grid;
+  gap: var(--space-12);
+  padding: var(--space-16);
+}
+.bpp-day-title {
+  margin: 0;
+  font-size: var(--type-body);
+}
+.bpp-day-decisions {
+  border-block-start: 1px solid var(--line);
+  padding-block-start: var(--space-8);
+  font-size: var(--type-small);
+}
+.bpp-day-decisions summary {
+  cursor: pointer;
+}
+.bpp-visit-row {
+  margin-block-start: var(--space-12);
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+}
+.bpp-visit-head,
+.bpp-visit-identity,
+.bpp-visit-totals,
+.bpp-decision-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.bpp-visit-head {
+  flex-wrap: wrap;
+  padding: var(--space-12);
+  background: var(--bg-sidebar);
+  border-radius: var(--r-panel);
+}
+.bpp-visit-head h3 {
+  margin: 0;
+  font-size: var(--type-body);
+}
+.bpp-visit-identity {
+  min-width: 0;
+  text-align: start;
+}
+button.bpp-visit-identity {
+  cursor: pointer;
+}
+.bpp-visit-art {
+  position: relative;
+  flex: none;
+  width: var(--control-md);
+  height: var(--control-md);
+  overflow: hidden;
+  background: var(--bg-selected);
+  border-radius: var(--r-inner);
+}
+.bpp-visit-hour {
+  display: block;
+  font-size: var(--type-caption);
+  font-weight: 400;
+  color: var(--text-3);
+}
+.bpp-visit-totals {
+  flex-wrap: wrap;
+  justify-content: end;
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+.bpp-decision-row {
+  display: grid;
+  grid-template-columns: calc(var(--control-md) * 2) minmax(0, 1fr) auto;
+  gap: var(--space-8);
+  align-items: center;
+  min-height: var(--row-height);
+  padding: var(--space-6) var(--space-12);
+  border-block-start: 1px solid var(--line);
+}
+.bpp-decision-card {
+  flex-wrap: wrap;
+  grid-column: 2;
+}
+.bpp-decision-card .bpp-card-chip {
+  align-items: center;
+  gap: var(--space-8);
+}
+.bpp-decision-card .bpp-card-chip > .bpp-card-chip-art {
+  flex: none;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  background: var(--bg-selected);
+}
+.bpp-visit-options > summary {
+  border-block-start: 1px solid var(--line);
+  padding: var(--space-12);
+  color: var(--text-2);
 }

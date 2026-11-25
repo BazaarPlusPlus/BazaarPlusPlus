@@ -66,3 +66,4 @@ export {
   type CardDefinition,
   type CardDetailLabels
 } from './game/CardDetail';
+export { DayCard, VisitRow } from './game/DayCard';

@@ -10,6 +10,7 @@ import {
 
 /** A card as the stream knew it at one moment; an offer freezes it when it is shown. */
 export type CardRef = {
+  tag: 'Merchant' | 'Event' | null;
   instanceId: string;
   templateId: string | null;
   /** ECardType member name, e.g. `Item`, `EventEncounter`. */
@@ -80,7 +81,12 @@ export type DecisionEntry = Placed &
         gold: number | null;
         health: number | null;
       }
-    | { kind: 'battle'; battleId: string }
+    | {
+        kind: 'battle';
+        battleId: string;
+        pvp: boolean;
+        encounterId: string | null;
+      }
     | { kind: 'reconnect' }
     | {
         kind: 'update';
@@ -94,6 +100,7 @@ export type BattleMarker = {
   id: string;
   /** The `pvp_combat_recorded` (or other) event's Seq when known. */
   seq: number | null;
+  encounterId?: string | null;
   recordedAtMs: number;
   day: number | null;
   hour: number | null;
@@ -102,6 +109,7 @@ export type BattleMarker = {
 };
 
 type CardState = {
+  tag: CardRef['tag'];
   templateId: string | null;
   type: string | null;
   tier: string | null;
@@ -211,6 +219,7 @@ function card(state: RunState, id: string): CardState {
   let found = state.cards.get(id);
   if (!found) {
     found = {
+      tag: null,
       templateId: null,
       type: null,
       tier: null,
@@ -226,6 +235,7 @@ export function cardRef(state: RunState, id: string): CardRef {
   const c = state.cards.get(id);
   return {
     instanceId: id,
+    tag: c?.tag ?? null,
     templateId: c?.templateId ?? null,
     type: c?.type ?? null,
     tier: c?.tier ?? null,
@@ -242,6 +252,7 @@ function encounterRef(state: RunState): CardRef | null {
     if (c.templateId === templateId) return cardRef(state, id);
   return {
     instanceId: '',
+    tag: null,
     templateId,
     type: null,
     tier: null,
@@ -285,6 +296,7 @@ function applySync(state: RunState, data: Translated | undefined) {
     if (id === null) continue;
     const c = card(state, id);
     c.templateId = text(field(snapshot, 'TemplateId'))?.toLowerCase() ?? null;
+    updateTags(c, snapshot);
     c.type = enumName(field(snapshot, 'Type'));
     c.tier = enumName(field(snapshot, 'Tier'));
     c.enchant = enumName(field(snapshot, 'Enchantment'));
@@ -295,11 +307,23 @@ function applySync(state: RunState, data: Translated | undefined) {
   }
 }
 
+function updateTags(instance: CardState, snapshot: Translated) {
+  const tags = field(snapshot, 'Tags');
+  if (!Array.isArray(tags)) return;
+  const names = new Set(tags.map(enumName));
+  instance.tag = names.has('Merchant')
+    ? 'Merchant'
+    : names.has('Event')
+      ? 'Event'
+      : null;
+}
+
 function updateTemplate(c: CardState, snapshot: Translated) {
   const templateId = text(field(snapshot, 'TemplateId'))?.toLowerCase();
   if (templateId && templateId !== c.templateId) {
     c.templateId = templateId;
     c.enchant = null;
+    c.tag = null;
   }
   c.type = enumName(field(snapshot, 'Type')) ?? c.type;
 }
@@ -396,6 +420,7 @@ function applyGameSim(
       const id = text(key);
       if (id === null || !(update instanceof TObject)) continue;
       const c = card(state, id);
+      updateTags(c, update);
       c.enchant = enumName(field(update, 'Enchantment')) ?? c.enchant;
       c.tier = enumName(field(update, 'Tier')) ?? c.tier;
       for (const [name, delta] of enumKeyed(field(update, 'Attributes'))) {
@@ -579,6 +604,13 @@ const STATE_PARTS = ['Run', 'Player', 'Cards', 'CurrentState', 'Events'];
 const CHUNK = 64;
 const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
+export type Context = Omit<Placed, 'frames'> & {
+  kind: 'context';
+  state: string | null;
+  encounter: CardRef | null;
+  sync: boolean;
+};
+
 /**
  * Folds the stream in Seq order into decision entries. Every frame is referenced by exactly
  * the entries it feeds; a frame no rule reads still appears (an `update`), so every frame is
@@ -588,12 +620,14 @@ export async function projectDecisions(
   stream: MessageStream,
   battles: readonly BattleMarker[],
   yieldEvery: number = CHUNK
-): Promise<DecisionEntry[]> {
+) {
+  const contexts: Context[] = [];
   const state = newState();
   const entries: DecisionEntry[] = [];
   const pending = new Map<number, Pending>();
+  let selected: CardRef | null = null;
   /** Seqs of the messages that entered a combat state, by state name. */
-  const combats: Record<'PVPCombat' | 'Combat', number[]> = {
+  const combats: Record<'PVPCombat' | 'Combat', Context[]> = {
     PVPCombat: [],
     Combat: []
   };
@@ -699,6 +733,8 @@ export async function projectDecisions(
     }
     const evidence = owner?.evidence ?? emptyEvidence();
     const before = {
+      day: state.day,
+      hour: state.hour,
       selection: state.selection,
       stateName: state.stateName,
       encounterId: state.encounterId,
@@ -730,11 +766,42 @@ export async function projectDecisions(
       default:
         break;
     }
+    const baseline = decoded.type === 'NetMessageGameStateSync';
+    if (baseline || before.encounterId !== state.encounterId) selected = null;
+    const chosen = owner?.entry.card;
     if (
-      (state.stateName === 'PVPCombat' || state.stateName === 'Combat') &&
-      before.stateName !== state.stateName
+      chosen &&
+      owner?.entry.verb === 'chose' &&
+      evidence.purchased.has(chosen.instanceId) &&
+      chosen.templateId === state.encounterId?.toLowerCase()
+    )
+      selected = chosen;
+    const encounter = selected ?? encounterRef(state);
+    if (
+      state.known &&
+      (baseline ||
+        before.day !== state.day ||
+        before.hour !== state.hour ||
+        before.encounterId !== state.encounterId ||
+        before.stateName !== state.stateName)
     ) {
-      combats[state.stateName].push(frame.seq);
+      const context: Context = {
+        kind: 'context',
+        order: frame.seq,
+        day: state.day,
+        hour: state.hour,
+        state: state.stateName,
+        encounter,
+        sync: baseline
+      };
+      contexts.push(context);
+      if (
+        !baseline &&
+        before.stateName !== state.stateName &&
+        (state.stateName === 'PVPCombat' || state.stateName === 'Combat')
+      ) {
+        combats[state.stateName].push(context);
+      }
     }
     let read = owner !== undefined;
     if (evidence.synced && !owner) {
@@ -748,7 +815,6 @@ export async function projectDecisions(
       read = true;
     }
     // A new offer: new cards, or a new state. A card leaving the offer (bought) is not one.
-    const baseline = decoded.type === 'NetMessageGameStateSync';
     // A sync is a fresh baseline: its selection is shown again, with its own prices.
     const shown =
       state.known &&
@@ -766,7 +832,7 @@ export async function projectDecisions(
         hour: state.hour,
         frames: [frame.seq],
         state: state.stateName ?? '',
-        encounter: encounterRef(state),
+        encounter,
         cards: state.selection.map((id) => cardRef(state, id)),
         rerollCost: state.rerollCost,
         rerollsRemaining: state.rerollsRemaining,
@@ -774,28 +840,29 @@ export async function projectDecisions(
       });
       read = true;
     }
-    if (!read) {
+    if (!owner && !baseline) {
       const gold = state.player.get('Gold') ?? null;
       const health = state.player.get('Health') ?? null;
       const known = before.known && state.known;
-      entries.push({
-        kind: 'update',
-        order: frame.seq,
-        day: state.day,
-        hour: state.hour,
-        frames: [frame.seq],
-        gold:
-          known && gold !== null && before.gold !== null && gold !== before.gold
-            ? gold - before.gold
-            : null,
-        health:
-          known &&
-          health !== null &&
-          before.health !== null &&
-          health !== before.health
-            ? health - before.health
-            : null
-      });
+      if (
+        !read ||
+        (known && (before.gold !== gold || before.health !== health))
+      )
+        entries.push({
+          kind: 'update',
+          order: frame.seq,
+          day: state.day,
+          hour: state.hour,
+          frames: [frame.seq],
+          gold:
+            known && gold !== null && before.gold !== null
+              ? gold - before.gold
+              : null,
+          health:
+            known && health !== null && before.health !== null
+              ? health - before.health
+              : null
+        });
     }
     if (owner) {
       attribute(owner, before, state, baseline);
@@ -810,51 +877,28 @@ export async function projectDecisions(
         ? (stream.frames.find((f) => f.timestampMs >= battle.recordedAtMs)
             ?.seq ?? Number.MAX_SAFE_INTEGER)
         : battle.seq;
-    const entered = [...combats[battle.pvp ? 'PVPCombat' : 'Combat']]
-      .reverse()
-      .find((seq) => seq < anchor);
+    const candidates = combats[battle.pvp ? 'PVPCombat' : 'Combat'];
+    const matches = candidates.filter(
+      (c) =>
+        c.order < anchor &&
+        (battle.day === null || c.day === battle.day) &&
+        (battle.hour === null || c.hour === battle.hour) &&
+        (!battle.encounterId ||
+          !c.encounter ||
+          c.encounter.templateId === battle.encounterId.toLowerCase())
+    );
+    const entered = matches.length === 1 ? matches[0] : null;
+    if (entered) candidates.splice(candidates.indexOf(entered), 1);
     entries.push({
       kind: 'battle',
-      order: (entered ?? anchor) + 0.25,
+      order: (entered?.order ?? anchor) + 0.25,
       day: battle.day,
       hour: battle.hour,
       frames: [],
-      battleId: battle.id
+      battleId: battle.id,
+      pvp: battle.pvp,
+      encounterId: battle.encounterId ?? null
     });
   }
-  return entries.sort((a, b) => a.order - b.order);
-}
-
-export type HourGroup = {
-  day: number | null;
-  hour: number | null;
-  entries: DecisionEntry[];
-};
-
-/**
- * Consecutive entries of one day and hour. Entries before the first known hour (the start of
- * the Run) join the first group that has one.
- */
-export function groupByHour(entries: readonly DecisionEntry[]): HourGroup[] {
-  const groups: HourGroup[] = [];
-  let leading: DecisionEntry[] = [];
-  for (const entry of entries) {
-    if (entry.day === null && groups.length === 0) {
-      leading.push(entry);
-      continue;
-    }
-    const last = groups.at(-1);
-    if (last && last.day === entry.day && last.hour === entry.hour)
-      last.entries.push(entry);
-    else {
-      groups.push({
-        day: entry.day,
-        hour: entry.hour,
-        entries: [...leading, entry]
-      });
-      leading = [];
-    }
-  }
-  if (leading.length) groups.push({ day: null, hour: null, entries: leading });
-  return groups;
+  return { entries: entries.sort((a, b) => a.order - b.order), contexts };
 }

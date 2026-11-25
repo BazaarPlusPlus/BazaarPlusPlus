@@ -228,9 +228,9 @@ D5H5 304,305,306 chose done 00000000/Bronze gold 5
 D5H6  battle battle-05
 D6H0 306 offer Choice  [7066e72e/Gold, 255ae0fa/Silver, bbd7fab5/Silver, ead0a1ed/Legendary$0]
 D6H0 308,309 chose done ead0a1ed/Legendary$0
-D6H1 309 offer Encounter free ead0a1ed/Legendary$999999 [c01612a6/Bronze, b594f459/Bronze, 23380916/Bronze]
+D6H1 309 offer Encounter free ead0a1ed/Legendary$0 [c01612a6/Bronze, b594f459/Bronze, 23380916/Bronze]
 D6H1 310,311 chose done b594f459/Bronze
-D6H1 311 offer Encounter free ead0a1ed/Legendary$999999 [Beautiful Friendship/Silver$10, Balanced Friendship/Silver$10, 1d9eb8d1/Silver$10, 57a19498/Gold$20, 570a7c19/Gold$20]
+D6H1 311 offer Encounter free ead0a1ed/Legendary$0 [Beautiful Friendship/Silver$10, Balanced Friendship/Silver$10, 1d9eb8d1/Silver$10, 57a19498/Gold$20, 570a7c19/Gold$20]
 D6H1 312,313 skill done Beautiful Friendship/Silver$10
 D6H1 313 offer Choice  [2950afee/Diamond]
 D6H1 314,315 chose done 2950afee/Diamond
@@ -558,3 +558,129 @@ D13H5 734,735 moved done Tortuga/Diamond$48
 D13H5 736,737 moved done Caviar/Gold$8
 D13H5 738,739,740 chose done 00000000/Bronze
 D13H6  battle battle-13
+
+D-H- activity  | 2 | offered  | gold ? health ?
+D1H1 shop 705c0d8e/Bronze | 6,8,10,12,14 | not taken b23c5988/Bronze$2, 6146cacd/Bronze$2, 8048bd3a/Bronze$2, 00e3a7ff/Bronze$2 | gold -6 health 0
+D1H2 encounter 1e511488/Bronze | 16,18,20 | not taken e73e7956/Bronze, ea2776ce/Bronze | gold 0 health 0
+D1H3 monster bd0711a6/Bronze | 22,25 | not taken  | gold 0 health 0
+D1H4 shop 1a21931f/Silver | 27,29,31,33,35,37 | not taken cd06b93f/Bronze$4, b4ccf465/Bronze$2, 7efc7f90/Bronze$4 | gold -7 health 100
+D1H4 levelUp  | 39,41 | not taken  | gold 0 health 0
+D1H4 activity  | 43 | not taken  | gold 2 health 0
+D1H5 shop 9459a01b/Silver | 45,47,49,51,53,55,57 | not taken 2fd7332d/Bronze$2, 00e3a7ff/Bronze$2, b4ccf465/Bronze$2, 0abf14a3/Bronze$2 | gold -4 health 0
+D1H5 activity  | 59,61,63 | not taken  | gold 0 health 0
+D1H6 pvp 00000000/Bronze | 65 | not taken  | gold 5 health 0 battle-01
+D2H1 encounter 8b4d74f6/Silver | 69,71 | not taken  | gold 0 health 0
+D2H2 encounter 3bb35f2f/Bronze | 73,75 | not taken  | gold 0 health 0
+D2H2 activity  | 77,79,81,83 | not taken  | gold 0 health 0
+D2H3 monster 41c5f103/Gold | 85,88 | not taken  | gold 0 health 0
+D2H4 shop 9459a01b/Silver | 90,92,94,96,98,100,102 | not taken 8f18974c/Bronze$2, 0abf14a3/Bronze$2, 00e3a7ff/Silver$4, 2fd7332d/Bronze$2 | gold -3 health 150
+D2H4 encounter 16065716/Bronze | 104,106,108 | not taken  | gold 0 health 0
+D2H5 encounter 36b24aae/Silver | 110,112 | not taken  | gold 0 health 0
+D2H5 activity  | 114,116,118,120,122 | not taken  | gold 0 health 0
+D2H6 pvp 00000000/Bronze | 124 | not taken  | gold 5 health 0 battle-02
+D3H1 shop ec81a27c/Silver | 128,130,132,134,136,138,140 | not taken bdb95fa6/Silver$4, d8106a24/Silver$12, b2709d56/Silver$4, 953402e4/Silver$8 | gold -3 health 0
+D3H2 encounter 54b6cf27/Bronze | 142,144,146 | not taken 668a64e9/Bronze, f66494a8/Diamond, 0659ca31/Diamond, f422485c/Bronze$5 | gold 0 health 0
+D3H2 activity  | 148,150 | not taken  | gold 0 health 0
+D3H3 monster be111234/Diamond | 152,155 | not taken  | gold 0 health 200
+D3H3 levelUp  | 157 | not taken  | gold 0 health 0
+D3H3 pedestal 0c410bf1/Silver | 159,161,163 | not taken  | gold 0 health 0
+D3H4 shop dc12f4bd/Bronze | 165,167,169,171,173 | not taken e6a183ce/Bronze$2, 2a7c377e/Silver$6, 0abf14a3/Bronze$2, 54f957f2/Bronze$4, 3af3c836/Bronze$2 | gold 0 health 0
+D3H5 shop 1a21931f/Silver | 175,177,179,181 | not taken Seaweed/Bronze$2 | gold -4 health 0
+D3H5 activity  | 183 | not taken  | gold 0 health 0
+D3H6 pvp 00000000/Bronze | 185 | not taken  | gold 5 health 0 battle-03
+D4H1 encounter 956e9c74/Silver | 189,191 | not taken  | gold 10 health 0
+D4H2 shop e3b894b0/Silver | 193,195,197,199,201 | not taken 5e17cfc3/Bronze$1, 5e7abe19/Silver$6, 7d55da10/Silver$6, 2fd7332d/Bronze$1 | gold -9 health 0
+D4H3 monster 8eb6cf35/Gold | 203,206 | not taken  | gold 0 health 250
+D4H3 encounter 4c3d4b9d/Silver | 208,210 | not taken fbbfbef7/Silver$10, 280eb842/Silver$10 | gold 0 health 0
+D4H4 shop 85db60ee/Bronze | 212,214,216,218,220,222 | not taken 865a673a/Silver$12, 92e7ab18/Bronze$2, 8048bd3a/Bronze$2, edd857da/Silver$8, 808ad956/Silver$8 | gold -3 health 0
+D4H5 shop 323e2c05/Silver | 224,226,228 | not taken 0abf14a3/Bronze$2, 7efc7f90/Bronze$4, 3d212e22/Bronze$2, 1b955b8d/Bronze$4, 477a0159/Silver$4, 2a7c377e/Silver$8 | gold -3 health 0
+D4H5 activity  | 230 | not taken  | gold 0 health 0
+D4H6 pvp 00000000/Bronze | 232 | not taken  | gold 5 health 0 battle-04
+D5H1 shop dc12f4bd/Bronze | 236,238,240,242 | not taken 865a673a/Silver$12, 54f957f2/Silver$6, 61981752/Silver$8, 9e5e3d9e/Silver$4, 38c3a468/Silver$8, 60a1f7ce/Silver$8 | gold 0 health 0
+D5H2 shop 9459a01b/Silver | 244,246,248,250,252,254,256 | not taken b4ccf465/Bronze$2, 2d395818/Silver$4, 8048bd3a/Silver$4, c20cf1f9/Silver$8 | gold -1 health 0
+D5H3 monster 91c233ed/Diamond | 258,261 | not taken  | gold 0 health 300
+D5H3 levelUp  | 263 | offered  | gold ? health ?
+D5H3 activity  | 264 | offered  | gold 0 health 0
+D5H3 encounter 33ff7845/Silver | 268,270,272 | not taken  | gold 0 health 0
+D5H3 activity  | 274 | not taken  | gold 2 health 0
+D5H4 encounter 246ba7e6/Silver | 276,278 | not taken  | gold 0 health 0
+D5H5 shop 705c0d8e/Bronze | 280,282,284,286,288,290,292 | not taken b4ccf465/Bronze$2, 44a27d67/Silver$4, e6a183ce/Silver$4, ee318a20/Bronze$2, 5e17cfc3/Bronze$2 | gold 4 health 0
+D5H5 activity  | 294,296,298,300,302 | not taken  | gold 0 health 0
+D5H6 pvp 00000000/Bronze | 304 | not taken  | gold 5 health 0 battle-05
+D6H1 encounter ead0a1ed/Legendary$0 | 308,310,312 | not taken c01612a6/Bronze, 23380916/Bronze, Balanced Friendship/Silver$10, 1d9eb8d1/Silver$10, 57a19498/Gold$20, 570a7c19/Gold$20 | gold 0 health 0
+D6H2 encounter 2950afee/Diamond | 314,316,318,320 | not taken  | gold 0 health 0
+D6H3 monster 10504dc3/Silver | 322,325 | not taken  | gold 0 health 350
+D6H3 encounter 4c3d4b9d/Silver | 327,329,331 | not taken Stop That!/Silver$10, fd927bfc/Silver$10 | gold 7 health 0
+D6H4 encounter 54a0e045/Diamond | 333,335 | not taken 8a23e62d/Bronze, d89ef0c8/Bronze | gold 0 health 0
+D6H5 encounter 07139793/Diamond | 337,339,341,343,345,347,349,351,353 | not taken  | gold 2 health 0
+D6H5 activity  | 355,357 | not taken  | gold 0 health 0
+D6H6 pvp 00000000/Bronze | 359 | not taken  | gold 5 health 0 battle-06
+D7H1 encounter 210003fa/Gold | 363,365,367 | not taken daec4b27/Silver$10, 42c33f6c/Silver$10, Stop That!/Silver$10, fd927bfc/Silver$10, Chemical Fire/Silver$10 | gold -16 health 450
+D7H1 encounter 922b9031/Gold | 369,371,373 | not taken 7a301c09/Silver$10, f38a0fb0/Silver$10, 40118425/Silver$10, b49dd22b/Silver$10, 1fb47cc1/Silver$10 | gold -6 health 0
+D7H1 activity  | 375 | not taken  | gold 0 health 0
+D7H3 monster f79e72dc/Silver | 377,380,382 | not taken  | gold 5 health 0
+D7H4 shop 323e2c05/Silver | 384,386,388,390,392,394,396,398 | not taken a043f66d/Gold$16, cd06b93f/Silver$8, 1312cf29/Silver$3, 65527be1/Gold$16 | gold -10 health 0
+D7H5 encounter 48a25657/Gold | 400,402,404,406,408 | not taken 94fa42c1/Diamond, f1892cf4/Gold, 18f8471a/Gold | gold 8 health 0
+D7H5 encounter 845d2051/Diamond | 410 | not taken 42ca6153/Gold$20, 71433809/Silver$10 | gold 0 health 0
+D7H5 activity  | 412 | not taken  | gold 0 health 0
+D7H6 pvp 00000000/Bronze | 414 | not taken  | gold 0 health 500 battle-07
+D7H6 encounter dc665019/Gold | 418,420 | not taken  | gold 7 health 0
+D8H1 pedestal 8b811b0f/Silver | 422,424 | not taken  | gold 0 health 0
+D8H1 activity  | 426,428,430 | not taken  | gold 4 health 0
+D8H2 shop 5b7c5fc4/Bronze | 432,434,436,438,440,442,444 | not taken 5abf3441/Gold$16, 8048bd3a/Silver$4, 14b297c5/Silver$4, ae142862/Gold$16, Catfish/Gold$8 | gold -14 health 0
+D8H2 activity  | 446,448 | not taken  | gold 0 health 0
+D8H3 monster a04b33a7/Diamond | 450,453 | not taken  | gold 0 health 0
+D8H4 shop 85db60ee/Bronze | 455,457,459 | not taken fc8eb8ad/Gold$16, 61981752/Silver$8, 3af3c836/Gold$8, e6a183ce/Silver$4, 1312cf29/Silver$4, 8048bd3a/Silver$3 | gold 3 health 0
+D8H5 shop 323e2c05/Silver | 461,463,465,467,469,471,473,475 | not taken 8391a75d/Gold$8, 61981752/Silver$8, 743652ce/Silver$8, e13d521c/Gold$8 | gold 8 health 600
+D8H5 pedestal c1e69f94/Diamond | 477,479 | not taken  | gold 0 health 0
+D8H5 activity  | 481,483,485,487,489,491,493,495 | not taken  | gold 0 health 0
+D8H6 pvp 00000000/Bronze | 497 | not taken  | gold 5 health 0 battle-08
+D9H1 encounter 185a03bc/Silver | 501,503 | not taken 02ffa56b/Bronze, 9b013db5/Bronze | gold 0 health 0
+D9H2 shop dc12f4bd/Bronze | 505,507,509,511,513 | not taken 616089ae/Silver$12, 3c9fb662/Silver$8, 0abf14a3/Silver$4, c6ab4982/Gold$24, 214d9c9d/Gold$16 | gold -22 health 0
+D9H3 monster 338f3c4b/Bronze | 515,518 | not taken  | gold 0 health 0
+D9H3 activity  | 520 | not taken  | gold 0 health 700
+D9H4 encounter 845d2051/Diamond | 522,524,526,528 | not taken 13d1b66a/Gold$20, 42a245de/Silver$10 | gold 14 health 0
+D9H4 activity  | 530 | not taken  | gold 0 health 0
+D9H5 encounter a72c9135/Diamond | 532,534 | not taken 97ae313b/Bronze, 31fbc96e/Bronze$5, 6dd18408/Bronze$20 | gold -10 health 0
+D9H5 activity  | 536,538 | not taken  | gold 0 health 0
+D9H6 pvp 00000000/Bronze | 540 | not taken  | gold 5 health 0 battle-09
+D10H1 encounter 185a03bc/Silver | 544,546 | not taken 02ffa56b/Bronze, 9b013db5/Bronze | gold 0 health 0
+D10H1 activity  | 548 | not taken  | gold 0 health 220
+D10H3 monster fc59e9b3/Silver | 550,553 | not taken  | gold 0 health 0
+D10H4 encounter b7acf32d/Gold | 555,557 | not taken b1288f12/Diamond | gold 0 health 0
+D10H4 shop 892de564/Diamond | 559,561 | not taken bbdd06b6/Diamond$32, 961e974b/Diamond$32 | gold -13 health 800
+D10H4 encounter dc665019/Gold | 563,565 | not taken  | gold 2 health 0
+D10H5 pedestal 8e1fe6b3/Diamond | 567,569 | not taken  | gold 0 health 0
+D10H6 pvp 00000000/Bronze | 571 | not taken  | gold 5 health 0 battle-10
+D11H1 encounter 185a03bc/Silver | 575,577 | not taken 02ffa56b/Bronze, 9b013db5/Bronze | gold 0 health 0
+D11H1 activity  | 579 | not taken  | gold 0 health 0
+D11H3 monster 265d1068/Diamond | 581,584 | not taken  | gold 0 health 800
+D11H3 pedestal 586ebd2d/Gold | 586,588,590 | not taken  | gold 37 health 0
+D11H3 activity  | 592,594 | not taken  | gold 8 health 0
+D11H4 shop 912c8b09/Bronze | 596,598,600,602 | not taken 905f9340/Diamond$32, f04739ec/Gold$16, ae142862/Gold$16, 65527be1/Gold$16, 430ed105/Gold$16 | gold -18 health 0
+D11H5 shop 3e871bbb/Silver | 604,606,608 | not taken Old Saltclaw/Gold$8, 4da45ad1/Gold$24, 214d9c9d/Silver$8, 02fa39ce/Gold$8, a043f66d/Gold$16, 20d85338/Gold$16 | gold -3 health 0
+D11H5 activity  | 610,612 | not taken  | gold 0 health 0
+D11H6 pvp 00000000/Bronze | 614 | not taken  | gold 0 health 0 battle-11
+D11H6 encounter aef5e7d8 | 618 | not taken d324197c/Bronze, 923fa720/Bronze | gold 20 health 800
+D11H6 levelUp  | 620 | not taken  | gold 0 health 0
+D11H6 encounter a7b60dc3/Diamond | 622,624 | not taken 42a245de/Diamond$40, d08258b5/Diamond$40 | gold 5 health 0
+D12H0 activity  | 626 | not taken  | gold 0 health 0
+D12H2 encounter 48a25657/Gold | 628,630,632 | not taken 94fa42c1/Diamond, 86907ad1/Gold, 922b9031/Gold | gold -20 health 0
+D12H2 encounter bfe9db96/Gold | 634,636 | not taken 18c6637b/Gold$20, c38468ba/Gold$20, a2200487/Silver$10, Deadly Eye/Silver$10, 6550ba8c/Gold$20 | gold -6 health 0
+D12H3 monster fc59e9b3/Silver | 638,641 | not taken  | gold 0 health 0
+D12H4 encounter 90e47f27/Silver | 643,645,647,649,651,653,655,657,659,661 | not taken  | gold 3 health 996
+D12H4 encounter e7491a78/Diamond | 663,665,667 | not taken  | gold 2 health 0
+D12H4 activity  | 669 | not taken  | gold 8 health 0
+D12H5 encounter f1302d1d/Gold | 671,673,675 | not taken a79a4688/Diamond | gold -1 health 0
+D12H5 shop 892de564/Diamond | 677,679,681,683,685,687,689,691 | not taken 60a1f7ce/Diamond$32, edd857da/Diamond$32, 3af3c836/Diamond$16, 4da45ad1/Diamond$36, ce6769db/Diamond$16 | gold -36 health 0
+D12H5 activity  | 693,695,697,699 | not taken  | gold 12 health 0
+D12H6 pvp 00000000/Bronze | 701 | not taken  | gold 5 health -196 battle-12
+D13H0 activity  | 705 | not taken  | gold 0 health 800
+D13H1 encounter a07fbe69/Gold | 707,709 | not taken f9b262a7/Gold$20, 0dd4d40e/Gold$20 | gold 0 health 0
+D13H2 shop 705c0d8e/Bronze | 711,713,715 | not taken 3af3c836/Gold$8, b02a2b57/Silver$4, 00e3a7ff/Silver$4, bbf63b5c/Gold$6, e13d521c/Gold$8, Flying Fish/Gold$8 | gold -2 health 0
+D13H3 monster fc59e9b3/Silver | 717,720 | not taken  | gold 0 health 0
+D13H4 shop 1f72700a/Gold | 722,724,726 | not taken a043f66d/Gold$16, b59a6072/Gold$24, d6a5d92f/Gold$16, 627ce721/Gold$24, 02fa39ce/Gold$8, 9778f31c/Gold$16 | gold -1 health 0
+D13H4 activity  | 728 | not taken  | gold 16 health 0
+D13H5 pedestal 49717d0f/Diamond | 730,732 | not taken  | gold 0 health 0
+D13H5 activity  | 734,736 | not taken  | gold 0 health 0
+D13H6 pvp 00000000/Bronze | 738 | not taken  | gold 0 health 0 battle-13

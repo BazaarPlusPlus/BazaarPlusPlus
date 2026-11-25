@@ -4,7 +4,7 @@ import {
   Board,
   SkillStrip,
   Button,
-  StatusBanner,
+  DayCard,
   StatusPanel
 } from '@bpp/ui';
 
@@ -34,7 +34,7 @@ import {
 import { useCardArt, useCardNames } from './card-art';
 import { gameCard } from './game-card';
 import { CardDetails, useOpenCard } from './CardDetails';
-import DecisionPath from './DecisionPath';
+import { DecisionVisit, StreamDebug } from './DayDecisions';
 import { decodeRunPayload, type RunCard, type RunDetail } from './run-payload';
 import {
   buildTimeline,
@@ -122,14 +122,11 @@ function Changes({ step, locale }: { step: TimelineStep; locale: Locale }) {
 function StepBody({
   step,
   art,
-  locale,
-  showDay = true
+  locale
 }: {
   step: TimelineStep;
   art: ArtLookup;
   locale: Locale;
-  /** False inside the decision path, whose day group already names the day. */
-  showDay?: boolean;
 }) {
   const copy = getSiteCopy(locale).account;
   const open = useOpenCard();
@@ -137,11 +134,6 @@ function StepBody({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        {showDay && (
-          <span className="text-body-medium text-text-1 tabular-nums">
-            {battle.day == null ? '—' : fillCopy(copy.day, { day: battle.day })}
-          </span>
-        )}
         <Badge dot={false}>{battle.pvp ? copy.pvp : copy.pve}</Badge>
         {battle.opponentHero && (
           <HeroBadge hero={heroName(battle.opponentHero)} label="full" />
@@ -181,29 +173,6 @@ function StepBody({
   );
 }
 
-function Battles({
-  steps,
-  art,
-  locale
-}: {
-  steps: TimelineStep[];
-  art: ArtLookup;
-  locale: Locale;
-}) {
-  return (
-    <ol className="flex flex-col gap-3">
-      {steps.map((step) => (
-        <li
-          key={step.battle.id}
-          className="bpp-panel flex flex-col gap-3 p-3 sm:p-4"
-        >
-          <StepBody step={step} art={art} locale={locale} />
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 /** The decision path, decoded from the Run Message Stream after the page shows. */
 function Decisions({
   detail,
@@ -221,6 +190,7 @@ function Decisions({
   const gameNames = useCardNames();
   const path = useQuery({
     queryKey: [...ACCOUNT_QUERY, 'run-decisions', detail.runId],
+    enabled: !!detail.stream,
     queryFn: async () =>
       (await import('./message-stream/decision-path')).buildDecisionPath(
         detail
@@ -228,35 +198,72 @@ function Decisions({
     staleTime: Infinity,
     retry: false
   });
-  if (path.isPending) {
-    return <StatusPanel kind="loading" compact title={copy.loading} />;
-  }
-  if (path.isError || !path.data) {
-    return (
-      <>
-        <StatusBanner tone="warning" message={copy.path.error} />
-        <Battles steps={steps} art={art} locale={locale} />
-      </>
-    );
-  }
-  const byId = new Map(steps.map((step) => [step.battle.id, step]));
+  const visits = path.data?.visits ?? [];
+  const days = [
+    ...new Set([...steps.map((s) => s.battle.day), ...visits.map((v) => v.day)])
+  ].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
+  const battles = new Map(steps.map((s) => [s.battle.id, s.battle]));
+  const status = detail.streamOmitted
+    ? copy.path.omitted
+    : path.isError
+      ? copy.path.error
+      : path.isPending
+        ? copy.loading
+        : copy.path.noVisits;
   return (
-    <DecisionPath
-      path={path.data}
-      names={(templateId) =>
-        gameNames(templateId) ?? detail.cardNames.get(templateId) ?? null
-      }
-      art={art}
-      locale={locale}
-      renderBattle={(id) => {
-        const step = byId.get(id);
-        return step ? (
-          <div className="flex flex-col gap-3 rounded-control border border-line p-3">
-            <StepBody step={step} art={art} locale={locale} showDay={false} />
-          </div>
-        ) : null;
-      }}
-    />
+    <>
+      <ol className="flex flex-col gap-3">
+        {days.map((day) => {
+          const rows = visits.filter((v) => v.day === day);
+          return (
+            <DayCard
+              key={day ?? 'unknown'}
+              title={
+                day === null
+                  ? copy.path.unknownDay
+                  : fillCopy(copy.day, { day })
+              }
+              battles={steps
+                .filter((s) => s.battle.day === day)
+                .map((step) => (
+                  <div key={step.battle.id} className="flex flex-col gap-3">
+                    <StepBody step={step} art={art} locale={locale} />
+                  </div>
+                ))}
+              decisionsLabel={copy.path.decisions}
+              decisions={
+                (!!detail.stream || detail.streamOmitted) &&
+                (rows.length ? (
+                  <ol>
+                    {rows.map((v) => (
+                      <DecisionVisit
+                        key={v.battleId ?? v.order}
+                        visit={v}
+                        battle={battles.get(v.battleId ?? '')}
+                        art={art}
+                        names={(id) =>
+                          gameNames(id) ?? detail.cardNames.get(id) ?? null
+                        }
+                        locale={locale}
+                      />
+                    ))}
+                  </ol>
+                ) : (
+                  <p>{status}</p>
+                ))
+              }
+            />
+          );
+        })}
+      </ol>
+      {!days.length && (detail.stream || detail.streamOmitted) && (
+        <details>
+          <summary>{copy.path.decisions}</summary>
+          {status}
+        </details>
+      )}
+      {path.data && <StreamDebug stream={path.data.stream} locale={locale} />}
+    </>
   );
 }
 
@@ -290,17 +297,7 @@ function Timeline({ runId, locale }: { runId: string; locale: Locale }) {
     );
   }
   const { run, steps } = detail.data;
-  if (run.stream) {
-    return <Decisions detail={run} steps={steps} art={art} locale={locale} />;
-  }
-  return (
-    <>
-      {run.streamOmitted && (
-        <StatusBanner tone="info" message={copy.path.omitted} />
-      )}
-      <Battles steps={steps} art={art} locale={locale} />
-    </>
-  );
+  return <Decisions detail={run} steps={steps} art={art} locale={locale} />;
 }
 
 export default function RunPage({ location, replacePage }: Props) {
