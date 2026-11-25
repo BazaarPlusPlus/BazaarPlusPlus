@@ -1,0 +1,733 @@
+{
+  "cards": {
+    "00e1526a-0eb6-49af-93fd-e5e4aea5f05a": {
+      "$type": "TCardSkill",
+      "Type": "Skill",
+      "Size": "Medium",
+      "Heroes": ["Karnok"],
+      "Tags": [],
+      "StartingTier": "Diamond",
+      "Tiers": {
+        "Diamond": {
+          "Attributes": {
+            "Custom_0": 1000,
+            "Custom_1": 1
+          },
+          "AbilityIds": [],
+          "AuraIds": ["0"],
+          "TooltipIds": [0]
+        }
+      },
+      "Localization": {
+        "Title": {
+          "Key": "693cbb9ab0a3f5ce297f0e058262c6e6",
+          "Text": "Shortened Rage"
+        },
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "da1192f8f221551aa5222a9d4e60ddc2",
+              "Text": "You are Enraged for {aura.8} second shorter [Total Duration: {aura.9}]"
+            }
+          }
+        ]
+      },
+      "Auras": {
+        "0": {
+          "Action": {
+            "$type": "TAuraActionPlayerModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValueCardAttribute",
+              "AttributeType": "Custom_0",
+              "Target": {
+                "$type": "TTargetCardSelf",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "EnragedDurationMax",
+            "Operation": "Subtract",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Self",
+              "Conditions": null
+            }
+          }
+        },
+        "8": {
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValueCardAttribute",
+              "AttributeType": "Custom_1",
+              "Target": {
+                "$type": "TTargetCardSelf",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "Custom_2",
+            "Operation": "Add",
+            "Target": {
+              "$type": "TTargetCardSelf",
+              "Conditions": null
+            }
+          }
+        },
+        "9": {
+          "Action": {
+            "$type": "TAuraActionPlayerModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValuePlayerAttribute",
+              "AttributeType": "EnragedDurationMax",
+              "Target": {
+                "$type": "TTargetPlayerRelative",
+                "TargetMode": "Self",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 0.001
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "EnragedDurationMax",
+            "Operation": "Add",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Self",
+              "Conditions": null
+            }
+          }
+        }
+      },
+      "Abilities": {},
+      "Enchantments": {}
+    },
+    "05ec8652-3c5f-4cba-acd1-c3eee8e49d44": {
+      "$type": "TCardSkill",
+      "Type": "Skill",
+      "Size": "Medium",
+      "Heroes": [
+        "Pygmalien",
+        "Vanessa",
+        "Dooley",
+        "Jules",
+        "Stelle",
+        "Mak",
+        "Karnok",
+        "Hero8"
+      ],
+      "Tags": [],
+      "StartingTier": "Diamond",
+      "Tiers": {
+        "Diamond": {
+          "Attributes": {
+            "Custom_0": 0,
+            "HealAmount": 0,
+            "PoisonRemoveAmount": 0,
+            "BurnRemoveAmount": 0
+          },
+          "AbilityIds": ["0", "1", "2", "3"],
+          "AuraIds": ["4", "5", "6"],
+          "TooltipIds": [0]
+        }
+      },
+      "Localization": {
+        "Title": {
+          "Key": "53d69e821ac1422cfc3da8c8f15acdd5",
+          "Text": "Healthy Heart"
+        },
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "9de8fa906bb03da18fb588471303b994",
+              "Text": "The first time you fall below half Health, Heal equal to 30% of your Max Health and Cleanse half your Burn and Poison [{ability.0}]"
+            }
+          }
+        ]
+      },
+      "Auras": {
+        "4": {
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValuePlayerAttribute",
+              "AttributeType": "HealthMax",
+              "Target": {
+                "$type": "TTargetPlayerRelative",
+                "TargetMode": "Self",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 0.3
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "HealAmount",
+            "Operation": "Add",
+            "Target": {
+              "$type": "TTargetCardSelf",
+              "Conditions": null
+            }
+          }
+        },
+        "5": {
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValuePlayerAttribute",
+              "AttributeType": "Burn",
+              "Target": {
+                "$type": "TTargetPlayerRelative",
+                "TargetMode": "Self",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 0.5
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "BurnRemoveAmount",
+            "Operation": "Add",
+            "Target": {
+              "$type": "TTargetCardSelf",
+              "Conditions": null
+            }
+          }
+        },
+        "6": {
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValuePlayerAttribute",
+              "AttributeType": "Poison",
+              "Target": {
+                "$type": "TTargetPlayerRelative",
+                "TargetMode": "Self",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 0.5
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "PoisonRemoveAmount",
+            "Operation": "Add",
+            "Target": {
+              "$type": "TTargetCardSelf",
+              "Conditions": null
+            }
+          }
+        }
+      },
+      "Abilities": {
+        "0": {
+          "Action": {
+            "$type": "TActionPlayerHeal",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Self",
+              "Conditions": null
+            }
+          }
+        },
+        "1": {
+          "Action": {
+            "$type": "TActionPlayerBurnRemove",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Self",
+              "Conditions": null
+            }
+          }
+        },
+        "2": {
+          "Action": {
+            "$type": "TActionPlayerPoisonRemove",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Self",
+              "Conditions": null
+            }
+          }
+        },
+        "3": {
+          "Action": {
+            "$type": "TActionCardModifyAttribute",
+            "Value": {
+              "$type": "TFixedValue",
+              "Value": 1.0
+            },
+            "AttributeType": "Custom_0",
+            "Operation": "Add",
+            "TargetCount": null,
+            "Target": {
+              "$type": "TTargetCardSelf",
+              "Conditions": null
+            }
+          }
+        }
+      },
+      "Enchantments": {}
+    },
+    "25df28b6-1044-45a2-8b92-d89aeef40691": {
+      "$type": "TCardItem",
+      "Type": "Item",
+      "Size": "Small",
+      "Heroes": ["Dooley"],
+      "Tags": ["Tech"],
+      "StartingTier": "Silver",
+      "Tiers": {
+        "Silver": {
+          "Attributes": {
+            "Custom_0": 4
+          },
+          "AbilityIds": ["0"],
+          "AuraIds": [],
+          "TooltipIds": [0]
+        },
+        "Gold": {
+          "Attributes": {
+            "Custom_0": 8
+          },
+          "AbilityIds": ["0"],
+          "AuraIds": [],
+          "TooltipIds": [0]
+        },
+        "Diamond": {
+          "Attributes": {
+            "Custom_0": 12
+          },
+          "AbilityIds": ["0"],
+          "AuraIds": [],
+          "TooltipIds": [0]
+        }
+      },
+      "Localization": {
+        "Title": {
+          "Key": "e687c02af1f40054cb08200518b43d7a",
+          "Text": "Radar Module"
+        },
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "b62e02b57d80e3be252fe8484d70c8ea",
+              "Text": "When an enemy uses an item, items adjacent to this gain {ability.0}% Crit Chance"
+            }
+          }
+        ]
+      },
+      "Auras": {},
+      "Abilities": {
+        "0": {
+          "Action": {
+            "$type": "TActionCardModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValueCardAttribute",
+              "AttributeType": "Custom_0",
+              "Target": {
+                "$type": "TTargetCardSelf",
+                "Conditions": null
+              },
+              "DefaultValue": 0.0,
+              "Modifier": null
+            },
+            "AttributeType": "CritChance",
+            "Operation": "Add",
+            "TargetCount": null,
+            "Target": {
+              "$type": "TTargetCardPositional",
+              "Origin": "Self",
+              "TargetMode": "Neighbor",
+              "IncludeOrigin": false,
+              "Conditions": {
+                "$type": "TCardConditionalCanCrit",
+                "IsNot": false
+              }
+            }
+          }
+        }
+      },
+      "Enchantments": {
+        "Icy": {
+          "Tags": [],
+          "Attributes": {
+            "FreezeTargets": 1,
+            "FreezeAmount": 500
+          },
+          "Localization": {
+            "Tooltips": [
+              {
+                "Content": {
+                  "Key": "45cc56c6c42e49e5f41c8e5b71fe8235",
+                  "Text": "When you Crit with an adjacent item, Freeze an item {ability.e1} second(s)"
+                }
+              }
+            ]
+          },
+          "Auras": {},
+          "Abilities": {
+            "e1": {
+              "Action": {
+                "$type": "TActionCardFreeze",
+                "Value": null,
+                "TargetCount": null,
+                "Target": {
+                  "$type": "TTargetCardRandom",
+                  "ExcludeSelf": false,
+                  "TargetSection": "OpponentHand",
+                  "Conditions": null
+                }
+              }
+            }
+          }
+        },
+        "Obsidian": {
+          "Tags": ["Weapon"],
+          "Attributes": {
+            "DamageAmount": 20
+          },
+          "Localization": {
+            "Tooltips": [
+              {
+                "Content": {
+                  "Key": "551ba0768d16ca5e062efcd0e7a99fef",
+                  "Text": "When you Crit with an adjacent item, deal {ability.e1} Damage"
+                }
+              }
+            ]
+          },
+          "Auras": {},
+          "Abilities": {
+            "e1": {
+              "Action": {
+                "$type": "TActionPlayerDamage",
+                "Target": {
+                  "$type": "TTargetPlayerRelative",
+                  "TargetMode": "Opponent",
+                  "Conditions": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "65527be1-b100-4a4c-98d1-4f8975368b5b": {
+      "$type": "TCardItem",
+      "Type": "Item",
+      "Size": "Medium",
+      "Heroes": ["Vanessa"],
+      "Tags": ["Weapon"],
+      "StartingTier": "Gold",
+      "Tiers": {
+        "Gold": {
+          "Attributes": {
+            "CooldownMax": 5000,
+            "Multicast": 1,
+            "AmmoMax": 3,
+            "DamageAmount": 15
+          },
+          "AbilityIds": ["0", "1"],
+          "AuraIds": [],
+          "TooltipIds": [0, 1]
+        },
+        "Diamond": {
+          "Attributes": {
+            "DamageAmount": 30
+          },
+          "AbilityIds": ["0", "1"],
+          "AuraIds": [],
+          "TooltipIds": [0, 1]
+        }
+      },
+      "Localization": {
+        "Title": {
+          "Key": "d1ec8061bd5ae4001d20acee9372c056",
+          "Text": "Pistol Sword"
+        },
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "fb7589d26e5b92206a673082abb89581",
+              "Text": "Deal {ability.0} Damage"
+            }
+          },
+          {
+            "Content": {
+              "Key": "6cd5f82b4c5384c41669ecab3931da59",
+              "Text": "When you use an Ammo item, deal {ability.1} Damage"
+            }
+          }
+        ]
+      },
+      "Auras": {},
+      "Abilities": {
+        "0": {
+          "Action": {
+            "$type": "TActionPlayerDamage",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Opponent",
+              "Conditions": null
+            }
+          }
+        },
+        "1": {
+          "Action": {
+            "$type": "TActionPlayerDamage",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Opponent",
+              "Conditions": null
+            }
+          }
+        }
+      },
+      "Enchantments": {}
+    },
+    "e5af5b7c-2e8f-4135-8e14-8d1ea71908de": {
+      "$type": "TCardItem",
+      "Type": "Item",
+      "Size": "Medium",
+      "Heroes": ["Common"],
+      "Tags": ["Weapon", "Relic"],
+      "StartingTier": "Legendary",
+      "Tiers": {
+        "Diamond": {
+          "Attributes": {
+            "CooldownMax": 5000,
+            "Multicast": 1,
+            "DamageAmount": 150
+          },
+          "AbilityIds": ["0"],
+          "AuraIds": ["1"],
+          "TooltipIds": [0, 1]
+        },
+        "Legendary": {
+          "Attributes": {
+            "CooldownMax": 5000,
+            "Multicast": 1,
+            "DamageAmount": 150
+          },
+          "AbilityIds": ["0"],
+          "AuraIds": ["1"],
+          "TooltipIds": [0, 1]
+        }
+      },
+      "Localization": {
+        "Title": {
+          "Key": "1edd36c40ffdfc43b9e33c4d11a36ece",
+          "Text": "Sword of Swords"
+        },
+        "Tooltips": [
+          {
+            "Content": {
+              "Key": "fb7589d26e5b92206a673082abb89581",
+              "Text": "Deal {ability.0} Damage"
+            }
+          },
+          {
+            "Content": {
+              "Key": "96ef2f4dc7f68d645a3d5866529d3962",
+              "Text": "This has +1 Multicast for each other item you have from another Hero"
+            }
+          }
+        ]
+      },
+      "Auras": {
+        "1": {
+          "Action": {
+            "$type": "TAuraActionCardModifyAttribute",
+            "Value": {
+              "$type": "TReferenceValueCardCount",
+              "Target": {
+                "$type": "TTargetCardSection",
+                "TargetSection": "SelfHand",
+                "ExcludeSelf": true,
+                "Conditions": {
+                  "$type": "TCardConditionalPlayerHero",
+                  "IsSameAsPlayerHero": false
+                }
+              },
+              "DefaultValue": 0.0,
+              "Modifier": {
+                "ModifyMode": "Multiply",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "ShouldRound": true
+              }
+            },
+            "AttributeType": "Multicast",
+            "Operation": "Add",
+            "Target": {
+              "$type": "TTargetCardSelf",
+              "Conditions": null
+            }
+          }
+        }
+      },
+      "Abilities": {
+        "0": {
+          "Action": {
+            "$type": "TActionPlayerDamage",
+            "Target": {
+              "$type": "TTargetPlayerRelative",
+              "TargetMode": "Opponent",
+              "Conditions": null
+            }
+          }
+        }
+      },
+      "Enchantments": {
+        "Shiny": {
+          "Tags": [],
+          "Attributes": {},
+          "Localization": {
+            "Tooltips": [
+              {
+                "Content": {
+                  "Key": "dc1a96bffac3ce0cba3e40cfa57a3836",
+                  "Text": "This has +{aura.e1} Multicast"
+                }
+              }
+            ]
+          },
+          "Auras": {
+            "e1": {
+              "Action": {
+                "$type": "TAuraActionCardModifyAttribute",
+                "Value": {
+                  "$type": "TFixedValue",
+                  "Value": 1.0
+                },
+                "AttributeType": "Multicast",
+                "Operation": "Add",
+                "Target": {
+                  "$type": "TTargetCardSelf",
+                  "Conditions": null
+                }
+              }
+            }
+          },
+          "Abilities": {}
+        }
+      }
+    }
+  },
+  "keywords": {
+    "Crit Chance": {
+      "Id": "Crit Chance",
+      "Icon": "CritChanceIcon",
+      "Singleton": true,
+      "PostSymbol": false,
+      "PostWord": false,
+      "Tag": "Crit Chance",
+      "Keyword": "The chance for an item with a Cooldown to critically hit, doubling its Damage, Heal, Shield, Regen, Burn and Poison active effects",
+      "Version": "5.0.0"
+    },
+    "Ammo": {
+      "Id": "Ammo",
+      "Icon": "AmmoIcon",
+      "Singleton": false,
+      "PostSymbol": true,
+      "PostWord": true,
+      "Tag": "Ammo",
+      "Keyword": "When an item runs out of Ammo, it can no longer fire. Ammo refills after each fight",
+      "Version": "5.0.0"
+    },
+    "Damage": {
+      "Id": "Damage",
+      "Icon": "DamageIcon",
+      "Singleton": false,
+      "PostSymbol": false,
+      "PostWord": true,
+      "Tag": "Damage",
+      "Keyword": "",
+      "Version": "5.0.0"
+    },
+    "Freeze": {
+      "Id": "Freeze",
+      "Icon": "FreezeIcon",
+      "Singleton": false,
+      "PostSymbol": true,
+      "PostWord": false,
+      "Tag": "Freeze",
+      "Keyword": "Frozen items cannot activate",
+      "Version": "5.0.0"
+    },
+    "Multicast": {
+      "Id": "Multicast",
+      "Icon": "Invalid",
+      "Singleton": false,
+      "PostSymbol": false,
+      "PostWord": false,
+      "Tag": "Multicast",
+      "Keyword": "When you use this item, its effect happens multiple times",
+      "Version": "5.0.0"
+    }
+  },
+  "zh": {
+    "1edd36c40ffdfc43b9e33c4d11a36ece": "万剑之王",
+    "2822da6e4f76541a9e0d502ed393c408": "被冻结的物品无法发动",
+    "45cc56c6c42e49e5f41c8e5b71fe8235": "使用相邻物品暴击时，冻结一件物品{ability.e1}秒。",
+    "50d81ed2009072d0be73a98c63f63f04": "使用此物品时，其效果会触发多次（视为多次使用）",
+    "53d69e821ac1422cfc3da8c8f15acdd5": "健康心脏",
+    "551ba0768d16ca5e062efcd0e7a99fef": "当相邻物品暴击时，造成{ability.e1}伤害",
+    "65467087a19145f43129bba42781aea0": "冻结",
+    "693cbb9ab0a3f5ce297f0e058262c6e6": "缩短暴怒",
+    "6cd5f82b4c5384c41669ecab3931da59": "当你使用弹药物品时，造成{ability.1}伤害",
+    "9029ada511fc4273a99927df08fcd7b2": "当物品弹药耗尽时，将无法再发动。每场战斗后弹药会重新填满",
+    "96ef2f4dc7f68d645a3d5866529d3962": "你拥有的每件来自其他英雄的物品使此物品+1多重释放",
+    "9de8fa906bb03da18fb588471303b994": "生命值首次降至一半以下时，治疗你最大生命值的30%，并净化一半的灼烧和剧毒[{ability.0}]",
+    "aad8a9727e73e0d1933a86ac6e715bde": "带有冷却时间的物品发生暴击的几率，暴击会使其伤害、治疗、护盾、生命再生、灼烧和剧毒主动效果翻倍",
+    "b62e02b57d80e3be252fe8484d70c8ea": "敌人使用物品时，此物品相邻的物品获得{ability.0}%暴击率",
+    "b9f24e83531326204197015b2f43a93f": "伤害",
+    "c92a86ef9dceabc5bf5ec6eb9bfd1318": "弹药",
+    "d1ec8061bd5ae4001d20acee9372c056": "刺刀手枪",
+    "d4939fda6b04a871dc63c652bbef33ad": "暴击率",
+    "da1192f8f221551aa5222a9d4e60ddc2": "你的暴怒时间缩短{aura.8}秒 [总持续时间：{aura.9}]",
+    "dc1a96bffac3ce0cba3e40cfa57a3836": "此物品+{aura.e1}多重释放",
+    "e687c02af1f40054cb08200518b43d7a": "雷达模块",
+    "f98714815862cc6a2f47e6a3e6f045a5": "多重释放",
+    "fb7589d26e5b92206a673082abb89581": "造成{ability.0}伤害"
+  }
+}

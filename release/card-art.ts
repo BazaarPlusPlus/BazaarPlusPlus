@@ -21,15 +21,28 @@ export const CARD_ART_INDEX = 'index.json';
 // The GameData the game itself downloads; the copy in the depot is months older.
 export const GAME_DATA_URL =
   'https://data.playthebazaar.com/static/GameData.db.zip';
+const ZH_URL = 'https://data.playthebazaar.com/static/translations/zh-CN.bytes';
+const locales = ['en', 'zh'] as const;
+
+function isTextFile(locale: string, name: unknown): name is string {
+  return (
+    typeof name === 'string' &&
+    new RegExp(`^text-${locale}-[0-9a-f]{20}\\.json$`).test(name)
+  );
+}
+
 // Every desktop depot ships the same art.
 const CARD_ART_DEPOT = STEAM_DEPOTS.windows;
 
 export interface CardArtSource {
   buildid: string;
   gameData: string;
+  zh: string;
 }
 
 interface CardArtIndex {
+  version?: number;
+  text?: Partial<Record<(typeof locales)[number], string>>;
   game?: Partial<CardArtSource>;
   /** TemplateId → English title; an index from before it existed is republished. */
   names?: Record<string, string>;
@@ -38,18 +51,18 @@ interface CardArtIndex {
 const defaultRunner = () =>
   steamToolRunner(path.join(WORKSPACE_ROOT, 'bazaarplusplus-mod'));
 
-async function gameDataEtag(): Promise<string> {
-  const response = await fetch(GAME_DATA_URL, { method: 'HEAD' });
+async function sourceEtag(url: string): Promise<string> {
+  const response = await fetch(url, { method: 'HEAD' });
   const etag = response.headers.get('etag');
   if (!response.ok || !etag)
-    throw new Error(`${GAME_DATA_URL} gave ${response.status} and no ETag`);
+    throw new Error(`${url} gave ${response.status} and no ETag`);
   return etag.replaceAll('"', '');
 }
 
 export async function cardArtStale(
   previousIndex: string,
   runTool: SteamToolRunner = defaultRunner(),
-  etag: () => Promise<string> = gameDataEtag
+  etag: (url: string) => Promise<string> = sourceEtag
 ): Promise<CardArtSource & { stale: boolean }> {
   const { buildid } = runTool([
     'state',
@@ -60,7 +73,7 @@ export async function cardArtStale(
     '--depots',
     String(CARD_ART_DEPOT)
   ]);
-  const gameData = await etag();
+  const [gameData, zh] = await Promise.all([etag(GAME_DATA_URL), etag(ZH_URL)]);
   const published = fs.existsSync(previousIndex)
     ? (JSON.parse(fs.readFileSync(previousIndex, 'utf8')) as CardArtIndex)
     : {};
@@ -68,9 +81,13 @@ export async function cardArtStale(
     stale:
       published.game?.buildid !== String(buildid) ||
       published.game?.gameData !== gameData ||
+      published.game?.zh !== zh ||
+      published.version !== 2 ||
+      locales.some((locale) => !isTextFile(locale, published.text?.[locale])) ||
       published.names === undefined,
     buildid: String(buildid),
-    gameData
+    gameData,
+    zh
   };
 }
 
@@ -89,18 +106,23 @@ export async function downloadCardArt(
     '--out',
     path.resolve(out)
   ]);
-  const response = await fetch(GAME_DATA_URL);
-  if (!response.ok) throw new Error(`${GAME_DATA_URL} gave ${response.status}`);
-  fs.writeFileSync(
-    path.join(out, 'GameData.db.zip'),
-    Buffer.from(await response.arrayBuffer())
-  );
-  const etag = response.headers.get('etag')?.replaceAll('"', '');
-  if (!etag) throw new Error(`${GAME_DATA_URL} gave no ETag`);
-  return { buildid: String(buildid), gameData: etag };
+  async function download(url: string, filename: string) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${url} gave ${response.status}`);
+    const etag = response.headers.get('etag')?.replaceAll('"', '');
+    if (!etag) throw new Error(`${url} gave no ETag`);
+    fs.writeFileSync(
+      path.join(out, filename),
+      Buffer.from(await response.arrayBuffer())
+    );
+    return etag;
+  }
+  const gameData = await download(GAME_DATA_URL, 'GameData.db.zip');
+  const zh = await download(ZH_URL, 'zh-CN.bytes');
+  return { buildid: String(buildid), gameData, zh };
 }
 
-/** Publish the index last so readers can resolve every referenced image. */
+/** Publish the index last so readers can resolve every referenced image and locale file. */
 export async function publishCardArt(
   directory: string,
   store: Pick<ObjectStore, 'get' | 'put'> = r2StoreFromEnvironment(
@@ -109,7 +131,7 @@ export async function publishCardArt(
   )
 ): Promise<number> {
   const indexBytes = fs.readFileSync(path.join(directory, CARD_ART_INDEX));
-  JSON.parse(indexBytes.toString('utf8'));
+  const index = JSON.parse(indexBytes.toString('utf8')) as CardArtIndex;
   const files = fs
     .readdirSync(directory)
     .filter((name) => name.endsWith('.webp'))
@@ -125,8 +147,19 @@ export async function publishCardArt(
       'image/webp'
     );
   }
+  for (const locale of locales) {
+    const name = index.text?.[locale];
+    if (!isTextFile(locale, name))
+      throw new Error(`missing Card Text file for ${locale}`);
+    await putImmutable(
+      store,
+      name,
+      fs.readFileSync(path.join(directory, name)),
+      'application/json'
+    );
+  }
   await putReplaceable(store, CARD_ART_INDEX, indexBytes, 'application/json');
-  return files.length;
+  return files.length + locales.length;
 }
 
 if (import.meta.main) {
