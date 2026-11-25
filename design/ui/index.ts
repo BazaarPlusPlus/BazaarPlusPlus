@@ -60,3 +60,9 @@ export {
   type GameCard
 } from './game/Card';
 export { Board, SkillStrip } from './game/Board';
+export { CardText, type CardTextLine } from './game/CardText';
+export {
+  CardDetail,
+  type CardDefinition,
+  type CardDetailLabels
+} from './game/CardDetail';

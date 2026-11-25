@@ -14,13 +14,6 @@ import {
 } from './account-api';
 import { settle } from './page';
 
-// The UI font stack resolves to different system fonts per platform, so only Linux (the CI
-// runner) has committed baselines.
-test.skip(
-  process.platform !== 'linux',
-  'screenshot baselines exist only for linux'
-);
-
 const ROUTES: Record<string, string> = {
   'run-detail': `/records/${SAMPLE_RUN_ID}?lang=en`,
   support: '/support',
@@ -33,6 +26,10 @@ const ROUTES: Record<string, string> = {
 for (const width of [1280, 390]) {
   for (const [route, href] of Object.entries(ROUTES)) {
     test(`${route} at ${width}px`, async ({ page }) => {
+      test.skip(
+        process.platform !== 'linux' && route !== 'run-detail',
+        'Linux screenshot baselines'
+      );
       await page.setViewportSize({ width, height: 900 });
       const routes = await installGoldenRoutes(page, goldenSources());
       if (route === 'run-detail') {
@@ -54,9 +51,25 @@ for (const width of [1280, 390]) {
       }
       await settle(page);
 
-      await expect(page).toHaveScreenshot(`${route}-${width}.png`, {
-        fullPage: true
-      });
+      if (process.platform === 'linux')
+        await expect(page).toHaveScreenshot(`${route}-${width}.png`, {
+          fullPage: true
+        });
+      if (route === 'run-detail') {
+        const tile = page
+          .locator('.bpp-board')
+          .first()
+          .getByRole('button', { name: /Tambourine/ });
+        await tile.focus();
+        await tile.press('Enter');
+        const dialog = page.getByRole('dialog', { name: 'Tambourine' });
+        await expect(dialog.getByText('This has +1 Multicast.')).toBeVisible();
+        await expect(dialog.locator('[data-current=true]')).toContainText(
+          'Shiny'
+        );
+        await page.keyboard.press('Escape');
+        await expect(tile).toBeFocused();
+      }
       expectNoUnexpectedRequests(routes);
     });
   }

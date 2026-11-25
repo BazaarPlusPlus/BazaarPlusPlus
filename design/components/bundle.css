@@ -1603,3 +1603,107 @@ html[data-bpp-platform='windows'] .bpp-header {
   aspect-ratio: 1;
   flex: none;
 }
+button.bpp-card,
+button.bpp-card-chip {
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  text-align: inherit;
+}
+button.bpp-card {
+  width: 100%;
+}
+.bpp-card-detail {
+  display: grid;
+  gap: var(--space-12);
+  color: var(--text-1);
+}
+.bpp-detail-head {
+  display: flex;
+  gap: var(--space-12);
+  align-items: center;
+}
+.bpp-detail-art {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--r-inner);
+}
+.bpp-effect-line {
+  margin: var(--space-4) 0;
+}
+.bpp-effect-value {
+  color: var(--bpp-tier);
+  font-variant-numeric: tabular-nums;
+}
+strong.bpp-effect-value {
+  text-decoration: underline;
+}
+.bpp-card-unavailable {
+  color: var(--text-3);
+}
+.bpp-keyword {
+  color: var(--text-1);
+}
+.bpp-detail-enchant {
+  padding: var(--space-8);
+  border-top: 1px solid var(--line);
+}
+.bpp-detail-enchant[data-current='true'] {
+  background: var(--bg-panel);
+  border-inline-start: var(--space-2) solid var(--line-strong);
+}
+.bpp-keyword-damage,
+.bpp-keyword-crit,
+.bpp-keyword-crit-chance {
+  color: var(--enchant-deadly);
+}
+.bpp-keyword-shield {
+  color: var(--enchant-shielded);
+}
+.bpp-keyword-heal,
+.bpp-keyword-regen {
+  color: var(--enchant-restorative);
+}
+.bpp-keyword-burn {
+  color: var(--enchant-fiery);
+}
+.bpp-keyword-poison {
+  color: var(--enchant-toxic);
+}
+.bpp-keyword-haste {
+  color: var(--enchant-turbo);
+}
+.bpp-keyword-slow {
+  color: var(--enchant-heavy);
+}
+.bpp-keyword-freeze {
+  color: var(--enchant-icy);
+}
+.bpp-keyword-lifesteal {
+  color: var(--enchant-obsidian);
+}
+.bpp-keyword-value,
+.bpp-keyword-gold {
+  color: var(--enchant-golden);
+}
+.bpp-detail-head h2 {
+  font-size: var(--type-title);
+  font-weight: 600;
+}
+.bpp-card-detail h3 {
+  font-size: var(--type-body);
+  font-weight: 600;
+  margin-block-end: var(--space-6);
+}
+.bpp-detail-head p,
+.bpp-detail-enchant > p:not(.bpp-effect-line) {
+  font-size: var(--type-small);
+  color: var(--text-2);
+}
+.bpp-detail-enchant .bpp-enchant {
+  font-size: var(--type-small);
+}

@@ -8,6 +8,7 @@ export type GameCard = {
   tierLabel: string;
   enchant: Enchantment | null;
   enchantLabel: string;
+  onOpen?: () => void;
   change?: 'new' | 'tier-up' | null;
 };
 
@@ -68,8 +69,11 @@ export function CardTile({
   card: GameCard;
   caption?: boolean;
 }) {
+  const Element = card.onOpen ? 'button' : 'span';
   return (
-    <span
+    <Element
+      type={card.onOpen ? 'button' : undefined}
+      onClick={card.onOpen}
       className={`bpp-card ${tierClass(card.tier)} ${enchantClass(card.enchant)} ${card.enchant ? 'bpp-card-enchant' : ''} ${caption ? 'bpp-card-caption' : ''}`}
       title={[card.name, card.tierLabel, card.enchantLabel]
         .filter(Boolean)
@@ -94,13 +98,19 @@ export function CardTile({
           {card.change === 'new' ? '+' : '↑'}
         </span>
       )}
-    </span>
+    </Element>
   );
 }
 
 export function CardChip({ card, title }: { card: GameCard; title: string }) {
+  const Element = card.onOpen ? 'button' : 'span';
   return (
-    <span className={`bpp-card-chip ${tierClass(card.tier)}`} title={title}>
+    <Element
+      type={card.onOpen ? 'button' : undefined}
+      onClick={card.onOpen}
+      className={`bpp-card-chip ${tierClass(card.tier)}`}
+      title={title}
+    >
       {card.art && (
         <span className="bpp-card-chip-art">
           <CardArt src={card.art} alt="" fallback="" />
@@ -109,6 +119,6 @@ export function CardChip({ card, title }: { card: GameCard; title: string }) {
       <span>{card.name}</span>
       <TierLabel label={card.tierLabel} />
       <EnchantLabel enchant={card.enchant} label={card.enchantLabel} />
-    </span>
+    </Element>
   );
 }

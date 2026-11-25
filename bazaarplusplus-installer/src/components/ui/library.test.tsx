@@ -11,7 +11,13 @@ import {
   it,
   vi
 } from 'vite-plus/test';
-import { Button, Dialog, StatusPanel } from '@bpp/ui';
+import {
+  Button,
+  CardText,
+  type CardTextLine,
+  Dialog,
+  StatusPanel
+} from '@bpp/ui';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -144,5 +150,60 @@ describe('Dialog', () => {
     );
     await act(async () => escape());
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+function lineText(value: CardTextLine) {
+  container.innerHTML = renderToStaticMarkup(
+    <CardText line={value} unavailable="Unavailable" />
+  );
+  return container.textContent;
+}
+
+describe('Card Text', () => {
+  const line: CardTextLine = {
+    id: 0,
+    available: true,
+    resolved: 'full',
+    tiers: ['Silver', 'Gold', 'Diamond'],
+    segments: [
+      {
+        token: '{ability.0}',
+        tiers: { Silver: 4, Gold: 8, Diamond: 12 },
+        unit: 'percent'
+      },
+      { text: '% ' },
+      { keyword: 'Crit Chance', label: '暴击率' }
+    ]
+  };
+  it('keeps percent signs, localized keywords and the captured tier', async () => {
+    await render(
+      <CardText line={line} tier="Gold" unavailable="Unavailable" />
+    );
+    expect(container.textContent).toBe('4% » 8% » 12% 暴击率');
+    expect(container.querySelector('strong.bpp-tier-gold')?.textContent).toBe(
+      '8%'
+    );
+    expect(
+      container.querySelector('.bpp-keyword-crit-chance')?.textContent
+    ).toBe('暴击率');
+  });
+  it('marks missing values in place across partial and unresolved lines', () => {
+    const partial: CardTextLine = {
+      ...line,
+      resolved: 'partial',
+      segments: [{ token: '{aura.9}', tiers: { Gold: 1 } }]
+    };
+    expect(lineText(partial)).toBe('Unavailable » 1 » Unavailable');
+    expect(
+      lineText({
+        ...line,
+        resolved: 'none',
+        segments: [{ text: 'Duration ' }, { token: '{aura.9}' }]
+      })
+    ).toBe('Duration Unavailable');
+    expect(
+      lineText({ ...line, available: false, resolved: 'none', segments: [] })
+    ).toBe('Unavailable');
   });
 });

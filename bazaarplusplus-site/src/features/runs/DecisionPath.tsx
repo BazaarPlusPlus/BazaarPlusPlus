@@ -6,6 +6,7 @@ import { fillCopy, getSiteCopy } from '../../content/site-copy';
 import type { DecisionPath as Path } from './message-stream/decision-path';
 import type { CardRef, DecisionEntry } from './message-stream/project';
 import { gameCard } from './game-card';
+import { useOpenCard } from './CardDetails';
 import { tradeGold } from './message-stream/trade';
 import type { MessageStream } from './message-stream/stream';
 
@@ -28,12 +29,19 @@ function shortId(card: CardRef, locale: Locale): string {
   return card.templateId?.slice(0, 8) ?? card.instanceId;
 }
 
-function pathCard(card: CardRef, art: ArtLookup, names: Names, locale: Locale) {
+function pathCard(
+  card: CardRef,
+  art: ArtLookup,
+  names: Names,
+  locale: Locale,
+  open: ReturnType<typeof useOpenCard>
+) {
   return gameCard(
     card,
     cardName(card, names) ?? shortId(card, locale),
     art,
-    locale
+    locale,
+    open
   );
 }
 
@@ -163,6 +171,7 @@ function Offer({
   names: Names;
   locale: Locale;
 }) {
+  const open = useOpenCard();
   const copy = getSiteCopy(locale).account;
   return (
     <div className="flex flex-col gap-2">
@@ -170,7 +179,7 @@ function Offer({
         <span className="font-medium text-text-2">{copy.path.offered}</span>
         {entry.encounter && (
           <CardChip
-            card={pathCard(entry.encounter, art, names, locale)}
+            card={pathCard(entry.encounter, art, names, locale, open)}
             title={entry.encounter.templateId ?? entry.encounter.instanceId}
           />
         )}
@@ -185,7 +194,7 @@ function Offer({
       </div>
       <ul className="flex flex-wrap gap-2">
         {entry.cards.map((card) => {
-          const display = pathCard(card, art, names, locale);
+          const display = pathCard(card, art, names, locale, open);
           return (
             <li
               key={card.instanceId}
@@ -219,6 +228,7 @@ function ActionLine({
   names: Names;
   locale: Locale;
 }) {
+  const open = useOpenCard();
   const copy = getSiteCopy(locale).account;
   const first = actions[0];
   const resultName = (value: string) => {
@@ -237,7 +247,7 @@ function ActionLine({
         >
           {action.card && (
             <CardChip
-              card={pathCard(action.card, art, names, locale)}
+              card={pathCard(action.card, art, names, locale, open)}
               title={action.card.templateId ?? action.card.instanceId}
             />
           )}
