@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CardTier, Enchantment } from './types';
+import type { CardSize, CardTier, Enchantment } from './types';
 
 export type GameCard = {
   name: string;
@@ -8,6 +8,8 @@ export type GameCard = {
   tierLabel: string;
   enchant: Enchantment | null;
   enchantLabel: string;
+  /** Board width in slots; the square art stretches to 1:2, 2:2 or 3:2 as in the game. */
+  size?: CardSize | null;
   onOpen?: () => void;
   change?: 'new' | 'tier-up' | null;
 };
@@ -120,7 +122,7 @@ export function CardChip({
       title={title}
     >
       {(card.art || placeholder) && (
-        <span className="bpp-card-chip-art">
+        <span className="bpp-card-chip-art" data-size={card.size ?? undefined}>
           <CardArt src={card.art} alt="" fallback="" />
         </span>
       )}

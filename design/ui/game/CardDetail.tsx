@@ -2,6 +2,12 @@ import { CardArt, EnchantLabel, type GameCard } from './Card';
 import { CardText, type CardTextLine } from './CardText';
 import { enchantments, type CardTier, type Enchantment } from './types';
 
+const DEFINITION_SIZES: Record<string, number> = {
+  Small: 1,
+  Medium: 2,
+  Large: 3
+};
+
 export type CardDefinition = {
   title: string | null;
   size: string;
@@ -70,7 +76,10 @@ export function CardDetail({
     <article className="bpp-card-detail">
       <header className="bpp-detail-head">
         {card.art && (
-          <div className="bpp-detail-art">
+          <div
+            className="bpp-detail-art"
+            data-size={card.size ?? DEFINITION_SIZES[definition?.size ?? '']}
+          >
             <CardArt src={card.art} alt="" fallback="" />
           </div>
         )}

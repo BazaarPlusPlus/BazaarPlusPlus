@@ -285,7 +285,7 @@ export async function mockCardArt(
     const color = ART_COLORS[index % ART_COLORS.length];
     await route.fulfill({
       contentType: 'image/svg+xml',
-      body: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><defs><radialGradient id="g"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="${color}"/></radialGradient></defs><rect width="40" height="40" fill="${color}"/><circle cx="20" cy="18" r="11" fill="url(#g)"/></svg>`
+      body: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" preserveAspectRatio="none"><defs><radialGradient id="g"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="${color}"/></radialGradient></defs><rect width="40" height="40" fill="${color}"/><circle cx="20" cy="18" r="11" fill="url(#g)"/></svg>`
     });
   });
 }
