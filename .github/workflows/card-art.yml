@@ -81,7 +81,7 @@ jobs:
               curl -fsS "https://cdn.bazaarplusplus.com/card-art/$file" -o "$RUNNER_TEMP/$file"
             done
           fi
-          just bot::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" --zh-etag "$ZH" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          just bot::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --require-fx --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" --zh-etag "$ZH" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish
         if: steps.stale.outputs.stale == 'true'
         env:

@@ -11,6 +11,8 @@ const ART_CACHE = 'public, max-age=31536000, immutable';
 function cardArtCacheControl(file: string): string | null {
   if (file === 'index.json') return INDEX_CACHE;
   if (/^text-(?:en|zh)-[0-9a-f]{20}\.json$/.test(file)) return ART_CACHE;
+  if (/^(?:fx-[0-9a-f]{20}\.json|tex-[0-9a-f]{20}\.png)$/.test(file))
+    return ART_CACHE;
   return /^[0-9a-f]{8,64}\.webp$/.test(file) ? ART_CACHE : null;
 }
 

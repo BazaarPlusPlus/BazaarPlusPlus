@@ -90,7 +90,10 @@ The online game of each platform and its Game Code Identity, as two objects in t
 _Avoid_: game-libs manifest, Steam buildid pin
 
 **Card Art** (卡图):
-The game's own item and skill art, one WebP per distinct art, extracted from the Steam online branch's Addressables bundles and keyed by TemplateId through the live GameData (ADR 0020). It is served at `https://cdn.bazaarplusplus.com/card-art/` with an `index.json` that maps each TemplateId to its content-addressed file (`cards`) and to its English title (`names`, every card type, encounters included); encounters have no art, since the art download takes only the item and skill bundles. The QQ bot draws boards with it.
+The game's own item and skill art, one WebP per distinct art, extracted from the Steam online branch's Addressables bundles and keyed by TemplateId through the live GameData (ADR 0020). It is served at `https://cdn.bazaarplusplus.com/card-art/` with an `index.json` that maps each TemplateId to its content-addressed file (`cards`) and to its English title (`names`, every card type, encounters included); encounters have names only. The QQ bot draws boards with it.
+
+**Enchantment FX** (附魔特效):
+The persistent material effect on a captured enchanted item. The Card Art index optionally maps its TemplateId to a material descriptor with the renderer profile, keyword sets, values and texture bindings (ADR 0022).
 
 **Card Text** (卡牌文本):
 The localized item or skill definition keyed by TemplateId in the Card Art index’s locale files. It carries tier attributes, tooltip lines and enchantment definitions from GameData. Each line records its applicable tiers, translation availability and how much of its text can be resolved from the definition. A Run refers to a captured instance, whose values can differ from Card Text. See ADR 0021.
