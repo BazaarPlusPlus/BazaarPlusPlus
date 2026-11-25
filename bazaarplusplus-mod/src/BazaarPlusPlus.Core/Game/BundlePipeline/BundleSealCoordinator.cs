@@ -184,7 +184,12 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
         // Later file corruption is handled by the upload's length and digest checks.
         if (!_filesRecovered)
             Maintain(BundleSealStage.FileRecovery, RecoverFiles);
-        var discovered = !discover || Maintain(BundleSealStage.JobDiscovery, EnsureSealJobs);
+        var discovered =
+            !discover
+            || Maintain(
+                BundleSealStage.JobDiscovery,
+                () => _queueStore.EnsureEligibleJobs(InputConvergenceWindow)
+            );
         var maintenanceFailed = !discovered || !_filesRecovered;
         var published = false;
         try
@@ -603,13 +608,6 @@ public sealed class BundleSealCoordinator : IBppFeature, IDisposable
             RecordJobFailure(runId, job, stage, ex);
             return false;
         }
-    }
-
-    // Run Message Stream rows are only useful while the Run can still upload them (ADR-0028).
-    private void EnsureSealJobs()
-    {
-        _queueStore.EnsureEligibleJobs(InputConvergenceWindow);
-        _queueStore.DeleteSpentMessageStreams();
     }
 
     private void ApplyScreenshotTerminals()
