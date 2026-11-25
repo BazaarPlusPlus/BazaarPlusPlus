@@ -1,0 +1,6 @@
+# Copied from the installer's src/styles/tokens.css by `bun run tokens`.
+/src/styles/installer-tokens.css
+
+# Playwright run output; `bun run e2e` recreates both.
+/test-results/
+/playwright-report/

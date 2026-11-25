@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import './installer-tokens.css';
+@import '../../../design/tailwind-theme.css';
+@import '../../../design/components/bundle.css';
+body {
+  @apply bg-canvas text-text-1 font-sans text-body;
+}
+.layout {
+  @apply grid min-h-screen;
+}
+@media (min-width: 48rem) {
+  .layout {
+    grid-template-columns: minmax(min-content, 16%) minmax(0, 1fr);
+  }
+}
+.nav-link {
+  @apply rounded-control px-3 py-1.5 text-small text-text-2 hover:bg-hover hover:text-text-1;
+}
+.nav-link[aria-current='page'] {
+  @apply bg-selected text-text-1 font-semibold;
+}
+.index-grid {
+  @apply grid sm:grid-cols-2 lg:grid-cols-3 rounded-panel border border-line bg-panel p-2;
+}
+.gallery {
+  @apply grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3;
+}
+summary {
+  @apply cursor-pointer;
+}
