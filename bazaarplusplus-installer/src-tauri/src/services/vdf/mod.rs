@@ -5,5 +5,7 @@ mod parse;
 mod tests;
 
 pub use launch_options::clear_launch_options_for_steam;
-pub(crate) use launch_options::{inspect_launch_options_for_steam, SteamLaunchOptionsState};
+#[cfg(any(target_os = "macos", test))]
+pub(crate) use launch_options::inspect_launch_options_for_steam;
+pub(crate) use launch_options::SteamLaunchOptionsState;
 pub(crate) use parse::THE_BAZAAR_APP_ID;
