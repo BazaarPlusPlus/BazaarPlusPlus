@@ -269,7 +269,9 @@ export function DecisionVisit({
             </div>
             {!!amount && (
               <span className="text-text-3 tabular-nums">
-                {fillCopy(labels.gold, { n: amount })}
+                {fillCopy(labels.gold, {
+                  n: amount < 0 ? `−${-amount}` : amount
+                })}
               </span>
             )}
           </div>

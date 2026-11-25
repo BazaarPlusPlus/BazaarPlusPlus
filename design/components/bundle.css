@@ -1485,6 +1485,7 @@ html[data-bpp-platform='windows'] .bpp-header {
 /* On a tile the border carries the tier and the inner ring the enchantment; their words stay
    for screen readers and the title. A tile wide enough for the word shows the enchantment. */
 .bpp-card .bpp-tier-label,
+.bpp-decision-card .bpp-tier-label,
 .bpp-board-card .bpp-enchant {
   position: absolute;
   width: 1px;
@@ -1791,16 +1792,11 @@ button.bpp-visit-identity {
   grid-column: 2;
 }
 .bpp-decision-card .bpp-card-chip {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  row-gap: var(--space-2);
-}
-.bpp-decision-card .bpp-card-chip > span {
-  grid-column: 2;
+  align-items: center;
+  gap: var(--space-8);
 }
 .bpp-decision-card .bpp-card-chip > .bpp-card-chip-art {
-  grid-column: 1;
-  grid-row: 1 / span 3;
+  flex: none;
   width: var(--control-sm);
   height: var(--control-sm);
   background: var(--bg-selected);
