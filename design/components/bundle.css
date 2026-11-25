@@ -1427,12 +1427,14 @@ html[data-bpp-platform='windows'] .bpp-header {
   gap: var(--space-2);
   position: relative;
   min-width: 0;
-  aspect-ratio: 5 / 1;
 }
 .bpp-board-slot,
 .bpp-board-card {
   grid-row: 1;
   min-width: 0;
+}
+.bpp-board-slot {
+  aspect-ratio: 1 / 2;
 }
 .bpp-board-slot,
 .bpp-board-state {
@@ -1511,7 +1513,8 @@ html[data-bpp-platform='windows'] .bpp-header {
   inset: 0;
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  /* Card Art is square; the game stretches it to the card's 1:2, 2:2 or 3:2 frame. */
+  object-fit: fill;
 }
 .bpp-tier-label {
   color: var(--text-2);
@@ -1819,4 +1822,18 @@ button.bpp-visit-identity {
   max-block-size: 20rem;
   max-inline-size: 100%;
   overflow: auto;
+}
+
+/* Thumbnails keep the item's slot proportions: small 1:2, medium 2:2, large 3:2. */
+.bpp-card-chip-art[data-size='1'],
+.bpp-detail-art[data-size='1'] {
+  aspect-ratio: 1 / 2;
+}
+.bpp-card-chip-art[data-size='3'],
+.bpp-detail-art[data-size='3'] {
+  aspect-ratio: 3 / 2;
+}
+.bpp-card-chip-art[data-size],
+.bpp-detail-art[data-size] {
+  width: auto;
 }

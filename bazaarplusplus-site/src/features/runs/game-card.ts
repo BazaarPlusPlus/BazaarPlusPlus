@@ -1,4 +1,4 @@
-import { cardTiers, enchantments, type GameCard } from '@bpp/ui';
+import { cardTiers, enchantments, type CardSize, type GameCard } from '@bpp/ui';
 import type { Locale } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
 import type { useOpenCard } from './CardDetails';
@@ -8,6 +8,7 @@ export function gameCard(
     templateId: string | null;
     tier: string | null;
     enchant: string | null;
+    size?: number | null;
   },
   name: string,
   art: (templateId: string) => string | null,
@@ -22,7 +23,9 @@ export function gameCard(
     tier: cardTiers.find((value) => value === card.tier) ?? null,
     tierLabel: card.tier ? (copy.tiers[card.tier] ?? card.tier) : '',
     enchant,
-    enchantLabel: enchant ? copy.enchantments[enchant] : (card.enchant ?? '')
+    enchantLabel: enchant ? copy.enchantments[enchant] : (card.enchant ?? ''),
+    size:
+      ([1, 2, 3] as const).find((n): n is CardSize => n === card.size) ?? null
   };
   return {
     ...display,
