@@ -10,7 +10,7 @@
 
 沿用 ADR 0020 的卡图工作流，在公开桶的 `card-art/` 前缀分发 Card Text。英文定义来自 [GameData](https://data.playthebazaar.com/static/GameData.db.zip)，中文来自游戏的 [zh-CN 翻译库](https://data.playthebazaar.com/static/translations/zh-CN.bytes)。发布内容限于物品和技能的定义及关键词说明。ADR 0012 的 interop 合作授权范围不含游戏文本，本决定单独承担公开分发文本的取舍。
 
-每种语言一个 JSON 文件。先写入以内容摘要命名的文件，最后发布引用这些文件的 Card Art index。读者按 index 的 `text.en` 或 `text.zh` 找到文件，按文件名缓存。更新时比较 Steam buildid、GameData 和翻译库的 ETag，并补齐旧版 index。游戏移除的 TemplateId 保留上次发布的定义；仍在游戏中的卡使用本次定义。历史对局展示实例数值时应读取对局记录。
+每种语言一个 JSON 文件。卡牌与附魔的可见类型保留游戏的标签 ID，展示时从本文件的 `tagLabels` 读取名称，省略缺少名称的标签。先写入以内容摘要命名的文件，最后发布引用这些文件的 Card Art index。读者按 index 的 `text.en` 或 `text.zh` 找到文件，按文件名缓存。更新时比较 Steam buildid、GameData 和翻译库的 ETag，并补齐旧版 index。游戏移除的 TemplateId 保留上次发布的定义；仍在游戏中的卡使用本次定义。历史对局展示实例数值时应读取对局记录。
 
 每行在所属卡或附魔内以原始 tooltip 序号标识，列出适用品质。英文取模板原文，中文按 Content.Key 查找，要求占位符及出现次数一致。译文缺失或不兼容时保留行号和品质，标记 `available: false`、`resolved: none`，片段为空。
 

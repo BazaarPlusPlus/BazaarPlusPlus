@@ -207,6 +207,12 @@ class CardTextTest(unittest.TestCase):
                 for locale, name in files.items():
                     payload = json.loads((out / name).read_bytes())
                     self.assertEqual((payload["version"], payload["locale"]), (1, locale))
+                    expected_labels = (
+                        {"Weapon": "Weapon", "Relic": "Relic", "Tech": "Tech"}
+                        if locale == "en"
+                        else {"Weapon": "武器", "Tech": "科技"}
+                    )
+                    self.assertEqual(payload["tagLabels"], expected_labels)
                     self.assertEqual(set(payload["cards"]), set(self.fixture["cards"]))
 
 

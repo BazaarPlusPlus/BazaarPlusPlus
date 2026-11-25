@@ -339,6 +339,17 @@ def write_card_text(database, translations_path, previous_path, previous, output
     for locale in ("en", "zh"):
         language = CardLanguage(locale, keywords, translations)
         cards = {key: card_definition(card, language) for key, card in definitions.items()}
+        tags = {
+            tag
+            for card in cards.values()
+            for source in (card, *card["enchantments"].values())
+            for tag in source["tags"]
+        }
+        tag_labels = {
+            entry["Tag"]: label
+            for word, entry in keywords.items()
+            if entry["Tag"] in tags and (label := language.keywords[word]["label"])
+        }
         if previous and locale in previous.get("text", {}):
             filename = previous["text"][locale]
             match = re.fullmatch(rf"text-{locale}-([0-9a-f]{{20}})\.json", filename)
@@ -353,7 +364,16 @@ def write_card_text(database, translations_path, previous_path, previous, output
             )
             for key, entry in prior["keywords"].items():
                 language.keywords.setdefault(key, entry)
-        payload = {"version": 1, "locale": locale, "cards": cards, "keywords": language.keywords}
+            for tag, label in prior.get("tagLabels", {}).items():
+                if tag not in tags:
+                    tag_labels[tag] = label
+        payload = {
+            "version": 1,
+            "locale": locale,
+            "cards": cards,
+            "keywords": language.keywords,
+            "tagLabels": tag_labels,
+        }
         data = json.dumps(
             payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         ).encode()

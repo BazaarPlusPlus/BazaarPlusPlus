@@ -654,6 +654,36 @@
     }
   },
   "keywords": {
+    "Tech": {
+      "Id": "Tech",
+      "Icon": "Invalid",
+      "Singleton": true,
+      "PostSymbol": false,
+      "PostWord": false,
+      "Tag": "Tech",
+      "Keyword": "",
+      "Version": "5.0.0"
+    },
+    "Weapon": {
+      "Id": "Weapon",
+      "Icon": "Invalid",
+      "Singleton": true,
+      "PostSymbol": false,
+      "PostWord": false,
+      "Tag": "Weapon",
+      "Keyword": "",
+      "Version": "5.0.0"
+    },
+    "Relic": {
+      "Id": "Relic",
+      "Icon": "Invalid",
+      "Singleton": true,
+      "PostSymbol": false,
+      "PostWord": false,
+      "Tag": "Relic",
+      "Keyword": "",
+      "Version": "5.0.0"
+    },
     "Crit Chance": {
       "Id": "Crit Chance",
       "Icon": "CritChanceIcon",
@@ -706,6 +736,9 @@
     }
   },
   "zh": {
+    "18c83669920215a818638ad0e5421e4b": "武器",
+    "575e0dc3e4b24d90d2a216d4dc5d0f09": "科技",
+
     "1edd36c40ffdfc43b9e33c4d11a36ece": "万剑之王",
     "2822da6e4f76541a9e0d502ed393c408": "被冻结的物品无法发动",
     "45cc56c6c42e49e5f41c8e5b71fe8235": "使用相邻物品暴击时，冻结一件物品{ability.e1}秒。",
