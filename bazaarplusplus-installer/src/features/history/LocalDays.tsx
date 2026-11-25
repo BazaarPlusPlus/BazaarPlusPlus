@@ -129,6 +129,7 @@ export function LocalDays({
     const tier = cardTiers.find((v) => v === c.tier) ?? null;
     const enchant = enchantments.find((v) => v === c.enchant) ?? null;
     return {
+      size: c.size,
       name: known
         ? (locale === 'zh' && known.name_zh) || known.name
         : c.type === 'PvpEncounter'

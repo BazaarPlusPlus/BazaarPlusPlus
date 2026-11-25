@@ -159,7 +159,7 @@ describe('Run Message Stream translation of a real Run (sanitized)', () => {
             tier: string | null;
             enchant: string | null;
             slot?: number | null;
-            size?: number;
+            size?: number | null;
           }[]
         ) =>
           cards

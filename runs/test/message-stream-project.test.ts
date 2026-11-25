@@ -304,6 +304,7 @@ describe('Decision path projection', () => {
         instanceId: 'itm_z',
         tag: null,
         templateId: 'zzzz',
+        size: 1,
         type: 'Item',
         tier: 'Bronze',
         enchant: null,
@@ -313,7 +314,11 @@ describe('Decision path projection', () => {
     const actions = only(entries, 'action');
     expect(actions.find((a) => a.verb === 'reconnect')?.outcome).toBe('done');
     // Gold is measured against the new baseline, not the state before the reconnect.
-    expect(actions.at(-1)).toMatchObject({ outcome: 'done', gold: -7 });
+    expect(actions.at(-1)).toMatchObject({
+      outcome: 'done',
+      gold: -7,
+      card: { size: 1 }
+    });
   });
 
   test('an undecodable message suspends inferences until a baseline returns', async () => {

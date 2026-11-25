@@ -10,6 +10,7 @@ import {
 
 /** A card as the stream knew it at one moment; an offer freezes it when it is shown. */
 export type CardRef = {
+  size: 1 | 2 | 3 | null;
   tag: 'Merchant' | 'Event' | null;
   instanceId: string;
   templateId: string | null;
@@ -283,6 +284,7 @@ export function cardRef(state: Pick<RunState, 'cards'>, id: string): CardRef {
   const c = state.cards.get(id);
   return {
     instanceId: id,
+    size: c?.size ?? null,
     tag: c?.tag ?? null,
     templateId: c?.templateId ?? null,
     type: c?.type ?? null,
@@ -395,6 +397,7 @@ function sample(state: Observation, previous: Inventory | null): Inventory {
       const old = c.sampled;
       const same =
         old &&
+        old.size === c.size &&
         old.tag === c.tag &&
         old.type === c.type &&
         old.templateId === c.templateId &&
@@ -407,7 +410,7 @@ function sample(state: Observation, previous: Inventory | null): Inventory {
         skills.push(skill);
       } else if (c.slot !== null && c.size !== null) {
         const item =
-          same && 'slot' in old && old.slot === c.slot && old.size === c.size
+          same && 'slot' in old && old.slot === c.slot
             ? old
             : { ...cardRef(state, id), slot: c.slot, size: c.size };
         c.sampled = item;
@@ -463,6 +466,7 @@ function encounterRef(state: RunState): CardRef | null {
     if (c.templateId === templateId) return cardRef(state, id);
   return {
     instanceId: '',
+    size: null,
     tag: null,
     templateId,
     type: null,
@@ -718,7 +722,8 @@ function applyGameSim(
       const c = card(state, id);
       const place = field(update, 'Placement');
       if (place != null) placement(state, c, place);
-      c.size = sizeOf(field(update, 'Size')) ?? c.size;
+      const size = field(update, 'Size');
+      if (size != null) c.size = sizeOf(size);
       updateTags(c, update);
       c.enchant = enumName(field(update, 'Enchantment')) ?? c.enchant;
       c.tier = enumName(field(update, 'Tier')) ?? c.tier;

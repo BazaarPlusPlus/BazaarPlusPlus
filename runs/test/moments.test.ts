@@ -142,3 +142,16 @@ test('skills follow observed acquisition order and exclude an opponent equip', a
   expect(second?.skills?.map((c) => c.instanceId)).toEqual(['b', 'a']);
   expect(opponent?.skills).toBe(second?.skills);
 });
+
+test('skill chips freeze the observed size across sparse updates and template replacement', async () => {
+  const skill = enumValue('ECardType', 'Skill');
+  const [sync, resized, sparse, replaced] = await replay([
+    baseline([[...original.slice(0, 8), skill, ...original.slice(9)]]),
+    gameSim({ sizes: { a: 'Large' } }),
+    gameSim({ prices: { a: 4 } }),
+    event('GameSimEventCardDealt', ['a', replacement, skill])
+  ]);
+  expect(
+    [sync, resized, sparse, replaced].map((s) => s?.skills?.[0]?.size)
+  ).toEqual([1, 3, 3, null]);
+});

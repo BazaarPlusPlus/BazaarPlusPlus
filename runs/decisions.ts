@@ -184,6 +184,7 @@ export function presentVisit<C extends { name: string }>(
           instanceId: battle.encounterId,
           tier: null,
           enchant: null,
+          size: null,
           price: null,
           type: null,
           tag: null
