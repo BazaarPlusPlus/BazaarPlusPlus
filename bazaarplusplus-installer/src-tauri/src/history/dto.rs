@@ -85,6 +85,10 @@ pub struct HistoryBattleRow {
     pub opponent_name: Option<String>,
     pub opponent_rank: Option<String>,
     pub opponent_rating: Option<i64>,
+    pub player_board: Option<Vec<HistoryBattleCard>>,
+    pub player_skills: Option<Vec<HistoryBattleCard>>,
+    pub opponent_board: Option<Vec<HistoryBattleCard>>,
+    pub opponent_skills: Option<Vec<HistoryBattleCard>>,
     pub video: Option<HistoryBattleVideo>,
 }
 
@@ -94,4 +98,16 @@ pub struct HistoryBattleVideo {
     pub status: String,
     pub file_size_bytes: Option<i64>,
     pub duration_ms: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, specta::Type)]
+pub struct HistoryBattleCard {
+    pub instance_id: String,
+    pub template_id: String,
+    pub name: String,
+    pub name_zh: Option<String>,
+    pub size: u8,
+    pub slot: Option<u8>,
+    pub tier: Option<String>,
+    pub enchant: Option<String>,
 }

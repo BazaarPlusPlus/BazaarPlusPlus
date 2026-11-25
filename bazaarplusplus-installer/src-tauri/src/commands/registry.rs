@@ -29,6 +29,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             crate::commands::stream::reset_overlay_crop,
             crate::commands::history::list_history_runs,
             crate::commands::history::get_history_run_detail,
+            crate::commands::history::get_card_art_index,
             crate::commands::history::reveal_run_screenshot,
             crate::commands::history::reveal_battle_video,
             crate::commands::history::delete_battle_video,

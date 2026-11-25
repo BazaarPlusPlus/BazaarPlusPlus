@@ -26,6 +26,7 @@ import RunDetail from './RunDetail';
 
 vi.mock('../api/commandClient', () => ({
   commandClient: {
+    getCardArtIndex: vi.fn().mockResolvedValue({}),
     getHistoryRunDetail: vi.fn(),
     revealRunScreenshot: vi.fn(),
     revealBattleVideo: vi.fn(),
@@ -63,6 +64,10 @@ function detail(runId = 'run-1'): HistoryRunDetail {
         opponent_name: null,
         opponent_rank: null,
         opponent_rating: null,
+        player_board: null,
+        player_skills: null,
+        opponent_board: null,
+        opponent_skills: null,
         video: {
           video_id: 'video-1',
           status: 'completed',
@@ -219,4 +224,52 @@ describe('Run Detail workflow binding', () => {
       'video-1'
     );
   });
+});
+
+describe('battle boards', () => {
+  it.each(['index', 'image'])(
+    'keeps localized names after an %s failure',
+    async (failure) => {
+      localStorage.setItem(LOCALE_STORAGE_KEY, 'zh');
+      const data = detail();
+      data.battles[0].player_board = [
+        {
+          instance_id: 'instance-1',
+          template_id: 'card-1',
+          name: 'Example',
+          name_zh: '测试物品',
+          tier: 'Silver',
+          enchant: 'Golden',
+          slot: 3,
+          size: 2
+        }
+      ];
+      data.battles[0].opponent_board = [];
+      vi.mocked(commands.getHistoryRunDetail).mockResolvedValue(data);
+      if (failure === 'index')
+        vi.mocked(commands.getCardArtIndex).mockRejectedValueOnce(
+          new Error('offline')
+        );
+      else
+        vi.mocked(commands.getCardArtIndex).mockResolvedValueOnce({
+          'card-1': '01234567.webp'
+        });
+      await render();
+      const tile = container.querySelector('.bpp-board-card')!;
+      if (failure === 'image') {
+        const image = tile.querySelector('img')!;
+        expect(image.src).toBe(
+          'https://cdn.bazaarplusplus.com/card-art/01234567.webp'
+        );
+        await act(async () => image.dispatchEvent(new Event('error')));
+      }
+      expect(tile.textContent).toContain('测试物品');
+      expect(tile.textContent).toContain('白银');
+      expect(tile.textContent).toContain('黄金');
+      const disclosure = container.querySelector('details')!;
+      expect(disclosure.open).toBe(false);
+      expect(disclosure.textContent).toContain('空阵容');
+      expect(disclosure.textContent).toContain('未记录技能');
+    }
+  );
 });

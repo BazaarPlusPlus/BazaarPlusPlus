@@ -1,3 +1,4 @@
+mod battle_cards;
 pub(crate) mod card_names;
 pub(crate) mod cleanup;
 mod dto;

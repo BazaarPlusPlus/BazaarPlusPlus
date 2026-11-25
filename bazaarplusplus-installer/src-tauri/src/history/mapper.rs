@@ -122,6 +122,10 @@ pub(super) fn map_battle_row(
         opponent_name: battle.opponent_name,
         opponent_rank: battle.opponent_rank,
         opponent_rating: battle.opponent_rating,
+        player_board: None,
+        player_skills: None,
+        opponent_board: None,
+        opponent_skills: None,
         video: video.map(|video| HistoryBattleVideo {
             video_id: video.video_id,
             status: video.status.unwrap_or_else(|| "COMPLETED".to_string()),

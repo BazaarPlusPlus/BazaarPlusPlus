@@ -8,6 +8,7 @@ import {
   Trash2,
   Video
 } from 'lucide-react';
+import { BattleBoards, useBattleArt } from '../features/history/BattleBoards';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, buttonClassName, StatusPanel } from '@bpp/ui';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -53,6 +54,7 @@ export default function RunDetail() {
   );
   const page = useRunDetailPage();
   const detail = page.detail;
+  const art = useBattleArt(Boolean(detail?.battles.length));
   const { locale, t } = useI18n();
   const runResult = detail ? formatRunResultLabel(detail.run) : null;
   const deleteOperation = useConfirmedOperation<
@@ -278,6 +280,7 @@ export default function RunDetail() {
                     detail.battles.map((battle) => (
                       <BattleRow
                         key={battle.battle_id}
+                        art={art}
                         battle={battle}
                         page={page}
                         onRequestDelete={(target) => {
@@ -364,10 +367,12 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 }
 
 function BattleRow({
+  art,
   battle,
   page,
   onRequestDelete
 }: {
+  art: ReturnType<typeof useBattleArt>;
   battle: HistoryBattleRow;
   page: ReturnType<typeof useRunDetailPage>;
   onRequestDelete: (battle: HistoryBattleRow) => void;
@@ -466,6 +471,11 @@ function BattleRow({
         </td>
       </tr>
 
+      <tr>
+        <td colSpan={7}>
+          <BattleBoards battle={battle} art={art} />
+        </td>
+      </tr>
       {failure && (
         <tr>
           <td colSpan={7}>
