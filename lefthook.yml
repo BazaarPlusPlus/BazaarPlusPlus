@@ -20,6 +20,9 @@ pre-commit:
       glob: '{bazaarplusplus-installer/**,design/**,tsconfig.json,release/**,VERSION,scripts/**,JUSTFILE}'
       run: just installer::check-fast
 
+    - name: ui-docs
+      glob: '{bazaarplusplus-ui-docs/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,JUSTFILE}'
+      run: just ui-docs::check
     - name: site
       glob: '{bazaarplusplus-site/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
       run: just site::check

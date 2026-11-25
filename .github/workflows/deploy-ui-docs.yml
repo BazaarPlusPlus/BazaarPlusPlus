@@ -1,0 +1,65 @@
+name: Delivery / UI docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        type: choice
+        required: true
+        default: preview
+        options: [preview, production]
+  push:
+    branches: [master]
+    paths:
+      - bazaarplusplus-ui-docs/**
+      - design/components/bundle.css
+      - design/tailwind-theme.css
+      - design/tokens.json
+      - design/assets/Logos/**
+      - design/ui/**
+      - design/ui-classes.ts
+      - bazaarplusplus-installer/src/styles/tokens.css
+      - .github/workflows/deploy-ui-docs.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ui-docs-${{ github.event_name == 'workflow_dispatch' && inputs.target || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy UI docs (${{ github.event_name == 'workflow_dispatch' && inputs.target || 'production' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'production' }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        with:
+          tool: just@1.58.0
+      - run: bun install --frozen-lockfile
+        working-directory: bazaarplusplus-ui-docs
+      - run: bun run playwright install --with-deps chromium
+        working-directory: bazaarplusplus-ui-docs
+      - run: BPP_UI_DOCS_PREBUILT=1 just ui-docs::check ui-docs::test
+      - name: Deploy checked assets
+        working-directory: bazaarplusplus-ui-docs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ "$TARGET" = production ]; then
+            bun run wrangler deploy --env=""
+          else
+            bun run wrangler deploy --env preview
+          fi

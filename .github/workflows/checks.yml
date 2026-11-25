@@ -34,6 +34,7 @@ jobs:
     outputs:
       release: ${{ steps.scope.outputs.release }}
       site: ${{ steps.scope.outputs.site }}
+      ui-docs: ${{ steps.scope.outputs.ui-docs }}
       server: ${{ steps.scope.outputs.server }}
       bot: ${{ steps.scope.outputs.bot }}
       analyzer: ${{ steps.scope.outputs.analyzer }}
@@ -127,8 +128,8 @@ jobs:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
         working-directory: bazaarplusplus-${{ env.PROJECT }}
-      - if: env.PROJECT == 'site'
-        working-directory: bazaarplusplus-site
+      - if: env.PROJECT == 'site' || env.PROJECT == 'ui-docs'
+        working-directory: bazaarplusplus-${{ env.PROJECT }}
         run: bun run playwright install --with-deps chromium
       - if: env.PROJECT == 'site'
         run: just site::ci
@@ -140,10 +141,22 @@ jobs:
             bazaarplusplus-site/test-results/
             bazaarplusplus-site/e2e/__snapshots__/
           if-no-files-found: ignore
+      - if: env.PROJECT == 'ui-docs'
+        run: BPP_UI_DOCS_PREBUILT=1 just ui-docs::check ui-docs::test
       - if: env.PROJECT == 'server'
         run: just server::check server::test
       - if: env.PROJECT == 'bot'
         run: just bot::check bot::test bot::build
+
+  ui-docs:
+    name: ui-docs (full check and test)
+    needs: classify
+    if: needs.classify.outputs.ui-docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROJECT: ui-docs
+    steps: *bun-steps
 
   server:
     name: server (full check and test)
@@ -449,6 +462,7 @@ jobs:
         classify,
         release,
         site,
+        ui-docs,
         server,
         bot,
         analyzer,

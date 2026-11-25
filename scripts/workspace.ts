@@ -248,6 +248,7 @@ export function doctor(
     '',
     'installer',
     'site',
+    'ui-docs',
     'server',
     'bot',
     'analyzer'
@@ -418,7 +419,7 @@ export function main(args: string[] = process.argv.slice(2)): void {
     initializeConfig(home);
     refreshProjections(home);
     if (!skipDeps) {
-      for (const project of ['installer', 'site', 'server', 'bot']) {
+      for (const project of ['installer', 'site', 'ui-docs', 'server', 'bot']) {
         execute('bun', ['install', '--frozen-lockfile'], {
           cwd: project ? path.join(root, `bazaarplusplus-${project}`) : root
         });

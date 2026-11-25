@@ -167,6 +167,7 @@ test('workflow wiring summarizes every optional job and isolates every manual ru
   );
   for (const name of [
     'site (full check and test)',
+    'ui-docs (full check and test)',
     'server (full check and test)',
     'Installer (frontend)',
     'Installer (macos-26)',
