@@ -5,48 +5,48 @@
       "effect": "Deadly",
       "time": 1,
       "x": 8,
-      "y": 104,
+      "y": 88,
       "image": "Deadly1.png"
     },
     {
       "effect": "Deadly",
       "time": 2,
-      "x": 56,
+      "x": 24,
       "y": 72,
       "image": "Deadly2.png"
     },
     {
       "effect": "Fiery",
       "time": 1,
-      "x": 56,
+      "x": 8,
       "y": 72,
       "image": "Fiery1.png"
     },
     {
       "effect": "Fiery",
       "time": 2,
-      "x": 104,
-      "y": 88,
+      "x": 24,
+      "y": 72,
       "image": "Fiery2.png"
     },
     {
       "effect": "Obsidian",
       "time": 1,
-      "x": 296,
-      "y": 168,
+      "x": 152,
+      "y": 152,
       "image": "Obsidian1.png"
     },
     {
       "effect": "Obsidian",
       "time": 2,
-      "x": 296,
-      "y": 168,
+      "x": 152,
+      "y": 152,
       "image": "Obsidian2.png"
     },
     {
       "effect": "Radiant",
       "time": 1,
-      "x": 40,
+      "x": 24,
       "y": 56,
       "image": "Radiant1.png"
     },
@@ -60,70 +60,70 @@
     {
       "effect": "Restorative",
       "time": 1,
-      "x": 296,
+      "x": 136,
       "y": 24,
       "image": "Restorative1.png"
     },
     {
       "effect": "Restorative",
       "time": 2,
-      "x": 168,
+      "x": 72,
       "y": 216,
       "image": "Restorative2.png"
     },
     {
       "effect": "Shiny",
       "time": 1,
-      "x": 24,
-      "y": 120,
+      "x": 8,
+      "y": 136,
       "image": "Shiny1.png"
     },
     {
       "effect": "Shiny",
       "time": 2,
-      "x": 24,
-      "y": 120,
+      "x": 8,
+      "y": 136,
       "image": "Shiny2.png"
     },
     {
       "effect": "Tiny",
       "time": 1,
-      "x": 312,
+      "x": 152,
       "y": 136,
       "image": "Tiny1.png"
     },
     {
       "effect": "Tiny",
       "time": 2,
-      "x": 312,
-      "y": 136,
+      "x": 40,
+      "y": 232,
       "image": "Tiny2.png"
     },
     {
       "effect": "Toxic",
       "time": 1,
-      "x": 56,
+      "x": 8,
       "y": 72,
       "image": "Toxic1.png"
     },
     {
       "effect": "Toxic",
       "time": 2,
-      "x": 136,
+      "x": 56,
       "y": 104,
       "image": "Toxic2.png"
     },
     {
       "effect": "Turbo",
       "time": 1,
-      "x": 88,
+      "x": 40,
       "y": 168,
       "image": "Turbo1.png"
     },
     {
       "effect": "Turbo",
       "time": 2,
-      "x": 360,
+      "x": 152,
       "y": 152,
       "image": "Turbo2.png"
     },
@@ -148,7 +148,7 @@
       "material": "fx-90726eefb9e751ff0e92.json",
       "time": 1,
       "x": 232,
-      "y": 248,
+      "y": 152,
       "image": "SubmarineShiny1.png"
     },
     {
@@ -156,55 +156,55 @@
       "material": "fx-90726eefb9e751ff0e92.json",
       "time": 2,
       "x": 232,
-      "y": 248,
+      "y": 152,
       "image": "SubmarineShiny2.png"
     },
     {
       "effect": "Golden",
       "time": 1,
-      "x": 8,
-      "y": 88,
+      "x": 72,
+      "y": 72,
       "image": "Golden1.png"
     },
     {
       "effect": "Golden",
       "time": 2,
-      "x": 168,
+      "x": 72,
       "y": 56,
       "image": "Golden2.png"
     },
     {
       "effect": "Heavy",
       "time": 1,
-      "x": 56,
+      "x": 24,
       "y": 168,
       "image": "Heavy1.png"
     },
     {
       "effect": "Heavy",
       "time": 2,
-      "x": 360,
-      "y": 184,
+      "x": 152,
+      "y": 200,
       "image": "Heavy2.png"
     },
     {
       "effect": "Mossy",
       "time": 1,
       "x": 8,
-      "y": 104,
+      "y": 88,
       "image": "Mossy1.png"
     },
     {
       "effect": "Mossy",
       "time": 2,
-      "x": 40,
+      "x": 24,
       "y": 72,
       "image": "Mossy2.png"
     },
     {
       "effect": "Mystical",
       "time": 1,
-      "x": 72,
+      "x": 40,
       "y": 360,
       "image": "Mystical1.png"
     },
@@ -219,13 +219,13 @@
       "effect": "Shielded",
       "time": 1,
       "x": 8,
-      "y": 136,
+      "y": 168,
       "image": "Shielded1.png"
     },
     {
       "effect": "Shielded",
       "time": 2,
-      "x": 296,
+      "x": 136,
       "y": 200,
       "image": "Shielded2.png"
     }

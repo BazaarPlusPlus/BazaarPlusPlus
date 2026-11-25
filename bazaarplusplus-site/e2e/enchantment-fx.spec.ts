@@ -127,6 +127,13 @@ for (const first of fixture.cases.filter((sample) => sample.time === 1)) {
           const descriptor: FxMaterial = sample.material
             ? await (await fetch(sample.material)).json()
             : material;
+          const [width, height] = {
+            small: [200, 400],
+            medium: [400, 400],
+            large: [375, 250]
+          }[descriptor.size];
+          canvas.style.width = width + 'px';
+          canvas.style.height = height + 'px';
           const stop = observeFx(
             canvas,
             {
@@ -167,7 +174,7 @@ for (const first of fixture.cases.filter((sample) => sample.time === 1)) {
           const plain = await createImageBitmap(
             await (await fetch(art)).blob()
           );
-          ctx.drawImage(plain, -sample.x, -sample.y, 400, 400);
+          ctx.drawImage(plain, -sample.x, -sample.y, width, height);
           const control = ctx.getImageData(0, 0, crop.width, crop.height).data;
           plain.close();
           let plainSum = 0;

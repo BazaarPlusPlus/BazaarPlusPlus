@@ -281,7 +281,7 @@ class Renderer {
             });
             return { location, texture: await entry.ready };
           }
-          if (name === 'seconds' || name === 'crop') return { location, name };
+          if (name === 'seconds') return { location };
           const value =
             name === 'aspect'
               ? { small: 0.5, medium: 1, large: 1.5 }[material.size]
@@ -317,14 +317,7 @@ class Renderer {
         gl.useProgram(shader.program);
         let unit = 0;
         for (const binding of bindings) {
-          if (binding.name === 'crop') {
-            const ratio = width / height / (artWidth / artHeight);
-            gl.uniform2f(
-              binding.location,
-              Math.min(1, ratio),
-              Math.min(1, 1 / ratio)
-            );
-          } else if (binding.texture) {
+          if (binding.texture) {
             gl.activeTexture(gl.TEXTURE0 + unit);
             gl.bindTexture(gl.TEXTURE_2D, binding.texture);
             gl.uniform1i(binding.location, unit++);
