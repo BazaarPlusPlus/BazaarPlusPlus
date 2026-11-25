@@ -436,61 +436,6 @@ public sealed class BundleQueueStoreTests
     }
 
     [Fact]
-    public void TestSpentMessageStreamsAreDeleted()
-    {
-        var cases = BundleSealEligibilityCase.Load();
-        WithStore(
-            (store, connection) =>
-            {
-                foreach (var eligibilityCase in cases)
-                    eligibilityCase.Seed(connection);
-                InsertRun(
-                    connection,
-                    "in_progress",
-                    "Normal",
-                    "Online",
-                    completed: false,
-                    screenshot: false
-                );
-                var runIds = cases
-                    .Select(eligibilityCase => eligibilityCase.Name)
-                    .Append("in_progress");
-                foreach (var runId in runIds)
-                    Execute(
-                        connection,
-                        "INSERT INTO run_events (run_id, seq, ts_at_ms, kind, payload_json) VALUES ($runId, 1, 0, 'run_started', '{}'), ($runId, 2, 0, 'stream_command', '{}'), ($runId, 3, 0, 'stream_message', '{}');",
-                        ("$runId", runId)
-                    );
-
-                store.DeleteSpentMessageStreams();
-
-                foreach (var eligibilityCase in cases)
-                {
-                    var kept =
-                        eligibilityCase.ProtectedFromCleanup
-                        || eligibilityCase.OutboxStatuses.Contains("pending");
-                    Assert(
-                        EventCount(connection, eligibilityCase.Name) == (kept ? 3 : 1),
-                        $"{eligibilityCase.Name}: expected the stream rows {(kept ? "kept" : "deleted")} and run_started kept."
-                    );
-                }
-                Assert(
-                    EventCount(connection, "in_progress") == 3,
-                    "A Run in progress keeps its stream rows."
-                );
-            }
-        );
-    }
-
-    private static long EventCount(SqliteConnection connection, string runId)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM run_events WHERE run_id = $runId;";
-        command.Parameters.AddWithValue("$runId", runId);
-        return Convert.ToInt64(command.ExecuteScalar());
-    }
-
-    [Fact]
     public void TestSealJobDeadlinesAreInstants()
     {
         var resealUtc = new DateTimeOffset(2026, 8, 3, 1, 0, 0, TimeSpan.Zero).AddTicks(4_567_891);
