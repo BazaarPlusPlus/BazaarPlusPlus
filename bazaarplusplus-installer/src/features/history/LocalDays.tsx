@@ -178,6 +178,7 @@ export function LocalDays({
                       if (!row) return null;
                       return (
                         <MomentPanel
+                          formatPrice={(n) => t('path_gold', { n })}
                           view={presentMoment(row.moment, display)}
                           reroll={row.verb === 'rerolled'}
                           title={[

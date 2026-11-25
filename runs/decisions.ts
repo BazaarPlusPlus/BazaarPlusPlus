@@ -308,6 +308,7 @@ export function presentMoment<C>(
     stash: placed(s?.stash ?? null),
     skills:
       s?.skills?.map((c) => ({ ...display(c), id: c.instanceId })) ?? null,
+    encounterId: moment.encounter?.instanceId ?? null,
     encounter: moment.encounter ? display(moment.encounter) : null,
     offer:
       moment.offer?.map((c) => ({

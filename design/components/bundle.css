@@ -1488,6 +1488,7 @@ html[data-bpp-platform='windows'] .bpp-header {
    for screen readers and the title. A tile wide enough for the word shows the enchantment. */
 .bpp-card .bpp-tier-label,
 .bpp-decision-card .bpp-tier-label,
+.bpp-moment .bpp-card-chip .bpp-tier-label,
 .bpp-board-card .bpp-enchant {
   position: absolute;
   width: 1px;
@@ -1882,26 +1883,19 @@ button.bpp-visit-identity {
   max-width: 100%;
 }
 .bpp-moment-offers > [data-chosen='true'] {
-  border-color: var(--accent);
+  background: var(--bg-selected);
 }
-.bpp-moment-nav button,
 .bpp-moment-button {
   padding: var(--space-6);
-  color: var(--accent);
+  color: var(--text-1);
   text-align: start;
   min-height: var(--control-md);
   cursor: pointer;
 }
-.bpp-moment-button[aria-current='true'] {
-  font-weight: bold;
-  text-decoration: underline;
+.bpp-visit-head:has(.bpp-moment-button[aria-current='true']) {
+  background: var(--bg-selected);
 }
-.bpp-moment-nav button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.bpp-moment-button:focus-visible,
-.bpp-moment-nav button:focus-visible {
+.bpp-moment-button:focus-visible {
   outline: 2px solid var(--accent);
 }
 .bpp-moment-totals > div {
@@ -1920,4 +1914,21 @@ button.bpp-visit-identity {
 }
 .bpp-decision-row:has([aria-current='true']) {
   background: var(--bg-selected);
+}
+
+.bpp-moment .bpp-board:has(.bpp-card-fallback) {
+  aspect-ratio: auto;
+  min-height: var(--row-height);
+}
+.bpp-moment .bpp-card-face:has(.bpp-card-fallback) {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: min-content;
+}
+.bpp-moment .bpp-card-fallback {
+  overflow-wrap: anywhere;
+}
+@container bpp-board-card (max-width: 3rem) {
+  .bpp-moment .bpp-card-fallback {
+    writing-mode: vertical-rl;
+  }
 }

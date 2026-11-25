@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
+import { Button } from '../Button';
 import { Board, SkillStrip } from './Board';
 import { CardChip, type GameCard } from './Card';
 import type { CardSize } from './types';
@@ -77,16 +78,24 @@ export function DecisionExplorer({
         className="bpp-moment"
       >
         <div className="bpp-moment-nav">
-          <button type="button" disabled={idx === 0} onClick={() => step(-1)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            disabled={idx === 0}
+            onClick={() => step(-1)}
+          >
             {previous}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             disabled={idx === order.length - 1}
             onClick={() => step(1)}
           >
             {next}
-          </button>
+          </Button>
         </div>
         {render(active)}
       </section>
@@ -148,6 +157,7 @@ export function MomentPanel({
   view,
   labels,
   title,
+  formatPrice,
   reroll
 }: {
   view: {
@@ -155,6 +165,7 @@ export function MomentPanel({
     stash: Placed[] | null;
     skills: (GameCard & { id: string })[] | null;
     encounter: GameCard | null;
+    encounterId: string | null;
     offer:
       | { card: GameCard; id: string; chosen: boolean; price: number | null }[]
       | null
@@ -178,6 +189,7 @@ export function MomentPanel({
     string
   >;
   title: string;
+  formatPrice: (price: number) => string;
   reroll: boolean;
 }) {
   const observation = {
@@ -187,13 +199,14 @@ export function MomentPanel({
   return (
     <>
       <h3 className="bpp-moment-title">{title}</h3>
-      {view.encounter && (
-        <CardChip
-          card={view.encounter}
-          title={view.encounter.name}
-          placeholder
-        />
-      )}
+      {view.encounter &&
+        !view.offer?.some((o) => o.chosen && o.id === view.encounterId) && (
+          <CardChip
+            card={view.encounter}
+            title={view.encounter.name}
+            placeholder
+          />
+        )}
       {view.offer !== undefined && (
         <div>
           <h4>{reroll ? labels.resultOffer : labels.pickedFrom}</h4>
@@ -202,11 +215,7 @@ export function MomentPanel({
             {view.offer?.map((o) => (
               <div key={o.id} data-chosen={o.chosen}>
                 <CardChip card={o.card} title={o.card.name} placeholder />
-                {o.price !== null && (
-                  <span>
-                    {labels.goldTotal} {o.price}
-                  </span>
-                )}
+                {o.price !== null && <span>{formatPrice(o.price)}</span>}
                 {o.chosen && <strong>{labels.chosen}</strong>}
               </div>
             )) ?? labels.unknown}

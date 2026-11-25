@@ -494,12 +494,15 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   await bought.click();
   const panel = decisions.locator('.bpp-moment');
   await expect(panel).toContainText('Chosen');
+  await expect(panel.locator('[data-chosen=true]')).toContainText('2 gold');
   await bought.press('ArrowDown');
   await expect(
     shop.getByRole('button', { name: 'Rerolled', exact: true })
   ).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await expect(bought).toBeFocused();
+  await panel.getByRole('button', { name: 'Next' }).click();
+  await bought.click();
   async function checkWidth(width: number) {
     await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
     await expect(decisions.locator('.bpp-decision-explorer')).toHaveAttribute(
@@ -511,6 +514,25 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
       true
     );
     await expect(panel.locator('.bpp-board-slot')).toHaveCount(20);
+    if (width === 390) {
+      const face = panel.locator('.bpp-board .bpp-card-face').first();
+      expect(
+        await face.evaluate((el) => {
+          const label = el
+            .querySelector('.bpp-card-fallback')!
+            .getBoundingClientRect();
+          const tile = el.getBoundingClientRect();
+          const board = el.closest('.bpp-board')!.getBoundingClientRect();
+          return (
+            label.left >= tile.left &&
+            label.right <= tile.right &&
+            label.top >= tile.top &&
+            label.bottom <= tile.bottom &&
+            tile.bottom <= board.bottom
+          );
+        })
+      ).toBe(true);
+    }
     await bought.evaluate((el) => el.scrollIntoView({ block: 'start' }));
     if (width !== 320)
       await page.screenshot({

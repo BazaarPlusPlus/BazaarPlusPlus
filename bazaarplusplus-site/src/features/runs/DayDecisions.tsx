@@ -168,6 +168,7 @@ export function SiteMoment({
     .join(' · ');
   return (
     <MomentPanel
+      formatPrice={(n) => fillCopy(labels.gold, { n })}
       labels={{ ...labels, skills: getSiteCopy(locale).account.skills }}
       title={title}
       reroll={row.verb === 'rerolled'}

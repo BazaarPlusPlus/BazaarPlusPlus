@@ -137,7 +137,8 @@ type CardState = {
   type: string | null;
   tier: string | null;
   enchant: string | null;
-  attributes: Map<string, number>;
+  price: number | null;
+  captured?: boolean;
 };
 
 type RunState = {
@@ -158,6 +159,8 @@ type RunState = {
   free: boolean;
   player: Map<string, number>;
   cards: Map<string, CardState>;
+  changed: Set<string>;
+  inventory: Map<string, CardState>;
 };
 
 /** What one decoded message showed, for pairing with its command. */
@@ -244,12 +247,19 @@ function newState(): RunState {
     rerollsRemaining: null,
     free: false,
     player: new Map(),
+    changed: new Set(),
+    inventory: new Map(),
     cards: new Map()
   };
 }
 
 function card(state: RunState, id: string): CardState {
+  state.changed.add(id);
   let found = state.cards.get(id);
+  if (found?.captured) {
+    found = { ...found, captured: false };
+    state.cards.set(id, found);
+  }
   if (!found) {
     found = {
       owner: null,
@@ -262,14 +272,14 @@ function card(state: RunState, id: string): CardState {
       type: null,
       tier: null,
       enchant: null,
-      attributes: new Map()
+      price: null
     };
     state.cards.set(id, found);
   }
   return found;
 }
 
-export function cardRef(state: RunState, id: string): CardRef {
+export function cardRef(state: Pick<RunState, 'cards'>, id: string): CardRef {
   const c = state.cards.get(id);
   return {
     instanceId: id,
@@ -278,7 +288,7 @@ export function cardRef(state: RunState, id: string): CardRef {
     type: c?.type ?? null,
     tier: c?.tier ?? null,
     enchant: c?.enchant ?? null,
-    price: c?.attributes.get('BuyPrice') ?? null
+    price: c?.price ?? null
   };
 }
 
@@ -324,7 +334,34 @@ function share<T>(old: T[] | null | undefined, next: T[]) {
     : next;
 }
 
-function sample(state: RunState, previous: Inventory | null): Inventory {
+type Observation = Pick<RunState, 'cards' | 'inventoryKnown'> &
+  Pick<Inventory, 'gold' | 'health' | 'level'>;
+
+// Retain only player cards. Later writes copy a captured card, so a moment can
+// validate and sort its board when it is opened, even after a sync or transform.
+function observe(state: RunState): Observation {
+  let cards = state.inventory;
+  for (const id of state.changed) {
+    const card = state.cards.get(id);
+    if (card?.owner !== 'Player' && !cards.has(id)) continue;
+    if (cards === state.inventory) cards = new Map(cards);
+    if (card?.owner === 'Player') {
+      card.captured = true;
+      cards.set(id, card);
+    } else cards.delete(id);
+  }
+  state.inventory = cards;
+  state.changed.clear();
+  return {
+    cards,
+    inventoryKnown: state.inventoryKnown,
+    gold: state.playerKnown ? (state.player.get('Gold') ?? null) : null,
+    health: state.playerKnown ? (state.player.get('Health') ?? null) : null,
+    level: state.playerKnown ? (state.player.get('Level') ?? null) : null
+  };
+}
+
+function sample(state: Observation, previous: Inventory | null): Inventory {
   const board: PlacedCard[] = [],
     stash: PlacedCard[] = [],
     skills: CardRef[] = [];
@@ -363,7 +400,7 @@ function sample(state: RunState, previous: Inventory | null): Inventory {
         old.templateId === c.templateId &&
         old.tier === c.tier &&
         old.enchant === c.enchant &&
-        old.price === (c.attributes.get('BuyPrice') ?? null);
+        old.price === c.price;
       if (c.type === 'Skill') {
         const skill = same ? old : cardRef(state, id);
         c.sampled = skill;
@@ -406,9 +443,9 @@ function sample(state: RunState, previous: Inventory | null): Inventory {
             )
           )
         : null,
-    gold: state.playerKnown ? (state.player.get('Gold') ?? null) : null,
-    health: state.playerKnown ? (state.player.get('Health') ?? null) : null,
-    level: state.playerKnown ? (state.player.get('Level') ?? null) : null
+    gold: state.gold,
+    health: state.health,
+    level: state.level
   };
 }
 
@@ -491,7 +528,7 @@ function applySync(state: RunState, data: Translated | undefined) {
     c.enchant = enumName(field(snapshot, 'Enchantment'));
     for (const [name, value] of enumKeyed(field(snapshot, 'Attributes'))) {
       const n = int(value);
-      if (n !== null) c.attributes.set(name, n);
+      if (name === 'BuyPrice' && n !== null) c.price = n;
     }
   }
 }
@@ -514,7 +551,7 @@ function updateTemplate(c: CardState, snapshot: Translated) {
     c.enchant = null;
     c.size = null;
     c.tier = null;
-    c.attributes.clear();
+    c.price = null;
     c.tag = null;
   }
   c.type = enumName(field(snapshot, 'Type')) ?? c.type;
@@ -548,7 +585,10 @@ function applyGameSim(
         const original = field(event, 'OriginalCard');
         const originalId = text(field(original, 'InstanceId'));
         for (const key of list(field(event, 'TransformedCardInstanceIds')))
-          if (typeof key === 'string') state.cards.delete(key);
+          if (typeof key === 'string') {
+            state.changed.add(key);
+            state.cards.delete(key);
+          }
         if (original && originalId) {
           const saved = state.originals.get(originalId);
           if (saved) state.cards.set(originalId, saved);
@@ -564,6 +604,7 @@ function applyGameSim(
         if (original) {
           const c = state.cards.get(original);
           if (c) state.originals.set(original, c);
+          state.changed.add(original);
           state.cards.delete(original);
         }
         for (const t of list(field(event, 'TransformedCards'))) {
@@ -682,12 +723,12 @@ function applyGameSim(
       c.enchant = enumName(field(update, 'Enchantment')) ?? c.enchant;
       c.tier = enumName(field(update, 'Tier')) ?? c.tier;
       for (const [name, delta] of enumKeyed(field(update, 'Attributes'))) {
+        if (name !== 'BuyPrice') continue;
         // An AttributeDelta of type Delete removes the attribute, e.g. a price.
-        if (enumName(field(delta, 'DeltaType')) === 'Delete')
-          c.attributes.delete(name);
+        if (enumName(field(delta, 'DeltaType')) === 'Delete') c.price = null;
         else {
           const n = int(field(delta, 'Value'));
-          if (n !== null) c.attributes.set(name, n);
+          if (n !== null) c.price = n;
         }
       }
     }
@@ -884,6 +925,18 @@ export async function projectDecisions(
   const openings = new Map<string, Moment>();
 
   let previous: Inventory | null = null;
+  function capture(moment: Moment, observation: Observation | null) {
+    Object.defineProperty(moment, 'snapshot', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        const snapshot = observation ? sample(observation, previous) : null;
+        if (snapshot) previous = snapshot;
+        Object.defineProperty(moment, 'snapshot', { value: snapshot });
+        return snapshot;
+      }
+    });
+  }
   const contexts: Context[] = [];
   const state = newState();
   const entries: DecisionEntry[] = [];
@@ -1011,7 +1064,7 @@ export async function projectDecisions(
       });
       if (owner) {
         owner.moment.responseSeq = frame.seq;
-        owner.moment.snapshot = sync ? sample(state, previous) : null;
+        capture(owner.moment, sync ? observe(state) : null);
         owner.gold = null;
         owner.health = null;
         settle(owner, state);
@@ -1089,14 +1142,14 @@ export async function projectDecisions(
         before.stateName !== state.stateName &&
         (state.stateName === 'PVPCombat' || state.stateName === 'Combat')
       ) {
-        previous = sample(state, previous);
         const opening: Moment = {
           responseSeq: frame.seq,
-          snapshot: previous,
+          snapshot: null,
           encounter,
           offer: undefined,
           chosen: null
         };
+        capture(opening, observe(state));
         combats[state.stateName].push({ ...context, opening });
       }
     }
@@ -1165,9 +1218,8 @@ export async function projectDecisions(
       attribute(owner, before, state, baseline);
       settle(owner, state);
       const moment = owner.moment;
-      previous = sample(state, previous);
       moment.responseSeq = frame.seq;
-      moment.snapshot = previous;
+      capture(moment, observe(state));
       if (owner.entry.verb === 'rerolled') moment.offer = offer(state);
       const pick = argId(owner.args);
       if (
