@@ -1,6 +1,12 @@
-import { useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Badge, Button, StatusBanner, StatusPanel } from '@bpp/ui';
+import {
+  Badge,
+  Board,
+  SkillStrip,
+  Button,
+  StatusBanner,
+  StatusPanel
+} from '@bpp/ui';
 
 import {
   buildRouteHref,
@@ -26,12 +32,12 @@ import {
   useSignedOutRedirect
 } from '../account/account-ui';
 import { useCardArt, useCardNames } from './card-art';
+import { gameCard } from './game-card';
 import DecisionPath from './DecisionPath';
 import { decodeRunPayload, type RunCard, type RunDetail } from './run-payload';
 import {
   buildTimeline,
   type CardDiff,
-  type TimelineCard,
   type TimelineStep
 } from './run-timeline';
 
@@ -42,137 +48,19 @@ type Props = {
 
 type ArtLookup = (templateId: string) => string | null;
 
-const BOARD_SLOTS = 10;
-
-const TIER_COLOR: Record<string, string> = {
-  Bronze: 'var(--tier-bronze)',
-  Silver: 'var(--tier-silver)',
-  Gold: 'var(--accent)',
-  Diamond: 'var(--tier-diamond)',
-  Legendary: 'var(--tier-legendary)'
-};
-
 function tierName(locale: Locale, tier: string | null): string {
   return tier ? (getSiteCopy(locale).account.tiers[tier] ?? tier) : '';
 }
 
-function CardFace({
-  card,
-  art,
-  locale,
-  width,
-  height,
-  className,
-  style
-}: {
-  card: TimelineCard;
-  art: ArtLookup;
-  locale: Locale;
-  width: number;
-  height: number;
-  className: string;
-  style?: CSSProperties;
-}) {
-  const [failed, setFailed] = useState(false);
-  const url = failed ? null : art(card.templateId);
-  const name = card.name ?? card.templateId;
-  const tier = tierName(locale, card.tier);
+function tiles(diff: CardDiff | null, art: ArtLookup, locale: Locale) {
   return (
-    <div
-      title={[name, tier, card.enchant].filter(Boolean).join(' · ')}
-      className={`relative flex items-center justify-center overflow-hidden border-2 bg-hover ${className}`}
-      style={{
-        borderColor: TIER_COLOR[card.tier ?? ''] ?? 'var(--line-strong)',
-        ...style
-      }}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt={name}
-          width={width}
-          height={height}
-          loading="lazy"
-          decoding="async"
-          onError={() => setFailed(true)}
-          className="size-full object-cover"
-        />
-      ) : (
-        <span className="line-clamp-4 px-0.5 text-center text-micro leading-tight break-words text-text-2">
-          {name}
-        </span>
-      )}
-      {tier && <span className="sr-only">{tier}</span>}
-      {card.change && (
-        <span
-          aria-hidden="true"
-          className={`absolute top-0.5 left-0.5 flex size-4 items-center justify-center rounded-inner text-micro leading-none font-semibold ${
-            card.change === 'new'
-              ? 'bg-success text-canvas'
-              : 'bg-accent text-on-accent'
-          }`}
-        >
-          {card.change === 'new' ? '+' : '↑'}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Board({
-  diff,
-  art,
-  locale
-}: {
-  diff: CardDiff | null;
-  art: ArtLookup;
-  locale: Locale;
-}) {
-  const copy = getSiteCopy(locale).account;
-  if (!diff) {
-    return (
-      <div className="flex aspect-[5/1] items-center justify-center rounded-control border border-dashed border-line text-small text-text-3">
-        {copy.notRecorded}
-      </div>
-    );
-  }
-  return (
-    <div className="relative grid aspect-[5/1] grid-cols-10 gap-1">
-      {Array.from({ length: BOARD_SLOTS }, (_, slot) => (
-        <div
-          key={slot}
-          aria-hidden="true"
-          className="rounded-inner border border-dashed border-line"
-          style={{ gridColumn: slot + 1, gridRow: 1 }}
-        />
-      ))}
-      {diff.cards.map((card) => {
-        const start = Math.min(
-          Math.max(card.slot ?? 0, 0),
-          BOARD_SLOTS - card.size
-        );
-        return (
-          <CardFace
-            key={card.instanceId}
-            card={card}
-            art={art}
-            locale={locale}
-            width={card.size * 64}
-            height={128}
-            className="rounded-inner"
-            style={{
-              gridColumn: `${start + 1} / span ${card.size}`,
-              gridRow: 1
-            }}
-          />
-        );
-      })}
-      {diff.cards.length === 0 && (
-        <span className="absolute inset-0 flex items-center justify-center text-small text-text-3">
-          {copy.emptyBoard}
-        </span>
-      )}
-    </div>
+    diff?.cards.map((card) => ({
+      ...gameCard(card, cardName(card), art, locale),
+      id: card.instanceId,
+      slot: card.slot,
+      size: card.size,
+      change: card.change
+    })) ?? null
   );
 }
 
@@ -267,23 +155,17 @@ function StepBody({
       {battle.source === 'battle' && (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,48rem)_minmax(0,1fr)] lg:gap-6">
           <div className="flex min-w-0 flex-col gap-2">
-            <Board diff={step.board} art={art} locale={locale} />
-            {step.skills && step.skills.cards.length > 0 && (
-              <ul aria-label={copy.skills} className="flex flex-wrap gap-1.5">
-                {step.skills.cards.map((card) => (
-                  <li key={card.instanceId}>
-                    <CardFace
-                      card={card}
-                      art={art}
-                      locale={locale}
-                      width={36}
-                      height={36}
-                      className="size-9 rounded-control"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Board
+              cards={tiles(step.board, art, locale)}
+              missingLabel={copy.notRecorded}
+              emptyLabel={copy.emptyBoard}
+            />
+            <SkillStrip
+              cards={tiles(step.skills, art, locale)}
+              missingLabel={copy.missingSkills}
+              emptyLabel={copy.emptySkills}
+              label={copy.skills}
+            />
           </div>
           <Changes step={step} locale={locale} />
         </div>

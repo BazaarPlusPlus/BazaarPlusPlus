@@ -120,6 +120,10 @@ The full standard is the **Voice and writing** section: voice, glossary, capital
 - The **app icon** (`bazaarplusplus-icon.webp`, `app-icon.png`: silver chevron, amber "++" gem and a BAZAAR++ plate on a dark squircle) is the desktop app icon, and the Android App's launcher icon too: `bazaarplusplus-installer/src-tauri/icons/app-icon.png` is the source, and `bazaarplusplus-android/tools/launcher-icon.py` turns it into the Android adaptive icon. `favicon.webp` is the site's browser-tab icon.
 - If an image is unavailable, set "BazaarPlusPlus" in `body-strong`.
 
+## Game objects on the web
+
+A board preserves the ten sockets and each item’s width. Skills sit below it in capture order. Use the card name when art is unavailable, a tier word with the tier border, and a localized word beside each enchantment dot. The product supplies observation labels and computes changes between battles.
+
 ## Android App
 
 The Android App is a launcher: one screen that shows the game, its status and the next action. It builds it natively from `components/Launcher/` and the tokens: `just design::build` generates its `res/values/bpp_tokens.xml`.

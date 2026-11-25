@@ -80,6 +80,46 @@ describe('Decision path projection', () => {
     expect(offer.hour).toBe(1);
   });
 
+  test('offers and actions keep the enchant observed at their frame', async () => {
+    const id = 'itm_a';
+    const sync = (enchant?: string) =>
+      stateSync({
+        day: 1,
+        hour: 1,
+        gold: 10,
+        health: 300,
+        state: 'Encounter',
+        selection: [id],
+        cards: [{ id, templateId: 'aaaa', price: 4, enchant }]
+      });
+    const select = (seq: number) =>
+      command(seq, 'SendSelectItem', { instanceId: id });
+    const entries = await project([
+      message(1, sync('Deadly')),
+      command(2, 'SendCommitToPedestal', { cardId: 'itm_a' }),
+      message(3, gameSim({ events: [events.enchanted('itm_a', 'Shiny')] }), 2),
+      message(4, gameSim({ prices: { itm_a: 5 } })),
+      select(5),
+      message(6, gameSim({ enchants: { itm_a: 'Icy' } })),
+      select(7),
+      message(8, gameSim({ events: [events.dealt('itm_a', 'bbbb')] })),
+      select(9),
+      message(10, gameSim({ enchants: { itm_a: 'Turbo' } })),
+      message(11, sync()),
+      select(12)
+    ]);
+    expect(only(entries, 'offer')[0].cards[0].enchant).toBe('Deadly');
+    const actions = only(entries, 'action');
+    expect(actions[0]).toMatchObject({ verb: 'enchanted', result: 'Shiny' });
+    expect(actions.map((action) => action.card?.enchant)).toEqual([
+      'Deadly',
+      'Shiny',
+      'Icy',
+      null,
+      null
+    ]);
+  });
+
   test('an AttributeDelta Delete removes the price', async () => {
     const entries = await project([
       ...opening(),
@@ -197,6 +237,7 @@ describe('Decision path projection', () => {
         templateId: 'zzzz',
         type: 'Item',
         tier: 'Bronze',
+        enchant: null,
         price: 7
       }
     ]);

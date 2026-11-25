@@ -143,6 +143,17 @@ describe('Run Message Stream translation of a real Run (sanitized)', () => {
       stream.frames.map((f) => f.seq)
     );
     expect(path.entries.filter((e) => e.kind === 'battle')).toHaveLength(13);
+    // The same Tripwire receives two enchantments. Each later move sees the
+    // enchant then in effect, including across unrelated sparse updates.
+    const tripwireMoves = path.entries.filter(
+      (e): e is Extract<DecisionEntry, { kind: 'action' }> =>
+        e.kind === 'action' && [493, 536, 689].includes(e.frames[0])
+    );
+    expect(tripwireMoves.map((e) => e.card?.enchant)).toEqual([
+      'Fiery',
+      'Fiery',
+      'Turbo'
+    ]);
     const actual =
       path.entries.map((e) => line(e, detail.cardNames)).join('\n') + '\n';
     expect(actual).toBe(golden(PATH_GOLDEN, actual));

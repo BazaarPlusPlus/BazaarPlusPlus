@@ -40,6 +40,10 @@ export const events = {
     eventTag('GameSimEventCardDealt'),
     [id, templateId, enumValue('ECardType', 'Item')]
   ],
+  enchanted: (id: string, enchant: string) => [
+    eventTag('GameSimEventCardEnchanted'),
+    [id, enumValue('EEnchantmentType', enchant), false]
+  ],
   purchased: (id: string, price: number) => [
     eventTag('GameSimEventCardPurchased'),
     [id, price, null, null, null]
@@ -61,6 +65,7 @@ export type SimSpec = {
   day?: number;
   hour?: number;
   /** Card id → BuyPrice; null deletes the attribute (AttributeDelta Delete). */
+  enchants?: Record<string, string>;
   prices?: Record<string, number | null>;
   current?: { state: string; selection: string[]; free?: boolean };
 };
@@ -92,6 +97,9 @@ export function gameSim(spec: SimSpec): Uint8Array {
       null,
       0
     ]);
+  }
+  for (const [id, enchant] of Object.entries(spec.enchants ?? {})) {
+    cards.set(id, [id, new Map(), enumValue('EEnchantmentType', enchant)]);
   }
   return encodeMessagePack([
     3,
@@ -130,7 +138,12 @@ export function stateSync(spec: {
   health: number;
   state: string;
   selection: string[];
-  cards: Array<{ id: string; templateId: string; price: number }>;
+  cards: Array<{
+    id: string;
+    templateId: string;
+    price: number;
+    enchant?: string;
+  }>;
 }): Uint8Array {
   return encodeMessagePack([
     4,
@@ -166,7 +179,7 @@ export function stateSync(spec: {
           c.id,
           c.templateId,
           new Map([[cardAttr('BuyPrice'), c.price]]),
-          null,
+          c.enchant ? enumValue('EEnchantmentType', c.enchant) : null,
           [],
           [],
           [],
