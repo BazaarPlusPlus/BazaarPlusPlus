@@ -1,0 +1,230 @@
+{
+  "origin": "https://cdn.bazaarplusplus.com/card-art/",
+  "indexSha256": "24ccb4de380dfcb19c4f552aff2876e0a034ee637688d2cfe58e856d81c3ebfb",
+  "game": {
+    "buildid": "26592248",
+    "gameData": "2b4a742a9b392745e23a521afa8fc202",
+    "zh": "0498f9989a91e6b7a93686f93327ada7"
+  },
+  "text": {
+    "en": "text-en-9281c303790ef17ca987.json",
+    "zh": "text-zh-1ff9ec0a195e817538a9.json"
+  },
+  "cards": [
+    {
+      "id": "d5110378-323c-4af3-93e5-dca3451b3ea8",
+      "file": "61806898d731946d31be.webp",
+      "fx": "fx-db33d481f9120a715b22.json",
+      "zh": "皮皮虾",
+      "en": "Mantis Shrimp",
+      "size": "Small",
+      "tier": "Bronze"
+    },
+    {
+      "id": "4caeadbe-7637-4e40-805d-39d4bfc08816",
+      "file": "c0e1601a659231fddab6.webp",
+      "fx": "fx-9cb41e08741a4758ae28.json",
+      "zh": "飞鱼",
+      "en": "Flying Fish",
+      "size": "Small",
+      "tier": "Bronze"
+    },
+    {
+      "id": "004cb876-1ed2-4a4b-88d4-475cea76a03d",
+      "file": "975995d45441837749b3.webp",
+      "fx": "fx-c60e093926ba1043078b.json",
+      "zh": "航空胶水",
+      "en": "Airplane Glue",
+      "size": "Small",
+      "tier": "Bronze"
+    },
+    {
+      "id": "04780027-1949-4517-84a2-f833819d5d93",
+      "file": "5f4ea9b9320b79f1dbda.webp",
+      "fx": "fx-dfa8a8707a155e2e2dbb.json",
+      "zh": "米兹沃斯的包裹",
+      "en": "Midsworth's Package",
+      "size": "Medium",
+      "tier": "Bronze"
+    },
+    {
+      "id": "31b35938-9402-4990-b4d9-473ce5887af9",
+      "file": "fc4c81784935224327cf.webp",
+      "fx": "fx-aab5b9da4385bc83d26e.json",
+      "zh": "当铺",
+      "en": "Pawn Shop",
+      "size": "Large",
+      "tier": "Bronze"
+    },
+    {
+      "id": "0022c409-c839-41e8-8022-65a407457dfe",
+      "file": "d82decd37ec6ecfe9579.webp",
+      "fx": "fx-f920ffb282bcf197e8a5.json",
+      "zh": "鹰之护符",
+      "en": "Eagle Talisman",
+      "size": "Small",
+      "tier": "Silver"
+    },
+    {
+      "id": "035fb538-1939-49de-8219-b6557962f054",
+      "file": "a274cb4b19e25988348c.webp",
+      "fx": "fx-49cc0a225ca0fb1f1e45.json",
+      "zh": "猎人雪橇",
+      "en": "Hunter's Sled",
+      "size": "Medium",
+      "tier": "Silver"
+    },
+    {
+      "id": "012658f4-b289-4f10-917c-a9a1f3f9ca03",
+      "file": "807a82535dd63e2f07c1.webp",
+      "fx": "fx-5a924c7bf45116901bcc.json",
+      "zh": "冰淇淋车",
+      "en": "Ice Cream Truck",
+      "size": "Large",
+      "tier": "Silver"
+    },
+    {
+      "id": "02fa39ce-6cc0-4ad2-bd35-5c70a47354d6",
+      "file": "b327888b944a1d706d37.webp",
+      "fx": "fx-3a6cc93ad80b30e65cba.json",
+      "zh": "消音器",
+      "en": "Suppressor",
+      "size": "Small",
+      "tier": "Gold"
+    },
+    {
+      "id": "04a994d3-9aeb-4dde-8243-e954b55ada63",
+      "file": "3c5052594bd563c8b4cf.webp",
+      "fx": "fx-2f6b0c28385b3fbd7ba4.json",
+      "zh": "陷坑",
+      "en": "Trapping Pit",
+      "size": "Medium",
+      "tier": "Gold"
+    },
+    {
+      "id": "027ef534-d047-4e18-8496-d9fd4773e15d",
+      "file": "41b74e38e38d32d86aa1.webp",
+      "fx": "fx-346775aa2f0907066f31.json",
+      "zh": "洗碗机",
+      "en": "Dishwasher",
+      "size": "Large",
+      "tier": "Gold"
+    },
+    {
+      "id": "2aab9da1-bfd1-4f3f-8cda-69f3c909158b",
+      "file": "d44cb543ebab91929621.webp",
+      "fx": "fx-171f9b384ab91ad2c4fc.json",
+      "zh": "枪套",
+      "en": "Holsters",
+      "size": "Small",
+      "tier": "Diamond"
+    },
+    {
+      "id": "0eda3b66-76dc-4a45-b3b7-5bb12d26c655",
+      "file": "582bc4025116c98133f1.webp",
+      "fx": "fx-17939222902c979b5c54.json",
+      "zh": "降落伞",
+      "en": "Parachute",
+      "size": "Medium",
+      "tier": "Diamond"
+    },
+    {
+      "id": "11a5306d-f114-4f8d-abcc-442c3a979317",
+      "file": "9c1ccd0968a931524588.webp",
+      "fx": "fx-37f547b149788a0774f4.json",
+      "zh": "机器人工厂",
+      "en": "Robotic Factory",
+      "size": "Large",
+      "tier": "Diamond"
+    },
+    {
+      "id": "1e48bd28-cd41-49e9-9e22-b44da30ef6be",
+      "file": "26239e4ff5de4fe81e54.webp",
+      "fx": "fx-7062987d8e0f5c20e0ad.json",
+      "zh": "盗贼行会徽章",
+      "en": "Thieves Guild Medallion",
+      "size": "Small",
+      "tier": "Legendary"
+    },
+    {
+      "id": "021639c0-4a9c-49d8-8254-6376994823e2",
+      "file": "604304ea3d9ea1d3e729.webp",
+      "fx": "fx-dfd0a521151ac1a1875a.json",
+      "zh": "耗尽装置",
+      "en": "Depleted Device",
+      "size": "Medium",
+      "tier": "Legendary"
+    },
+    {
+      "id": "1ae7a7ae-da06-484e-8454-d7a65eb31ff9",
+      "file": "c701ded17c627f5b7140.webp",
+      "fx": "fx-ee001d483c1693d9cfac.json",
+      "zh": "霜绝祭坛",
+      "en": "Nullfrost Altar",
+      "size": "Large",
+      "tier": "Legendary"
+    }
+  ],
+  "textures": [
+    "26239e4ff5de4fe81e54.webp",
+    "3c5052594bd563c8b4cf.webp",
+    "41b74e38e38d32d86aa1.webp",
+    "582bc4025116c98133f1.webp",
+    "5f4ea9b9320b79f1dbda.webp",
+    "604304ea3d9ea1d3e729.webp",
+    "61806898d731946d31be.webp",
+    "807a82535dd63e2f07c1.webp",
+    "975995d45441837749b3.webp",
+    "9c1ccd0968a931524588.webp",
+    "a274cb4b19e25988348c.webp",
+    "b327888b944a1d706d37.webp",
+    "c0e1601a659231fddab6.webp",
+    "c701ded17c627f5b7140.webp",
+    "d44cb543ebab91929621.webp",
+    "d82decd37ec6ecfe9579.webp",
+    "fc4c81784935224327cf.webp",
+    "tex-0641f0543ceb5af22916.webp",
+    "tex-0e30b03ba03a977b736a.webp",
+    "tex-115186735cd80f8ffcb6.webp",
+    "tex-1640c7c6c5aeeaf4bf43.webp",
+    "tex-1ad8c5666ca8f655d3d5.webp",
+    "tex-1c2c25c7e1a017382c31.webp",
+    "tex-274eda6aac6b60d80bc9.webp",
+    "tex-2862e8e296735db0b9ce.webp",
+    "tex-388643c301d479904191.webp",
+    "tex-38b6e536f692d837e391.webp",
+    "tex-3a8e34f40dcf94cd38bb.webp",
+    "tex-3ab82045209288fe00fa.webp",
+    "tex-3ad8b9b5bbea062f022e.webp",
+    "tex-3b85ce8447d69d91d6cc.webp",
+    "tex-3e0db79857efefe15ed9.webp",
+    "tex-4321bb92276e5aad674b.webp",
+    "tex-56c1286815c2d33b2c9c.webp",
+    "tex-5a709ad7d59e322277ad.webp",
+    "tex-61cda3ccc5fe679db360.webp",
+    "tex-683b4a6c09c7c79ebae3.webp",
+    "tex-74dc92225c08d9231ec6.webp",
+    "tex-7853efb82852a3a85690.webp",
+    "tex-834ccc5f5bd00d8bd3cd.webp",
+    "tex-87dd26beb7d31c7e0674.webp",
+    "tex-8b891bd77454c86a06e0.webp",
+    "tex-8ec5545ed44b76b82cbe.webp",
+    "tex-94e1f6f62f21bd0393b6.webp",
+    "tex-96532dfeed7ac7692f79.webp",
+    "tex-9701dee9d7cc3287f06e.webp",
+    "tex-a63637292199fd31e5c8.webp",
+    "tex-a7033c5323ae0d38686f.webp",
+    "tex-a9bd02595e2ebbfda948.webp",
+    "tex-ab92fb49d2718d42203c.webp",
+    "tex-ae603d7d131fe3019b7d.webp",
+    "tex-aeea69d24c93e627a6a2.webp",
+    "tex-c53c22fde4e9f2ff74c9.webp",
+    "tex-d393c05887e01dec0871.webp",
+    "tex-e4688cdb0298e0986422.webp",
+    "tex-ea8cc56884b10d491e18.webp",
+    "tex-eaf74edf742e3ff12cd0.webp",
+    "tex-ec37e51ddc68d9902785.webp",
+    "tex-ee41fa2445228173d759.webp",
+    "tex-f7a415deaf4392757099.webp"
+  ]
+}

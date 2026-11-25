@@ -120,7 +120,8 @@ workspace_setup() {
   just setup
 }
 
-site_browser() {
+web_browsers() {
+  (cd bazaarplusplus-ui-docs && bun run playwright install chromium >/dev/null)
   (cd bazaarplusplus-site && bun run playwright install chromium >/dev/null)
 }
 
@@ -132,5 +133,5 @@ step "Rust toolchain" install_rust
 step "Android SDK and Gradle" install_android_sdk
 step "login shell environment" persist_environment
 step "workspace dependencies (just setup)" workspace_setup
-step "site Playwright Chromium" site_browser
+step "site and UI docs Playwright Chromium" web_browsers
 echo 'Mod builds: run `just mod::fetch macos online` in an authorized thread; private game assemblies are not cached in shared setup.'

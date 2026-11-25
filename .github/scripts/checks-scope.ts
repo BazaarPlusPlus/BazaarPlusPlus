@@ -4,6 +4,7 @@ import { runGit } from '../../scripts/git-command.ts';
 
 export type Project =
   | 'site'
+  | 'ui-docs'
   | 'server'
   | 'bot'
   | 'analyzer'
@@ -51,6 +52,7 @@ export interface PlanRunResult {
 
 export const PROJECTS: Project[] = [
   'site',
+  'ui-docs',
   'server',
   'bot',
   'analyzer',
@@ -217,9 +219,14 @@ export const SHARED_INPUTS: [string, string[]][] = [
   ['bazaarplusplus-mod/build/ManagedPath.props', ['release']],
   ['bazaarplusplus-mod/build/InteropPath.props', ['release']],
   ['bazaarplusplus-mod/global.json', ['release']],
+  // The docs authoring tool type-checks against the site's decoder and fixture builder.
+  ['bazaarplusplus-site/src/features/runs/run-payload.ts', ['ui-docs']],
+  ['bazaarplusplus-site/tools/run-fixture/build.ts', ['ui-docs']],
+  ['bazaarplusplus-site/test/fixtures/run-stream.payload.b64', ['ui-docs']],
   // scripts/vite-plus.test.ts pins its vite-plus version to root package.json.
+  ['bazaarplusplus-ui-docs/package.json', ['release']],
   ['bazaarplusplus-site/package.json', ['release']],
-  ['bazaarplusplus-installer/src/styles/tokens.css', ['site']],
+  ['bazaarplusplus-installer/src/styles/tokens.css', ['site', 'ui-docs']],
   ['bazaarplusplus-installer/static/support/', ['site']],
   ['bazaarplusplus-installer/src-tauri/resources/', ['mod']],
   ['bazaarplusplus-installer/scripts/headless.ts', ['mod']],
@@ -287,7 +294,7 @@ export function unregisteredReferences(file: string, source: string): string[] {
     ...source
       .replaceAll('\\', '/')
       .matchAll(
-        /bazaarplusplus-(?:site|server|analyzer|installer|mod|android)\/[\w./*-]*/g
+        /bazaarplusplus-(?:ui-docs|site|server|analyzer|installer|mod|android)\/[\w./*-]*/g
       )
   ];
   return references.flatMap(([reference]) => {
@@ -397,6 +404,7 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       for (const consumer of [
         'installer-frontend',
         'site',
+        'ui-docs',
         'android',
         'bot',
         'server',

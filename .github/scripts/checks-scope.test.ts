@@ -157,7 +157,7 @@ test('shared inputs select owners and every contract consumer', () => {
     ],
     [
       'bazaarplusplus-installer/src/styles/tokens.css',
-      ['installer-frontend', 'site']
+      ['installer-frontend', 'site', 'ui-docs']
     ],
     [
       'bazaarplusplus-installer/static/support/wechat-pay.svg',
@@ -187,7 +187,7 @@ test('deletions and cross-directory moves include old and new consumers', () => 
         { status: 'A', file: 'bazaarplusplus-server/tokens.css' }
       ])
     ),
-    ['installer-frontend', 'server', 'site']
+    ['installer-frontend', 'server', 'site', 'ui-docs']
   );
   assert.deepEqual(
     selected(classifyChanges([{ status: 'D', file: 'docs/design.md' }])),
@@ -311,7 +311,15 @@ test('design system inputs select the installer frontend, the site, the Android 
       'design/build.ts',
       'design/README.md'
     ],
-    ['installer-frontend', 'site', 'android', 'bot', 'server', 'release']
+    [
+      'installer-frontend',
+      'site',
+      'ui-docs',
+      'android',
+      'bot',
+      'server',
+      'release'
+    ]
   );
   assert.deepEqual(selected(classifyChanges(changed('design/design.just'))), [
     'android',
@@ -319,7 +327,8 @@ test('design system inputs select the installer frontend, the site, the Android 
     'installer-frontend',
     'release',
     'server',
-    'site'
+    'site',
+    'ui-docs'
   ]);
 });
 
@@ -411,7 +420,8 @@ test('manual scopes select exactly the requested native platforms and their sour
       'mod-macos',
       'release',
       'server',
-      'site'
+      'site',
+      'ui-docs'
     ],
     'full/windows': [
       'analyzer',
@@ -421,7 +431,8 @@ test('manual scopes select exactly the requested native platforms and their sour
       'mod-windows',
       'release',
       'server',
-      'site'
+      'site',
+      'ui-docs'
     ],
     'full/android': [
       'analyzer',
@@ -431,7 +442,8 @@ test('manual scopes select exactly the requested native platforms and their sour
       'mod-android',
       'release',
       'server',
-      'site'
+      'site',
+      'ui-docs'
     ],
     'installer/all': [
       'installer-frontend',
@@ -571,6 +583,19 @@ test('repository metadata and project recipes do not fan out to all platforms', 
     '.github/codeql/codeql-config.yml'
   ])
     expectScopes([file], ['release']);
+  expectScopes(['bazaarplusplus-ui-docs/src/main.tsx'], ['ui-docs']);
+  expectScopes(
+    ['design/ui/Button.tsx'],
+    [
+      'installer-frontend',
+      'site',
+      'ui-docs',
+      'android',
+      'bot',
+      'server',
+      'release'
+    ]
+  );
   expectScopes(['bazaarplusplus-site/site.just'], ['site', 'release']);
   expectScopes(['bazaarplusplus-site/package.json'], ['site', 'release']);
   expectScopes(['bazaarplusplus-site/src/windows.ts'], ['site']);

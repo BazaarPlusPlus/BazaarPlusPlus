@@ -1941,3 +1941,18 @@ button.bpp-visit-identity {
     writing-mode: vertical-rl;
   }
 }
+
+/* A tile outside a board keeps the game's card frame: 1:2, 2:2 or 3:2 by size. */
+.bpp-card[data-size] .bpp-card-face {
+  aspect-ratio: 1;
+}
+.bpp-card[data-size='1'] .bpp-card-face {
+  aspect-ratio: 1 / 2;
+}
+.bpp-card[data-size='3'] .bpp-card-face {
+  aspect-ratio: 3 / 2;
+}
+.bpp-board-card .bpp-card[data-size] .bpp-card-face,
+.bpp-skill .bpp-card[data-size] .bpp-card-face {
+  aspect-ratio: auto;
+}

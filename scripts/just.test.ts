@@ -37,6 +37,7 @@ const projects = [
   'mod',
   'installer',
   'site',
+  'ui-docs',
   'server',
   'bot',
   'analyzer',
@@ -45,7 +46,7 @@ const projects = [
 const moduleFiles = [
   ...fs
     .readFileSync(path.join(root, 'JUSTFILE'), 'utf8')
-    .matchAll(/^mod \w+ '([^']+)'$/gm)
+    .matchAll(/^mod [\w-]+ '([^']+)'$/gm)
 ].map((match) => match[1]);
 const modScripts = ['build', 'test', 'game', 'android'];
 const shellQuote = (value: string): string =>
@@ -366,6 +367,7 @@ test('a failing project stops the aggregate and preserves its exit code', (t) =>
   for (const project of [
     'installer',
     'site',
+    'ui-docs',
     'server',
     'bot',
     'analyzer',

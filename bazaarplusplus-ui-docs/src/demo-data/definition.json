@@ -1,0 +1,1252 @@
+{
+  "id": "d5110378-323c-4af3-93e5-dca3451b3ea8",
+  "zh": {
+    "attributes": {
+      "Bronze": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 10,
+        "Custom_1": 2,
+        "DamageAmount": 20,
+        "Multicast": 1
+      },
+      "Diamond": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 80,
+        "Custom_1": 8,
+        "DamageAmount": 20,
+        "Multicast": 1
+      },
+      "Gold": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 40,
+        "Custom_1": 6,
+        "DamageAmount": 20,
+        "Multicast": 1
+      },
+      "Silver": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 20,
+        "Custom_1": 4,
+        "DamageAmount": 20,
+        "Multicast": 1
+      }
+    },
+    "enchantments": {
+      "Deadly": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "此物品+"
+              },
+              {
+                "keyword": "Crit Chance",
+                "tiers": {
+                  "Bronze": 50,
+                  "Diamond": 50,
+                  "Gold": 50,
+                  "Silver": 50
+                },
+                "token": "{aura.e1}",
+                "unit": "percent"
+              },
+              {
+                "text": "%"
+              },
+              {
+                "keyword": "Crit Chance",
+                "label": "暴击率"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Fiery": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "此物品的"
+              },
+              {
+                "keyword": "Burn",
+                "label": "灼烧"
+              },
+              {
+                "text": "翻倍"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Golden": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "此物品的"
+              },
+              {
+                "keyword": "Value",
+                "label": "价值"
+              },
+              {
+                "text": "翻倍"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Heavy": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Slow",
+                "label": "减速"
+              },
+              {
+                "text": "一件物品"
+              },
+              {
+                "keyword": "Slow",
+                "tiers": {
+                  "Bronze": 4,
+                  "Diamond": 4,
+                  "Gold": 4,
+                  "Silver": 4
+                },
+                "token": "{ability.e1}",
+                "unit": "seconds"
+              },
+              {
+                "text": "秒"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Icy": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Freeze",
+                "label": "冻结"
+              },
+              {
+                "text": "一件物品"
+              },
+              {
+                "keyword": "Freeze",
+                "tiers": {
+                  "Bronze": 1,
+                  "Diamond": 1,
+                  "Gold": 1,
+                  "Silver": 1
+                },
+                "token": "{ability.e1}",
+                "unit": "seconds"
+              },
+              {
+                "text": "秒"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Mossy": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Regen",
+                "label": "生命再生"
+              },
+              {
+                "text": "量提高，增幅等于此物品的"
+              },
+              {
+                "keyword": "Burn",
+                "label": "灼烧"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Obsidian": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "此物品的"
+              },
+              {
+                "keyword": "Damage",
+                "label": "伤害"
+              },
+              {
+                "text": "翻倍"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Radiant": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "此物品免疫"
+              },
+              {
+                "keyword": "Freeze",
+                "label": "冻结"
+              },
+              {
+                "text": "、"
+              },
+              {
+                "keyword": "Slow",
+                "label": "减速"
+              },
+              {
+                "text": "和"
+              },
+              {
+                "keyword": "Destroy",
+                "label": "摧毁"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Restorative": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "获得"
+              },
+              {
+                "keyword": "Heal",
+                "label": "治疗"
+              },
+              {
+                "text": "，等量于此物品"
+              },
+              {
+                "keyword": "Damage",
+                "label": "伤害"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Shielded": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "获得"
+              },
+              {
+                "keyword": "Shield",
+                "label": "护盾"
+              },
+              {
+                "text": "，等量于此物品"
+              },
+              {
+                "keyword": "Damage",
+                "label": "伤害"
+              },
+              {
+                "text": "量"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Shiny": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "此物品+"
+              },
+              {
+                "keyword": "Multicast",
+                "tiers": {
+                  "Bronze": 1,
+                  "Diamond": 1,
+                  "Gold": 1,
+                  "Silver": 1
+                },
+                "token": "{aura.e1}",
+                "unit": "number"
+              },
+              {
+                "keyword": "Multicast",
+                "label": "多重释放"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Toxic": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "造成"
+              },
+              {
+                "keyword": "Poison",
+                "label": "剧毒"
+              },
+              {
+                "text": "，等量于此物品"
+              },
+              {
+                "keyword": "Burn",
+                "label": "灼烧"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Turbo": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Haste",
+                "label": "加速"
+              },
+              {
+                "text": "一件物品"
+              },
+              {
+                "keyword": "Haste",
+                "tiers": {
+                  "Bronze": 4,
+                  "Diamond": 4,
+                  "Gold": 4,
+                  "Silver": 4
+                },
+                "token": "{ability.e1}",
+                "unit": "seconds"
+              },
+              {
+                "text": "秒"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      }
+    },
+    "heroes": [
+      "Vanessa"
+    ],
+    "lines": [
+      {
+        "available": true,
+        "id": 0,
+        "resolved": "full",
+        "segments": [
+          {
+            "text": "造成"
+          },
+          {
+            "keyword": "Damage",
+            "tiers": {
+              "Bronze": 20,
+              "Diamond": 20,
+              "Gold": 20,
+              "Silver": 20
+            },
+            "token": "{ability.0}",
+            "unit": "number"
+          },
+          {
+            "keyword": "Damage",
+            "label": "伤害"
+          }
+        ],
+        "tiers": [
+          "Bronze",
+          "Silver",
+          "Gold",
+          "Diamond"
+        ]
+      },
+      {
+        "available": true,
+        "id": 1,
+        "resolved": "full",
+        "segments": [
+          {
+            "text": "造成"
+          },
+          {
+            "keyword": "Burn",
+            "tiers": {
+              "Bronze": 2,
+              "Diamond": 2,
+              "Gold": 2,
+              "Silver": 2
+            },
+            "token": "{ability.1}",
+            "unit": "number"
+          },
+          {
+            "keyword": "Burn",
+            "label": "灼烧"
+          }
+        ],
+        "tiers": [
+          "Bronze",
+          "Silver",
+          "Gold",
+          "Diamond"
+        ]
+      },
+      {
+        "available": true,
+        "id": 2,
+        "resolved": "full",
+        "segments": [
+          {
+            "text": "触发"
+          },
+          {
+            "keyword": "Slow",
+            "label": "减速"
+          },
+          {
+            "text": "时，此物品获得"
+          },
+          {
+            "keyword": "Damage",
+            "tiers": {
+              "Bronze": 10,
+              "Diamond": 80,
+              "Gold": 40,
+              "Silver": 20
+            },
+            "token": "{ability.2}",
+            "unit": "number"
+          },
+          {
+            "text": "和"
+          },
+          {
+            "keyword": "Burn",
+            "tiers": {
+              "Bronze": 2,
+              "Diamond": 8,
+              "Gold": 6,
+              "Silver": 4
+            },
+            "token": "{ability.3}",
+            "unit": "number"
+          }
+        ],
+        "tiers": [
+          "Bronze",
+          "Silver",
+          "Gold",
+          "Diamond"
+        ]
+      }
+    ],
+    "size": "Small",
+    "startingTier": "Bronze",
+    "tags": [
+      "Aquatic",
+      "Weapon",
+      "Friend"
+    ],
+    "title": "皮皮虾",
+    "type": "Item"
+  },
+  "en": {
+    "attributes": {
+      "Bronze": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 10,
+        "Custom_1": 2,
+        "DamageAmount": 20,
+        "Multicast": 1
+      },
+      "Diamond": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 80,
+        "Custom_1": 8,
+        "DamageAmount": 20,
+        "Multicast": 1
+      },
+      "Gold": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 40,
+        "Custom_1": 6,
+        "DamageAmount": 20,
+        "Multicast": 1
+      },
+      "Silver": {
+        "AmmoMax": 2,
+        "BurnApplyAmount": 2,
+        "CooldownMax": 9000,
+        "Custom_0": 20,
+        "Custom_1": 4,
+        "DamageAmount": 20,
+        "Multicast": 1
+      }
+    },
+    "enchantments": {
+      "Deadly": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "This has +"
+              },
+              {
+                "keyword": "Crit Chance",
+                "tiers": {
+                  "Bronze": 50,
+                  "Diamond": 50,
+                  "Gold": 50,
+                  "Silver": 50
+                },
+                "token": "{aura.e1}",
+                "unit": "percent"
+              },
+              {
+                "text": "% "
+              },
+              {
+                "keyword": "Crit Chance",
+                "label": "Crit Chance"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Fiery": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "This has double "
+              },
+              {
+                "keyword": "Burn",
+                "label": "Burn"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Golden": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "This has double value"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Heavy": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Slow",
+                "label": "Slow"
+              },
+              {
+                "text": " an item "
+              },
+              {
+                "keyword": "Slow",
+                "tiers": {
+                  "Bronze": 4,
+                  "Diamond": 4,
+                  "Gold": 4,
+                  "Silver": 4
+                },
+                "token": "{ability.e1}",
+                "unit": "seconds"
+              },
+              {
+                "text": " second(s)"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Icy": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Freeze",
+                "label": "Freeze"
+              },
+              {
+                "text": " an item "
+              },
+              {
+                "keyword": "Freeze",
+                "tiers": {
+                  "Bronze": 1,
+                  "Diamond": 1,
+                  "Gold": 1,
+                  "Silver": 1
+                },
+                "token": "{ability.e1}",
+                "unit": "seconds"
+              },
+              {
+                "text": " second(s)"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Mossy": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Regen",
+                "label": "Regen"
+              },
+              {
+                "text": " equal to this item's "
+              },
+              {
+                "keyword": "Burn",
+                "label": "Burn"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Obsidian": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "This has double "
+              },
+              {
+                "keyword": "Damage",
+                "label": "Damage"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Radiant": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "This is immune to "
+              },
+              {
+                "keyword": "Freeze",
+                "label": "Freeze"
+              },
+              {
+                "text": ", "
+              },
+              {
+                "keyword": "Slow",
+                "label": "Slow"
+              },
+              {
+                "text": " and "
+              },
+              {
+                "keyword": "Destroy",
+                "label": "Destroy"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Restorative": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Heal",
+                "label": "Heal"
+              },
+              {
+                "text": " equal to this item's "
+              },
+              {
+                "keyword": "Damage",
+                "label": "Damage"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Shielded": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Shield",
+                "label": "Shield"
+              },
+              {
+                "text": " equal to this item's "
+              },
+              {
+                "keyword": "Damage",
+                "label": "Damage"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Shiny": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "text": "This has +"
+              },
+              {
+                "keyword": "Multicast",
+                "tiers": {
+                  "Bronze": 1,
+                  "Diamond": 1,
+                  "Gold": 1,
+                  "Silver": 1
+                },
+                "token": "{aura.e1}",
+                "unit": "number"
+              },
+              {
+                "text": " "
+              },
+              {
+                "keyword": "Multicast",
+                "label": "Multicast"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Toxic": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Poison",
+                "label": "Poison"
+              },
+              {
+                "text": " equal to this item's "
+              },
+              {
+                "keyword": "Burn",
+                "label": "Burn"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      },
+      "Turbo": {
+        "lines": [
+          {
+            "available": true,
+            "id": 0,
+            "resolved": "full",
+            "segments": [
+              {
+                "keyword": "Haste",
+                "label": "Haste"
+              },
+              {
+                "text": " an item "
+              },
+              {
+                "keyword": "Haste",
+                "tiers": {
+                  "Bronze": 4,
+                  "Diamond": 4,
+                  "Gold": 4,
+                  "Silver": 4
+                },
+                "token": "{ability.e1}",
+                "unit": "seconds"
+              },
+              {
+                "text": " second(s)"
+              }
+            ],
+            "tiers": [
+              "Bronze",
+              "Silver",
+              "Gold",
+              "Diamond"
+            ]
+          }
+        ],
+        "tags": []
+      }
+    },
+    "heroes": [
+      "Vanessa"
+    ],
+    "lines": [
+      {
+        "available": true,
+        "id": 0,
+        "resolved": "full",
+        "segments": [
+          {
+            "text": "Deal "
+          },
+          {
+            "keyword": "Damage",
+            "tiers": {
+              "Bronze": 20,
+              "Diamond": 20,
+              "Gold": 20,
+              "Silver": 20
+            },
+            "token": "{ability.0}",
+            "unit": "number"
+          },
+          {
+            "text": " "
+          },
+          {
+            "keyword": "Damage",
+            "label": "Damage"
+          }
+        ],
+        "tiers": [
+          "Bronze",
+          "Silver",
+          "Gold",
+          "Diamond"
+        ]
+      },
+      {
+        "available": true,
+        "id": 1,
+        "resolved": "full",
+        "segments": [
+          {
+            "keyword": "Burn",
+            "label": "Burn"
+          },
+          {
+            "text": " "
+          },
+          {
+            "keyword": "Burn",
+            "tiers": {
+              "Bronze": 2,
+              "Diamond": 2,
+              "Gold": 2,
+              "Silver": 2
+            },
+            "token": "{ability.1}",
+            "unit": "number"
+          }
+        ],
+        "tiers": [
+          "Bronze",
+          "Silver",
+          "Gold",
+          "Diamond"
+        ]
+      },
+      {
+        "available": true,
+        "id": 2,
+        "resolved": "full",
+        "segments": [
+          {
+            "text": "When you "
+          },
+          {
+            "keyword": "Slow",
+            "label": "Slow"
+          },
+          {
+            "text": ", this gains "
+          },
+          {
+            "keyword": "Damage",
+            "tiers": {
+              "Bronze": 10,
+              "Diamond": 80,
+              "Gold": 40,
+              "Silver": 20
+            },
+            "token": "{ability.2}",
+            "unit": "number"
+          },
+          {
+            "text": " and "
+          },
+          {
+            "keyword": "Burn",
+            "tiers": {
+              "Bronze": 2,
+              "Diamond": 8,
+              "Gold": 6,
+              "Silver": 4
+            },
+            "token": "{ability.3}",
+            "unit": "number"
+          }
+        ],
+        "tiers": [
+          "Bronze",
+          "Silver",
+          "Gold",
+          "Diamond"
+        ]
+      }
+    ],
+    "size": "Small",
+    "startingTier": "Bronze",
+    "tags": [
+      "Aquatic",
+      "Weapon",
+      "Friend"
+    ],
+    "title": "Mantis Shrimp",
+    "type": "Item"
+  },
+  "tags": {
+    "zh": {
+      "Apparel": "服饰",
+      "Aquatic": "水系",
+      "Core": "核心",
+      "Dinosaur": "恐龙",
+      "Dragon": "巨龙",
+      "Drone": "无人机（雄蜂）",
+      "Food": "食物",
+      "Friend": "伙伴",
+      "Instrument": "乐器",
+      "Loot": "战利品",
+      "Merchant": "商人",
+      "Potion": "药水",
+      "Property": "地产",
+      "Ray": "射线（鳐）",
+      "Reagent": "原料",
+      "Relic": "遗物",
+      "Tech": "科技",
+      "Tool": "工具",
+      "Toy": "玩具",
+      "Trap": "陷阱",
+      "Vehicle": "载具",
+      "Weapon": "武器"
+    },
+    "en": {
+      "Apparel": "Apparel",
+      "Aquatic": "Aquatic",
+      "Core": "Core",
+      "Dinosaur": "Dinosaur",
+      "Dragon": "Dragon",
+      "Drone": "Drone",
+      "Food": "Food",
+      "Friend": "Friend",
+      "Instrument": "Instrument",
+      "Loot": "Loot",
+      "Merchant": "Merchant",
+      "Potion": "Potion",
+      "Property": "Property",
+      "Ray": "Ray",
+      "Reagent": "Reagent",
+      "Relic": "Relic",
+      "Tech": "Tech",
+      "Tool": "Tool",
+      "Toy": "Toy",
+      "Trap": "Trap",
+      "Vehicle": "Vehicle",
+      "Weapon": "Weapon"
+    }
+  }
+}

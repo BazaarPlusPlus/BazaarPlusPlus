@@ -1,0 +1,50 @@
+{
+  "name": "bazaarplusplus-ui-docs",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "tokens": "bun -e \"require('node:fs').copyFileSync('../bazaarplusplus-installer/src/styles/tokens.css', 'src/styles/installer-tokens.css')\"",
+    "predev": "bun run tokens",
+    "dev": "vp dev --host 0.0.0.0 --port 4176 --strictPort",
+    "prebuild": "bun run tokens",
+    "build": "vp build",
+    "preview": "bun run build && bun run preview:built",
+    "preview:built": "vp preview --host 0.0.0.0 --port 4176 --strictPort",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "lint": "vp lint --type-aware",
+    "lint:fix": "vp lint --type-aware --fix",
+    "format": "vp fmt .",
+    "format:check": "vp fmt --check ."
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.6.0",
+    "wrangler": "^4.162.0",
+    "vite-plus": "1.6.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "7.30.1"
+    },
+    "sharp": "0.35.5",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.6.0"
+  },
+  "engines": {
+    "bun": "1.4.4"
+  },
+  "packageManager": "bun@1.4.4"
+}

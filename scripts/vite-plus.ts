@@ -8,6 +8,7 @@ const repository = path.resolve(import.meta.dirname, '..');
 export const VITE_PLUS_PROJECTS = [
   '.',
   'bazaarplusplus-site',
+  'bazaarplusplus-ui-docs',
   'bazaarplusplus-installer'
 ];
 

@@ -1,0 +1,73 @@
+{
+  "source": "bazaarplusplus-site/test/fixtures/run-stream.payload.b64",
+  "day": 1,
+  "hour": 1,
+  "kind": "shop",
+  "moments": [
+    {
+      "seq": 8,
+      "action": "bought",
+      "card": "d5110378-323c-4af3-93e5-dca3451b3ea8",
+      "snapshot": {
+        "board": [
+          {
+            "instanceId": "itm_TDefTXG",
+            "size": 1,
+            "tag": null,
+            "templateId": "d5110378-323c-4af3-93e5-dca3451b3ea8",
+            "type": "Item",
+            "tier": "Bronze",
+            "enchant": null,
+            "price": 2,
+            "slot": 3
+          }
+        ],
+        "stash": [],
+        "skills": [],
+        "gold": 13,
+        "health": 300,
+        "level": 1
+      },
+      "frame": "{\n  \"Seq\": 8,\n  \"TimestampMs\": 1795533032586,\n  \"Message\": null,\n  \"RespondsToSeq\": null,\n  \"Command\": \"SendSelectItem\",\n  \"CommandArgsJson\": \"{\\\"instanceId\\\":\\\"itm_TDefTXG\\\",\\\"desiredSockets\\\":[\\\"Socket_3\\\"],\\\"targetSection\\\":\\\"Hand\\\"}\",\n  \"CommandArgs\": {\n    \"instanceId\": \"itm_TDefTXG\",\n    \"desiredSockets\": [\n      \"Socket_3\"\n    ],\n    \"targetSection\": \"Hand\"\n  }\n}",
+      "bytes": []
+    },
+    {
+      "seq": 12,
+      "action": "bought",
+      "card": "4caeadbe-7637-4e40-805d-39d4bfc08816",
+      "snapshot": {
+        "board": [
+          {
+            "instanceId": "itm_TDefTXG",
+            "size": 1,
+            "tag": null,
+            "templateId": "d5110378-323c-4af3-93e5-dca3451b3ea8",
+            "type": "Item",
+            "tier": "Bronze",
+            "enchant": null,
+            "price": 2,
+            "slot": 3
+          },
+          {
+            "instanceId": "itm_X13Ze7Z",
+            "size": 1,
+            "tag": null,
+            "templateId": "4caeadbe-7637-4e40-805d-39d4bfc08816",
+            "type": "Item",
+            "tier": "Bronze",
+            "enchant": null,
+            "price": 2,
+            "slot": 4
+          }
+        ],
+        "stash": [],
+        "skills": [],
+        "gold": 9,
+        "health": 300,
+        "level": 1
+      },
+      "frame": "{\n  \"Seq\": 12,\n  \"TimestampMs\": 1795533037636,\n  \"Message\": null,\n  \"RespondsToSeq\": null,\n  \"Command\": \"SendSelectItem\",\n  \"CommandArgsJson\": \"{\\\"instanceId\\\":\\\"itm_X13Ze7Z\\\",\\\"desiredSockets\\\":[\\\"Socket_4\\\"],\\\"targetSection\\\":\\\"Hand\\\"}\",\n  \"CommandArgs\": {\n    \"instanceId\": \"itm_X13Ze7Z\",\n    \"desiredSockets\": [\n      \"Socket_4\"\n    ],\n    \"targetSection\": \"Hand\"\n  }\n}",
+      "bytes": []
+    }
+  ]
+}

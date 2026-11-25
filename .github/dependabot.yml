@@ -63,6 +63,37 @@ updates:
         patterns: ['*']
         update-types: ['minor']
   - package-ecosystem: 'bun'
+    directory: '/bazaarplusplus-ui-docs'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: 'build(ui-docs)'
+    # Coupled toolchain majors need a deliberate compatibility upgrade.
+    ignore:
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      # The root entry tracks vite-plus; `just vite-plus-sync` copies it here.
+      - dependency-name: 'vite-plus'
+    groups:
+      typescript:
+        patterns: ['typescript']
+        update-types: ['patch']
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+        update-types: ['patch']
+      cloudflare:
+        patterns: ['wrangler', 'miniflare', '@cloudflare/*']
+        update-types: ['patch']
+      other:
+        patterns: ['*']
+        update-types: ['patch']
+      minor-updates:
+        patterns: ['*']
+        update-types: ['minor']
+  - package-ecosystem: 'bun'
     directory: '/bazaarplusplus-server'
     schedule:
       interval: 'weekly'
