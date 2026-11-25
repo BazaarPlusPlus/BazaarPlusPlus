@@ -10,6 +10,7 @@ import {
 
 /** A card as the stream knew it at one moment; an offer freezes it when it is shown. */
 export type CardRef = {
+  size: 1 | 2 | 3 | null;
   tag: 'Merchant' | 'Event' | null;
   instanceId: string;
   templateId: string | null;
@@ -108,18 +109,47 @@ export type BattleMarker = {
   pvp: boolean;
 };
 
+type PlacedCard = CardRef & { slot: number; size: 1 | 2 | 3 };
+type Inventory = {
+  board: PlacedCard[] | null;
+  stash: PlacedCard[] | null;
+  skills: CardRef[] | null;
+  gold: number | null;
+  health: number | null;
+  level: number | null;
+};
+export type Moment = {
+  responseSeq: number | null;
+  snapshot: Inventory | null;
+  encounter: CardRef | null;
+  offer: CardRef[] | null | undefined;
+  chosen: string | null;
+};
+
 type CardState = {
+  acquired: number;
+  owner: string | null;
+  section: string | null;
+  slot: number | null;
+  size: 1 | 2 | 3 | null;
+  sampled?: CardRef | PlacedCard;
   tag: CardRef['tag'];
   templateId: string | null;
   type: string | null;
   tier: string | null;
   enchant: string | null;
-  attributes: Map<string, number>;
+  price: number | null;
+  captured?: boolean;
 };
 
 type RunState = {
   /** False after an undecodable message, until a GameStateSync gives a new baseline. */
   known: boolean;
+  acquisitions: number;
+  playerKnown: boolean;
+  inventoryKnown: boolean;
+  selectionKnown: boolean;
+  originals: Map<string, CardState>;
   day: number | null;
   hour: number | null;
   stateName: string | null;
@@ -130,6 +160,8 @@ type RunState = {
   free: boolean;
   player: Map<string, number>;
   cards: Map<string, CardState>;
+  changed: Set<string>;
+  inventory: Map<string, CardState>;
 };
 
 /** What one decoded message showed, for pairing with its command. */
@@ -202,6 +234,11 @@ function list(value: Translated | undefined): Translated[] {
 function newState(): RunState {
   return {
     known: true,
+    acquisitions: 0,
+    playerKnown: false,
+    inventoryKnown: false,
+    selectionKnown: false,
+    originals: new Map(),
     day: null,
     hour: null,
     stateName: null,
@@ -211,37 +248,214 @@ function newState(): RunState {
     rerollsRemaining: null,
     free: false,
     player: new Map(),
+    changed: new Set(),
+    inventory: new Map(),
     cards: new Map()
   };
 }
 
 function card(state: RunState, id: string): CardState {
+  state.changed.add(id);
   let found = state.cards.get(id);
+  if (found?.captured) {
+    found = { ...found, captured: false };
+    state.cards.set(id, found);
+  }
   if (!found) {
     found = {
+      owner: null,
+      acquired: 0,
+      section: null,
+      slot: null,
+      size: null,
       tag: null,
       templateId: null,
       type: null,
       tier: null,
       enchant: null,
-      attributes: new Map()
+      price: null
     };
     state.cards.set(id, found);
   }
   return found;
 }
 
-export function cardRef(state: RunState, id: string): CardRef {
+export function cardRef(state: Pick<RunState, 'cards'>, id: string): CardRef {
   const c = state.cards.get(id);
   return {
     instanceId: id,
+    size: c?.size ?? null,
     tag: c?.tag ?? null,
     templateId: c?.templateId ?? null,
     type: c?.type ?? null,
     tier: c?.tier ?? null,
     enchant: c?.enchant ?? null,
-    price: c?.attributes.get('BuyPrice') ?? null
+    price: c?.price ?? null
   };
+}
+
+function sizeOf(value: Translated | undefined) {
+  switch (enumName(value)) {
+    case 'Small':
+      return 1;
+    case 'Medium':
+      return 2;
+    case 'Large':
+      return 3;
+    default:
+      return null;
+  }
+}
+
+function assignOwner(state: RunState, c: CardState, owner: string | null) {
+  if (owner === 'Player' && c.owner !== owner)
+    c.acquired = ++state.acquisitions;
+  c.owner = owner;
+}
+
+function placement(
+  state: RunState,
+  c: CardState,
+  record: Translated,
+  owner = 'Owner',
+  section = 'Section',
+  socket = 'Socket'
+) {
+  const fields = [owner, section, socket].map((key) => field(record, key));
+  if (fields.some((v) => v !== null && enumName(v) === null))
+    state.inventoryKnown = false;
+  assignOwner(state, c, enumName(fields[0]));
+  c.section = enumName(fields[1]);
+  const position = fields[2];
+  c.slot = position instanceof EnumValue ? Number(position.value) : null;
+}
+
+function share<T>(old: T[] | null | undefined, next: T[]) {
+  return old?.length === next.length && old.every((v, i) => v === next[i])
+    ? old
+    : next;
+}
+
+type Observation = Pick<RunState, 'cards' | 'inventoryKnown'> &
+  Pick<Inventory, 'gold' | 'health' | 'level'>;
+
+// Retain only player cards. Later writes copy a captured card, so a moment can
+// validate and sort its board when it is opened, even after a sync or transform.
+function observe(state: RunState): Observation {
+  let cards = state.inventory;
+  for (const id of state.changed) {
+    const card = state.cards.get(id);
+    if (card?.owner !== 'Player' && !cards.has(id)) continue;
+    if (cards === state.inventory) cards = new Map(cards);
+    if (card?.owner === 'Player') {
+      card.captured = true;
+      cards.set(id, card);
+    } else cards.delete(id);
+  }
+  state.inventory = cards;
+  state.changed.clear();
+  return {
+    cards,
+    inventoryKnown: state.inventoryKnown,
+    gold: state.playerKnown ? (state.player.get('Gold') ?? null) : null,
+    health: state.playerKnown ? (state.player.get('Health') ?? null) : null,
+    level: state.playerKnown ? (state.player.get('Level') ?? null) : null
+  };
+}
+
+function sample(state: Observation, previous: Inventory | null): Inventory {
+  const board: PlacedCard[] = [],
+    stash: PlacedCard[] = [],
+    skills: CardRef[] = [];
+  const invalid = new Set<string>();
+  if (state.inventoryKnown)
+    for (const [id, c] of state.cards) {
+      if (c.owner !== 'Player') continue;
+      if (!c.type) {
+        invalid.add('Hand');
+        invalid.add('Stash');
+        invalid.add('Skill');
+        continue;
+      }
+      if (c.type !== 'Item' && c.type !== 'Skill') continue;
+      if (c.type === 'Item') {
+        if (!c.section) {
+          invalid.add('Hand');
+          invalid.add('Stash');
+          continue;
+        }
+        if (
+          c.slot === null ||
+          c.size === null ||
+          c.slot < 0 ||
+          c.slot + c.size > 10
+        ) {
+          invalid.add(c.section);
+          continue;
+        }
+      }
+      const old = c.sampled;
+      const same =
+        old &&
+        old.size === c.size &&
+        old.tag === c.tag &&
+        old.type === c.type &&
+        old.templateId === c.templateId &&
+        old.tier === c.tier &&
+        old.enchant === c.enchant &&
+        old.price === c.price;
+      if (c.type === 'Skill') {
+        const skill = same ? old : cardRef(state, id);
+        c.sampled = skill;
+        skills.push(skill);
+      } else if (c.slot !== null && c.size !== null) {
+        const item =
+          same && 'slot' in old && old.slot === c.slot
+            ? old
+            : { ...cardRef(state, id), slot: c.slot, size: c.size };
+        c.sampled = item;
+        if (c.section === 'Hand') board.push(item);
+        if (c.section === 'Stash') stash.push(item);
+      }
+    }
+  function section(
+    name: string,
+    cards: PlacedCard[],
+    prior: PlacedCard[] | null | undefined
+  ) {
+    cards.sort((a, b) => a.slot - b.slot);
+    return state.inventoryKnown &&
+      !invalid.has(name) &&
+      cards.every(
+        (v, i) => i === 0 || cards[i - 1].slot + cards[i - 1].size <= v.slot
+      )
+      ? share(prior, cards)
+      : null;
+  }
+  return {
+    board: section('Hand', board, previous?.board),
+    stash: section('Stash', stash, previous?.stash),
+    skills:
+      state.inventoryKnown && !invalid.has('Skill')
+        ? share(
+            previous?.skills,
+            skills.sort(
+              (a, b) =>
+                (state.cards.get(a.instanceId)?.acquired ?? 0) -
+                (state.cards.get(b.instanceId)?.acquired ?? 0)
+            )
+          )
+        : null,
+    gold: state.gold,
+    health: state.health,
+    level: state.level
+  };
+}
+
+function offer(state: RunState) {
+  return state.selectionKnown && state.inventoryKnown
+    ? state.selection.map((id) => cardRef(state, id))
+    : null;
 }
 
 /** CurrentEncounterId holds the encounter's TemplateId, not an instance id. */
@@ -252,6 +466,7 @@ function encounterRef(state: RunState): CardRef | null {
     if (c.templateId === templateId) return cardRef(state, id);
   return {
     instanceId: '',
+    size: null,
     tag: null,
     templateId,
     type: null,
@@ -265,6 +480,9 @@ function applyRunState(state: RunState, current: Translated | undefined) {
   if (!(current instanceof TObject)) return;
   state.stateName = enumName(field(current, 'StateName')) ?? state.stateName;
   state.encounterId = text(field(current, 'CurrentEncounterId'));
+  const selection = field(current, 'SelectionSet');
+  state.selectionKnown =
+    Array.isArray(selection) && selection.every((id) => typeof id === 'string');
   state.selection = list(field(current, 'SelectionSet')).flatMap((id) =>
     typeof id === 'string' ? [id] : []
   );
@@ -283,6 +501,7 @@ function applyRun(state: RunState, run: Translated | undefined) {
 /** Applies a GameStateSync: the whole state is replaced, a new baseline. */
 function applySync(state: RunState, data: Translated | undefined) {
   Object.assign(state, newState());
+  state.playerKnown = true;
   applyRun(state, field(data, 'Run'));
   applyRunState(state, field(data, 'CurrentState'));
   for (const [name, value] of enumKeyed(
@@ -291,10 +510,21 @@ function applySync(state: RunState, data: Translated | undefined) {
     const n = int(value);
     if (n !== null) state.player.set(name, n);
   }
+  state.inventoryKnown = Array.isArray(field(data, 'Cards'));
   for (const snapshot of list(field(data, 'Cards'))) {
     const id = text(field(snapshot, 'InstanceId'));
-    if (id === null) continue;
+    if (id === null) {
+      state.inventoryKnown = false;
+      continue;
+    }
     const c = card(state, id);
+    placement(state, c, snapshot);
+    c.size = sizeOf(field(snapshot, 'Size'));
+    if (
+      !enumName(field(snapshot, 'Type')) ||
+      !text(field(snapshot, 'TemplateId'))
+    )
+      state.inventoryKnown = false;
     c.templateId = text(field(snapshot, 'TemplateId'))?.toLowerCase() ?? null;
     updateTags(c, snapshot);
     c.type = enumName(field(snapshot, 'Type'));
@@ -302,7 +532,7 @@ function applySync(state: RunState, data: Translated | undefined) {
     c.enchant = enumName(field(snapshot, 'Enchantment'));
     for (const [name, value] of enumKeyed(field(snapshot, 'Attributes'))) {
       const n = int(value);
-      if (n !== null) c.attributes.set(name, n);
+      if (name === 'BuyPrice' && n !== null) c.price = n;
     }
   }
 }
@@ -323,6 +553,9 @@ function updateTemplate(c: CardState, snapshot: Translated) {
   if (templateId && templateId !== c.templateId) {
     c.templateId = templateId;
     c.enchant = null;
+    c.size = null;
+    c.tier = null;
+    c.price = null;
     c.tag = null;
   }
   c.type = enumName(field(snapshot, 'Type')) ?? c.type;
@@ -333,8 +566,13 @@ function applyGameSim(
   data: Translated | undefined,
   evidence: Evidence
 ) {
-  for (const event of list(field(data, 'Events'))) {
-    if (!(event instanceof TObject)) continue;
+  const events = field(data, 'Events');
+  if (!Array.isArray(events)) state.inventoryKnown = false;
+  for (const event of list(events)) {
+    if (!(event instanceof TObject)) {
+      state.inventoryKnown = false;
+      continue;
+    }
     const id = text(field(event, 'InstanceId'));
     switch (shortName(event.type)) {
       case 'GameSimEventCardDealt':
@@ -342,36 +580,91 @@ function applyGameSim(
         if (id !== null) {
           const c = card(state, id);
           updateTemplate(c, event);
+          if (shortName(event.type) === 'GameSimEventCardSpawned')
+            placement(state, c, event, 'CombatantId');
         }
         evidence.dealt = true;
         break;
-      case 'GameSimEventCardTransformed':
+      case 'GameSimEventCardTransformReverted': {
+        const original = field(event, 'OriginalCard');
+        const originalId = text(field(original, 'InstanceId'));
+        for (const key of list(field(event, 'TransformedCardInstanceIds')))
+          if (typeof key === 'string') {
+            state.changed.add(key);
+            state.cards.delete(key);
+          }
+        if (original && originalId) {
+          const saved = state.originals.get(originalId);
+          if (saved) state.cards.set(originalId, saved);
+          state.originals.delete(originalId);
+          const c = card(state, originalId);
+          updateTemplate(c, original);
+          placement(state, c, original, 'CombatantId');
+        } else state.inventoryKnown = false;
+        break;
+      }
+      case 'GameSimEventCardTransformed': {
+        const original = text(field(event, 'OriginalInstanceId'));
+        if (original) {
+          const c = state.cards.get(original);
+          if (c) state.originals.set(original, c);
+          state.changed.add(original);
+          state.cards.delete(original);
+        }
         for (const t of list(field(event, 'TransformedCards'))) {
           const tid = text(field(t, 'InstanceId'));
           if (tid === null) continue;
           const c = card(state, tid);
           updateTemplate(c, t);
+          placement(state, c, t, 'CombatantId');
         }
+        break;
+      }
+      case 'GameSimEventCardDisposed':
+        if (id) card(state, id).owner = null;
         break;
       case 'GameSimEventCardFused': {
         const selected = text(field(event, 'SelectedInstanceId'));
         const into = text(field(event, 'FusedInstanceId'));
         const tier = enumName(field(event, 'NewTier'));
         if (selected !== null && into !== null) {
+          if (selected !== into) card(state, selected).owner = null;
           evidence.fused.set(selected, { into, tier });
-          if (tier) card(state, into).tier = tier;
+          const survivor = card(state, into);
+          if (tier) survivor.tier = tier;
+          survivor.enchant =
+            enumName(field(event, 'EnchantmentType')) ?? survivor.enchant;
         }
         break;
       }
       case 'GameSimEventCardPurchased':
+        if (id && enumName(field(event, 'CombatantId')))
+          placement(
+            state,
+            card(state, id),
+            event,
+            'CombatantId',
+            'Section',
+            'LeftSocketId'
+          );
         if (id !== null)
           evidence.purchased.set(id, int(field(event, 'BuyPrice')) ?? 0);
         break;
       case 'GameSimEventCardSold':
+        if (id) card(state, id).owner = null;
         if (id !== null)
           evidence.sold.set(id, int(field(event, 'SellPrice')) ?? 0);
         break;
       case 'GameSimEventCardMoved':
+        if (id)
+          placement(
+            state,
+            card(state, id),
+            event,
+            'Owner',
+            'ToInventory',
+            'ToSocket'
+          );
         if (id !== null)
           evidence.moved.set(
             id,
@@ -384,7 +677,14 @@ function applyGameSim(
           );
         break;
       case 'GameSimEventPlayerSkillEquipped':
-        if (id !== null) evidence.equipped.add(id);
+        if (id !== null) {
+          evidence.equipped.add(id);
+          const skill = card(state, id);
+          skill.type = 'Skill';
+          const owner = enumName(field(event, 'Owner'));
+          if (!owner) state.inventoryKnown = false;
+          assignOwner(state, skill, owner);
+        }
         break;
       case 'GameSimEventCardUpgraded':
         if (id !== null) {
@@ -420,16 +720,20 @@ function applyGameSim(
       const id = text(key);
       if (id === null || !(update instanceof TObject)) continue;
       const c = card(state, id);
+      const place = field(update, 'Placement');
+      if (place != null) placement(state, c, place);
+      const size = field(update, 'Size');
+      if (size != null) c.size = sizeOf(size);
       updateTags(c, update);
       c.enchant = enumName(field(update, 'Enchantment')) ?? c.enchant;
       c.tier = enumName(field(update, 'Tier')) ?? c.tier;
       for (const [name, delta] of enumKeyed(field(update, 'Attributes'))) {
+        if (name !== 'BuyPrice') continue;
         // An AttributeDelta of type Delete removes the attribute, e.g. a price.
-        if (enumName(field(delta, 'DeltaType')) === 'Delete')
-          c.attributes.delete(name);
+        if (enumName(field(delta, 'DeltaType')) === 'Delete') c.price = null;
         else {
           const n = int(field(delta, 'Value'));
-          if (n !== null) c.attributes.set(name, n);
+          if (n !== null) c.price = n;
         }
       }
     }
@@ -437,6 +741,7 @@ function applyGameSim(
 }
 
 type Pending = {
+  moment: Moment;
   entry: Extract<DecisionEntry, { kind: 'action' }>;
   args: Record<string, unknown>;
   evidence: Evidence;
@@ -621,13 +926,32 @@ export async function projectDecisions(
   battles: readonly BattleMarker[],
   yieldEvery: number = CHUNK
 ) {
+  const moments = new Map<number, Moment>();
+  const openings = new Map<string, Moment>();
+
+  let previous: Inventory | null = null;
+  function capture(moment: Moment, observation: Observation | null) {
+    Object.defineProperty(moment, 'snapshot', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        const snapshot = observation ? sample(observation, previous) : null;
+        if (snapshot) previous = snapshot;
+        Object.defineProperty(moment, 'snapshot', { value: snapshot });
+        return snapshot;
+      }
+    });
+  }
   const contexts: Context[] = [];
   const state = newState();
   const entries: DecisionEntry[] = [];
   const pending = new Map<number, Pending>();
   let selected: CardRef | null = null;
   /** Seqs of the messages that entered a combat state, by state name. */
-  const combats: Record<'PVPCombat' | 'Combat', Context[]> = {
+  const combats: Record<
+    'PVPCombat' | 'Combat',
+    (Context & { opening: Moment })[]
+  > = {
     PVPCombat: [],
     Combat: []
   };
@@ -656,8 +980,27 @@ export async function projectDecisions(
       const args = parseArgs(frame);
       const id = argId(args);
       if (id !== null) entry.card = cardRef(state, id);
+      if (frame.command === 'ReestablishSession') {
+        state.inventoryKnown = false;
+        state.selectionKnown = false;
+        state.playerKnown = false;
+      }
+      const moment: Moment = {
+        responseSeq: null,
+        snapshot: null,
+        encounter:
+          state.playerKnown && state.selectionKnown
+            ? (selected ?? encounterRef(state))
+            : null,
+        offer: ['chose', 'bought', 'skill', 'committed'].includes(entry.verb)
+          ? offer(state)
+          : undefined,
+        chosen: null
+      };
+      moments.set(frame.seq, moment);
       entries.push(entry);
       pending.set(frame.seq, {
+        moment,
         entry,
         args,
         evidence: emptyEvidence(),
@@ -689,32 +1032,30 @@ export async function projectDecisions(
       owner.responses++;
     }
     const decoded = stream.message(frame);
-    if (!decoded || !decoded.ok) {
-      // The missing delta makes later inferences unsafe until a baseline returns.
-      state.known = false;
-      entries.push({
-        kind: 'undecoded',
-        order: frame.seq,
-        day: state.day,
-        hour: state.hour,
-        frames: [frame.seq],
-        error: decoded && !decoded.ok ? decoded.error : ''
-      });
-      if (owner) {
-        owner.gold = null;
-        owner.health = null;
-        settle(owner, state);
-      }
-      continue;
-    }
-    const data = field(decoded.value, 'Data');
-    // A state message whose parts the schema could not read is as good as missing.
-    const partial =
+    const data = decoded?.ok ? field(decoded.value, 'Data') : undefined;
+    const stateMessage =
+      decoded?.ok &&
       (decoded.type === 'NetMessageGameSim' ||
-        decoded.type === 'NetMessageGameStateSync') &&
+        decoded.type === 'NetMessageGameStateSync');
+    const partial =
+      stateMessage &&
       (!(data instanceof TObject) ||
         STATE_PARTS.some((part) => data.fields[part] instanceof RawValue));
-    if (partial) {
+    if (!decoded?.ok || partial) {
+      const sync =
+        decoded?.ok &&
+        decoded.type === 'NetMessageGameStateSync' &&
+        data instanceof TObject;
+      if (sync) {
+        applySync(state, data);
+        selected = null;
+        if (decoded.flags.some((f) => f.path.includes('.Cards')))
+          state.inventoryKnown = false;
+      } else {
+        state.inventoryKnown = false;
+        state.playerKnown = false;
+        state.selectionKnown = false;
+      }
       state.known = false;
       entries.push({
         kind: 'undecoded',
@@ -722,9 +1063,13 @@ export async function projectDecisions(
         day: state.day,
         hour: state.hour,
         frames: [frame.seq],
-        error: decoded.flags.map((f) => `${f.path}: ${f.reason}`).join('; ')
+        error: decoded?.ok
+          ? decoded.flags.map((f) => f.path + ': ' + f.reason).join('; ')
+          : (decoded?.error ?? '')
       });
       if (owner) {
+        owner.moment.responseSeq = frame.seq;
+        capture(owner.moment, sync ? observe(state) : null);
         owner.gold = null;
         owner.health = null;
         settle(owner, state);
@@ -766,6 +1111,8 @@ export async function projectDecisions(
       default:
         break;
     }
+    if (decoded.flags.some((f) => /\.(Cards|Events)(?:\.|\[)/.test(f.path)))
+      state.inventoryKnown = false;
     const baseline = decoded.type === 'NetMessageGameStateSync';
     if (baseline || before.encounterId !== state.encounterId) selected = null;
     const chosen = owner?.entry.card;
@@ -800,7 +1147,15 @@ export async function projectDecisions(
         before.stateName !== state.stateName &&
         (state.stateName === 'PVPCombat' || state.stateName === 'Combat')
       ) {
-        combats[state.stateName].push(context);
+        const opening: Moment = {
+          responseSeq: frame.seq,
+          snapshot: null,
+          encounter,
+          offer: undefined,
+          chosen: null
+        };
+        capture(opening, observe(state));
+        combats[state.stateName].push({ ...context, opening });
       }
     }
     let read = owner !== undefined;
@@ -867,6 +1222,20 @@ export async function projectDecisions(
     if (owner) {
       attribute(owner, before, state, baseline);
       settle(owner, state);
+      const moment = owner.moment;
+      moment.responseSeq = frame.seq;
+      capture(moment, observe(state));
+      if (owner.entry.verb === 'rerolled') moment.offer = offer(state);
+      const pick = argId(owner.args);
+      if (
+        owner.entry.outcome === 'done' &&
+        pick &&
+        moment.offer?.some((c) => c.instanceId === pick)
+      ) {
+        moment.chosen = pick;
+        if (owner.entry.verb === 'chose' && selected?.instanceId === pick)
+          moment.encounter = selected;
+      }
     }
   }
 
@@ -888,7 +1257,10 @@ export async function projectDecisions(
           c.encounter.templateId === battle.encounterId.toLowerCase())
     );
     const entered = matches.length === 1 ? matches[0] : null;
-    if (entered) candidates.splice(candidates.indexOf(entered), 1);
+    if (entered) {
+      candidates.splice(candidates.indexOf(entered), 1);
+      openings.set(battle.id, entered.opening);
+    }
     entries.push({
       kind: 'battle',
       order: (entered?.order ?? anchor) + 0.25,
@@ -900,5 +1272,10 @@ export async function projectDecisions(
       encounterId: battle.encounterId ?? null
     });
   }
-  return { entries: entries.sort((a, b) => a.order - b.order), contexts };
+  return {
+    moments,
+    openings,
+    entries: entries.sort((a, b) => a.order - b.order),
+    contexts
+  };
 }

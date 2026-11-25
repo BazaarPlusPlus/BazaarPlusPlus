@@ -23,7 +23,7 @@ const cardAttr = (name: string) => enumValue('ECardAttributeType', name);
 const state = (name: string) => enumValue('ERunState', name);
 
 /** IGameSimEvent cases, by their union tag in the schema. */
-function eventTag(type: string): number {
+export function eventTag(type: string): number {
   const union = Object.entries(SCHEMA.types).find(([n]) =>
     n.endsWith('.IGameSimEvent')
   )?.[1];
@@ -64,9 +64,10 @@ export type SimSpec = {
   health?: number;
   day?: number;
   hour?: number;
-  /** Card id → BuyPrice; null deletes the attribute (AttributeDelta Delete). */
+  sizes?: Record<string, string>;
   tags?: Record<string, string[]>;
   enchants?: Record<string, string>;
+  /** Card id → BuyPrice; null deletes the attribute (AttributeDelta Delete). */
   prices?: Record<string, number | null>;
   current?: {
     state: string;
@@ -102,6 +103,17 @@ export function gameSim(spec: SimSpec): Uint8Array {
       null,
       null,
       0
+    ]);
+  }
+  for (const [id, size] of Object.entries(spec.sizes ?? {})) {
+    cards.set(id, [
+      id,
+      null,
+      null,
+      null,
+      null,
+      null,
+      enumValue('ECardSize', size)
     ]);
   }
   for (const [id, enchant] of Object.entries(spec.enchants ?? {})) {

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  DecisionExplorer,
+  MomentPanel,
+  useDecisionSelection,
   Badge,
   EnchantLabel,
   FrameInspector,
@@ -10,6 +13,9 @@ import {
   enchantments
 } from '@bpp/ui';
 import {
+  dayMoments,
+  presentMoment,
+  type MomentIndex,
   combatFacts,
   decisionDays,
   type EventBattle,
@@ -56,6 +62,7 @@ export function LocalDays({
   const [result, setResult] = useState<{
     input: typeof input;
     visits: Visit[] | null;
+    index?: MomentIndex;
     stream?: MessageStream;
   }>();
   useEffect(() => {
@@ -87,6 +94,9 @@ export function LocalDays({
           setResult({
             input,
             visits: path?.visits ?? [],
+            index: path
+              ? { moments: path.moments, openings: path.openings }
+              : undefined,
             stream: path?.stream
           });
       })
@@ -109,16 +119,17 @@ export function LocalDays({
         ...(b.player_skills ?? []),
         ...(b.opponent_board ?? []),
         ...(b.opponent_skills ?? [])
-      ].map((c) => [c.template_id, c] as const)
+      ].map((c) => [c.template_id.toLowerCase(), c] as const)
     )
   );
   function display(c: CardRef) {
     const id = c.templateId ?? c.instanceId;
-    const known = cards.get(id);
+    const known = cards.get(id.toLowerCase());
     const file = art[id.toLowerCase()];
     const tier = cardTiers.find((v) => v === c.tier) ?? null;
     const enchant = enchantments.find((v) => v === c.enchant) ?? null;
     return {
+      size: c.size,
       name: known
         ? (locale === 'zh' && known.name_zh) || known.name
         : c.type === 'PvpEncounter'
@@ -146,6 +157,7 @@ export function LocalDays({
         ))}
       <ol className="flex flex-col gap-3">
         {days.map(({ day, battles: rows, visits: decisions }) => {
+          const moments = dayMoments(decisions, result?.index);
           return (
             <DayCard
               key={day ?? 'unknown'}
@@ -158,10 +170,51 @@ export function LocalDays({
                 input.section.state === 'available' &&
                 !failed &&
                 (decisions.length ? (
-                  <ol>
+                  <DecisionExplorer
+                    ids={[...moments.keys()]}
+                    previous={t('path_previous')}
+                    next={t('path_next')}
+                    render={(seq) => {
+                      const row = moments.get(seq);
+                      if (!row) return null;
+                      return (
+                        <MomentPanel
+                          formatPrice={(n) => t('path_gold', { n })}
+                          view={presentMoment(row.moment, display)}
+                          reroll={row.verb === 'rerolled'}
+                          title={[
+                            row.visit.day !== null &&
+                              t('path_day', { n: row.visit.day }),
+                            row.visit.hour !== null &&
+                              t('path_hour', { n: row.visit.hour }),
+                            t(`path_${row.verb}`)
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                          labels={{
+                            board: t('path_board'),
+                            stash: t('path_stash'),
+                            skills: t('battleSkills'),
+                            unknown: t('path_unknown'),
+                            empty: t('path_empty'),
+                            pickedFrom: t('path_pickedFrom'),
+                            chosen: t('path_chosen'),
+                            goldTotal: t('path_goldTotal'),
+                            healthTotal: t('path_healthTotal'),
+                            level: t('path_level'),
+                            resultOffer: t('path_resultOffer')
+                          }}
+                        />
+                      );
+                    }}
+                  >
                     {decisions.map((v) => (
                       <LocalVisit
                         key={v.battleId ?? v.order}
+                        opening={
+                          result?.index?.openings.get(v.battleId ?? '')
+                            ?.responseSeq ?? undefined
+                        }
                         v={v}
                         display={display}
                         fight={rows.find(
@@ -171,7 +224,7 @@ export function LocalDays({
                         )}
                       />
                     ))}
-                  </ol>
+                  </DecisionExplorer>
                 ) : (
                   <p>
                     {t(
@@ -229,10 +282,12 @@ function timeOf(b: HistoryBattleRow | EventBattle) {
   return 'battle_id' in b ? b.recorded_at_ms : b.recordedAtMs;
 }
 function LocalVisit({
+  opening,
   v,
   display,
   fight
 }: {
+  opening?: number;
   v: Visit;
   display: (card: CardRef) => GameCard;
   fight?: HistoryBattleRow | EventBattle;
@@ -252,8 +307,14 @@ function LocalVisit({
           outcome: fight.outcome
         });
   const outcome = facts?.outcome;
-  const view = presentVisit(v, facts, display, (key, params) =>
-    t(`path_${key}`, params)
+  const selection = useDecisionSelection();
+  const view = presentVisit(
+    v,
+    facts,
+    display,
+    (key, params) => t(`path_${key}`, params),
+    selection?.active,
+    opening
   );
   return (
     <DecisionVisitRow

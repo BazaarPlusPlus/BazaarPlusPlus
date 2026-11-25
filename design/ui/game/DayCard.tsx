@@ -1,5 +1,6 @@
 import { Badge } from '../Badge';
-import { useState, type ReactNode } from 'react';
+import { MomentButton, useDecisionSelection } from './DecisionExplorer';
+import { Fragment, useState, type ReactNode } from 'react';
 import { CardArt, CardChip, type GameCard } from './Card';
 
 export function DayCard({
@@ -36,11 +37,13 @@ export function VisitRow({
   title,
   encounter,
   totals,
+  headerSeq,
   children
 }: {
   hour: string | null;
   title: string;
   encounter?: GameCard;
+  headerSeq?: number;
   totals: ReactNode;
   children: ReactNode;
 }) {
@@ -48,16 +51,28 @@ export function VisitRow({
   return (
     <li className="bpp-visit-row">
       <header className="bpp-visit-head">
-        <h3>
-          <Element className="bpp-visit-identity" onClick={encounter?.onOpen}>
-            <span className="bpp-visit-art">
-              <CardArt src={encounter?.art ?? null} alt="" fallback="" />
-            </span>
+        <h3 className="bpp-visit-identity">
+          <Element
+            className="bpp-visit-art"
+            onClick={encounter?.onOpen}
+            aria-label={encounter?.name}
+          >
+            <CardArt src={encounter?.art ?? null} alt="" fallback="" />
+          </Element>
+          {headerSeq !== undefined ? (
+            <MomentButton
+              seq={headerSeq}
+              label={[hour, title].filter(Boolean).join(' · ')}
+            >
+              {hour && <span className="bpp-visit-hour">{hour}</span>}
+              <strong>{title}</strong>
+            </MomentButton>
+          ) : (
             <span>
               {hour && <span className="bpp-visit-hour">{hour}</span>}
               <strong>{title}</strong>
             </span>
-          </Element>
+          )}
         </h3>
         <div className="bpp-visit-totals">{totals}</div>
       </header>
@@ -86,6 +101,7 @@ export function DecisionVisitRow({
   renderResult
 }: {
   view: {
+    headerSeq?: number;
     title: string;
     encounter?: GameCard;
     hour: string | null;
@@ -106,8 +122,10 @@ export function DecisionVisitRow({
   outcome: ReactNode;
   renderResult: (value: string) => ReactNode;
 }) {
+  const selection = useDecisionSelection();
   return (
     <VisitRow
+      headerSeq={view.headerSeq}
       title={view.title}
       hour={view.hour}
       encounter={view.encounter}
@@ -119,25 +137,38 @@ export function DecisionVisitRow({
         </>
       }
     >
+      {view.headerSeq !== undefined &&
+        selection?.active === view.headerSeq &&
+        selection.inline}
       {view.gap}
       {view.rows.map((row) => (
-        <div className="bpp-decision-row" key={row.id}>
-          <span>{row.verb}</span>
-          <div className="bpp-decision-card">
-            {row.chip && (
-              <CardChip
-                card={row.chip.card}
-                title={row.chip.title}
-                placeholder
-              />
+        <Fragment key={row.id}>
+          <div className="bpp-decision-row">
+            <MomentButton
+              seq={row.id}
+              label={[row.verb, row.chip?.card.name]
+                .filter(Boolean)
+                .join(' · ')}
+            >
+              {row.verb}
+            </MomentButton>
+            <div className="bpp-decision-card">
+              {row.chip && (
+                <CardChip
+                  card={row.chip.card}
+                  title={row.chip.title}
+                  placeholder
+                />
+              )}
+              {row.result && <span>→ {renderResult(row.result)}</span>}
+              {row.status && <Badge tone="warn">{row.status}</Badge>}
+            </div>
+            {row.amount && (
+              <span className="bpp-decision-amount">{row.amount}</span>
             )}
-            {row.result && <span>→ {renderResult(row.result)}</span>}
-            {row.status && <Badge tone="warn">{row.status}</Badge>}
           </div>
-          {row.amount && (
-            <span className="bpp-decision-amount">{row.amount}</span>
-          )}
-        </div>
+          {selection?.active === row.id && selection.inline}
+        </Fragment>
       ))}
       {!!view.remaining.length && (
         <details className="bpp-visit-options">

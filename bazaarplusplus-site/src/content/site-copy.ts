@@ -317,6 +317,18 @@ type LocalizedSiteCopy = {
     notFound: string;
     path: {
       decisions: string;
+      board: string;
+      stash: string;
+      unknown: string;
+      empty: string;
+      pickedFrom: string;
+      chosen: string;
+      goldTotal: string;
+      healthTotal: string;
+      level: string;
+      resultOffer: string;
+      previous: string;
+      next: string;
       unknownDay: string;
       hour: string;
       visited: string;
@@ -538,6 +550,18 @@ const zh: LocalizedSiteCopy = {
     notFound: '找不到这局。',
     path: {
       decisions: '当天决策',
+      board: '阵容',
+      stash: '储物箱',
+      unknown: '状态未知',
+      empty: '空',
+      pickedFrom: '选择范围',
+      chosen: '已选',
+      goldTotal: '金币',
+      healthTotal: '生命',
+      level: '等级',
+      resultOffer: '备选',
+      previous: '上一步',
+      next: '下一步',
       unknownDay: '日期未知',
       hour: '第 {n} 小时',
       visited: '拜访 {name}',
@@ -1054,6 +1078,18 @@ const en: LocalizedSiteCopy = {
     notFound: 'This run wasn’t found.',
     path: {
       decisions: 'Day decisions',
+      board: 'Board',
+      stash: 'Stash',
+      unknown: 'State unavailable',
+      empty: 'Empty',
+      pickedFrom: 'Picked from',
+      chosen: 'Chosen',
+      goldTotal: 'Gold',
+      healthTotal: 'Health',
+      level: 'Level',
+      resultOffer: 'Offered',
+      previous: 'Previous',
+      next: 'Next',
       unknownDay: 'Unknown day',
       hour: 'Hour {n}',
       visited: 'Visited {name}',

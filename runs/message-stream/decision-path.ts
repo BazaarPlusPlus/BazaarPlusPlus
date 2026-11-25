@@ -1,13 +1,15 @@
 import schemaJson from './game-message-schema.json';
 import type { StreamFrame } from './stream';
 import type { BattleMarker } from './project';
-import { projectDecisions, type DecisionEntry } from './project';
+import { projectDecisions, type Moment, type DecisionEntry } from './project';
 import type { GameMessageSchema } from './schema';
 import { MessageStream } from './stream';
 
 import { projectVisits, type Visit } from './visits';
 
 export type DecisionPath = {
+  moments: Map<number, Moment>;
+  openings: Map<string, Moment>;
   stream: MessageStream;
   entries: DecisionEntry[];
   visits: Visit[];
@@ -25,6 +27,15 @@ export async function buildDecisionPath(detail: {
     schemaJson as GameMessageSchema,
     detail.platform
   );
-  const { entries, contexts } = await projectDecisions(stream, detail.markers);
-  return { stream, entries, visits: projectVisits(entries, contexts) };
+  const { entries, contexts, moments, openings } = await projectDecisions(
+    stream,
+    detail.markers
+  );
+  return {
+    moments,
+    openings,
+    stream,
+    entries,
+    visits: projectVisits(entries, contexts)
+  };
 }

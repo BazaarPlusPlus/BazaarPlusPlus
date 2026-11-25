@@ -68,4 +68,9 @@ export {
 } from './game/CardDetail';
 export { DayCard, VisitRow, DecisionVisitRow } from './game/DayCard';
 export { FrameInspector } from './game/FrameInspector';
+export {
+  DecisionExplorer,
+  MomentPanel,
+  useDecisionSelection
+} from './game/DecisionExplorer';
 export type { CardFx, FxMaterial } from './game/enchantment-fx/program';

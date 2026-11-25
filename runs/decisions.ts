@@ -1,10 +1,10 @@
-import type { CardRef, BattleMarker } from './message-stream/project';
+import type { Moment, CardRef, BattleMarker } from './message-stream/project';
 import type { Visit } from './message-stream/visits';
 export type { Visit } from './message-stream/visits';
 export type { CardRef, BattleMarker } from './message-stream/project';
 export type { StreamFrame, MessageStream } from './message-stream/stream';
 
-export function decisionRows(visit: Visit) {
+export function decisionRows(visit: Visit, active?: number, opening?: number) {
   const moves = visit.actions.filter(
     (a) => a.verb === 'moved' && a.outcome === 'done'
   );
@@ -21,16 +21,17 @@ export function decisionRows(visit: Visit) {
         a.verb === 'left' ||
         (a.verb === 'chose' &&
           visit.encounter &&
+          opening === undefined &&
           visit.encounter?.instanceId === a.card?.instanceId)
       )
         return [];
-      if (a.verb === 'moved') {
+      if (a.verb === 'moved' && !moves.some((m) => m.order === active)) {
         if (a !== moves[0]) return [];
         group = 'moves';
         count = moves.length;
         card = null;
       }
-      if (a.verb === 'rerolled') {
+      if (a.verb === 'rerolled' && !rerolls.some((m) => m.order === active)) {
         if (a !== rerolls[0]) return [];
         group = 'rerolls';
         count = rerolls.length;
@@ -171,7 +172,9 @@ export function presentVisit<C extends { name: string }>(
   label: (
     key: VisitLabel,
     params?: { n?: number | string; name?: string }
-  ) => string
+  ) => string,
+  active?: number,
+  opening?: number
 ) {
   const encounter = visit.encounter
     ? display(visit.encounter)
@@ -181,6 +184,7 @@ export function presentVisit<C extends { name: string }>(
           instanceId: battle.encounterId,
           tier: null,
           enchant: null,
+          size: null,
           price: null,
           type: null,
           tag: null
@@ -213,7 +217,16 @@ export function presentVisit<C extends { name: string }>(
     gold: delta(visit.gold, 'net'),
     health: delta(visit.health, 'health'),
     gap: visit.gap ? label('undecoded') : null,
-    rows: decisionRows(visit).map((a) => ({
+    headerSeq:
+      opening ??
+      visit.actions.find(
+        (a) =>
+          a.verb === 'chose' &&
+          a.outcome === 'done' &&
+          visit.encounter &&
+          a.card?.instanceId === visit.encounter.instanceId
+      )?.order,
+    rows: decisionRows(visit, active, opening).map((a) => ({
       id: a.order,
       verb: a.group ? label(a.group, { n: a.count }) : label(a.verb),
       chip: a.card ? chip(a.card) : null,
@@ -247,4 +260,66 @@ export function decisionDays<B>(
     battles: battles.filter((b) => dayOf(b) === day),
     visits: visits.filter((v) => v.day === day)
   }));
+}
+
+export type { Moment };
+export type MomentIndex = {
+  moments: Map<number, Moment>;
+  openings: Map<string, Moment>;
+};
+
+export type DayMoment = { moment: Moment; verb: VisitLabel; visit: Visit };
+export function dayMoments(
+  visits: Visit[],
+  index: MomentIndex | null | undefined
+) {
+  const rows = new Map<number, DayMoment>();
+  if (index)
+    for (const visit of visits) {
+      for (const a of visit.actions) {
+        if (a.verb === 'left' && a.outcome === 'done') continue;
+        const moment = index.moments.get(a.order);
+        if (moment) rows.set(a.order, { moment, verb: a.verb, visit });
+      }
+      const opening = visit.battleId && index.openings.get(visit.battleId);
+      if (opening && opening.responseSeq !== null)
+        rows.set(opening.responseSeq, {
+          moment: opening,
+          verb: visit.kind,
+          visit
+        });
+    }
+  return new Map([...rows].sort(([a], [b]) => a - b));
+}
+
+export function presentMoment<C>(
+  moment: Moment,
+  display: (card: CardRef) => C
+) {
+  const placed = (cards: NonNullable<Moment['snapshot']>['board']) =>
+    cards?.map((c) => ({
+      ...display(c),
+      id: c.instanceId,
+      slot: c.slot,
+      size: c.size
+    })) ?? null;
+  const s = moment.snapshot;
+  return {
+    board: placed(s?.board ?? null),
+    stash: placed(s?.stash ?? null),
+    skills:
+      s?.skills?.map((c) => ({ ...display(c), id: c.instanceId })) ?? null,
+    encounterId: moment.encounter?.instanceId ?? null,
+    encounter: moment.encounter ? display(moment.encounter) : null,
+    offer:
+      moment.offer?.map((c) => ({
+        card: display(c),
+        id: c.instanceId,
+        chosen: c.instanceId === moment.chosen,
+        price: c.price
+      })) ?? (moment.offer as null | undefined),
+    gold: s?.gold ?? null,
+    health: s?.health ?? null,
+    level: s?.level ?? null
+  };
 }
