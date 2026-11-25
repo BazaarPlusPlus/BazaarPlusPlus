@@ -138,6 +138,7 @@ fn inspect_launch_options_for_steam_raw(
     Ok(SteamLaunchOptionsState::Empty)
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub(crate) fn inspect_launch_options_for_steam(steam_path: &Path) -> SteamLaunchOptionsState {
     match inspect_launch_options_for_steam_raw(steam_path) {
         Ok(state) => state,
