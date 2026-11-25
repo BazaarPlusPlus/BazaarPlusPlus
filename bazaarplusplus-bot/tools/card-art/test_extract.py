@@ -216,5 +216,191 @@ class CardTextTest(unittest.TestCase):
                     self.assertEqual(set(payload["cards"]), set(self.fixture["cards"]))
 
 
+class MaterialTest(unittest.TestCase):
+    def test_retired_materials_survive_and_current_skills_stay_plain(self):
+        previous = {"fx": {"retired": "old", "plain-skill": "stale"}}
+        current = {"item", "plain-skill"}
+        index = extract.card_index({}, {}, current, previous, "7", "e", "z", {}, {"item": "new"})
+        self.assertEqual(index["fx"], {"item": "new", "retired": "old"})
+
+    def test_enchantment_and_tiny_geometry_are_independent(self):
+        from enchantment_fx import keyword_sets
+
+        base = ["_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_UNENCHANTED", "_ISPREMIUM_ON"]
+        variants = keyword_sets(base)
+        self.assertEqual(len(variants), 16)
+        self.assertEqual(
+            variants["Ethereal"]["normal"],
+            [
+                "_CRDSIZE_MEDIUM",
+                "_DEBUG_OFF",
+                "_ENCHANTMENTSTATUS_SHINY",
+            ],
+        )
+        self.assertEqual(
+            set(variants["Tiny"]["tiny"]),
+            {"_CRDSIZE_MEDIUM", "_DEBUG_OFF", "_ENCHANTMENTSTATUS_TINY", "_ISTINY_ON"},
+        )
+        self.assertNotIn("_ISTINY_ON", variants["Tiny"]["normal"])
+
+    def test_bindings_include_shader_defaults_and_each_slots_own_transform(self):
+        from types import SimpleNamespace as Obj
+        from enchantment_fx import MaterialExporter
+
+        prop = Obj(m_Name="_EnchantmentMask", m_DefTexture=Obj(m_DefaultName="white"))
+        shader = Obj(m_ParsedForm=Obj(m_PropInfo=Obj(m_Props=[prop])))
+        exporter = MaterialExporter(shader, None)
+        texture = Obj(
+            m_Width=512,
+            m_Height=256,
+            m_ColorSpace=0,
+            m_MipCount=1,
+            m_TextureSettings=Obj(m_WrapU=0, m_WrapV=1, m_FilterMode=2, m_MipBias=0, m_Aniso=1),
+        )
+        reader = Obj(assets_file=Obj(name="card"), path_id=7, read=lambda: texture)
+        slot = Obj(
+            m_Texture=Obj(path_id=7, deref=lambda: reader),
+            m_Scale=Obj(x=2, y=1),
+            m_Offset=Obj(x=0, y=0.25),
+        )
+        self.assertEqual(
+            exporter.binding("_EnchantmentMask", {}, None, 400),
+            {"default": "white", "st": [1, 1, 0, 0]},
+        )
+        main = exporter.binding("_MainTex", {"_MainTex": slot}, "face.webp", 400)
+        self.assertEqual(main["size"], [800, 400])
+        self.assertEqual(main["sourceSize"], [512, 256])
+        self.assertEqual(main["st"], [2, 1, 0, 0.25])
+        self.assertEqual(main["wrap"], [0, 1])
+        slot.m_Offset.x = 0.5
+        self.assertEqual(
+            exporter.binding("_MainTex", {"_MainTex": slot}, "face.webp", 400)["st"],
+            [2, 1, 0.5, 0.25],
+        )
+
+    def test_real_materials_match_descriptor_digests_without_game_pixels(self):
+        from types import SimpleNamespace as Obj
+        from unittest.mock import patch
+        import enchantment_fx as fx
+
+        fixture = json.loads((Path(__file__).parent / "fixtures/enchantment-fx.json").read_text())
+        properties = []
+        for name, default in fixture["defaults"].items():
+            vector = isinstance(default, list)
+            values = default if vector else [default, 0, 0, 0]
+            properties.append(
+                Obj(
+                    m_Name=name,
+                    m_Type=1 if vector else 2,
+                    **{f"m_DefValue_{i}_": value for i, value in enumerate(values)},
+                )
+            )
+        properties.extend(
+            Obj(m_Name=name, m_DefTexture=Obj(m_DefaultName=value))
+            for name, value in fixture["textureDefaults"].items()
+        )
+        shader = Obj(object_reader=object(), m_ParsedForm=Obj(m_PropInfo=Obj(m_Props=properties)))
+        textures = {}
+        for i, (file, metadata) in enumerate(fixture["textures"].items(), start=1):
+            w, h, space, mips, u, v, mode, bias, aniso = metadata
+            texture = Obj(
+                m_Width=w,
+                m_Height=h,
+                m_ColorSpace=space,
+                m_MipCount=mips,
+                image=file,
+                m_TextureSettings=Obj(
+                    m_WrapU=u, m_WrapV=v, m_FilterMode=mode, m_MipBias=bias, m_Aniso=aniso
+                ),
+            )
+            reader = Obj(path_id=i, assets_file=Obj(name="fixture"), read=lambda tex=texture: tex)
+            textures[file] = Obj(path_id=i, deref=lambda ref=reader: ref)
+
+        # Only the encoded WebP bytes are substituted with their recorded content address.
+        # The production exporter resolves defaults, assembles bindings and hashes the JSON.
+        write = fx.immutable
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(fx, "texture_webp", lambda file, size: file),
+            patch.object(
+                fx,
+                "immutable",
+                lambda out, prefix, suffix, data: (
+                    data if suffix == ".webp" else write(out, prefix, suffix, data)
+                ),
+            ),
+        ):
+            exporter = fx.MaterialExporter(shader, Path(directory))
+            for item in fixture["items"]:
+                slots = [
+                    (
+                        name,
+                        Obj(
+                            m_Texture=textures.get(file, Obj(path_id=0)),
+                            m_Scale=Obj(x=x, y=y),
+                            m_Offset=Obj(x=u, y=v),
+                        ),
+                    )
+                    for name, (file, x, y, u, v) in item["slots"].items()
+                ]
+                colors = [
+                    (name, Obj(r=r, g=g, b=b, a=a)) for name, (r, g, b, a) in item["colors"].items()
+                ]
+                material = Obj(
+                    m_Shader=Obj(deref=lambda: shader.object_reader),
+                    m_ValidKeywords=item["keywords"],
+                    m_SavedProperties=Obj(
+                        m_Floats=item["floats"].items(), m_Colors=colors, m_TexEnvs=slots
+                    ),
+                )
+                with self.subTest(title=item["title"]):
+                    file = exporter.export(
+                        material, item["slots"]["_MainTex"][0], extract.ITEM_HEIGHT
+                    )
+                    self.assertEqual(file, item["descriptor"])
+
+    @unittest.skipUnless(os.environ.get("BPP_CARD_ART_OUTPUT"), "needs a local full extraction")
+    def test_full_extraction_matches_material_goldens(self):
+        output = Path(os.environ["BPP_CARD_ART_OUTPUT"])
+        index = json.loads((output / "index.json").read_text())
+        golden = json.loads((Path(__file__).parent / "fixtures/enchantment-fx.json").read_text())
+        for item in golden["items"]:
+            with self.subTest(title=item["title"]):
+                self.assertEqual(index["names"][item["id"]], item["title"])
+                self.assertEqual(index["fx"][item["id"]], item["descriptor"])
+                descriptor = json.loads((output / item["descriptor"]).read_bytes())
+                self.assertEqual(descriptor["size"], item["size"])
+                self.assertEqual(
+                    descriptor["textures"]["_MainTex"]["file"], index["cards"][item["id"]]
+                )
+                self.assertIn("_ISTINY_ON", descriptor["keywords"]["Tiny"]["tiny"])
+                self.assertTrue((output / descriptor["textures"]["_TinyBlocks"]["file"]).is_file())
+        self.assertIn(golden["skill"], index["cards"])
+        self.assertNotIn(golden["skill"], index["fx"])
+
+    def test_web_dimensions_preserve_packed_mask_aspect_and_polar_strip_height(self):
+        from enchantment_fx import texture_size
+
+        self.assertEqual(texture_size(1024, 512, "_EnchantmentMask"), [256, 128])
+        self.assertEqual(texture_size(2048, 256, "_MysticalRunes"), [256, 256])
+        self.assertEqual(texture_size(128, 64, "_Shared_Smoke"), [128, 64])
+
+    def test_data_texture_preserves_hidden_rgb_and_alpha(self):
+        import io
+
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("needs the extractor's locked Pillow")
+        from enchantment_fx import texture_webp
+
+        pixels = bytes([9, 77, 239, 0, 43, 81, 255, 127])
+        source = Image.frombytes("RGBA", (2, 1), pixels)
+        with Image.open(io.BytesIO(texture_webp(source, source.size))) as decoded:
+            self.assertEqual(decoded.tobytes(), pixels)
+        with Image.open(io.BytesIO(texture_webp(source, (1, 1)))) as decoded:
+            self.assertEqual(decoded.getpixel((0, 0)), (26, 79, 247, 64))
+
+
 if __name__ == "__main__":
     unittest.main()

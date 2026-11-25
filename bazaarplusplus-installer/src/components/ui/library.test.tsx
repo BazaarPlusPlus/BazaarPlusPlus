@@ -14,6 +14,7 @@ import {
 import {
   Button,
   CardDetail,
+  CardTile,
   CardText,
   type CardTextLine,
   Dialog,
@@ -263,4 +264,44 @@ it('renders only localized card and enchantment tags', async () => {
   expect(container.querySelector('.bpp-detail-enchant p')?.textContent).toBe(
     '武器'
   );
+});
+
+describe('CardTile', () => {
+  it('keeps the accessible enchantment and change marker without a material', () => {
+    const html = renderToStaticMarkup(
+      <CardTile
+        card={{
+          name: 'Tambourine',
+          art: 'badge.webp',
+          tier: 'Silver',
+          tierLabel: 'Silver',
+          enchant: 'Shiny',
+          enchantLabel: 'Shiny',
+          change: 'tier-up'
+        }}
+      />
+    );
+    expect(html).toContain('title="Tambourine · Silver · Shiny"');
+    expect(html).toContain('data-change="tier-up"');
+    expect(html).toContain('>Shiny</span>');
+    expect(html).not.toContain('<canvas');
+  });
+
+  it('leaves a plain skill on its illustration', () => {
+    const html = renderToStaticMarkup(
+      <CardTile
+        card={{
+          name: 'Keen Eye',
+          art: 'skill.webp',
+          tier: null,
+          tierLabel: '',
+          enchant: null,
+          enchantLabel: ''
+        }}
+        caption
+      />
+    );
+    expect(html).toContain('skill.webp');
+    expect(html).not.toContain('<canvas');
+  });
 });

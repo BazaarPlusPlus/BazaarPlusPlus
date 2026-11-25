@@ -1,0 +1,233 @@
+{
+  "material": "fx-edf136207698e6e0fd7a.json",
+  "cases": [
+    {
+      "effect": "Deadly",
+      "time": 1,
+      "x": 8,
+      "y": 88,
+      "image": "Deadly1.png"
+    },
+    {
+      "effect": "Deadly",
+      "time": 2,
+      "x": 24,
+      "y": 72,
+      "image": "Deadly2.png"
+    },
+    {
+      "effect": "Fiery",
+      "time": 1,
+      "x": 8,
+      "y": 72,
+      "image": "Fiery1.png"
+    },
+    {
+      "effect": "Fiery",
+      "time": 2,
+      "x": 24,
+      "y": 72,
+      "image": "Fiery2.png"
+    },
+    {
+      "effect": "Obsidian",
+      "time": 1,
+      "x": 152,
+      "y": 152,
+      "image": "Obsidian1.png"
+    },
+    {
+      "effect": "Obsidian",
+      "time": 2,
+      "x": 152,
+      "y": 152,
+      "image": "Obsidian2.png"
+    },
+    {
+      "effect": "Radiant",
+      "time": 1,
+      "x": 24,
+      "y": 56,
+      "image": "Radiant1.png"
+    },
+    {
+      "effect": "Radiant",
+      "time": 2,
+      "x": 8,
+      "y": 72,
+      "image": "Radiant2.png"
+    },
+    {
+      "effect": "Restorative",
+      "time": 1,
+      "x": 136,
+      "y": 24,
+      "image": "Restorative1.png"
+    },
+    {
+      "effect": "Restorative",
+      "time": 2,
+      "x": 72,
+      "y": 216,
+      "image": "Restorative2.png"
+    },
+    {
+      "effect": "Shiny",
+      "time": 1,
+      "x": 8,
+      "y": 136,
+      "image": "Shiny1.png"
+    },
+    {
+      "effect": "Shiny",
+      "time": 2,
+      "x": 8,
+      "y": 136,
+      "image": "Shiny2.png"
+    },
+    {
+      "effect": "Tiny",
+      "time": 1,
+      "x": 152,
+      "y": 136,
+      "image": "Tiny1.png"
+    },
+    {
+      "effect": "Tiny",
+      "time": 2,
+      "x": 40,
+      "y": 232,
+      "image": "Tiny2.png"
+    },
+    {
+      "effect": "Toxic",
+      "time": 1,
+      "x": 8,
+      "y": 72,
+      "image": "Toxic1.png"
+    },
+    {
+      "effect": "Toxic",
+      "time": 2,
+      "x": 56,
+      "y": 104,
+      "image": "Toxic2.png"
+    },
+    {
+      "effect": "Turbo",
+      "time": 1,
+      "x": 40,
+      "y": 168,
+      "image": "Turbo1.png"
+    },
+    {
+      "effect": "Turbo",
+      "time": 2,
+      "x": 152,
+      "y": 152,
+      "image": "Turbo2.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-a723493446530b8e6615.json",
+      "time": 1,
+      "x": 264,
+      "y": 264,
+      "image": "AtlasShiny1.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-a723493446530b8e6615.json",
+      "time": 2,
+      "x": 264,
+      "y": 264,
+      "image": "AtlasShiny2.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-90726eefb9e751ff0e92.json",
+      "time": 1,
+      "x": 232,
+      "y": 152,
+      "image": "SubmarineShiny1.png"
+    },
+    {
+      "effect": "Shiny",
+      "material": "fx-90726eefb9e751ff0e92.json",
+      "time": 2,
+      "x": 232,
+      "y": 152,
+      "image": "SubmarineShiny2.png"
+    },
+    {
+      "effect": "Golden",
+      "time": 1,
+      "x": 72,
+      "y": 72,
+      "image": "Golden1.png"
+    },
+    {
+      "effect": "Golden",
+      "time": 2,
+      "x": 72,
+      "y": 56,
+      "image": "Golden2.png"
+    },
+    {
+      "effect": "Heavy",
+      "time": 1,
+      "x": 24,
+      "y": 168,
+      "image": "Heavy1.png"
+    },
+    {
+      "effect": "Heavy",
+      "time": 2,
+      "x": 152,
+      "y": 200,
+      "image": "Heavy2.png"
+    },
+    {
+      "effect": "Mossy",
+      "time": 1,
+      "x": 8,
+      "y": 88,
+      "image": "Mossy1.png"
+    },
+    {
+      "effect": "Mossy",
+      "time": 2,
+      "x": 24,
+      "y": 72,
+      "image": "Mossy2.png"
+    },
+    {
+      "effect": "Mystical",
+      "time": 1,
+      "x": 40,
+      "y": 360,
+      "image": "Mystical1.png"
+    },
+    {
+      "effect": "Mystical",
+      "time": 2,
+      "x": 8,
+      "y": 280,
+      "image": "Mystical2.png"
+    },
+    {
+      "effect": "Shielded",
+      "time": 1,
+      "x": 8,
+      "y": 168,
+      "image": "Shielded1.png"
+    },
+    {
+      "effect": "Shielded",
+      "time": 2,
+      "x": 136,
+      "y": 200,
+      "image": "Shielded2.png"
+    }
+  ]
+}

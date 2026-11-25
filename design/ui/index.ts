@@ -73,3 +73,4 @@ export {
   MomentPanel,
   useDecisionSelection
 } from './game/DecisionExplorer';
+export type { CardFx, FxMaterial } from './game/enchantment-fx/program';

@@ -1,3 +1,4 @@
+import { FxFace } from './enchantment-fx/Face';
 import { CardArt, EnchantLabel, type GameCard } from './Card';
 import { CardText, type CardTextLine } from './CardText';
 import { enchantments, type CardTier, type Enchantment } from './types';
@@ -81,6 +82,9 @@ export function CardDetail({
             data-size={card.size ?? DEFINITION_SIZES[definition?.size ?? '']}
           >
             <CardArt src={card.art} alt="" fallback="" />
+            {card.fx && card.enchant && (
+              <FxFace source={card.fx} enchant={card.enchant} />
+            )}
           </div>
         )}
         <div>
