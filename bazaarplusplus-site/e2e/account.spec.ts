@@ -438,16 +438,21 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   await expect(decisions).not.toHaveAttribute('open', '');
   await decisions.getByText('Day decisions').click();
   const shop = decisions.locator('li').filter({ hasText: 'Ande' });
-  await expect(shop).toContainText('Shop');
-  await shop.getByRole('button', { name: /^Ande/ }).click();
+  await expect(shop).toContainText('Hour 1');
+  await shop.getByRole('button', { name: /Visited Ande/ }).click();
   await expect(page.getByRole('dialog', { name: 'Ande' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(shop).toContainText('Bought');
-  await expect(shop).toContainText('Mantis Shrimp');
-  await expect(shop).toContainText('Rerolls ×1');
+  await shop.getByRole('button', { name: /Mantis Shrimp/ }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Mantis Shrimp' })
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(shop).toContainText('Rerolled ×1');
   await expect(shop).toContainText('net −6 gold');
-  await shop.getByText('Not taken').click();
+  await shop.getByText('Passed over 4').click();
   await expect(shop.getByText('b23c5988')).toBeVisible();
+  await shop.getByText('Passed over 4').click();
   await expect(
     decisions
       .locator('li')
@@ -459,8 +464,11 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   ).toContainText('Win');
   await day(3).getByText('Day decisions').click();
   await expect(
-    day(3).locator('li').filter({ hasText: 'Pedestal' })
-  ).toContainText('Upgraded');
+    day(3)
+      .locator('.bpp-decision-row')
+      .filter({ hasText: 'Zoarcid' })
+      .filter({ hasText: 'Upgraded' })
+  ).toContainText('→ Silver');
   await expect(
     page.getByRole('button', { name: 'Download all frames' })
   ).toHaveCount(0);
@@ -471,12 +479,17 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
     main.getByRole('button', { name: 'Download bytes' })
   ).toBeVisible();
   await main.getByText('Raw frames', { exact: true }).click();
+  await day(3).getByText('Day decisions').click();
   await page.screenshot({
     path: test.info().outputPath('run-path-1280.png'),
     fullPage: true
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await expectNoHorizontalScroll(page);
+  await decisions
+    .locator('.bpp-visit-row')
+    .first()
+    .evaluate((el) => el.scrollIntoView({ block: 'center' }));
   await page.screenshot({
     path: test.info().outputPath('run-path-390.png')
   });

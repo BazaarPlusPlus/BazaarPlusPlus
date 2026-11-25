@@ -318,6 +318,9 @@ type LocalizedSiteCopy = {
     path: {
       decisions: string;
       unknownDay: string;
+      hour: string;
+      visited: string;
+      fought: string;
       notTaken: string;
       noVisits: string;
       moves: string;
@@ -536,7 +539,10 @@ const zh: LocalizedSiteCopy = {
     path: {
       decisions: '当天决策',
       unknownDay: '日期未知',
-      notTaken: '未选',
+      hour: '第 {n} 小时',
+      visited: '拜访 {name}',
+      fought: '迎战 {name}',
+      notTaken: '未选 {n} 件',
       noVisits: '没有记录当天的决策。',
       moves: '移动 {n} 次',
       rerolls: '刷新 {n} 次',
@@ -548,7 +554,7 @@ const zh: LocalizedSiteCopy = {
         pvp: 'PvP',
         pedestal: '祭坛',
         encounter: '遭遇',
-        activity: '行动',
+        activity: '遭遇之间',
         levelUp: '升级',
         loot: '战利品'
       },
@@ -561,14 +567,14 @@ const zh: LocalizedSiteCopy = {
         sold: '出售',
         rerolled: '刷新',
         moved: '移动',
-        skill: '技能',
+        skill: '学会',
         upgraded: '升级',
         enchanted: '附魔',
         committed: '提交',
         left: '离开',
         other: '指令'
       },
-      offered: '可选',
+      offered: '可选 {n} 件',
       gold: '{n} 金币',
       net: '净 {n} 金币',
       health: '{n} 生命',
@@ -1049,10 +1055,13 @@ const en: LocalizedSiteCopy = {
     path: {
       decisions: 'Day decisions',
       unknownDay: 'Unknown day',
-      notTaken: 'Not taken',
+      hour: 'Hour {n}',
+      visited: 'Visited {name}',
+      fought: 'Fought {name}',
+      notTaken: 'Passed over {n}',
       noVisits: 'No decisions recorded for this day.',
-      moves: 'Moves ×{n}',
-      rerolls: 'Rerolls ×{n}',
+      moves: 'Moved ×{n}',
+      rerolls: 'Rerolled ×{n}',
       frame: 'Frame sequence',
       kinds: {
         shop: 'Shop',
@@ -1061,7 +1070,7 @@ const en: LocalizedSiteCopy = {
         pvp: 'PvP',
         pedestal: 'Pedestal',
         encounter: 'Encounter',
-        activity: 'Activity',
+        activity: 'Between encounters',
         levelUp: 'Level up',
         loot: 'Loot'
       },
@@ -1074,14 +1083,14 @@ const en: LocalizedSiteCopy = {
         sold: 'Sold',
         rerolled: 'Rerolled',
         moved: 'Moved',
-        skill: 'Skill',
+        skill: 'Learned',
         upgraded: 'Upgraded',
         enchanted: 'Enchanted',
         committed: 'Committed',
         left: 'Left',
         other: 'Command'
       },
-      offered: 'Offered',
+      offered: 'Offered {n}',
       gold: '{n} gold',
       net: 'net {n} gold',
       health: '{n} health',

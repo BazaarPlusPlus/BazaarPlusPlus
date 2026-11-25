@@ -239,7 +239,7 @@ function Decisions({
                       <DecisionVisit
                         key={v.battleId ?? v.order}
                         visit={v}
-                        outcome={battles.get(v.battleId ?? '')?.outcome}
+                        battle={battles.get(v.battleId ?? '')}
                         art={art}
                         names={(id) =>
                           gameNames(id) ?? detail.cardNames.get(id) ?? null

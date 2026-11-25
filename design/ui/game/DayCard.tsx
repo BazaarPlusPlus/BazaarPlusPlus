@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CardChip, type GameCard } from './Card';
+import { CardArt, type GameCard } from './Card';
 
 export function DayCard({
   title,
@@ -31,22 +31,36 @@ export function DayCard({
 }
 
 export function VisitRow({
-  kind,
+  hour,
+  title,
   encounter,
-  outcome,
-  remaining
+  totals,
+  children
 }: {
-  kind: string;
+  hour: string | null;
+  title: string;
   encounter?: GameCard;
-  outcome: ReactNode;
-  remaining?: ReactNode;
+  totals: ReactNode;
+  children: ReactNode;
 }) {
+  const Element = encounter?.onOpen ? 'button' : 'span';
   return (
     <li className="bpp-visit-row">
-      <strong>{kind}</strong>
-      {encounter && <CardChip card={encounter} title={encounter.name} />}
-      {outcome}
-      {remaining}
+      <header className="bpp-visit-head">
+        <h3>
+          <Element className="bpp-visit-identity" onClick={encounter?.onOpen}>
+            <span className="bpp-visit-art">
+              <CardArt src={encounter?.art ?? null} alt="" fallback="" />
+            </span>
+            <span>
+              {hour && <span className="bpp-visit-hour">{hour}</span>}
+              <strong>{title}</strong>
+            </span>
+          </Element>
+        </h3>
+        <div className="bpp-visit-totals">{totals}</div>
+      </header>
+      {children}
     </li>
   );
 }

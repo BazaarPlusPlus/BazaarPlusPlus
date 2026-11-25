@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { Badge, Button, CardChip, VisitRow, enchantments } from '@bpp/ui';
+import {
+  Badge,
+  Button,
+  CardChip,
+  EnchantLabel,
+  VisitRow,
+  enchantments
+} from '@bpp/ui';
 
 import type { Locale } from '../../app/router';
 import { fillCopy, getSiteCopy } from '../../content/site-copy';
+import { heroName } from '../account/account-ui';
+import type { RunBattle } from './run-payload';
 import type { Visit } from './message-stream/visits';
 import type { CardRef } from './message-stream/project';
 import { gameCard } from './game-card';
@@ -135,13 +144,13 @@ export function StreamDebug({
 
 export function DecisionVisit({
   visit,
-  outcome,
+  battle,
   art,
   names,
   locale
 }: {
   visit: Visit;
-  outcome?: 'win' | 'loss' | null;
+  battle?: RunBattle;
   art: ArtLookup;
   names: Names;
   locale: Locale;
@@ -150,90 +159,136 @@ export function DecisionVisit({
   const labels = copy.path;
   const open = useOpenCard();
   const display = (c: CardRef) => pathCard(c, art, names, locale, open);
+  const outcome = battle?.outcome;
+  const fightId = battle?.encounterId;
+  const encounter = visit.encounter
+    ? display(visit.encounter)
+    : fightId
+      ? gameCard(
+          { templateId: fightId, tier: null, enchant: null },
+          names(fightId) ?? fightId.slice(0, 8),
+          art,
+          locale,
+          open
+        )
+      : undefined;
+  let title = labels.kinds[visit.kind];
+  if (visit.kind === 'pvp') {
+    if (battle?.opponentHero) title += ` · ${heroName(battle.opponentHero)}`;
+  } else if (encounter && visit.kind !== 'levelUp') {
+    title = fillCopy(
+      visit.kind === 'monster' ? labels.fought : labels.visited,
+      { name: encounter.name }
+    );
+  }
+  const cardChip = (card: CardRef) => (
+    <CardChip
+      card={display(card)}
+      title={card.templateId ?? card.instanceId}
+      placeholder
+    />
+  );
   const moves = visit.actions.filter(
     (a) => a.verb === 'moved' && a.outcome === 'done'
-  ).length;
+  );
   const rerolls = visit.actions.filter(
     (a) => a.verb === 'rerolled' && a.outcome === 'done'
-  ).length;
+  );
   return (
     <VisitRow
-      kind={labels.kinds[visit.kind]}
-      encounter={visit.encounter ? display(visit.encounter) : undefined}
-      outcome={
+      title={title}
+      hour={
+        visit.hour == null ? null : fillCopy(labels.hour, { n: visit.hour })
+      }
+      encounter={encounter}
+      totals={
         <>
-          {visit.gap && labels.undecoded}
           {outcome && (
             <Badge tone={outcome === 'win' ? 'ok' : 'bad'}>
               {copy[outcome]}
             </Badge>
           )}
-          {visit.actions.map((a) => {
-            if (
-              a.outcome === 'done' &&
-              (['moved', 'rerolled', 'left'].includes(a.verb) ||
-                (a.verb === 'chose' &&
-                  visit.encounter?.instanceId === a.card?.instanceId))
-            )
-              return null;
-            const enchant = enchantments.find((name) => name === a.result);
-            return (
-              <span
-                className="inline-flex flex-wrap items-center gap-1"
-                key={a.order}
-              >
-                {labels.verbs[a.verb]}
-                {a.card && (
-                  <CardChip
-                    card={display(a.card)}
-                    title={a.card.templateId ?? a.card.instanceId}
-                  />
-                )}
-                {a.amount !== null && fillCopy(labels.gold, { n: a.amount })}
-                {a.result &&
-                  (enchant
-                    ? copy.enchantments[enchant]
-                    : (copy.tiers[a.result] ?? a.result))}
-                {a.outcome !== 'done' && (
-                  <Badge tone="warn">
-                    {a.outcome === 'no-response'
-                      ? labels.noResponse
-                      : labels.attempted}
-                  </Badge>
-                )}
-              </span>
-            );
-          })}
-          {moves > 0 && <span>{fillCopy(labels.moves, { n: moves })}</span>}
-          {rerolls > 0 && (
-            <span>
-              {fillCopy(labels.rerolls, { n: rerolls })}{' '}
-              {visit.rerollFees.length === rerolls &&
-                fillCopy(labels.gold, {
-                  n: -visit.rerollFees.reduce((a, b) => a + b, 0) || 0
-                })}
-            </span>
-          )}
           <Delta value={visit.gold} copy={labels.net} />
           <Delta value={visit.health} copy={labels.health} />
         </>
       }
-      remaining={
-        visit.remaining.length > 0 && (
-          <details>
-            <summary>{visit.closed ? labels.notTaken : labels.offered}</summary>
-            <div className="flex flex-wrap gap-1">
-              {visit.remaining.map((c) => (
-                <CardChip
-                  key={c.instanceId}
-                  card={display(c)}
-                  title={c.templateId ?? c.instanceId}
-                />
-              ))}
+    >
+      {visit.gap && labels.undecoded}
+      {visit.actions.map((a) => {
+        let verb = labels.verbs[a.verb];
+        let amount = a.amount;
+        let card = a.card;
+        if (a.outcome === 'done') {
+          if (
+            a.verb === 'left' ||
+            (a.verb === 'chose' &&
+              encounter &&
+              visit.encounter?.instanceId === a.card?.instanceId)
+          )
+            return null;
+          if (a.verb === 'moved') {
+            if (a !== moves[0]) return null;
+            verb = fillCopy(labels.moves, { n: moves.length });
+            card = null;
+          }
+          if (a.verb === 'rerolled') {
+            if (a !== rerolls[0]) return null;
+            verb = fillCopy(labels.rerolls, { n: rerolls.length });
+            amount =
+              visit.rerollFees.length === rerolls.length
+                ? -visit.rerollFees.reduce((sum, fee) => sum + fee, 0)
+                : null;
+          }
+        }
+        const enchant = enchantments.find((name) => name === a.result);
+        return (
+          <div className="bpp-decision-row" key={a.order}>
+            <span>{verb}</span>
+            <div className="bpp-decision-card">
+              {card && cardChip(card)}
+              {a.result && (
+                <span className="inline-flex items-center gap-1">
+                  →{' '}
+                  {enchant ? (
+                    <EnchantLabel
+                      enchant={enchant}
+                      label={copy.enchantments[enchant]}
+                    />
+                  ) : (
+                    (copy.tiers[a.result] ?? a.result)
+                  )}
+                </span>
+              )}
+              {a.outcome !== 'done' && (
+                <Badge tone="warn">
+                  {a.outcome === 'no-response'
+                    ? labels.noResponse
+                    : labels.attempted}
+                </Badge>
+              )}
             </div>
-          </details>
-        )
-      }
-    />
+            {!!amount && (
+              <span className="text-text-3 tabular-nums">
+                {fillCopy(labels.gold, { n: amount })}
+              </span>
+            )}
+          </div>
+        );
+      })}
+      {visit.remaining.length > 0 && (
+        <details className="bpp-visit-options">
+          <summary>
+            {fillCopy(visit.closed ? labels.notTaken : labels.offered, {
+              n: visit.remaining.length
+            })}
+          </summary>
+          {visit.remaining.map((c) => (
+            <div className="bpp-decision-row" key={c.instanceId}>
+              <div className="bpp-decision-card">{cardChip(c)}</div>
+            </div>
+          ))}
+        </details>
+      )}
+    </VisitRow>
   );
 }

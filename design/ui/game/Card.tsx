@@ -102,7 +102,15 @@ export function CardTile({
   );
 }
 
-export function CardChip({ card, title }: { card: GameCard; title: string }) {
+export function CardChip({
+  card,
+  title,
+  placeholder = false
+}: {
+  card: GameCard;
+  title: string;
+  placeholder?: boolean;
+}) {
   const Element = card.onOpen ? 'button' : 'span';
   return (
     <Element
@@ -111,7 +119,7 @@ export function CardChip({ card, title }: { card: GameCard; title: string }) {
       className={`bpp-card-chip ${tierClass(card.tier)}`}
       title={title}
     >
-      {card.art && (
+      {(card.art || placeholder) && (
         <span className="bpp-card-chip-art">
           <CardArt src={card.art} alt="" fallback="" />
         </span>
