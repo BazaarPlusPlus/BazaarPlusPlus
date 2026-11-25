@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { beforeAll, describe, expect, test } from 'vite-plus/test';
+import { beforeAll, describe, expect, test, vi } from 'vite-plus/test';
 
 import { buildDecisionPath } from '../../runs/message-stream/decision-path';
 import { projectVisits } from '../../runs/message-stream/visits';
@@ -33,6 +33,9 @@ import {
   fixtureStrings
 } from '../tools/run-fixture/build';
 import { SCHEMA } from '../../runs/test/fixtures/game-messages';
+
+// Full 727-frame replays yield between batches. Background test workers can take over five seconds.
+vi.setConfig({ testTimeout: 60_000 });
 
 const FIXTURES = resolve(import.meta.dirname, 'fixtures');
 const PAYLOAD = resolve(FIXTURES, 'run-stream.payload.b64');
