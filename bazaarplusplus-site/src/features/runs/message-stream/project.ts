@@ -15,6 +15,7 @@ export type CardRef = {
   /** ECardType member name, e.g. `Item`, `EventEncounter`. */
   type: string | null;
   tier: string | null;
+  enchant: string | null;
   /** Its BuyPrice attribute then; null when the stream did not carry one. */
   price: number | null;
 };
@@ -104,6 +105,7 @@ type CardState = {
   templateId: string | null;
   type: string | null;
   tier: string | null;
+  enchant: string | null;
   attributes: Map<string, number>;
 };
 
@@ -208,7 +210,13 @@ function newState(): RunState {
 function card(state: RunState, id: string): CardState {
   let found = state.cards.get(id);
   if (!found) {
-    found = { templateId: null, type: null, tier: null, attributes: new Map() };
+    found = {
+      templateId: null,
+      type: null,
+      tier: null,
+      enchant: null,
+      attributes: new Map()
+    };
     state.cards.set(id, found);
   }
   return found;
@@ -221,6 +229,7 @@ export function cardRef(state: RunState, id: string): CardRef {
     templateId: c?.templateId ?? null,
     type: c?.type ?? null,
     tier: c?.tier ?? null,
+    enchant: c?.enchant ?? null,
     price: c?.attributes.get('BuyPrice') ?? null
   };
 }
@@ -231,7 +240,14 @@ function encounterRef(state: RunState): CardRef | null {
   if (!templateId) return null;
   for (const [id, c] of state.cards)
     if (c.templateId === templateId) return cardRef(state, id);
-  return { instanceId: '', templateId, type: null, tier: null, price: null };
+  return {
+    instanceId: '',
+    templateId,
+    type: null,
+    tier: null,
+    enchant: null,
+    price: null
+  };
 }
 
 function applyRunState(state: RunState, current: Translated | undefined) {
@@ -271,11 +287,21 @@ function applySync(state: RunState, data: Translated | undefined) {
     c.templateId = text(field(snapshot, 'TemplateId'))?.toLowerCase() ?? null;
     c.type = enumName(field(snapshot, 'Type'));
     c.tier = enumName(field(snapshot, 'Tier'));
+    c.enchant = enumName(field(snapshot, 'Enchantment'));
     for (const [name, value] of enumKeyed(field(snapshot, 'Attributes'))) {
       const n = int(value);
       if (n !== null) c.attributes.set(name, n);
     }
   }
+}
+
+function updateTemplate(c: CardState, snapshot: Translated) {
+  const templateId = text(field(snapshot, 'TemplateId'))?.toLowerCase();
+  if (templateId && templateId !== c.templateId) {
+    c.templateId = templateId;
+    c.enchant = null;
+  }
+  c.type = enumName(field(snapshot, 'Type')) ?? c.type;
 }
 
 function applyGameSim(
@@ -291,9 +317,7 @@ function applyGameSim(
       case 'GameSimEventCardSpawned':
         if (id !== null) {
           const c = card(state, id);
-          c.templateId =
-            text(field(event, 'TemplateId'))?.toLowerCase() ?? c.templateId;
-          c.type = enumName(field(event, 'Type')) ?? c.type;
+          updateTemplate(c, event);
         }
         evidence.dealt = true;
         break;
@@ -302,9 +326,7 @@ function applyGameSim(
           const tid = text(field(t, 'InstanceId'));
           if (tid === null) continue;
           const c = card(state, tid);
-          c.templateId =
-            text(field(t, 'TemplateId'))?.toLowerCase() ?? c.templateId;
-          c.type = enumName(field(t, 'Type')) ?? c.type;
+          updateTemplate(c, t);
         }
         break;
       case 'GameSimEventCardFused': {
@@ -348,11 +370,11 @@ function applyGameSim(
         }
         break;
       case 'GameSimEventCardEnchanted':
-        if (id !== null)
-          evidence.enchanted.set(
-            id,
-            enumName(field(event, 'EnchantmentType')) ?? ''
-          );
+        if (id !== null) {
+          const enchant = enumName(field(event, 'EnchantmentType'));
+          evidence.enchanted.set(id, enchant ?? '');
+          card(state, id).enchant = enchant;
+        }
         break;
       case 'GameSimEventStateTransitioned':
         evidence.transitioned = true;
@@ -374,6 +396,7 @@ function applyGameSim(
       const id = text(key);
       if (id === null || !(update instanceof TObject)) continue;
       const c = card(state, id);
+      c.enchant = enumName(field(update, 'Enchantment')) ?? c.enchant;
       c.tier = enumName(field(update, 'Tier')) ?? c.tier;
       for (const [name, delta] of enumKeyed(field(update, 'Attributes'))) {
         // An AttributeDelta of type Delete removes the attribute, e.g. a price.

@@ -1,3 +1,4 @@
+import type { CardSize } from '@bpp/ui';
 import type { StreamFrame } from './message-stream/stream';
 import { decodeMessagePack } from './msgpack';
 
@@ -13,7 +14,7 @@ export type RunCard = {
   /** The game's card type; 0 is an item. */
   type: number;
   /** Board width in slots: 1 small, 2 medium, 3 large. */
-  size: number;
+  size: CardSize;
   /** First board slot, 0–9. */
   slot: number | null;
   name: string | null;
@@ -89,12 +90,13 @@ function optionalInteger(value: unknown): number | null {
 
 function card(value: unknown): RunCard {
   const c = fields(value, 9);
+  const size = integer(c[3]);
   const enchant = optionalText(c[8])?.trim() ?? '';
   return {
     instanceId: text(c[0]),
     templateId: text(c[1]).toLowerCase(),
     type: integer(c[2]),
-    size: Math.min(Math.max(integer(c[3]), 1), 3),
+    size: size <= 1 ? 1 : size === 2 ? 2 : 3,
     slot: optionalInteger(c[5]),
     name: optionalText(c[6]),
     tier: optionalText(c[7]),

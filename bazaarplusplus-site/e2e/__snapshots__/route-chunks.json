@@ -1,7 +1,9 @@
 {
   "support": {
     "scripts": {
-      "index.js": 105627
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [
       "https://cdn.bazaarplusplus.com/mod-data/supporters/supporter-list.json"
@@ -13,7 +15,9 @@
   },
   "tutorial": {
     "scripts": {
-      "index.js": 105627
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [],
     "icons": {
@@ -23,7 +27,9 @@
   },
   "download": {
     "scripts": {
-      "index.js": 105627
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [
       "https://cdn.bazaarplusplus.com/game-status/android.json",
@@ -39,9 +45,11 @@
   },
   "heroes": {
     "scripts": {
-      "HeroBadge.js": 619,
-      "index.js": 105627,
-      "route-pages.js": 7857
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726,
+      "route-pages.js": 7904
     },
     "external": [
       "https://cdn.bazaarplusplus.com/metrics/v6/heroes/latest.json"
@@ -53,10 +61,12 @@
   },
   "login": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6170,
-      "HeroBadge.js": 619,
-      "index.js": 105627
+      "account-ui.js": 1485,
+      "AccountPage.js": 6184,
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -68,10 +78,12 @@
   },
   "register": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6170,
-      "HeroBadge.js": 619,
-      "index.js": 105627
+      "account-ui.js": 1485,
+      "AccountPage.js": 6184,
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -83,10 +95,12 @@
   },
   "reset": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6170,
-      "HeroBadge.js": 619,
-      "index.js": 105627
+      "account-ui.js": 1485,
+      "AccountPage.js": 6184,
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -98,10 +112,12 @@
   },
   "account": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6170,
-      "HeroBadge.js": 619,
-      "index.js": 105627
+      "account-ui.js": 1485,
+      "AccountPage.js": 6184,
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [],
     "icons": {
@@ -111,10 +127,12 @@
   },
   "records": {
     "scripts": {
-      "account-ui.js": 1461,
-      "AccountPage.js": 6170,
-      "HeroBadge.js": 619,
-      "index.js": 105627
+      "account-ui.js": 1485,
+      "AccountPage.js": 6184,
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [],
     "icons": {
@@ -124,10 +142,12 @@
   },
   "run": {
     "scripts": {
-      "account-ui.js": 1461,
-      "HeroBadge.js": 619,
-      "index.js": 105627,
-      "RunPage.js": 8023
+      "account-ui.js": 1485,
+      "HeroBadge.js": 623,
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726,
+      "RunPage.js": 7542
     },
     "external": [],
     "icons": {
@@ -137,7 +157,9 @@
   },
   "not-found": {
     "scripts": {
-      "index.js": 105627
+      "index.js": 81058,
+      "intl-locale.js": 26996,
+      "rolldown-runtime.js": 726
     },
     "external": [],
     "icons": {

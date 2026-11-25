@@ -1353,3 +1353,253 @@ html[data-bpp-platform='windows'] .bpp-header {
     transition-duration: 1ms !important;
   }
 }
+
+.bpp-tier-bronze {
+  --bpp-tier: var(--tier-bronze);
+}
+.bpp-tier-silver {
+  --bpp-tier: var(--tier-silver);
+}
+.bpp-tier-gold {
+  --bpp-tier: var(--tier-gold);
+}
+.bpp-tier-diamond {
+  --bpp-tier: var(--tier-diamond);
+}
+.bpp-tier-legendary {
+  --bpp-tier: var(--tier-legendary);
+}
+.bpp-enchant-deadly {
+  --bpp-enchant-mark: var(--enchant-deadly-mark);
+  --bpp-enchant: var(--enchant-deadly);
+}
+.bpp-enchant-ethereal {
+  --bpp-enchant-mark: var(--enchant-ethereal-mark);
+  --bpp-enchant: var(--enchant-ethereal);
+}
+.bpp-enchant-fiery {
+  --bpp-enchant: var(--enchant-fiery);
+}
+.bpp-enchant-golden {
+  --bpp-enchant: var(--enchant-golden);
+}
+.bpp-enchant-heavy {
+  --bpp-enchant: var(--enchant-heavy);
+}
+.bpp-enchant-icy {
+  --bpp-enchant: var(--enchant-icy);
+}
+.bpp-enchant-mystical {
+  --bpp-enchant: var(--enchant-mystical);
+}
+.bpp-enchant-obsidian {
+  --bpp-enchant-mark: var(--enchant-obsidian-mark);
+  --bpp-enchant: var(--enchant-obsidian);
+}
+.bpp-enchant-radiant {
+  --bpp-enchant: var(--enchant-radiant);
+}
+.bpp-enchant-restorative {
+  --bpp-enchant: var(--enchant-restorative);
+}
+.bpp-enchant-shielded {
+  --bpp-enchant: var(--enchant-shielded);
+}
+.bpp-enchant-shiny {
+  --bpp-enchant: var(--enchant-shiny);
+}
+.bpp-enchant-tiny {
+  --bpp-enchant: var(--enchant-tiny);
+}
+.bpp-enchant-toxic {
+  --bpp-enchant: var(--enchant-toxic);
+}
+.bpp-enchant-turbo {
+  --bpp-enchant: var(--enchant-turbo);
+}
+.bpp-enchant-mossy {
+  --bpp-enchant: var(--enchant-mossy);
+}
+
+.bpp-board {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: var(--space-2);
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 5 / 1;
+}
+.bpp-board-slot,
+.bpp-board-card {
+  grid-row: 1;
+  min-width: 0;
+}
+.bpp-board-slot,
+.bpp-board-state {
+  border: 1px dashed var(--line);
+  border-radius: var(--r-inner);
+}
+.bpp-board-state,
+.bpp-board-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  font-size: var(--type-small);
+}
+.bpp-board-state {
+  aspect-ratio: 5 / 1;
+}
+.bpp-board-empty {
+  position: absolute;
+  inset: 0;
+}
+.bpp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
+  border-radius: var(--r-inner);
+  background: var(--bg-panel);
+  font-size: var(--type-micro);
+  line-height: normal;
+  overflow-wrap: anywhere;
+}
+.bpp-card-face {
+  display: grid;
+  flex: 1;
+  min-height: var(--control-sm);
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.bpp-card-fallback {
+  padding: var(--space-2);
+  text-align: center;
+  color: var(--text-2);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+/* On a tile the border carries the tier and the inner ring the enchantment; their words stay
+   for screen readers and the title. A tile wide enough for the word shows the enchantment. */
+.bpp-card .bpp-tier-label,
+.bpp-board-card .bpp-enchant {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.bpp-board-card {
+  container: bpp-board-card / inline-size;
+}
+@container bpp-board-card (min-width: 4rem) {
+  .bpp-board-card .bpp-enchant {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    padding-inline: var(--space-4);
+  }
+}
+.bpp-card-art {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+.bpp-tier-label {
+  color: var(--text-2);
+  font-size: var(--type-micro);
+}
+.bpp-enchant {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--bpp-enchant, var(--text-2));
+  background: var(--bg-panel);
+  font-size: var(--type-micro);
+}
+.bpp-enchant::before {
+  content: '';
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  align-self: center;
+  border-radius: var(--r-pill);
+  background: var(--bpp-enchant-mark, currentColor);
+}
+.bpp-card-change {
+  position: absolute;
+  inset: var(--space-2) auto auto var(--space-2);
+  background: var(--accent);
+  color: var(--on-accent);
+  padding-inline: var(--space-4);
+  border-radius: var(--r-inner);
+}
+.bpp-card-change[data-change='new'] {
+  background: var(--success);
+  color: var(--bg-canvas);
+}
+.bpp-skill-strip,
+.bpp-card-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+.bpp-skill-strip {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.bpp-skill .bpp-card {
+  border: none;
+  overflow: visible;
+  align-items: center;
+}
+.bpp-skill .bpp-card-face {
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--r-pill);
+  border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
+  flex: none;
+}
+.bpp-skill-state {
+  color: var(--text-3);
+  font-size: var(--type-micro);
+}
+.bpp-card-chip {
+  display: inline-flex;
+  font-size: var(--type-small);
+  overflow-wrap: anywhere;
+}
+.bpp-card-chip-art {
+  position: relative;
+  width: var(--space-24);
+  height: var(--space-24);
+  overflow: hidden;
+  border-radius: var(--r-inner);
+  border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
+}
+
+.bpp-card-name {
+  color: var(--text-1);
+  font-size: var(--type-micro);
+}
+
+.bpp-card-enchant .bpp-card-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--space-2) solid var(--bpp-enchant-mark, var(--bpp-enchant));
+  pointer-events: none;
+}
+.bpp-card-caption .bpp-card-face {
+  aspect-ratio: 1;
+  flex: none;
+}

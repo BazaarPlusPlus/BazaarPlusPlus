@@ -14,7 +14,7 @@ Android App 是启动器：一页里显示游戏、状态和下一步操作，�
 |---|---|---|
 | 颜色、间距、圆角、尺寸、阴影、动效、字体栈、字号 | `design/tokens.json` | `just design::build` 生成 `bazaarplusplus-installer/src/styles/tokens.css`，字号是其中的 `--type-*` 变量；site 在 `dev` 和 `build` 前用 `bun run tokens` 把它复制到被 git 忽略的 `bazaarplusplus-site/src/styles/installer-tokens.css`；`just design::build` 还生成 Tailwind 桥 `design/tailwind-theme.css`，installer 的 `src/styles/index.css` 与 site 的 `src/styles/tokens.css` 直接 `@import`；产品颜色、间距、圆角、尺寸和字号另外生成 Android App 的 `res/values/bpp_tokens.xml` |
 | 共享 `bpp-*` 组件样式 | `design/components/bundle.css` | installer 的 `src/styles/index.css` 与 site 的 `src/styles/global.css` 直接 `@import` |
-| Web 组件库（Button、Badge、StatusPanel、StatusBanner、Dialog、PageHeader、SegmentedControl） | `design/ui/` | installer 与 site 都以 `@bpp/ui` 引入，组件只用 `bundle.css` 的类；见 [ADR-0018](adr/0018-one-web-component-library.md) |
+| Web 组件库（Button、Badge、StatusPanel、StatusBanner、Dialog、PageHeader、SegmentedControl，以及卡牌、阵容、技能和附魔标签） | `design/ui/` | installer 与 site 都以 `@bpp/ui` 引入，组件只用 `bundle.css` 的类；见 [ADR-0018](adr/0018-one-web-component-library.md) |
 | 视觉、对齐、动效与组件规则 | `design/README.md` 与 `design/components/*/README.md` | 两个产品 |
 | 文案：语气、术语表、大小写与标点、句式 | `design/writing.md` | installer 的 `src/i18n/messages.ts` 与 site 的 `src/content/site-copy.ts` |
 | 游戏内颜色 | `design/tokens.json` 的 `ingame-*` | `just design::build` 生成 mod 桌面 UI 与 Mobile UI 的 `InGameTheme.g.cs` |
