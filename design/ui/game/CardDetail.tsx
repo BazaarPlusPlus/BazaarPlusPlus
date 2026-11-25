@@ -27,6 +27,7 @@ export function CardDetail({
   card,
   definition,
   labels,
+  tagLabels,
   enchantLabels,
   tierLabels,
   titleId
@@ -34,10 +35,13 @@ export function CardDetail({
   card: GameCard;
   definition?: CardDefinition;
   labels: CardDetailLabels;
+  tagLabels: Record<string, string>;
   enchantLabels: Record<Enchantment, string>;
   tierLabels: Record<string, string>;
   titleId?: string;
 }) {
+  const localizedTags = (tags: string[]) =>
+    tags.map((tag) => tagLabels[tag]).filter(Boolean);
   const attrs = card.tier ? definition?.attributes[card.tier] : undefined;
   const qualities = Object.keys(definition?.attributes ?? {});
   const lines = (effects: CardTextLine[]) =>
@@ -76,7 +80,7 @@ export function CardDetail({
             {[
               card.tierLabel,
               definition && (labels.sizes[definition.size] ?? definition.size),
-              ...(definition?.tags ?? [])
+              ...localizedTags(definition?.tags ?? [])
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -105,6 +109,7 @@ export function CardDetail({
           <h3>{labels.enchantments}</h3>
           {entries.map(([name, effect]) => {
             const enchant = enchantments.find((e) => e === name) ?? null;
+            const tags = localizedTags(effect.tags);
             return (
               <section
                 key={name}
@@ -117,7 +122,7 @@ export function CardDetail({
                     label={enchant ? enchantLabels[enchant] : name}
                   />
                 </h4>
-                {effect.tags.length > 0 && <p>{effect.tags.join(' · ')}</p>}
+                {tags.length > 0 && <p>{tags.join(' · ')}</p>}
                 {lines(effect.lines)}
               </section>
             );

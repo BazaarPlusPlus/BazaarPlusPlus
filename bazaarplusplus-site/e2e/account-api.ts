@@ -242,6 +242,7 @@ export async function mockCardArt(
         json: {
           version: 1,
           locale: 'en',
+          tagLabels: { Instrument: 'Instrument' },
           cards: {
             'd6c55b70-fcc7-454c-af9c-06b99d2d01e3': {
               title: 'Tambourine',

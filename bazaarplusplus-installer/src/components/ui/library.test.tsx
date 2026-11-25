@@ -13,6 +13,7 @@ import {
 } from 'vite-plus/test';
 import {
   Button,
+  CardDetail,
   CardText,
   type CardTextLine,
   Dialog,
@@ -206,4 +207,60 @@ describe('Card Text', () => {
       lineText({ ...line, available: false, resolved: 'none', segments: [] })
     ).toBe('Unavailable');
   });
+});
+
+it('renders only localized card and enchantment tags', async () => {
+  await render(
+    <CardDetail
+      card={{
+        name: '雷达',
+        art: null,
+        tier: null,
+        tierLabel: '',
+        enchant: null,
+        enchantLabel: ''
+      }}
+      definition={{
+        title: '雷达',
+        size: 'Medium',
+        startingTier: 'Silver',
+        attributes: {},
+        tags: ['Tech', 'Relic'],
+        lines: [],
+        enchantments: { Obsidian: { tags: ['Weapon', 'Relic'], lines: [] } }
+      }}
+      tagLabels={{ Tech: '科技', Weapon: '武器' }}
+      labels={{
+        sizes: { Medium: '中型' },
+        enchantments: '附魔',
+        cooldown: '',
+        ammo: '',
+        seconds: '',
+        unavailable: ''
+      }}
+      tierLabels={{}}
+      enchantLabels={{
+        Deadly: '',
+        Ethereal: '',
+        Fiery: '',
+        Golden: '',
+        Heavy: '',
+        Icy: '',
+        Mystical: '',
+        Obsidian: '黑曜石',
+        Radiant: '',
+        Restorative: '',
+        Shielded: '',
+        Shiny: '',
+        Tiny: '',
+        Toxic: '',
+        Turbo: '',
+        Mossy: ''
+      }}
+    />
+  );
+  expect(container.querySelector('header p')?.textContent).toBe('中型 · 科技');
+  expect(container.querySelector('.bpp-detail-enchant p')?.textContent).toBe(
+    '武器'
+  );
 });

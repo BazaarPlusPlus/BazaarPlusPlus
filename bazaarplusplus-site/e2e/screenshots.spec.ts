@@ -63,6 +63,7 @@ for (const width of [1280, 390]) {
         await tile.focus();
         await tile.press('Enter');
         const dialog = page.getByRole('dialog', { name: 'Tambourine' });
+        await expect(dialog.getByText(/Instrument/)).toBeVisible();
         await expect(dialog.getByText('This has +1 Multicast.')).toBeVisible();
         await expect(dialog.locator('[data-current=true]')).toContainText(
           'Shiny'

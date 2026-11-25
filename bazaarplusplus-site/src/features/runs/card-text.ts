@@ -20,10 +20,11 @@ export async function loadCardText(file: string, signal: AbortSignal) {
   if (!response.ok) throw new Error(`Card Text ${response.status}`);
   const body = (await response.json()) as {
     version: number;
+    tagLabels?: Record<string, string>;
     cards: Record<string, CardDefinition>;
   };
   if (body.version !== 1 || !body.cards) throw new Error('Invalid Card Text');
-  return body.cards;
+  return { cards: body.cards, tagLabels: body.tagLabels ?? {} };
 }
 
 export function useCardText(locale: Locale) {
@@ -37,7 +38,10 @@ export function useCardText(locale: Locale) {
     retry: false
   });
   return {
-    cards: query.data,
+    cards: query.data?.cards,
+    tagLabels: file?.startsWith(`text-${locale}-`)
+      ? (query.data?.tagLabels ?? {})
+      : {},
     loading: index.isPending || (!!file && query.isPending)
   };
 }

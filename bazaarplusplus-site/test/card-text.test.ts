@@ -12,9 +12,12 @@ it('chooses the locale file and falls back only for an absent Chinese file', () 
 });
 it('reads the catalog from the same-origin Card Art proxy', async () => {
   const cards = { sample: { title: 'Radar Module' } };
-  const fetch = vi.fn().mockResolvedValue(Response.json({ version: 1, cards }));
+  const tagLabels = { Tech: '科技' };
+  const fetch = vi
+    .fn()
+    .mockResolvedValue(Response.json({ version: 1, cards, tagLabels }));
   vi.stubGlobal('fetch', fetch);
   const signal = new AbortController().signal;
-  expect(await loadCardText(en, signal)).toEqual(cards);
-  expect(fetch).toHaveBeenCalledWith('/card-art/' + en, { signal });
+  expect(await loadCardText(zh, signal)).toEqual({ cards, tagLabels });
+  expect(fetch).toHaveBeenCalledWith('/card-art/' + zh, { signal });
 });

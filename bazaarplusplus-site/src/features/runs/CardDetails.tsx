@@ -30,7 +30,7 @@ function DetailsDialog({
   locale: Locale;
   close: () => void;
 }) {
-  const { cards, loading } = useCardText(locale);
+  const { cards, tagLabels, loading } = useCardText(locale);
   const copy = getSiteCopy(locale).account;
   const definition = selection.templateId
     ? cards?.[selection.templateId.toLowerCase()]
@@ -42,6 +42,7 @@ function DetailsDialog({
           <CardDetail
             card={selection.card}
             definition={definition}
+            tagLabels={tagLabels}
             labels={
               loading
                 ? { ...copy.cardDetail, unavailable: copy.loading }
