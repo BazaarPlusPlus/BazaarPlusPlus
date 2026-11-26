@@ -1,0 +1,9 @@
+# Build output and pinned Card Art carry a content hash in their filenames.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/card-art/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+/card-art/fx-*
+  Cache-Control: public, max-age=31536000, immutable
+/card-art/text-*
+  Cache-Control: public, max-age=31536000, immutable
