@@ -1,14 +1,14 @@
 {
   "origin": "https://cdn.bazaarplusplus.com/card-art/",
-  "indexSha256": "24ccb4de380dfcb19c4f552aff2876e0a034ee637688d2cfe58e856d81c3ebfb",
+  "indexSha256": "cd346c06fed86e808972aff6ec255fabb0255e3845c5c5d54afc23bd0303ad21",
   "game": {
     "buildid": "26592248",
     "gameData": "2b4a742a9b392745e23a521afa8fc202",
     "zh": "0498f9989a91e6b7a93686f93327ada7"
   },
   "text": {
-    "en": "text-en-9281c303790ef17ca987.json",
-    "zh": "text-zh-1ff9ec0a195e817538a9.json"
+    "en": "text-en-78998aebe3ca3738cb90.json",
+    "zh": "text-zh-eabd1c7e1282db7c3f64.json"
   },
   "cards": [
     {
@@ -165,15 +165,56 @@
       "tier": "Legendary"
     }
   ],
+  "skills": [
+    {
+      "id": "0012231c-bc8a-4367-a652-378440652e11",
+      "file": "2cdfa1ab47a911bccd0f.webp",
+      "zh": "枯萎之怒",
+      "en": "Blight Rage",
+      "tier": "Bronze"
+    },
+    {
+      "id": "02ae11ee-14a6-4735-b8df-4d668fc16f88",
+      "file": "e12b393e68705cbd3148.webp",
+      "zh": "持剪狂奔",
+      "en": "Running with Scissors",
+      "tier": "Silver"
+    },
+    {
+      "id": "0283b102-e0ef-4df4-b447-c5208049bf02",
+      "file": "893e7e552a2d1af58c80.webp",
+      "zh": "抛光加持",
+      "en": "Buffed and Polished",
+      "tier": "Gold"
+    },
+    {
+      "id": "00e1526a-0eb6-49af-93fd-e5e4aea5f05a",
+      "file": "2961e9f42e65f72baa24.webp",
+      "zh": "缩短暴怒",
+      "en": "Shortened Rage",
+      "tier": "Diamond"
+    },
+    {
+      "id": "09c59ebf-d2f9-4862-9c30-396b9ddfdd89",
+      "file": "5f51bc243f4e2dd2ac66.webp",
+      "zh": "炽焰重生",
+      "en": "Fiery Rebirth",
+      "tier": "Legendary"
+    }
+  ],
   "textures": [
     "26239e4ff5de4fe81e54.webp",
+    "2961e9f42e65f72baa24.webp",
+    "2cdfa1ab47a911bccd0f.webp",
     "3c5052594bd563c8b4cf.webp",
     "41b74e38e38d32d86aa1.webp",
     "582bc4025116c98133f1.webp",
     "5f4ea9b9320b79f1dbda.webp",
+    "5f51bc243f4e2dd2ac66.webp",
     "604304ea3d9ea1d3e729.webp",
     "61806898d731946d31be.webp",
     "807a82535dd63e2f07c1.webp",
+    "893e7e552a2d1af58c80.webp",
     "975995d45441837749b3.webp",
     "9c1ccd0968a931524588.webp",
     "a274cb4b19e25988348c.webp",
@@ -182,6 +223,7 @@
     "c701ded17c627f5b7140.webp",
     "d44cb543ebab91929621.webp",
     "d82decd37ec6ecfe9579.webp",
+    "e12b393e68705cbd3148.webp",
     "fc4c81784935224327cf.webp",
     "tex-0641f0543ceb5af22916.webp",
     "tex-0e30b03ba03a977b736a.webp",

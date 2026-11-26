@@ -2,7 +2,8 @@ import type { ArtLookup } from './card-art';
 import { cardTiers, enchantments, type CardSize, type GameCard } from '@bpp/ui';
 import type { Locale } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
-import type { useOpenCard } from './CardDetails';
+import { createElement } from 'react';
+import { CardDefinition, type useOpenCard } from './CardDetails';
 
 export function gameCard(
   card: {
@@ -34,6 +35,14 @@ export function gameCard(
   };
   return {
     ...display,
+    preview: card.templateId
+      ? createElement(CardDefinition, {
+          templateId: card.templateId,
+          card: display,
+          locale,
+          preview: true
+        })
+      : undefined,
     onOpen: open
       ? () => open({ templateId: card.templateId, card: display })
       : undefined

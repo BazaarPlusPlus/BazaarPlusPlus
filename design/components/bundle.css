@@ -1477,9 +1477,10 @@ html[data-bpp-platform='windows'] .bpp-header {
     0 0 0 1px var(--bg-canvas),
     0 2px 4px color-mix(in srgb, var(--bg-canvas) 70%, transparent);
   transition:
-    translate var(--t-fast) var(--ease),
-    box-shadow var(--t-fast) var(--ease),
-    filter var(--t-fast) var(--ease);
+    translate var(--t-base) var(--ease),
+    scale var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease),
+    filter var(--t-base) var(--ease);
 }
 .bpp-card {
   display: flex;
@@ -1518,15 +1519,23 @@ html[data-bpp-platform='windows'] .bpp-header {
     0 0 0 1px var(--bg-canvas),
     0 0 10px color-mix(in srgb, var(--bpp-tier) 45%, transparent);
 }
+/* Hover lifts the card above its neighbours, as the game does. */
 button.bpp-card:hover,
 button.bpp-card:focus-visible,
 button.bpp-skill-tile:hover,
 button.bpp-skill-tile:focus-visible {
-  translate: 0 -2px;
-  filter: brightness(1.1);
+  z-index: 1;
+  translate: 0 -4px;
+  scale: 1.06;
+  filter: brightness(1.15);
   box-shadow:
     0 0 0 1px var(--bg-canvas),
-    0 6px 14px color-mix(in srgb, var(--bpp-frame) 40%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--bpp-frame) 60%, transparent),
+    0 8px 20px color-mix(in srgb, var(--bpp-frame) 55%, transparent);
+}
+button.bpp-skill-tile:hover,
+button.bpp-skill-tile:focus-visible {
+  scale: 1.12;
 }
 button.bpp-card:focus-visible,
 button.bpp-skill-tile:focus-visible {
@@ -1536,6 +1545,7 @@ button.bpp-skill-tile:focus-visible {
 button.bpp-card:active,
 button.bpp-skill-tile:active {
   translate: 0;
+  scale: 1;
 }
 .bpp-card-fallback {
   padding: var(--space-2);
@@ -1648,6 +1658,23 @@ button.bpp-skill-tile:active {
   border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
 }
 
+/* The hover preview: a read-only CardDetail in the top layer beside its tile. */
+.bpp-card-preview {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(22rem, calc(100vw - var(--space-16)));
+  max-height: calc(100vh - var(--space-16));
+  overflow: hidden;
+  padding: var(--space-16);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-panel);
+  background: var(--bg-panel);
+  color: var(--text-1);
+  box-shadow: var(--shadow-float);
+  pointer-events: none;
+}
 .bpp-card-fx {
   position: absolute;
   inset: 0;
@@ -1700,6 +1727,23 @@ strong.bpp-effect-value {
 }
 .bpp-keyword {
   color: var(--text-1);
+}
+.bpp-detail-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.bpp-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--text-2);
+  font-size: var(--type-small);
+  cursor: pointer;
+}
+.bpp-detail-toggle input {
+  accent-color: var(--accent);
 }
 .bpp-detail-enchant {
   padding: var(--space-8);
@@ -1881,6 +1925,9 @@ button.bpp-visit-identity {
 .bpp-detail-art[data-size='3'] {
   aspect-ratio: 3 / 2;
 }
+.bpp-detail-art[data-size='2'] {
+  aspect-ratio: 1;
+}
 .bpp-detail-art[data-size] {
   width: auto;
 }
@@ -1979,16 +2026,19 @@ button.bpp-visit-identity {
   }
 }
 
-/* A tile outside a board keeps the game's card frame: 1:2, 2:2 or 3:2 by size. */
-.bpp-card[data-size] .bpp-card-face {
+/* A tile outside a board keeps the game's card frame: 1:2, 2:2 or 3:2 by size. The frame
+   itself takes the ratio, so tiles of every size in a row share one height. */
+.bpp-card[data-size] {
   aspect-ratio: 1;
+  height: auto;
 }
-.bpp-card[data-size='1'] .bpp-card-face {
+.bpp-card[data-size='1'] {
   aspect-ratio: 1 / 2;
 }
-.bpp-card[data-size='3'] .bpp-card-face {
+.bpp-card[data-size='3'] {
   aspect-ratio: 3 / 2;
 }
-.bpp-board-card .bpp-card[data-size] .bpp-card-face {
+.bpp-board-card .bpp-card[data-size] {
   aspect-ratio: auto;
+  height: 100%;
 }

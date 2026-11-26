@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { FxFace } from './enchantment-fx/Face';
 import { CardArt, EnchantLabel, type GameCard } from './Card';
 import { CardText, type CardTextLine } from './CardText';
@@ -8,6 +9,35 @@ const DEFINITION_SIZES: Record<string, number> = {
   Medium: 2,
   Large: 3
 };
+
+// One choice for every card detail and preview on the page, remembered across visits.
+const ALL_ENCHANTMENTS = 'bpp.card-detail.all-enchantments';
+const subscribers = new Set<() => void>();
+let showAll: boolean | undefined;
+function allEnchantments() {
+  if (showAll === undefined)
+    try {
+      showAll = localStorage.getItem(ALL_ENCHANTMENTS) === '1';
+    } catch {
+      showAll = false;
+    }
+  return showAll;
+}
+function setAllEnchantments(next: boolean) {
+  showAll = next;
+  try {
+    localStorage.setItem(ALL_ENCHANTMENTS, next ? '1' : '0');
+  } catch {
+    // Storage can be unavailable; the choice still holds for this page.
+  }
+  for (const notify of subscribers) notify();
+}
+function subscribe(notify: () => void) {
+  subscribers.add(notify);
+  return () => {
+    subscribers.delete(notify);
+  };
+}
 
 export type CardDefinition = {
   title: string | null;
@@ -24,6 +54,8 @@ export type CardDefinition = {
 export type CardDetailLabels = {
   sizes: Record<string, string>;
   enchantments: string;
+  /** The switch between the card's own enchantment and every enchantment it can take. */
+  allEnchantments: string;
   cooldown: string;
   ammo: string;
   seconds: string;
@@ -37,7 +69,8 @@ export function CardDetail({
   tagLabels,
   enchantLabels,
   tierLabels,
-  titleId
+  titleId,
+  preview = false
 }: {
   card: GameCard;
   definition?: CardDefinition;
@@ -46,7 +79,10 @@ export function CardDetail({
   enchantLabels: Record<Enchantment, string>;
   tierLabels: Record<string, string>;
   titleId?: string;
+  /** A hover preview is read-only: it follows the enchantment switch but does not show it. */
+  preview?: boolean;
 }) {
+  const all = useSyncExternalStore(subscribe, allEnchantments, () => false);
   const localizedTags = (tags: string[]) =>
     tags.map((tag) => tagLabels[tag]).filter(Boolean);
   const attrs = card.tier ? definition?.attributes[card.tier] : undefined;
@@ -67,12 +103,10 @@ export function CardDetail({
       </div>
     ));
   const effects = Object.entries(definition?.enchantments ?? {});
-  const entries = card.enchant
-    ? [
-        ...effects.filter(([name]) => name === card.enchant),
-        ...effects.filter(([name]) => name !== card.enchant)
-      ]
-    : effects;
+  const current = effects.filter(([name]) => name === card.enchant);
+  const entries = all
+    ? [...current, ...effects.filter(([name]) => name !== card.enchant)]
+    : current;
   return (
     <article className="bpp-card-detail">
       <header className="bpp-detail-head">
@@ -117,9 +151,21 @@ export function CardDetail({
       ) : (
         <p className="bpp-card-unavailable">{labels.unavailable}</p>
       )}
-      {entries.length > 0 && (
+      {effects.length > 0 && (entries.length > 0 || !preview) && (
         <section>
-          <h3>{labels.enchantments}</h3>
+          <div className="bpp-detail-section-head">
+            <h3>{labels.enchantments}</h3>
+            {!preview && (
+              <label className="bpp-detail-toggle">
+                <input
+                  type="checkbox"
+                  checked={all}
+                  onChange={(event) => setAllEnchantments(event.target.checked)}
+                />
+                {labels.allEnchantments}
+              </label>
+            )}
+          </div>
           {entries.map(([name, effect]) => {
             const enchant = enchantments.find((e) => e === name) ?? null;
             const tags = localizedTags(effect.tags);

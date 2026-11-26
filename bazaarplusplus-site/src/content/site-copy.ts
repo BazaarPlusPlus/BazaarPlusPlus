@@ -300,6 +300,7 @@ type LocalizedSiteCopy = {
     cardDetail: {
       close: string;
       enchantments: string;
+      allEnchantments: string;
       sizes: Record<string, string>;
       ammo: string;
       cooldown: string;
@@ -513,6 +514,7 @@ const zh: LocalizedSiteCopy = {
     cardDetail: {
       close: '关闭',
       enchantments: '附魔',
+      allEnchantments: '显示全部附魔',
       sizes: { Small: '小型', Medium: '中型', Large: '大型' },
       ammo: '弹药',
       cooldown: '冷却',
@@ -1041,6 +1043,7 @@ const en: LocalizedSiteCopy = {
     cardDetail: {
       close: 'Close',
       enchantments: 'Enchantments',
+      allEnchantments: 'Show all enchantments',
       sizes: { Small: 'Small', Medium: 'Medium', Large: 'Large' },
       ammo: 'Ammo',
       cooldown: 'Cooldown',

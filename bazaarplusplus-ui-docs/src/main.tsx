@@ -45,7 +45,7 @@ function App() {
     ));
   return (
     <>
-      <header className="flex items-center gap-3 border-b border-line bg-sidebar px-6 py-3">
+      <header className="docs-header flex items-center gap-3 border-b border-line bg-sidebar px-6">
         <a
           className="flex items-center gap-2 font-semibold"
           href={href('overview')}
@@ -81,7 +81,7 @@ function App() {
           aria-label={t('组件目录', 'Component directory')}
           className={
             (menu ? 'grid' : 'hidden') +
-            ' md:grid content-start border-line md:border-r p-4 bg-sidebar'
+            ' md:grid docs-nav content-start border-line md:border-r p-4 bg-sidebar'
           }
         >
           {nav(pages)}

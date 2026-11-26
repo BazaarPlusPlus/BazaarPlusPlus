@@ -1,6 +1,7 @@
-import { CardChip, CardTile, cardTiers } from '@bpp/ui';
+import { CardChip, CardTile, cardTiers, enchantments } from '@bpp/ui';
 import { card, pinned } from '../cards';
 import { type DemoProps, translate } from '../copy';
+const open = () => {};
 export default function Cards({ lang }: DemoProps) {
   const first = card(lang, pinned[0]);
   return (
@@ -14,8 +15,16 @@ export default function Cards({ lang }: DemoProps) {
                 lang,
                 pinned.find((p) => p.tier === tier)!
               ),
-              onOpen: () => {}
+              onOpen: open
             }}
+          />
+        ))}
+      </div>
+      <div className="gallery">
+        {enchantments.map((enchant, index) => (
+          <CardTile
+            key={enchant}
+            card={{ ...card(lang, pinned[index], enchant), onOpen: open }}
           />
         ))}
       </div>

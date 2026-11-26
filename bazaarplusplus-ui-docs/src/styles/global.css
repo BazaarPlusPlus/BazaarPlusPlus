@@ -5,12 +5,19 @@
 body {
   @apply bg-canvas text-text-1 font-sans text-body;
 }
+.docs-header {
+  @apply sticky top-0 z-20 h-14;
+}
 .layout {
-  @apply grid min-h-screen;
+  @apply grid min-h-[calc(100vh-3.5rem)];
 }
 @media (min-width: 48rem) {
   .layout {
     grid-template-columns: minmax(min-content, 16%) minmax(0, 1fr);
+  }
+  /* The directory stays beside the page and scrolls on its own. */
+  .docs-nav {
+    @apply sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto;
   }
 }
 .nav-link {
