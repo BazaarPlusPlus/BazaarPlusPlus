@@ -44,10 +44,7 @@
   }
 }
 
-/* Keep the active row and the wide decision panel below the sticky site navigation. */
-.bpp-moment-button {
-  scroll-margin-block-start: calc(2 * var(--row-height) + var(--space-8));
-}
-.bpp-decision-explorer[data-wide='true'] .bpp-moment {
-  top: calc(var(--row-height) + var(--space-16));
+/* Keep the replay panel and its steps below the sticky site navigation. */
+.bpp-replay {
+  --replay-top: calc(var(--row-height) + var(--space-8));
 }

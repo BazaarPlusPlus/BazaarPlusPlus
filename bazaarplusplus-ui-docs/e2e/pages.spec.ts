@@ -19,17 +19,20 @@ for (const [key, title, en] of pages) {
           page.locator('canvas').first().getAttribute('width').then(Number)
         )
         .toBeGreaterThan(0);
-    if (key === 'day-card') {
-      await page.getByText('当天决策', { exact: true }).click();
-      await expect(page.getByText('商店', { exact: true })).toBeVisible();
-    }
-    if (key === 'decision-explorer') {
+    if (key === 'run-replay') {
       await page.getByRole('button', { name: '买入 · 飞鱼' }).click();
       await expect(page.locator('.bpp-moment-title')).toHaveText('买入 · 飞鱼');
       await page.getByRole('button', { name: '上一步' }).click();
       await expect(page.locator('.bpp-moment-title')).toHaveText(
         '买入 · 皮皮虾'
       );
+      await page
+        .getByRole('button', { name: '买入 · 皮皮虾' })
+        .press('ArrowDown');
+      await expect(page.locator('.bpp-moment-title')).toHaveText('买入 · 飞鱼');
+      await expect(
+        page.getByRole('button', { name: '买入 · 飞鱼' })
+      ).toBeFocused();
     }
     expect(
       await page.evaluate(
@@ -37,7 +40,7 @@ for (const [key, title, en] of pages) {
       )
     ).toBe(true);
     const out = process.env.BPP_UI_DOCS_SCREENSHOTS;
-    if (out && ['overview', 'cards', 'decision-explorer'].includes(key)) {
+    if (out && ['overview', 'cards', 'run-replay'].includes(key)) {
       mkdirSync(out, { recursive: true });
       await page.screenshot({
         path: join(out, key + '-' + info.project.name + '.png'),

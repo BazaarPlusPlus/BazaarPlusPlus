@@ -1,14 +1,17 @@
+import { useMemo } from 'react';
 import {
-  type DayMoment,
   presentMoment,
-  presentVisit
+  presentStep,
+  presentVisit,
+  replayVisits,
+  type MomentIndex,
+  type VisitLabel
 } from '@bpp/runs/decisions';
 import {
   MomentPanel,
-  useDecisionSelection,
+  RunReplay,
   Badge,
   FrameInspector,
-  DecisionVisitRow,
   EnchantLabel,
   enchantments
 } from '@bpp/ui';
@@ -92,17 +95,18 @@ export function StreamDebug({
   );
 }
 
-export function DecisionVisit({
-  opening,
-  visit,
-  battle,
+/** The whole Run replayed step by step; the panel shows the board after the selected step. */
+export function SiteReplay({
+  visits,
+  index,
+  battles,
   art,
   names,
   locale
 }: {
-  opening?: number;
-  visit: Visit;
-  battle?: RunBattle;
+  visits: readonly Visit[];
+  index: MomentIndex;
+  battles: ReadonlyMap<string, RunBattle>;
   art: ArtLookup;
   names: Names;
   locale: Locale;
@@ -110,71 +114,82 @@ export function DecisionVisit({
   const copy = getSiteCopy(locale).account;
   const labels = copy.path;
   const open = useOpenCard();
-  const display = (c: CardRef) => pathCard(c, art, names, locale, open);
-  const outcome = battle?.outcome;
-  const text = { ...labels, ...labels.kinds, ...labels.verbs };
-  const selection = useDecisionSelection();
-  const view = presentVisit(
-    visit,
-    battle && {
-      ...battle,
-      opponentHero: battle.opponentHero ? heroName(battle.opponentHero) : null
-    },
-    display,
-    (key, params) => (params ? fillCopy(text[key], params) : text[key]),
-    selection?.active,
-    opening
-  );
+  const replay = useMemo(() => replayVisits(visits, index), [visits, index]);
+  const views = useMemo(() => {
+    const display = (c: CardRef) => pathCard(c, art, names, locale, open);
+    const text = { ...labels, ...labels.kinds, ...labels.verbs };
+    const label = (key: VisitLabel, params?: Record<string, string | number>) =>
+      params ? fillCopy(text[key], params) : text[key];
+    const result = (value: string) => {
+      const enchant = enchantments.find((name) => name === value);
+      return enchant ? (
+        <EnchantLabel enchant={enchant} label={copy.enchantments[enchant]} />
+      ) : (
+        (copy.tiers[value] ?? value)
+      );
+    };
+    return replay.map(({ visit, steps }) => {
+      const battle = battles.get(visit.battleId ?? '');
+      const view = presentVisit(
+        visit,
+        battle && {
+          ...battle,
+          opponentHero: battle.opponentHero
+            ? heroName(battle.opponentHero)
+            : null
+        },
+        display,
+        label
+      );
+      return {
+        ...view,
+        key: visit.battleId ?? visit.order,
+        day: visit.day === null ? null : fillCopy(copy.day, { day: visit.day }),
+        outcome: battle?.outcome && (
+          <Badge tone={battle.outcome === 'win' ? 'ok' : 'bad'}>
+            {copy[battle.outcome]}
+          </Badge>
+        ),
+        steps: steps.map((step) => {
+          const row = presentStep(step, display, label);
+          return {
+            ...row,
+            card: row.card && { card: row.card, title: row.title ?? '' },
+            result: row.result && result(row.result)
+          };
+        })
+      };
+    });
+  }, [replay, battles, art, names, locale, open, copy, labels]);
   return (
-    <DecisionVisitRow
-      view={view}
-      outcome={
-        outcome && (
-          <Badge tone={outcome === 'win' ? 'ok' : 'bad'}>{copy[outcome]}</Badge>
-        )
-      }
-      renderResult={(result) => {
-        const enchant = enchantments.find((name) => name === result);
-        return enchant ? (
-          <EnchantLabel enchant={enchant} label={copy.enchantments[enchant]} />
+    <RunReplay
+      visits={views}
+      previous={labels.previous}
+      next={labels.next}
+      render={(v, s) => {
+        const step = replay[v].steps[s];
+        const view = views[v];
+        const row = view.steps[s];
+        const title = [view.day, view.hour, row.verb, row.card?.card.name]
+          .filter(Boolean)
+          .join(' · ');
+        return step.moment ? (
+          <MomentPanel
+            formatPrice={(n) => fillCopy(labels.gold, { n })}
+            labels={{ ...labels, skills: copy.skills }}
+            title={title}
+            reroll={step.verb === 'rerolled'}
+            view={presentMoment(step.moment, (c) =>
+              pathCard(c, art, names, locale, open)
+            )}
+          />
         ) : (
-          (copy.tiers[result] ?? result)
+          <>
+            <h3 className="bpp-moment-title">{title}</h3>
+            <p>{labels.unknown}</p>
+          </>
         );
       }}
-    />
-  );
-}
-
-export function SiteMoment({
-  row,
-  art,
-  names,
-  locale
-}: {
-  row: DayMoment;
-  art: ArtLookup;
-  names: Names;
-  locale: Locale;
-}) {
-  const open = useOpenCard(),
-    labels = getSiteCopy(locale).account.path;
-  const title = [
-    row.visit.day !== null &&
-      fillCopy(getSiteCopy(locale).account.day, { day: row.visit.day }),
-    row.visit.hour !== null && fillCopy(labels.hour, { n: row.visit.hour }),
-    { ...labels, ...labels.verbs, ...labels.kinds }[row.verb]
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  return (
-    <MomentPanel
-      formatPrice={(n) => fillCopy(labels.gold, { n })}
-      labels={{ ...labels, skills: getSiteCopy(locale).account.skills }}
-      title={title}
-      reroll={row.verb === 'rerolled'}
-      view={presentMoment(row.moment, (c) =>
-        pathCard(c, art, names, locale, open)
-      )}
     />
   );
 }

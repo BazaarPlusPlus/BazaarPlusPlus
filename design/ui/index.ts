@@ -66,11 +66,12 @@ export {
   type CardDefinition,
   type CardDetailLabels
 } from './game/CardDetail';
-export { DayCard, VisitRow, DecisionVisitRow } from './game/DayCard';
+export { DayCard } from './game/DayCard';
 export { FrameInspector } from './game/FrameInspector';
 export {
-  DecisionExplorer,
+  RunReplay,
   MomentPanel,
-  useDecisionSelection
-} from './game/DecisionExplorer';
+  type ReplayStepView,
+  type ReplayVisitView
+} from './game/RunReplay';
 export type { CardFx, FxMaterial } from './game/enchantment-fx/program';

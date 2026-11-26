@@ -29,21 +29,15 @@ const families: Record<string, string[]> = {
   cards: ['CardTile', 'CardArt', 'CardChip', 'TierLabel', 'EnchantLabel'],
   board: ['Board', 'SkillStrip'],
   'card-detail': ['CardDetail', 'CardText'],
-  'day-card': ['DayCard', 'VisitRow', 'DecisionVisitRow'],
-  'decision-explorer': ['DecisionExplorer', 'MomentPanel'],
+  'day-card': ['DayCard'],
+  'run-replay': ['RunReplay', 'MomentPanel'],
   'frame-inspector': ['FrameInspector']
 };
 test('each public visual export belongs to a live demo', () => {
   expect(Object.values(families).flat().sort()).toEqual(
     Object.keys(ui)
       .filter(
-        (k) =>
-          ![
-            'buttonClassName',
-            'enchantments',
-            'cardTiers',
-            'useDecisionSelection'
-          ].includes(k)
+        (k) => !['buttonClassName', 'enchantments', 'cardTiers'].includes(k)
       )
       .sort()
   );

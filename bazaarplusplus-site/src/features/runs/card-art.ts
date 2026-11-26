@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { CardFx, FxMaterial } from '@bpp/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -119,6 +119,9 @@ export function useCardArt(): ArtLookup {
 
 /** A card's English title from the Card Art index; null until it loads or when unknown. */
 export function useCardNames(): (templateId: string) => string | null {
-  const index = useCardArtIndex();
-  return (templateId) => index.data?.names.get(templateId) ?? null;
+  const names = useCardArtIndex().data?.names;
+  return useCallback(
+    (templateId: string) => names?.get(templateId) ?? null,
+    [names]
+  );
 }

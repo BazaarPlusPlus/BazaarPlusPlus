@@ -13,6 +13,6 @@ export const pages = [
   ['board', '阵容与技能', 'Board and skills'],
   ['card-detail', '卡牌详情', 'Card detail'],
   ['day-card', '回合记录', 'Day card'],
-  ['decision-explorer', '决策回放', 'Decision explorer'],
+  ['run-replay', '整局回放', 'Run replay'],
   ['frame-inspector', '原始帧', 'Frame inspector']
 ] as const;
