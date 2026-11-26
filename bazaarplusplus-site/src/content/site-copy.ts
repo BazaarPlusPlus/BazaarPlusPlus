@@ -334,10 +334,8 @@ type LocalizedSiteCopy = {
       hour: string;
       visited: string;
       fought: string;
-      notTaken: string;
       noVisits: string;
       moves: string;
-      rerolls: string;
       frame: string;
       kinds: Record<
         | 'shop'
@@ -368,7 +366,6 @@ type LocalizedSiteCopy = {
         | 'other',
         string
       >;
-      offered: string;
       gold: string;
       net: string;
       health: string;
@@ -551,7 +548,7 @@ const zh: LocalizedSiteCopy = {
     detailError: '未能读取这局的战斗详情。',
     notFound: '找不到这局。',
     path: {
-      decisions: '当天决策',
+      decisions: '整局回放',
       board: '阵容',
       stash: '储物箱',
       unknown: '状态未知',
@@ -568,10 +565,8 @@ const zh: LocalizedSiteCopy = {
       hour: '第 {n} 小时',
       visited: '拜访 {name}',
       fought: '迎战 {name}',
-      notTaken: '未选 {n} 件',
-      noVisits: '没有记录当天的决策。',
+      noVisits: '没有记录这一局的决策。',
       moves: '移动 {n} 次',
-      rerolls: '刷新 {n} 次',
       frame: '消息序号',
       kinds: {
         shop: '商店',
@@ -600,7 +595,6 @@ const zh: LocalizedSiteCopy = {
         left: '离开',
         other: '指令'
       },
-      offered: '可选 {n} 件',
       gold: '{n} 金币',
       net: '净 {n} 金币',
       health: '{n} 生命',
@@ -1080,7 +1074,7 @@ const en: LocalizedSiteCopy = {
     detailError: 'Couldn’t load the battle details of this run.',
     notFound: 'This run wasn’t found.',
     path: {
-      decisions: 'Day decisions',
+      decisions: 'Run replay',
       board: 'Board',
       stash: 'Stash',
       unknown: 'State unavailable',
@@ -1097,10 +1091,8 @@ const en: LocalizedSiteCopy = {
       hour: 'Hour {n}',
       visited: 'Visited {name}',
       fought: 'Fought {name}',
-      notTaken: 'Passed over {n}',
-      noVisits: 'No decisions recorded for this day.',
+      noVisits: 'No decisions recorded for this run.',
       moves: 'Moved ×{n}',
-      rerolls: 'Rerolled ×{n}',
       frame: 'Frame sequence',
       kinds: {
         shop: 'Shop',
@@ -1129,7 +1121,6 @@ const en: LocalizedSiteCopy = {
         left: 'Left',
         other: 'Command'
       },
-      offered: 'Offered {n}',
       gold: '{n} gold',
       net: 'net {n} gold',
       health: '{n} health',

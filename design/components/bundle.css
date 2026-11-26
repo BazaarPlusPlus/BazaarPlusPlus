@@ -1911,20 +1911,6 @@ strong.bpp-effect-value {
   margin: 0;
   font-size: var(--type-body);
 }
-.bpp-day-decisions {
-  border-block-start: 1px solid var(--line);
-  padding-block-start: var(--space-8);
-  font-size: var(--type-small);
-}
-.bpp-day-decisions summary {
-  cursor: pointer;
-}
-.bpp-visit-row {
-  margin-block-start: var(--space-12);
-  overflow-wrap: anywhere;
-  border: 1px solid var(--line);
-  border-radius: var(--r-panel);
-}
 .bpp-visit-head,
 .bpp-visit-identity,
 .bpp-visit-totals,
@@ -1939,7 +1925,7 @@ strong.bpp-effect-value {
   background: var(--bg-sidebar);
   border-radius: var(--r-panel);
 }
-.bpp-visit-head h3 {
+.bpp-visit-head h4 {
   margin: 0;
   font-size: var(--type-body);
 }
@@ -1993,12 +1979,6 @@ button.bpp-visit-identity {
   height: var(--control-sm);
   background: var(--bg-selected);
 }
-.bpp-visit-options > summary {
-  border-block-start: 1px solid var(--line);
-  padding: var(--space-12);
-  color: var(--text-2);
-}
-
 .bpp-decision-gain {
   color: var(--success);
 }
@@ -2029,33 +2009,92 @@ button.bpp-visit-identity {
   width: auto;
 }
 
-.bpp-decision-explorer {
+/* The replay: the panel beside a scrolling list of steps when there is room, above it
+   otherwise. Both stay in view while the list scrolls. */
+.bpp-replay {
+  /* A host with a sticky header moves --replay-top below it. */
+  --replay-top: var(--space-8);
+  --replay-height: calc(100dvh - var(--replay-top) - var(--space-16));
+  container: bpp-replay / inline-size;
+}
+.bpp-replay-grid {
   display: grid;
   gap: var(--space-16);
   align-items: start;
 }
-.bpp-decision-explorer[data-wide='true'] {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+.bpp-replay-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--type-small);
+  overflow-wrap: anywhere;
+}
+.bpp-replay-steps > li + li {
+  margin-block-start: var(--space-8);
+}
+.bpp-replay-day {
+  margin: var(--space-16) 0 var(--space-8);
+  font-size: var(--type-body);
+}
+.bpp-replay-steps > li:first-child > .bpp-replay-day {
+  margin-block-start: 0;
+}
+.bpp-replay-gap {
+  margin: 0;
+  padding: var(--space-6) var(--space-12);
+  color: var(--text-3);
+}
+.bpp-replay-position {
+  margin-inline: auto;
+  align-self: center;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .bpp-moment {
+  position: sticky;
+  top: var(--replay-top);
+  z-index: 1;
   display: grid;
   min-width: 0;
+  max-height: calc(var(--replay-height) * 0.55);
+  overflow: auto;
   gap: var(--space-12);
   padding: var(--space-16);
+  background: var(--bg-panel);
   border: 1px solid var(--line);
   border-radius: var(--r-panel);
   overflow-wrap: anywhere;
 }
-.bpp-decision-explorer[data-wide='true'] .bpp-moment {
-  position: sticky;
-  top: var(--space-16);
-  margin-top: var(--space-12);
+.bpp-replay-steps .bpp-moment-button {
+  scroll-margin-block: calc(
+      var(--replay-top) + var(--replay-height) * 0.55 + var(--space-8)
+    )
+    var(--space-16);
+}
+@container bpp-replay (min-width: 720px) {
+  .bpp-replay-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .bpp-moment {
+    grid-column: 2;
+    grid-row: 1;
+    max-height: var(--replay-height);
+  }
+  .bpp-replay-steps {
+    grid-column: 1;
+    grid-row: 1;
+    position: sticky;
+    top: var(--replay-top);
+    max-height: var(--replay-height);
+    overflow: auto;
+  }
+  .bpp-replay-steps .bpp-moment-button {
+    scroll-margin-block: var(--space-8);
+  }
 }
 .bpp-moment-title {
-  display: none;
-}
-.bpp-decision-explorer[data-wide='true'] .bpp-moment-title {
-  display: block;
+  margin: 0;
+  font-size: var(--type-body);
 }
 .bpp-moment-nav,
 .bpp-moment-offers,
@@ -2081,9 +2120,6 @@ button.bpp-visit-identity {
   text-align: start;
   min-height: var(--control-md);
   cursor: pointer;
-}
-.bpp-visit-head:has(.bpp-moment-button[aria-current='true']) {
-  background: var(--bg-selected);
 }
 .bpp-moment-button:focus-visible {
   outline: 2px solid var(--accent);

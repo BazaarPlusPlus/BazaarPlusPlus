@@ -435,11 +435,17 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
       has: page.getByRole('heading', { name: `Day ${n}`, exact: true })
     });
   await expect(day(1).getByText('Win', { exact: true }).first()).toBeVisible();
-  const decisions = day(1).locator('details').first();
-  await expect(decisions).not.toHaveAttribute('open', '');
-  await decisions.getByText('Day decisions').click();
+  // One replay for the whole Run, below the day cards.
+  await expect(day(1).locator('details')).toHaveCount(0);
+  const decisions = main.locator('.bpp-replay');
+  await expect(
+    main.getByRole('heading', { name: 'Run replay', level: 2 })
+  ).toBeVisible();
+  await expect(decisions.locator('.bpp-replay-day').first()).toHaveText(
+    'Day 1'
+  );
   const shop = decisions
-    .locator('.bpp-visit-row')
+    .locator('.bpp-replay-steps > li')
     .filter({ hasText: 'Visited Ande' })
     .first();
   await expect(shop).toContainText('Hour 1');
@@ -465,26 +471,34 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
     page.getByRole('dialog', { name: 'Mantis Shrimp' })
   ).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(shop).toContainText('Rerolled ×1');
+  // Each reroll is its own step with its own fee; the shop keeps its net gold.
+  await expect(
+    shop.locator('.bpp-decision-row').filter({ hasText: 'Rerolled' })
+  ).toHaveCount(1);
   await expect(shop).toContainText('net −6 gold');
-  await shop.getByText('Passed over 4').click();
-  await expect(shop.getByText('b23c5988')).toBeVisible();
-  await shop.getByText('Passed over 4').click();
+  // The encounter choice that led into the shop is a step of its own.
+  await expect(
+    shop.locator('.bpp-decision-row').filter({ hasText: 'Chose' }).first()
+  ).toContainText('Ande');
   await expect(
     decisions
-      .locator('li')
+      .locator('.bpp-replay-steps > li')
       .filter({ hasText: 'Flute' })
       .filter({ hasText: 'Chose' })
-  ).toHaveCount(1);
+      .first()
+  ).toBeVisible();
   await expect(
-    decisions.locator('li').filter({ hasText: 'PvP' })
+    decisions
+      .locator('.bpp-replay-steps > li')
+      .filter({ hasText: 'PvP' })
+      .first()
   ).toContainText('Win');
-  await day(3).getByText('Day decisions').click();
   await expect(
-    day(3)
+    decisions
       .locator('.bpp-decision-row')
       .filter({ hasText: 'Zoarcid' })
       .filter({ hasText: 'Upgraded' })
+      .first()
   ).toContainText('→ Silver');
   await expect(
     page.getByRole('button', { name: 'Download all frames' })
@@ -496,13 +510,15 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
     main.getByRole('button', { name: 'Download bytes' })
   ).toBeVisible();
   await main.getByText('Raw frames', { exact: true }).click();
-  await day(3).getByText('Day decisions').click();
   const bought = shop.getByRole('button', {
     name: 'Bought · Mantis Shrimp',
     exact: true
   });
   await bought.click();
   const panel = decisions.locator('.bpp-moment');
+  await expect(panel.locator('.bpp-moment-title')).toHaveText(
+    'Day 1 · Hour 1 · Bought · Mantis Shrimp'
+  );
   await expect(panel).toContainText('Chosen');
   await expect(panel.locator('[data-chosen=true]')).toContainText('2 gold');
   await bought.press('ArrowDown');
@@ -515,10 +531,12 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   await bought.click();
   async function checkWidth(width: number) {
     await page.setViewportSize({ width, height: width === 1280 ? 900 : 844 });
-    await expect(decisions.locator('.bpp-decision-explorer')).toHaveAttribute(
-      'data-wide',
-      String(width === 1280)
-    );
+    // Wide: the panel sits beside the steps; narrow: above them.
+    const [box, list] = await Promise.all([
+      panel.boundingBox(),
+      decisions.locator('.bpp-replay-steps').boundingBox()
+    ]);
+    expect(box!.x > list!.x).toBe(width === 1280);
     await expectNoHorizontalScroll(page);
     expect(await panel.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
       true

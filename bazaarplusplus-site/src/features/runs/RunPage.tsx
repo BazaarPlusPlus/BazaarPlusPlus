@@ -1,11 +1,11 @@
-import { dayMoments, decisionDays } from '@bpp/runs/decisions';
+import { useCallback, useMemo } from 'react';
+import { decisionDays } from '@bpp/runs/decisions';
 import { useQuery } from '@tanstack/react-query';
 import {
   Badge,
   Board,
   SkillStrip,
   Button,
-  DecisionExplorer,
   DayCard,
   StatusPanel
 } from '@bpp/ui';
@@ -36,7 +36,7 @@ import {
 import { useCardArt, useCardNames } from './card-art';
 import { gameCard } from './game-card';
 import { CardDetails, useOpenCard } from './CardDetails';
-import { SiteMoment, DecisionVisit, StreamDebug } from './DayDecisions';
+import { SiteReplay, StreamDebug } from './DayDecisions';
 import { decodeRunPayload, type RunCard, type RunDetail } from './run-payload';
 import {
   buildTimeline,
@@ -198,9 +198,15 @@ function Decisions({
     staleTime: Infinity,
     retry: false
   });
-  const visits = path.data?.visits ?? [];
-  const days = decisionDays(steps, (s) => s.battle.day, visits);
-  const battles = new Map(steps.map((s) => [s.battle.id, s.battle]));
+  const days = decisionDays(steps, (s) => s.battle.day);
+  const battles = useMemo(
+    () => new Map(steps.map((s) => [s.battle.id, s.battle])),
+    [steps]
+  );
+  const names = useCallback(
+    (id: string) => gameNames(id) ?? detail.cardNames.get(id) ?? null,
+    [gameNames, detail.cardNames]
+  );
   const status = detail.streamOmitted
     ? copy.path.omitted
     : path.isError
@@ -211,68 +217,36 @@ function Decisions({
   return (
     <>
       <ol className="flex flex-col gap-3">
-        {days.map(({ day, visits: rows, battles: daySteps }) => {
-          const moments = dayMoments(rows, path.data);
-          const names = (id: string) =>
-            gameNames(id) ?? detail.cardNames.get(id) ?? null;
-          return (
-            <DayCard
-              key={day ?? 'unknown'}
-              title={
-                day === null
-                  ? copy.path.unknownDay
-                  : fillCopy(copy.day, { day })
-              }
-              battles={daySteps.map((step) => (
-                <div key={step.battle.id} className="flex flex-col gap-3">
-                  <StepBody step={step} art={art} locale={locale} />
-                </div>
-              ))}
-              decisionsLabel={copy.path.decisions}
-              decisions={
-                (!!detail.stream || detail.streamOmitted) &&
-                (rows.length ? (
-                  <DecisionExplorer
-                    ids={[...moments.keys()]}
-                    previous={copy.path.previous}
-                    next={copy.path.next}
-                    render={(seq) => (
-                      <SiteMoment
-                        row={moments.get(seq)!}
-                        art={art}
-                        names={names}
-                        locale={locale}
-                      />
-                    )}
-                  >
-                    {rows.map((v) => (
-                      <DecisionVisit
-                        key={v.battleId ?? v.order}
-                        opening={
-                          path.data?.openings.get(v.battleId ?? '')
-                            ?.responseSeq ?? undefined
-                        }
-                        visit={v}
-                        battle={battles.get(v.battleId ?? '')}
-                        art={art}
-                        names={names}
-                        locale={locale}
-                      />
-                    ))}
-                  </DecisionExplorer>
-                ) : (
-                  <p>{status}</p>
-                ))
-              }
-            />
-          );
-        })}
+        {days.map(({ day, battles: daySteps }) => (
+          <DayCard
+            key={day ?? 'unknown'}
+            title={
+              day === null ? copy.path.unknownDay : fillCopy(copy.day, { day })
+            }
+            battles={daySteps.map((step) => (
+              <div key={step.battle.id} className="flex flex-col gap-3">
+                <StepBody step={step} art={art} locale={locale} />
+              </div>
+            ))}
+          />
+        ))}
       </ol>
-      {!days.length && (detail.stream || detail.streamOmitted) && (
-        <details>
-          <summary>{copy.path.decisions}</summary>
-          {status}
-        </details>
+      {(detail.stream || detail.streamOmitted) && (
+        <section className="bpp-panel flex flex-col gap-3 p-4">
+          <h2 className="m-0 text-base">{copy.path.decisions}</h2>
+          {path.data?.visits.length ? (
+            <SiteReplay
+              visits={path.data.visits}
+              index={path.data}
+              battles={battles}
+              art={art}
+              names={names}
+              locale={locale}
+            />
+          ) : (
+            <p>{status}</p>
+          )}
+        </section>
       )}
       {path.data && <StreamDebug stream={path.data.stream} locale={locale} />}
     </>

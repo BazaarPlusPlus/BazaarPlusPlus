@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  DecisionExplorer,
+  RunReplay,
   MomentPanel,
-  useDecisionSelection,
   Badge,
   EnchantLabel,
   FrameInspector,
-  type GameCard,
   DayCard,
-  DecisionVisitRow,
   cardTiers,
-  enchantments
+  enchantments,
+  type GameCard
 } from '@bpp/ui';
 import {
-  dayMoments,
   presentMoment,
+  presentStep,
+  replayVisits,
   type MomentIndex,
   combatFacts,
   decisionDays,
@@ -22,7 +21,8 @@ import {
   presentVisit,
   type CardRef,
   type MessageStream,
-  type Visit
+  type Visit,
+  type VisitLabel
 } from '@bpp/runs/decisions';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type { HistoryBattleRow, HistoryRunDetail } from '../../types/backend';
@@ -111,7 +111,7 @@ export function LocalDays({
   const fights = [...detail.battles, ...input.eventBattles].sort(
     (a, b) => timeOf(a) - timeOf(b)
   );
-  const days = decisionDays(fights, (b) => b.day, visits ?? []);
+  const days = decisionDays(fights, (b) => b.day);
   const cards = new Map(
     detail.battles.flatMap((b) =>
       [
@@ -156,89 +156,33 @@ export function LocalDays({
           <p>{t('runDetailLoading')}</p>
         ))}
       <ol className="flex flex-col gap-3">
-        {days.map(({ day, battles: rows, visits: decisions }) => {
-          const moments = dayMoments(decisions, result?.index);
-          return (
-            <DayCard
-              key={day ?? 'unknown'}
-              title={
-                day === null ? t('path_unknownDay') : t('path_day', { n: day })
-              }
-              battles={rows.length ? renderBattles(rows) : null}
-              decisionsLabel={t('path_decisions')}
-              decisions={
-                input.section.state === 'available' &&
-                !failed &&
-                (decisions.length ? (
-                  <DecisionExplorer
-                    ids={[...moments.keys()]}
-                    previous={t('path_previous')}
-                    next={t('path_next')}
-                    render={(seq) => {
-                      const row = moments.get(seq);
-                      if (!row) return null;
-                      return (
-                        <MomentPanel
-                          formatPrice={(n) => t('path_gold', { n })}
-                          view={presentMoment(row.moment, display)}
-                          reroll={row.verb === 'rerolled'}
-                          title={[
-                            row.visit.day !== null &&
-                              t('path_day', { n: row.visit.day }),
-                            row.visit.hour !== null &&
-                              t('path_hour', { n: row.visit.hour }),
-                            t(`path_${row.verb}`)
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                          labels={{
-                            board: t('path_board'),
-                            stash: t('path_stash'),
-                            skills: t('battleSkills'),
-                            unknown: t('path_unknown'),
-                            empty: t('path_empty'),
-                            pickedFrom: t('path_pickedFrom'),
-                            chosen: t('path_chosen'),
-                            goldTotal: t('path_goldTotal'),
-                            healthTotal: t('path_healthTotal'),
-                            level: t('path_level'),
-                            resultOffer: t('path_resultOffer')
-                          }}
-                        />
-                      );
-                    }}
-                  >
-                    {decisions.map((v) => (
-                      <LocalVisit
-                        key={v.battleId ?? v.order}
-                        opening={
-                          result?.index?.openings.get(v.battleId ?? '')
-                            ?.responseSeq ?? undefined
-                        }
-                        v={v}
-                        display={display}
-                        fight={rows.find(
-                          (b) =>
-                            ('battle_id' in b ? b.battle_id : b.id) ===
-                            v.battleId
-                        )}
-                      />
-                    ))}
-                  </DecisionExplorer>
-                ) : (
-                  <p>
-                    {t(
-                      visits === undefined
-                        ? 'runDetailLoading'
-                        : 'path_noVisits'
-                    )}
-                  </p>
-                ))
-              }
-            />
-          );
-        })}
+        {days.map(({ day, battles: rows }) => (
+          <DayCard
+            key={day ?? 'unknown'}
+            title={
+              day === null ? t('path_unknownDay') : t('path_day', { n: day })
+            }
+            battles={rows.length ? renderBattles(rows) : null}
+          />
+        ))}
       </ol>
+      {input.section.state === 'available' && !failed && (
+        <section className="bpp-panel flex flex-col gap-3 p-4">
+          <h2 className="m-0 text-base">{t('path_decisions')}</h2>
+          {visits?.length ? (
+            <LocalReplay
+              visits={visits}
+              index={result?.index}
+              fights={fights}
+              display={display}
+            />
+          ) : (
+            <p>
+              {t(visits === undefined ? 'runDetailLoading' : 'path_noVisits')}
+            </p>
+          )}
+        </section>
+      )}
       {result?.input === input && result.stream && (
         <LocalFrames stream={result.stream} />
       )}
@@ -281,60 +225,110 @@ function LocalFrames({ stream }: { stream: MessageStream }) {
 function timeOf(b: HistoryBattleRow | EventBattle) {
   return 'battle_id' in b ? b.recorded_at_ms : b.recordedAtMs;
 }
-function LocalVisit({
-  opening,
-  v,
-  display,
-  fight
+function LocalReplay({
+  visits,
+  index,
+  fights,
+  display
 }: {
-  opening?: number;
-  v: Visit;
+  visits: Visit[];
+  index: MomentIndex | undefined;
+  fights: (HistoryBattleRow | EventBattle)[];
   display: (card: CardRef) => GameCard;
-  fight?: HistoryBattleRow | EventBattle;
 }) {
   const { t } = useI18n();
-  const facts =
-    fight &&
-    ('battle_id' in fight
-      ? {
-          encounterId: fight.encounter_id,
-          opponentHero: fight.opponent_hero,
-          outcome: fight.result
-        }
-      : {
-          encounterId: fight.encounterId,
-          opponentHero: null,
-          outcome: fight.outcome
-        });
-  const outcome = facts?.outcome;
-  const selection = useDecisionSelection();
-  const view = presentVisit(
-    v,
-    facts,
-    display,
-    (key, params) => t(`path_${key}`, params),
-    selection?.active,
-    opening
-  );
+  const replay = replayVisits(visits, index);
+  const label = (key: VisitLabel, params?: Record<string, string | number>) =>
+    t(`path_${key}`, params);
+  const result = (value: string) => {
+    const enchant = enchantments.find((e) => e === value);
+    const tier = cardTiers.find((e) => e === value);
+    return enchant ? (
+      <EnchantLabel enchant={enchant} label={t(`enchant${enchant}`)} />
+    ) : tier ? (
+      t(`rank${tier}`)
+    ) : (
+      value
+    );
+  };
+  const views = replay.map(({ visit, steps }) => {
+    const fight = fights.find(
+      (b) => ('battle_id' in b ? b.battle_id : b.id) === visit.battleId
+    );
+    const facts =
+      fight &&
+      ('battle_id' in fight
+        ? {
+            encounterId: fight.encounter_id,
+            opponentHero: fight.opponent_hero,
+            outcome: fight.result
+          }
+        : {
+            encounterId: fight.encounterId,
+            opponentHero: null,
+            outcome: fight.outcome
+          });
+    const outcome = facts?.outcome;
+    return {
+      ...presentVisit(visit, facts, display, label),
+      key: visit.battleId ?? visit.order,
+      day: visit.day === null ? null : t('path_day', { n: visit.day }),
+      outcome: (outcome === 'win' || outcome === 'loss') && (
+        <Badge tone={outcome === 'win' ? 'ok' : 'bad'}>
+          {t(outcome === 'win' ? 'battleResultWin' : 'battleResultLoss')}
+        </Badge>
+      ),
+      steps: steps.map((step) => {
+        const row = presentStep(step, display, label);
+        return {
+          ...row,
+          card: row.card && { card: row.card, title: row.title ?? '' },
+          result: row.result && result(row.result)
+        };
+      })
+    };
+  });
   return (
-    <DecisionVisitRow
-      view={view}
-      outcome={
-        (outcome === 'win' || outcome === 'loss') && (
-          <Badge tone={outcome === 'win' ? 'ok' : 'bad'}>
-            {t(outcome === 'win' ? 'battleResultWin' : 'battleResultLoss')}
-          </Badge>
-        )
-      }
-      renderResult={(value) => {
-        const enchant = enchantments.find((e) => e === value);
-        const tier = cardTiers.find((e) => e === value);
-        return enchant ? (
-          <EnchantLabel enchant={enchant} label={t(`enchant${enchant}`)} />
-        ) : tier ? (
-          t(`rank${tier}`)
+    <RunReplay
+      visits={views}
+      previous={t('path_previous')}
+      next={t('path_next')}
+      render={(v, s) => {
+        const step = replay[v].steps[s];
+        const row = views[v].steps[s];
+        const title = [
+          views[v].day,
+          views[v].hour,
+          row.verb,
+          row.card?.card.name
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        return step.moment ? (
+          <MomentPanel
+            formatPrice={(n) => t('path_gold', { n })}
+            view={presentMoment(step.moment, display)}
+            reroll={step.verb === 'rerolled'}
+            title={title}
+            labels={{
+              board: t('path_board'),
+              stash: t('path_stash'),
+              skills: t('battleSkills'),
+              unknown: t('path_unknown'),
+              empty: t('path_empty'),
+              pickedFrom: t('path_pickedFrom'),
+              chosen: t('path_chosen'),
+              goldTotal: t('path_goldTotal'),
+              healthTotal: t('path_healthTotal'),
+              level: t('path_level'),
+              resultOffer: t('path_resultOffer')
+            }}
+          />
         ) : (
-          value
+          <>
+            <h3 className="bpp-moment-title">{title}</h3>
+            <p>{t('path_unknown')}</p>
+          </>
         );
       }}
     />

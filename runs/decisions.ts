@@ -4,47 +4,6 @@ export type { Visit } from './message-stream/visits';
 export type { CardRef, BattleMarker } from './message-stream/project';
 export type { StreamFrame, MessageStream } from './message-stream/stream';
 
-export function decisionRows(visit: Visit, active?: number, opening?: number) {
-  const moves = visit.actions.filter(
-    (a) => a.verb === 'moved' && a.outcome === 'done'
-  );
-  const rerolls = visit.actions.filter(
-    (a) => a.verb === 'rerolled' && a.outcome === 'done'
-  );
-  return visit.actions.flatMap((a) => {
-    let group: 'moves' | 'rerolls' | null = null;
-    let count = 1;
-    let amount = a.amount;
-    let card = a.card;
-    if (a.outcome === 'done') {
-      if (
-        a.verb === 'left' ||
-        (a.verb === 'chose' &&
-          visit.encounter &&
-          opening === undefined &&
-          visit.encounter?.instanceId === a.card?.instanceId)
-      )
-        return [];
-      if (a.verb === 'moved' && !moves.some((m) => m.order === active)) {
-        if (a !== moves[0]) return [];
-        group = 'moves';
-        count = moves.length;
-        card = null;
-      }
-      if (a.verb === 'rerolled' && !rerolls.some((m) => m.order === active)) {
-        if (a !== rerolls[0]) return [];
-        group = 'rerolls';
-        count = rerolls.length;
-        amount =
-          visit.rerollFees.length === rerolls.length
-            ? -visit.rerollFees.reduce((sum, fee) => sum + fee, 0)
-            : null;
-      }
-    }
-    return [{ ...a, card, amount, group, count }];
-  });
-}
-
 type Fight = {
   day: number | null;
   hour: number | null;
@@ -146,7 +105,6 @@ export type VisitLabel =
   | Visit['kind']
   | Verb
   | 'moves'
-  | 'rerolls'
   | 'visited'
   | 'fought'
   | 'hour'
@@ -155,10 +113,9 @@ export type VisitLabel =
   | 'net'
   | 'health'
   | 'attempted'
-  | 'noResponse'
-  | 'notTaken'
-  | 'offered';
+  | 'noResponse';
 
+/** A visit's heading in the replay: what it was, where, and its net gold and health. */
 export function presentVisit<C extends { name: string }>(
   visit: Visit,
   battle:
@@ -172,9 +129,7 @@ export function presentVisit<C extends { name: string }>(
   label: (
     key: VisitLabel,
     params?: { n?: number | string; name?: string }
-  ) => string,
-  active?: number,
-  opening?: number
+  ) => string
 ) {
   const encounter = visit.encounter
     ? display(visit.encounter)
@@ -198,11 +153,6 @@ export function presentVisit<C extends { name: string }>(
             name: encounter.name
           })
         : label(visit.kind);
-  const chip = (c: CardRef) => ({
-    card: display(c),
-    title: c.templateId ?? c.instanceId,
-    id: c.instanceId
-  });
   const delta = (value: number | null, key: 'net' | 'health') =>
     value
       ? {
@@ -216,49 +166,124 @@ export function presentVisit<C extends { name: string }>(
     hour: visit.hour === null ? null : label('hour', { n: visit.hour }),
     gold: delta(visit.gold, 'net'),
     health: delta(visit.health, 'health'),
-    gap: visit.gap ? label('undecoded') : null,
-    headerSeq:
-      opening ??
-      visit.actions.find(
-        (a) =>
-          a.verb === 'chose' &&
-          a.outcome === 'done' &&
-          visit.encounter &&
-          a.card?.instanceId === visit.encounter.instanceId
-      )?.order,
-    rows: decisionRows(visit, active, opening).map((a) => ({
-      id: a.order,
-      verb: a.group ? label(a.group, { n: a.count }) : label(a.verb),
-      chip: a.card ? chip(a.card) : null,
-      result: a.result,
-      status:
-        a.outcome === 'done'
-          ? null
-          : label(a.outcome === 'no-response' ? 'noResponse' : 'attempted'),
-      amount: a.amount
-        ? label('gold', { n: a.amount < 0 ? '−' + -a.amount : a.amount })
-        : null
-    })),
-    remaining: visit.remaining.map(chip),
-    remainingLabel: label(visit.closed ? 'notTaken' : 'offered', {
-      n: visit.remaining.length
-    })
+    gap: visit.gap ? label('undecoded') : null
   };
 }
 
-/** Both hosts keep their battle bodies. Day cards include visit-only days and put unknown coordinates last. */
+export type ReplayStep = {
+  /** The moment's response seq; a battle's opening uses its own. */
+  seq: number;
+  verb: VisitLabel;
+  /** Consecutive moves read as one step that ends on the last move. */
+  count: number;
+  card: CardRef | null;
+  result: string | null;
+  amount: number | null;
+  status: 'attempted' | 'noResponse' | null;
+  moment: Moment | null;
+};
+export type ReplayVisit = { visit: Visit; steps: ReplayStep[] };
+
+/** Every visit in stream order with its steps; a visit without steps keeps its heading. */
+export function replayVisits(
+  visits: readonly Visit[],
+  index: MomentIndex | null | undefined
+): ReplayVisit[] {
+  return visits.map((visit) => {
+    const rerolls = visit.actions.filter(
+      (a) => a.verb === 'rerolled' && a.outcome === 'done'
+    );
+    // A fee belongs to a reroll only when every reroll has one.
+    const fees = visit.rerollFees.length === rerolls.length;
+    const steps: ReplayStep[] = [];
+    for (const a of visit.actions) {
+      if (a.verb === 'left' && a.outcome === 'done') continue;
+      const moment = index?.moments.get(a.order) ?? null;
+      const last = steps.at(-1);
+      if (
+        a.verb === 'moved' &&
+        a.outcome === 'done' &&
+        last?.verb === 'moved' &&
+        last.status === null
+      ) {
+        last.count += 1;
+        last.card = null;
+        last.seq = a.order;
+        last.moment = moment;
+        continue;
+      }
+      steps.push({
+        seq: a.order,
+        verb: a.verb,
+        count: 1,
+        card: a.card,
+        result: a.result,
+        amount:
+          a.verb === 'rerolled' && a.outcome === 'done' && fees
+            ? -visit.rerollFees[rerolls.indexOf(a)]
+            : a.amount,
+        status:
+          a.outcome === 'done'
+            ? null
+            : a.outcome === 'no-response'
+              ? 'noResponse'
+              : 'attempted',
+        moment
+      });
+    }
+    const opening = visit.battleId && index?.openings.get(visit.battleId);
+    if (opening && opening.responseSeq !== null) {
+      const at = opening.responseSeq;
+      const before = steps.findIndex((s) => s.seq > at);
+      steps.splice(before < 0 ? steps.length : before, 0, {
+        seq: at,
+        verb: visit.kind,
+        count: 1,
+        card: null,
+        result: null,
+        amount: null,
+        status: null,
+        moment: opening
+      });
+    }
+    return { visit, steps };
+  });
+}
+
+/** A step's row: its verb, the card it acted on, the result and the gold it moved. */
+export function presentStep<C>(
+  step: ReplayStep,
+  display: (c: CardRef) => C,
+  label: (key: VisitLabel, params?: { n?: number | string }) => string
+) {
+  return {
+    verb:
+      step.verb === 'moved' && step.count > 1
+        ? label('moves', { n: step.count })
+        : label(step.verb),
+    card: step.card ? display(step.card) : null,
+    title: step.card ? (step.card.templateId ?? step.card.instanceId) : null,
+    result: step.result,
+    status: step.status && label(step.status),
+    amount: step.amount
+      ? label('gold', {
+          n: step.amount < 0 ? '−' + -step.amount : step.amount
+        })
+      : null
+  };
+}
+
+/** Battle days in day order; unknown days last. */
 export function decisionDays<B>(
   battles: readonly B[],
-  dayOf: (battle: B) => number | null,
-  visits: readonly Visit[]
+  dayOf: (battle: B) => number | null
 ) {
-  const days = [
-    ...new Set([...battles.map(dayOf), ...visits.map((v) => v.day)])
-  ].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
+  const days = [...new Set(battles.map(dayOf))].sort(
+    (a, b) => (a ?? Infinity) - (b ?? Infinity)
+  );
   return days.map((day) => ({
     day,
-    battles: battles.filter((b) => dayOf(b) === day),
-    visits: visits.filter((v) => v.day === day)
+    battles: battles.filter((b) => dayOf(b) === day)
   }));
 }
 
@@ -267,30 +292,6 @@ export type MomentIndex = {
   moments: Map<number, Moment>;
   openings: Map<string, Moment>;
 };
-
-export type DayMoment = { moment: Moment; verb: VisitLabel; visit: Visit };
-export function dayMoments(
-  visits: Visit[],
-  index: MomentIndex | null | undefined
-) {
-  const rows = new Map<number, DayMoment>();
-  if (index)
-    for (const visit of visits) {
-      for (const a of visit.actions) {
-        if (a.verb === 'left' && a.outcome === 'done') continue;
-        const moment = index.moments.get(a.order);
-        if (moment) rows.set(a.order, { moment, verb: a.verb, visit });
-      }
-      const opening = visit.battleId && index.openings.get(visit.battleId);
-      if (opening && opening.responseSeq !== null)
-        rows.set(opening.responseSeq, {
-          moment: opening,
-          verb: visit.kind,
-          visit
-        });
-    }
-  return new Map([...rows].sort(([a], [b]) => a - b));
-}
 
 export function presentMoment<C>(
   moment: Moment,
