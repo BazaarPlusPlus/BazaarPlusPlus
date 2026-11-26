@@ -27,7 +27,7 @@ import RunDetail from './RunDetail';
 
 vi.mock('../api/commandClient', () => ({
   commandClient: {
-    getCardArtIndex: vi.fn().mockResolvedValue({}),
+    getCardCatalog: vi.fn().mockResolvedValue(catalog(null)),
     getHistoryRunDetail: vi.fn(),
     revealRunScreenshot: vi.fn(),
     revealBattleVideo: vi.fn(),
@@ -35,6 +35,19 @@ vi.mock('../api/commandClient', () => ({
   }
 }));
 const commands = commandClient;
+
+function catalog(revision: string | null) {
+  return {
+    revision,
+    current: revision !== null,
+    gameFound: true,
+    progress: null,
+    failed: false,
+    exportedAtMs: null,
+    files: 0,
+    bytes: 0
+  };
+}
 
 function detail(runId = 'run-1'): HistoryRunDetail {
   return {
@@ -113,6 +126,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await act(async () => root.unmount());
+  vi.mocked(commands.getCardCatalog).mockResolvedValue(catalog(null));
   container.remove();
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
@@ -252,20 +266,28 @@ describe('battle boards', () => {
       data.battles[0].opponent_board = [];
       vi.mocked(commands.getHistoryRunDetail).mockResolvedValue(data);
       if (failure === 'index')
-        vi.mocked(commands.getCardArtIndex).mockRejectedValueOnce(
-          new Error('offline')
+        vi.mocked(commands.getCardCatalog).mockRejectedValue(
+          new Error('no game')
         );
-      else
-        vi.mocked(commands.getCardArtIndex).mockResolvedValueOnce({
-          'card-1': '01234567.webp'
-        });
+      else {
+        vi.mocked(commands.getCardCatalog).mockResolvedValue(
+          catalog('image-failure')
+        );
+        vi.stubGlobal(
+          'fetch',
+          vi.fn(async () =>
+            Response.json({ cards: { 'card-1': '01234567.webp' } })
+          )
+        );
+      }
       await render();
       const tile = container.querySelector('.bpp-board-card')!;
       if (failure === 'image') {
-        const image = tile.querySelector('img')!;
-        expect(image.src).toBe(
-          'https://cdn.bazaarplusplus.com/card-art/01234567.webp'
+        await vi.waitFor(() =>
+          expect(container.querySelector('.bpp-board-card img')).not.toBeNull()
         );
+        const image = container.querySelector('.bpp-board-card img')!;
+        expect(image.getAttribute('src')).toBe('/card-art/01234567.webp');
         await act(async () => image.dispatchEvent(new Event('error')));
       }
       expect(tile.textContent).toContain('测试物品');

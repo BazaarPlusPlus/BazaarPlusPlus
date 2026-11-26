@@ -1,3 +1,4 @@
+mod card_catalog;
 mod commands;
 mod config;
 mod headless;
@@ -60,6 +61,19 @@ pub fn run() {
         .manage(maintenance)
         .manage(crate::stream::history_thumbnails::HistoryThumbnails::default())
         .manage(InstallerContextState::default())
+        .manage(crate::card_catalog::CardCatalogState::default())
+        .register_asynchronous_uri_scheme_protocol(
+            crate::card_catalog::SCHEME,
+            |_context, request, responder| {
+                let path = request.uri().path().to_owned();
+                tauri::async_runtime::spawn_blocking(move || {
+                    responder.respond(crate::card_catalog::serve(
+                        &crate::card_catalog::catalog_dir(),
+                        &path,
+                    ));
+                });
+            },
+        )
         .manage(TrayMenuState::default())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -90,6 +104,12 @@ pub fn run() {
             tauri::async_runtime::spawn_blocking(move || {
                 let state = startup_handle.state::<InstallerContextState>();
                 let _ = state.get_or_initialize(&startup_handle);
+            });
+            let catalog_handle = handle.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                catalog_handle
+                    .state::<crate::card_catalog::CardCatalogState>()
+                    .ensure(&catalog_handle, false);
             });
             let app_handle = handle.clone();
             tauri::async_runtime::spawn(async move {

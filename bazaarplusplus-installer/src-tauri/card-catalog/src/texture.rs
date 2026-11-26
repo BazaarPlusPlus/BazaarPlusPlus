@@ -23,8 +23,20 @@ fn from_decoder(px: &[u32]) -> Vec<u8> {
         .collect()
 }
 
-/// Unity's rows are bottom-up; `flip` turns them top-down.
-pub fn texture(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result<Image> {
+/// A texture's stored pixels, read from its bundle but not decoded yet, so decoding can run
+/// on another thread.
+pub struct Raw {
+    width: usize,
+    height: usize,
+    format: i64,
+    data: Vec<u8>,
+    /// Unity's rows are bottom-up; `flip` turns them top-down.
+    flip: bool,
+    /// A sprite's rectangle (x0, y0, x1, y1), cropped from the unflipped rows and flipped.
+    crop: Option<(usize, usize, usize, usize)>,
+}
+
+pub fn texture_raw(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result<Raw> {
     let t = file.read(path_id)?;
     let width = usize::try_from(t.at("m_Width")?.int()?)?;
     let height = usize::try_from(t.at("m_Height")?.int()?)?;
@@ -36,6 +48,49 @@ pub fn texture(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result
         let size = usize::try_from(s.at("size")?.int()?)?;
         data = env.stream(s.at("path")?.str()?, offset, size)?;
     }
+    Ok(Raw {
+        width,
+        height,
+        format,
+        data,
+        flip,
+        crop: None,
+    })
+}
+
+pub fn texture(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result<Image> {
+    texture_raw(env, file, path_id, flip)?.decode()
+}
+
+impl Raw {
+    pub fn decode(&self) -> Result<Image> {
+        let image = decode(self.width, self.height, self.format, &self.data)?;
+        let Some((x0, y0, x1, y1)) = self.crop else {
+            return Ok(if self.flip {
+                Image {
+                    rgba: flip_rows(&image.rgba, image.width * 4),
+                    ..image
+                }
+            } else {
+                image
+            });
+        };
+        let (cw, ch) = (x1 - x0, y1 - y0);
+        let mut crop = Vec::with_capacity(cw * ch * 4);
+        for row in y0..y1 {
+            crop.extend_from_slice(
+                &image.rgba[(row * image.width + x0) * 4..(row * image.width + x1) * 4],
+            );
+        }
+        Ok(Image {
+            width: cw,
+            height: ch,
+            rgba: flip_rows(&crop, cw * 4),
+        })
+    }
+}
+
+fn decode(width: usize, height: usize, format: i64, data: &[u8]) -> Result<Image> {
     let n = width * height;
     let need = |bytes: usize| -> Result<&[u8]> {
         data.get(..bytes)
@@ -62,12 +117,12 @@ pub fn texture(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result
         10 | 12 | 25 | 26 | 27 | 28 | 29 => {
             let mut px = vec![0u32; n];
             let result = match format {
-                10 => texture2ddecoder::decode_bc1(&data, width, height, &mut px),
-                12 => texture2ddecoder::decode_bc3(&data, width, height, &mut px),
-                25 => texture2ddecoder::decode_bc7(&data, width, height, &mut px),
-                26 => texture2ddecoder::decode_bc4(&data, width, height, &mut px),
-                27 => texture2ddecoder::decode_bc5(&data, width, height, &mut px),
-                _ => texture2ddecoder::decode_unity_crunch(&data, width, height, &mut px),
+                10 => texture2ddecoder::decode_bc1(data, width, height, &mut px),
+                12 => texture2ddecoder::decode_bc3(data, width, height, &mut px),
+                25 => texture2ddecoder::decode_bc7(data, width, height, &mut px),
+                26 => texture2ddecoder::decode_bc4(data, width, height, &mut px),
+                27 => texture2ddecoder::decode_bc5(data, width, height, &mut px),
+                _ => texture2ddecoder::decode_unity_crunch(data, width, height, &mut px),
             };
             result.map_err(|e| anyhow!("decode texture format {format}: {e}"))?;
             let mut out = from_decoder(&px);
@@ -90,11 +145,7 @@ pub fn texture(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result
     Ok(Image {
         width,
         height,
-        rgba: if flip {
-            flip_rows(&rgba, width * 4)
-        } else {
-            rgba
-        },
+        rgba,
     })
 }
 
@@ -112,7 +163,7 @@ pub fn py_round(x: f64) -> i64 {
 
 /// A plain sprite: its texture cropped to `textureRect`. Atlas, rotated and tight sprites
 /// are refused rather than drawn differently from the published set.
-pub fn sprite(env: &Env, file: &Serialized, path_id: i64) -> Result<Image> {
+pub fn sprite_raw(env: &Env, file: &Serialized, path_id: i64) -> Result<Raw> {
     let s = file.read(path_id)?;
     let rd = s.at("m_RD")?;
     let settings = rd.at("settingsRaw")?.int()?;
@@ -120,7 +171,7 @@ pub fn sprite(env: &Env, file: &Serialized, path_id: i64) -> Result<Image> {
         bail!("sprite needs atlas, rotation or mesh handling (settings {settings})");
     }
     let (tf, tid) = env.deref(file, rd.at("texture")?)?;
-    let raw = texture(env, &tf, tid, false)?;
+    let mut raw = texture_raw(env, &tf, tid, false)?;
     let r = rd.at("textureRect")?;
     let (x, y, w, h) = (
         r.at("x")?.float()?,
@@ -133,14 +184,6 @@ pub fn sprite(env: &Env, file: &Serialized, path_id: i64) -> Result<Image> {
     if x1 > raw.width || y1 > raw.height || x0 > x1 || y0 > y1 {
         bail!("sprite rect outside its texture");
     }
-    let (cw, ch) = (x1 - x0, y1 - y0);
-    let mut crop = Vec::with_capacity(cw * ch * 4);
-    for row in y0..y1 {
-        crop.extend_from_slice(&raw.rgba[(row * raw.width + x0) * 4..(row * raw.width + x1) * 4]);
-    }
-    Ok(Image {
-        width: cw,
-        height: ch,
-        rgba: flip_rows(&crop, cw * 4),
-    })
+    raw.crop = Some((x0, y0, x1, y1));
+    Ok(raw)
 }

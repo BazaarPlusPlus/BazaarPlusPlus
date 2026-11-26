@@ -49,7 +49,9 @@ export const commands = {
 	battles: HistoryBattleRow[],
 	decision_path: DecisionPathSection,
 } | null>("get_history_run_detail", { runId }),
-	getCardArtIndex: () => __TAURI_INVOKE<{ [key in string]: string }>("get_card_art_index"),
+	getCardCatalog: () => __TAURI_INVOKE<CardCatalogStatus>("get_card_catalog"),
+	/**  Exports the catalog again from the installed game. */
+	rebuildCardCatalog: () => __TAURI_INVOKE<CardCatalogStatus>("rebuild_card_catalog"),
 	revealRunScreenshot: (runId: string) => __TAURI_INVOKE<null>("reveal_run_screenshot", { runId }),
 	revealBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<null>("reveal_battle_video", { battleId, videoId }),
 	deleteBattleVideo: (battleId: string, videoId: string) => __TAURI_INVOKE<HistoryRunDetail>("delete_battle_video", { battleId, videoId }),
@@ -93,6 +95,28 @@ export type AppLinks = {
 	xiaohongshu: string,
 	kofi: string,
 	supporter_list: string,
+};
+
+export type CardCatalogProgress = {
+	done: number,
+	total: number,
+};
+
+export type CardCatalogStatus = {
+	/**  Names the catalog on disk; null before the first export finishes. */
+	revision: string | null,
+	/**  The catalog on disk matches the installed game. */
+	current: boolean,
+	/**  The installed game and its data cache were found. */
+	gameFound: boolean,
+	/**  Set while an export runs. */
+	progress: CardCatalogProgress | null,
+	/**  The last export for the installed game failed. */
+	failed: boolean,
+	/**  When the catalog on disk was exported, in Unix milliseconds. */
+	exportedAtMs: number | null,
+	files: number,
+	bytes: number,
 };
 
 export type CombatEvent = {

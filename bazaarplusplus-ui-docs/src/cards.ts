@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import {
   CardDetail,
-  enchantments,
+  gameTerms,
   type CardDefinition,
   type CardFx,
   type CardSize,
@@ -12,32 +12,7 @@ import {
 } from '@bpp/ui';
 import manifest from '../public/card-art/manifest.json';
 import definitions from './demo-data/definition.json';
-import { translate, type Locale } from './copy';
-export const tiers = {
-  Bronze: '青铜',
-  Silver: '白银',
-  Gold: '黄金',
-  Diamond: '钻石',
-  Legendary: '传说'
-};
-export const enchants = {
-  Deadly: '致命',
-  Ethereal: '空灵',
-  Fiery: '炽焰',
-  Golden: '黄金',
-  Heavy: '沉重',
-  Icy: '寒冰',
-  Mystical: '神秘',
-  Obsidian: '黑曜石',
-  Radiant: '辉耀',
-  Restorative: '回复',
-  Shielded: '护盾',
-  Shiny: '闪亮',
-  Tiny: '迷你',
-  Toxic: '毒素',
-  Turbo: '疾速',
-  Mossy: '长青'
-};
+import type { Locale } from './copy';
 const sizes: Record<string, CardSize> = { Small: 1, Medium: 2, Large: 3 };
 export const pinned = manifest.cards;
 /** CardDetail for a pinned card or skill: the detail demo and every hover preview. */
@@ -47,36 +22,17 @@ export function detail(
   id: string,
   preview = true
 ) {
-  const t = (zh: string, en: string) => translate(lang, zh, en);
   const entry = (definitions.cards as Record<string, Record<Locale, unknown>>)[
     id
   ];
   return createElement(CardDetail, {
     card: shown,
     definition: entry?.[lang] as CardDefinition | undefined,
-    labels: {
-      sizes: {
-        Small: t('小型', 'Small'),
-        Medium: t('中型', 'Medium'),
-        Large: t('大型', 'Large')
-      },
-      enchantments: t('附魔', 'Enchantments'),
-      allEnchantments: t('显示全部附魔', 'Show all enchantments'),
-      ammo: t('弹药', 'Ammo'),
-      cooldown: t('冷却', 'Cooldown'),
-      seconds: t('秒', 's'),
-      unavailable: t('不可用', 'Unavailable')
-    },
+    labels: gameTerms[lang].card,
     tagLabels: definitions.tags[lang],
-    tierLabels: lang === 'zh' ? tiers : {},
+    tierLabels: gameTerms[lang].tiers,
     preview,
-    enchantLabels:
-      lang === 'zh'
-        ? enchants
-        : (Object.fromEntries(enchantments.map((e) => [e, e])) as Record<
-            Enchantment,
-            string
-          >)
+    enchantLabels: gameTerms[lang].enchantments
   });
 }
 export function skill(
@@ -89,7 +45,7 @@ export function skill(
     name: s[lang],
     art: '/card-art/' + s.file,
     tier,
-    tierLabel: lang === 'zh' ? tiers[tier] : tier,
+    tierLabel: gameTerms[lang].tiers[tier],
     enchant: null,
     enchantLabel: ''
   };
@@ -119,9 +75,9 @@ export function card(
     name: p[lang],
     art: '/card-art/' + p.file,
     tier,
-    tierLabel: lang === 'zh' ? tiers[tier] : tier,
+    tierLabel: gameTerms[lang].tiers[tier],
     enchant,
-    enchantLabel: enchant ? (lang === 'zh' ? enchants[enchant] : enchant) : '',
+    enchantLabel: enchant ? gameTerms[lang].enchantments[enchant] : '',
     size: sizes[p.size],
     fx: enchant
       ? (enchant === 'Tiny' ? tinySources : sources)[pinned.indexOf(p)]

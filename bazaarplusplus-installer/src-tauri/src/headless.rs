@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-const HELP: &str = "Usage:\n  bppinstaller repair --game <directory> [--stub <file>] [--manifest <file>]\n\nrepair: Repair the macOS launch trampoline of an existing BepInEx installation.\nKeeps the installed Payload and user data. With --manifest, writes a sorted\npath/sha256 manifest outside the game directory. Packaged apps use their bundled\nstub; source checkouts must supply --stub.\n\nWithout arguments, starts the desktop app.";
+const HELP: &str = "Usage:\n  bppinstaller repair --game <directory> [--stub <file>] [--manifest <file>]\n  bppinstaller card-catalog --data <directory> --game-data <file> --translations <file> --out <directory> --revision <id> [--gamedata-etag <etag>] [--zh-etag <etag>]\n\nrepair: Repair the macOS launch trampoline of an existing BepInEx installation.\nKeeps the installed Payload and user data. With --manifest, writes a sorted\npath/sha256 manifest outside the game directory. Packaged apps use their bundled\nstub; source checkouts must supply --stub.\n\ncard-catalog: Export the card catalog History shows from the installed game.\nThe desktop app runs it as a child process and stops it by closing stdin.\n\nWithout arguments, starts the desktop app.";
 
 pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     let mut args = arguments.into_iter();
@@ -14,6 +14,8 @@ pub fn run(arguments: impl IntoIterator<Item = OsString>) -> Option<i32> {
     }
     let result = if command == "repair" {
         repair(args)
+    } else if command == "card-catalog" {
+        card_catalog(args)
     } else {
         Err(anyhow!(
             "Unknown command: {}\n{HELP}",
@@ -118,4 +120,35 @@ fn repair(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
             Ok(())
         }
     }
+}
+
+fn card_catalog(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
+    let [data, game_data, translations, out, revision, gamedata_etag, zh_etag] = options(
+        "card-catalog",
+        [
+            "--data",
+            "--game-data",
+            "--translations",
+            "--out",
+            "--revision",
+            "--gamedata-etag",
+            "--zh-etag",
+        ],
+        args,
+    )?;
+    let path = |value: Option<OsString>, option: &str| {
+        value
+            .map(PathBuf::from)
+            .with_context(|| format!("card-catalog requires {option}"))
+    };
+    let text = |value: Option<OsString>| value.map(|v| v.to_string_lossy().into_owned());
+    crate::card_catalog::export(
+        &path(data, "--data")?,
+        &path(game_data, "--game-data")?,
+        &path(translations, "--translations")?,
+        &path(out, "--out")?,
+        &text(revision).context("card-catalog requires --revision")?,
+        text(gamedata_etag),
+        text(zh_etag),
+    )
 }

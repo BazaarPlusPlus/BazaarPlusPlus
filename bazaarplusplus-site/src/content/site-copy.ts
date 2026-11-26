@@ -1,4 +1,3 @@
-import type { Enchantment } from '@bpp/ui';
 import type { AndroidSource } from '../features/download/installer';
 import type { HeroMetricsSegment } from '../features/heroes/hero-metrics-dataset';
 import type {
@@ -291,95 +290,17 @@ type LocalizedSiteCopy = {
     yesterday: string;
     outcomes: Record<RunOutcomeTier, string>;
     winLoss: string;
-    enchantments: Record<Enchantment, string>;
     emptySkills: string;
     missingSkills: string;
-    tiers: Record<string, string>;
-    day: string;
-    pvp: string;
     pve: string;
-    win: string;
-    loss: string;
-    cardDetail: {
-      close: string;
-      enchantments: string;
-      allEnchantments: string;
-      sizes: Record<string, string>;
-      ammo: string;
-      cooldown: string;
-      seconds: string;
-      unavailable: string;
-    };
     notRecorded: string;
     emptyBoard: string;
-    skills: string;
     added: string;
     left: string;
     tierUp: string;
     detailError: string;
     notFound: string;
-    path: {
-      decisions: string;
-      board: string;
-      stash: string;
-      unknown: string;
-      empty: string;
-      pickedFrom: string;
-      chosen: string;
-      goldTotal: string;
-      healthTotal: string;
-      level: string;
-      resultOffer: string;
-      previous: string;
-      next: string;
-      unknownDay: string;
-      hour: string;
-      visited: string;
-      fought: string;
-      noVisits: string;
-      moves: string;
-      frame: string;
-      kinds: Record<
-        | 'shop'
-        | 'event'
-        | 'monster'
-        | 'pvp'
-        | 'pedestal'
-        | 'encounter'
-        | 'activity'
-        | 'levelUp'
-        | 'loot',
-        string
-      >;
-      verbs: Record<
-        | 'start'
-        | 'reconnect'
-        | 'chose'
-        | 'bought'
-        | 'picked'
-        | 'sold'
-        | 'rerolled'
-        | 'moved'
-        | 'skill'
-        | 'upgraded'
-        | 'enchanted'
-        | 'committed'
-        | 'left'
-        | 'other',
-        string
-      >;
-      gold: string;
-      net: string;
-      health: string;
-      attempted: string;
-      noResponse: string;
-      undecoded: string;
-      rawFrames: string;
-      downloadBytes: string;
-      downloadAll: string;
-      omitted: string;
-      error: string;
-    };
+    streamOmitted: string;
   };
   primaryNav: PrimaryNavCopy;
   secondaryNav: SecondaryNavCopy;
@@ -500,116 +421,17 @@ const zh: LocalizedSiteCopy = {
       diamond: '钻石胜利'
     },
     winLoss: '{wins} 胜 {losses} 负',
-    tiers: {
-      Bronze: '青铜',
-      Silver: '白银',
-      Gold: '黄金',
-      Diamond: '钻石',
-      Legendary: '传奇'
-    },
-    day: '第 {day} 天',
-    pvp: 'PvP',
     pve: 'PvE',
-    win: '胜',
-    loss: '负',
-    cardDetail: {
-      close: '关闭',
-      enchantments: '附魔',
-      allEnchantments: '显示全部附魔',
-      sizes: { Small: '小型', Medium: '中型', Large: '大型' },
-      ammo: '弹药',
-      cooldown: '冷却',
-      seconds: '秒',
-      unavailable: '不可用'
-    },
     notRecorded: '未记录阵容',
     emptyBoard: '空阵容',
-    skills: '技能',
     emptySkills: '无技能',
     missingSkills: '未记录技能',
-    enchantments: {
-      Deadly: '致命',
-      Ethereal: '空灵',
-      Fiery: '炽焰',
-      Golden: '黄金',
-      Heavy: '沉重',
-      Icy: '寒冰',
-      Mystical: '神秘',
-      Obsidian: '黑曜石',
-      Radiant: '辉耀',
-      Restorative: '回复',
-      Shielded: '护盾',
-      Shiny: '闪亮',
-      Tiny: '迷你',
-      Toxic: '毒素',
-      Turbo: '疾速',
-      Mossy: '长青'
-    },
     added: '新增',
     left: '离场',
     tierUp: '升级',
     detailError: '未能读取这局的战斗详情。',
     notFound: '找不到这局。超过 8 天的对局会被删除。',
-    path: {
-      decisions: '整局回放',
-      board: '阵容',
-      stash: '储物箱',
-      unknown: '状态未知',
-      empty: '空',
-      pickedFrom: '选择范围',
-      chosen: '已选',
-      goldTotal: '金币',
-      healthTotal: '生命',
-      level: '等级',
-      resultOffer: '备选',
-      previous: '上一步',
-      next: '下一步',
-      unknownDay: '日期未知',
-      hour: '第 {n} 小时',
-      visited: '拜访 {name}',
-      fought: '迎战 {name}',
-      noVisits: '没有记录这一局的决策。',
-      moves: '移动 {n} 次',
-      frame: '消息序号',
-      kinds: {
-        shop: '商店',
-        event: '事件',
-        monster: '怪物',
-        pvp: 'PvP',
-        pedestal: '祭坛',
-        encounter: '遭遇',
-        activity: '遭遇之间',
-        levelUp: '升级',
-        loot: '战利品'
-      },
-      verbs: {
-        start: '开局',
-        reconnect: '重新连接',
-        chose: '选择',
-        bought: '购买',
-        picked: '获得',
-        sold: '出售',
-        rerolled: '刷新',
-        moved: '移动',
-        skill: '学会',
-        upgraded: '升级',
-        enchanted: '附魔',
-        committed: '提交',
-        left: '离开',
-        other: '指令'
-      },
-      gold: '{n} 金币',
-      net: '净 {n} 金币',
-      health: '{n} 生命',
-      attempted: '未生效',
-      noResponse: '无响应',
-      undecoded: '无法读取的消息',
-      rawFrames: '原始消息',
-      downloadBytes: '下载字节',
-      downloadAll: '下载全部消息',
-      omitted: '这局的消息流过大，没有上传。',
-      error: '未能读取这局的消息流。'
-    }
+    streamOmitted: '这局的消息流过大，没有上传。'
   },
   primaryNav: {
     heroes: '统计'
@@ -1029,116 +851,17 @@ const en: LocalizedSiteCopy = {
       diamond: 'Diamond victory'
     },
     winLoss: '{wins}–{losses}',
-    tiers: {
-      Bronze: 'Bronze',
-      Silver: 'Silver',
-      Gold: 'Gold',
-      Diamond: 'Diamond',
-      Legendary: 'Legendary'
-    },
-    day: 'Day {day}',
-    pvp: 'PvP',
     pve: 'PvE',
-    win: 'Win',
-    loss: 'Loss',
-    cardDetail: {
-      close: 'Close',
-      enchantments: 'Enchantments',
-      allEnchantments: 'Show all enchantments',
-      sizes: { Small: 'Small', Medium: 'Medium', Large: 'Large' },
-      ammo: 'Ammo',
-      cooldown: 'Cooldown',
-      seconds: 's',
-      unavailable: 'Unavailable'
-    },
     notRecorded: 'Board not recorded',
     emptyBoard: 'Empty board',
-    skills: 'Skills',
     emptySkills: 'No skills',
     missingSkills: 'Skills not recorded',
-    enchantments: {
-      Deadly: 'Deadly',
-      Ethereal: 'Ethereal',
-      Fiery: 'Fiery',
-      Golden: 'Golden',
-      Heavy: 'Heavy',
-      Icy: 'Icy',
-      Mystical: 'Mystical',
-      Obsidian: 'Obsidian',
-      Radiant: 'Radiant',
-      Restorative: 'Restorative',
-      Shielded: 'Shielded',
-      Shiny: 'Shiny',
-      Tiny: 'Tiny',
-      Toxic: 'Toxic',
-      Turbo: 'Turbo',
-      Mossy: 'Mossy'
-    },
     added: 'New',
     left: 'Left the board',
     tierUp: 'Upgraded',
     detailError: 'Couldn’t load the battle details of this run.',
     notFound: 'This run wasn’t found. Runs older than 8 days are deleted.',
-    path: {
-      decisions: 'Run replay',
-      board: 'Board',
-      stash: 'Stash',
-      unknown: 'State unavailable',
-      empty: 'Empty',
-      pickedFrom: 'Picked from',
-      chosen: 'Chosen',
-      goldTotal: 'Gold',
-      healthTotal: 'Health',
-      level: 'Level',
-      resultOffer: 'Offered',
-      previous: 'Previous',
-      next: 'Next',
-      unknownDay: 'Unknown day',
-      hour: 'Hour {n}',
-      visited: 'Visited {name}',
-      fought: 'Fought {name}',
-      noVisits: 'No decisions recorded for this run.',
-      moves: 'Moved ×{n}',
-      frame: 'Frame sequence',
-      kinds: {
-        shop: 'Shop',
-        event: 'Event',
-        monster: 'Monster',
-        pvp: 'PvP',
-        pedestal: 'Pedestal',
-        encounter: 'Encounter',
-        activity: 'Between encounters',
-        levelUp: 'Level up',
-        loot: 'Loot'
-      },
-      verbs: {
-        start: 'Started',
-        reconnect: 'Reconnected',
-        chose: 'Chose',
-        bought: 'Bought',
-        picked: 'Took',
-        sold: 'Sold',
-        rerolled: 'Rerolled',
-        moved: 'Moved',
-        skill: 'Learned',
-        upgraded: 'Upgraded',
-        enchanted: 'Enchanted',
-        committed: 'Committed',
-        left: 'Left',
-        other: 'Command'
-      },
-      gold: '{n} gold',
-      net: 'net {n} gold',
-      health: '{n} health',
-      attempted: 'Not applied',
-      noResponse: 'No response',
-      undecoded: 'Unreadable message',
-      rawFrames: 'Raw frames',
-      downloadBytes: 'Download bytes',
-      downloadAll: 'Download all frames',
-      omitted: 'This run’s message stream was too large to upload.',
-      error: 'Couldn’t read this run’s message stream.'
-    }
+    streamOmitted: 'This run’s message stream was too large to upload.'
   },
   primaryNav: {
     heroes: 'Stats'

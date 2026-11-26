@@ -6,8 +6,16 @@ import {
   Board,
   SkillStrip,
   Button,
+  CardCatalog,
   DayCard,
-  StatusPanel
+  DecisionReplay,
+  StatusPanel,
+  StreamFrames,
+  fillTerm,
+  gameTerms,
+  useCardCatalog,
+  type CardInput,
+  type GameCard
 } from '@bpp/ui';
 
 import {
@@ -16,7 +24,7 @@ import {
   type Locale,
   type ResolvedSpaLocation
 } from '../../app/router';
-import { fillCopy, getSiteCopy } from '../../content/site-copy';
+import { getSiteCopy } from '../../content/site-copy';
 import HeroBadge from '../../shared/components/HeroBadge';
 import PageLayout from '../../shared/components/PageLayout';
 import { getHeroColor } from '../../shared/lib/heroes';
@@ -33,10 +41,6 @@ import {
   heroName,
   useSignedOutRedirect
 } from '../account/account-ui';
-import { useCardArt, useCardNames } from './card-art';
-import { gameCard } from './game-card';
-import { CardDetails, useOpenCard } from './CardDetails';
-import { SiteReplay, StreamDebug } from './DayDecisions';
 import { decodeRunPayload, type RunCard, type RunDetail } from './run-payload';
 import {
   buildTimeline,
@@ -49,25 +53,23 @@ type Props = {
   replacePage: (page: AccountRoutePage) => void;
 };
 
-type ArtLookup = (templateId: string) => string | null;
+/** The site Worker serves the card catalog same-origin from cdn.bazaarplusplus.com/card-art/. */
+const CARD_SOURCE = { base: '/card-art/' };
 
 function tierName(locale: Locale, tier: string | null): string {
-  return tier ? (getSiteCopy(locale).account.tiers[tier] ?? tier) : '';
+  return tier
+    ? ((gameTerms[locale].tiers as Record<string, string>)[tier] ?? tier)
+    : '';
 }
 
-function tiles(
-  diff: CardDiff | null,
-  art: ArtLookup,
-  locale: Locale,
-  open: ReturnType<typeof useOpenCard>
-) {
+function tiles(diff: CardDiff | null, card: (input: CardInput) => GameCard) {
   return (
-    diff?.cards.map((card) => ({
-      ...gameCard(card, cardName(card), art, locale, open),
-      id: card.instanceId,
-      slot: card.slot,
-      size: card.size,
-      change: card.change
+    diff?.cards.map((c) => ({
+      ...card({ ...c, type: null }),
+      id: c.instanceId,
+      slot: c.slot,
+      size: c.size,
+      change: c.change
     })) ?? null
   );
 }
@@ -121,22 +123,14 @@ function Changes({ step, locale }: { step: TimelineStep; locale: Locale }) {
   );
 }
 
-function StepBody({
-  step,
-  art,
-  locale
-}: {
-  step: TimelineStep;
-  art: ArtLookup;
-  locale: Locale;
-}) {
+function StepBody({ step, locale }: { step: TimelineStep; locale: Locale }) {
   const copy = getSiteCopy(locale).account;
-  const open = useOpenCard();
+  const { card, terms } = useCardCatalog();
   const { battle } = step;
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge dot={false}>{battle.pvp ? copy.pvp : copy.pve}</Badge>
+        <Badge dot={false}>{battle.pvp ? terms.pvp : copy.pve}</Badge>
         {battle.opponentHero && (
           <HeroBadge hero={heroName(battle.opponentHero)} label="full" />
         )}
@@ -148,7 +142,7 @@ function StepBody({
         {battle.outcome && (
           <span className="ml-auto">
             <Badge tone={battle.outcome === 'win' ? 'ok' : 'bad'}>
-              {battle.outcome === 'win' ? copy.win : copy.loss}
+              {terms[battle.outcome]}
             </Badge>
           </span>
         )}
@@ -157,15 +151,15 @@ function StepBody({
         <div className="grid gap-3 lg:grid-cols-[minmax(0,48rem)_minmax(0,1fr)] lg:gap-6">
           <div className="flex min-w-0 flex-col gap-2">
             <Board
-              cards={tiles(step.board, art, locale, open)}
+              cards={tiles(step.board, card)}
               missingLabel={copy.notRecorded}
               emptyLabel={copy.emptyBoard}
             />
             <SkillStrip
-              cards={tiles(step.skills, art, locale, open)}
+              cards={tiles(step.skills, card)}
               missingLabel={copy.missingSkills}
               emptyLabel={copy.emptySkills}
-              label={copy.skills}
+              label={terms.skills}
             />
           </div>
           <Changes step={step} locale={locale} />
@@ -179,17 +173,14 @@ function StepBody({
 function Decisions({
   detail,
   steps,
-  art,
   locale
 }: {
   detail: RunDetail;
   steps: TimelineStep[];
-  art: ArtLookup;
   locale: Locale;
 }) {
   const copy = getSiteCopy(locale).account;
-  // GameData titles first; the Run's own Battle snapshots name a card the index does not.
-  const gameNames = useCardNames();
+  const terms = gameTerms[locale];
   const path = useQuery({
     queryKey: [...ACCOUNT_QUERY, 'run-decisions', detail.runId],
     enabled: !!detail.stream,
@@ -200,20 +191,29 @@ function Decisions({
   });
   const days = decisionDays(steps, (s) => s.battle.day);
   const battles = useMemo(
-    () => new Map(steps.map((s) => [s.battle.id, s.battle])),
+    () =>
+      new Map(
+        steps.map(({ battle }) => [
+          battle.id,
+          {
+            ...battle,
+            opponentHero: battle.opponentHero && heroName(battle.opponentHero)
+          }
+        ])
+      ),
     [steps]
   );
   const names = useCallback(
-    (id: string) => gameNames(id) ?? detail.cardNames.get(id) ?? null,
-    [gameNames, detail.cardNames]
+    (id: string) => detail.cardNames.get(id) ?? null,
+    [detail.cardNames]
   );
   const status = detail.streamOmitted
-    ? copy.path.omitted
+    ? copy.streamOmitted
     : path.isError
-      ? copy.path.error
+      ? terms.replay.error
       : path.isPending
         ? copy.loading
-        : copy.path.noVisits;
+        : terms.replay.noVisits;
   return (
     <>
       <ol className="flex flex-col gap-3">
@@ -221,11 +221,13 @@ function Decisions({
           <DayCard
             key={day ?? 'unknown'}
             title={
-              day === null ? copy.path.unknownDay : fillCopy(copy.day, { day })
+              day === null
+                ? terms.replay.unknownDay
+                : fillTerm(terms.day, { n: day })
             }
             battles={daySteps.map((step) => (
               <div key={step.battle.id} className="flex flex-col gap-3">
-                <StepBody step={step} art={art} locale={locale} />
+                <StepBody step={step} locale={locale} />
               </div>
             ))}
           />
@@ -233,29 +235,26 @@ function Decisions({
       </ol>
       {(detail.stream || detail.streamOmitted) && (
         <section className="bpp-panel flex flex-col gap-3 p-4">
-          <h2 className="m-0 text-base">{copy.path.decisions}</h2>
+          <h2 className="m-0 text-base">{terms.replay.decisions}</h2>
           {path.data?.visits.length ? (
-            <SiteReplay
+            <DecisionReplay
               visits={path.data.visits}
               index={path.data}
               battles={battles}
-              art={art}
               names={names}
-              locale={locale}
             />
           ) : (
             <p>{status}</p>
           )}
         </section>
       )}
-      {path.data && <StreamDebug stream={path.data.stream} locale={locale} />}
+      {path.data && <StreamFrames stream={path.data.stream} />}
     </>
   );
 }
 
 function Timeline({ runId, locale }: { runId: string; locale: Locale }) {
   const copy = getSiteCopy(locale).account;
-  const art = useCardArt();
   const detail = useQuery({
     queryKey: [...ACCOUNT_QUERY, 'run-detail', runId],
     queryFn: async ({ signal }) => {
@@ -283,7 +282,7 @@ function Timeline({ runId, locale }: { runId: string; locale: Locale }) {
     );
   }
   const { run, steps } = detail.data;
-  return <Decisions detail={run} steps={steps} art={art} locale={locale} />;
+  return <Decisions detail={run} steps={steps} locale={locale} />;
 }
 
 export default function RunPage({ location, replacePage }: Props) {
@@ -363,9 +362,9 @@ export default function RunPage({ location, replacePage }: Props) {
           />
         ))}
       {run && (
-        <CardDetails locale={locale} key={runId}>
+        <CardCatalog source={CARD_SOURCE} locale={locale} key={runId}>
           <Timeline runId={runId} locale={locale} />
-        </CardDetails>
+        </CardCatalog>
       )}
     </PageLayout>
   );

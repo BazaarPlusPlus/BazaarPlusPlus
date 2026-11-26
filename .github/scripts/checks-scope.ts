@@ -219,10 +219,17 @@ export const SHARED_INPUTS: [string, string[]][] = [
   ['bazaarplusplus-mod/build/ManagedPath.props', ['release']],
   ['bazaarplusplus-mod/build/InteropPath.props', ['release']],
   ['bazaarplusplus-mod/global.json', ['release']],
-  // The docs authoring tool type-checks against the site's decoder and fixture builder.
-  ['bazaarplusplus-site/src/features/runs/run-payload.ts', ['ui-docs']],
+  // The docs authoring tool type-checks against the site's decoder and fixture builder;
+  // the installer's Browser Preview Run is decoded from the same fixture.
+  [
+    'bazaarplusplus-site/src/features/runs/run-payload.ts',
+    ['installer', 'ui-docs']
+  ],
   ['bazaarplusplus-site/tools/run-fixture/build.ts', ['ui-docs']],
-  ['bazaarplusplus-site/test/fixtures/run-stream.payload.b64', ['ui-docs']],
+  [
+    'bazaarplusplus-site/test/fixtures/run-stream.payload.b64',
+    ['installer', 'ui-docs']
+  ],
   // scripts/vite-plus.test.ts pins its vite-plus version to root package.json.
   ['bazaarplusplus-ui-docs/package.json', ['release']],
   ['bazaarplusplus-site/package.json', ['release']],

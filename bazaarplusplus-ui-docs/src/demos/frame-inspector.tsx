@@ -1,18 +1,12 @@
-import { FrameInspector } from '@bpp/ui';
+import { FrameInspector, gameTerms } from '@bpp/ui';
 import run from '../demo-data/run.json';
-import { type DemoProps, translate } from '../copy';
+import type { DemoProps } from '../copy';
 export default function Frames({ lang }: DemoProps) {
-  const t = (zh: string, en: string) => translate(lang, zh, en);
   return (
     <FrameInspector
       frames={run.moments.map((m) => ({ ...m, message: null }))}
       read={(m) => m.frame}
-      labels={{
-        rawFrames: t('原始帧', 'Raw frames'),
-        frame: t('帧', 'Frame'),
-        downloadBytes: t('下载字节', 'Download bytes'),
-        downloadAll: t('下载全部', 'Download all')
-      }}
+      labels={gameTerms[lang].replay}
       exportFrames={async () => [
         '[' + run.moments.map((m) => m.frame).join(',') + ']'
       ]}
