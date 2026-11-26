@@ -14,7 +14,7 @@ D1 只存 Binding。绑定不验证归属；任何人可查询仍被绑定的账
 
 从根目录 `just setup` 安装依赖。`just bot::check bot::test bot::build` 做类型、lint、Cloudflare 本地测试和两个 Worker 的 dry-run 构建。`just bot::preview <Bundle 目录> [--name <显示名>] [--art <卡图目录>]` 用一位玩家的真实 Bundle 生成 `artifacts/qqbot/` 下的战绩图和英雄图 PNG，需要在本项目执行 `bun run playwright install chromium` 安装预览浏览器。
 
-阵容图用公开的卡图（Card Art，根目录 ADR 0020）。`tools/card-art/extract.py` 从 Steam 文件和游戏的 GameData 提取卡图，`.github/workflows/card-art.yml` 在游戏更新后自动重新提取并发布到 `https://cdn.bazaarplusplus.com/card-art/`。本地提取：`just release::card-art download <目录>`（需要 Steam 登录），然后 `just bot::card-art <目录> <输出目录>`。
+阵容图用公开的卡图（Card Art，根目录 ADR 0020）。安装器的 Rust crate `card-catalog`（根目录 ADR 0024）从 Steam 文件和游戏的 GameData 提取卡图，`.github/workflows/card-art.yml` 在游戏更新后自动重新提取并发布到 `https://cdn.bazaarplusplus.com/card-art/`。本地提取：`just release::card-art download <目录>`（需要 Steam 登录），然后 `just installer::card-art <目录> <输出目录> --zh-etag <ETag>`。
 
 共享 `config.toml` 的 `[qqbot]` 提供既有 QQ 凭据，`[bot] BOT_STATS_TOKEN` 提供独立的服务 token。`just setup --skip-deps` 将它们投影到 `.dev.vars`，Bot token 同时投影到 server。`just bot::dev` 刷新配置后启动本地双 Worker。
 

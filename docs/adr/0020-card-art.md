@@ -15,8 +15,8 @@ QQ 机器人的战绩图要画出玩家的最终阵容。只写卡名不直观�
   - `bazaarplusplus-mod/tools/SteamSnapshot` 的 `card-art` 命令只下载这些文件。depot 和分支仍由 `STEAM_DEPOTS` 与 `STEAM_BRANCHES` 决定。
   - TemplateId 到 ArtKey 的对应来自游戏自己下载的 GameData（`https://data.playthebazaar.com/static/GameData.db.zip`）。depot 里的 GameData 比它旧几个月，少约 300 个物品。
 - 提取：
-  - `bazaarplusplus-bot/tools/card-art/extract.py` 按游戏自己的方式解析：ArtKey 经目录得到资源路径。物品走 CardData → 材质 → `_MainTex`，技能是图标 Sprite。
-  - 依赖由 `extract.py.lock` 锁定。
+  - 按游戏自己的方式解析：ArtKey 经目录得到资源路径。物品走 CardData → 材质 → `_MainTex`，技能是图标 Sprite。
+  - 实现最初是 `bazaarplusplus-bot/tools/card-art/extract.py`，现由 Rust crate `card-catalog` 取代，见 [ADR 0024](0024-card-catalog-in-rust.md)。
   - 2026-11-16 的覆盖率：物品 1,428/1,432，技能 568/577。物品低于 95% 或技能低于 90% 时不发布。
 - 发布：
   - 公开桶 `bazaarplusplus-public` 的 `card-art/` 前缀，由 `release/card-art.ts` 写入。

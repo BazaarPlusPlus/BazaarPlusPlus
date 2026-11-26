@@ -148,9 +148,10 @@ export function runGenerateBindings(
     const cargoArgs = [
       'test',
       '--locked',
-      ...(runAllRustTests ? [] : ['export_bindings']),
       '--manifest-path',
       'src-tauri/Cargo.toml',
+      // The card-catalog crate shares the workspace and its gate.
+      ...(runAllRustTests ? ['--workspace'] : ['export_bindings']),
       '--',
       '--nocapture'
     ];
