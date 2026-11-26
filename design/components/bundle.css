@@ -1560,7 +1560,8 @@ button.bpp-skill-tile:active {
 .bpp-card .bpp-enchant,
 .bpp-skill-tile .bpp-tier-label,
 .bpp-decision-card .bpp-tier-label,
-.bpp-moment .bpp-card-chip .bpp-tier-label {
+.bpp-moment .bpp-card-chip .bpp-tier-label,
+.bpp-detail-head .bpp-tier-label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1733,23 +1734,70 @@ button.bpp-card {
   gap: var(--space-12);
   align-items: center;
 }
+/* The card's own enchantment sits in the header's top corner. */
+.bpp-detail-head > .bpp-enchant {
+  flex: none;
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-inline-start: auto;
+  font-size: var(--type-small);
+}
 .bpp-detail-art {
   position: relative;
+  box-sizing: border-box;
   width: 5rem;
   height: 5rem;
   flex: none;
   overflow: hidden;
+  border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
+  border-radius: var(--r-control);
+}
+.bpp-detail-head > div {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.bpp-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bpp-detail-tags li {
+  padding: 0 var(--space-6);
+  border: 1px solid var(--line);
   border-radius: var(--r-inner);
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: var(--type-micro);
+  line-height: 1.6;
+}
+.bpp-detail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  font-variant-numeric: tabular-nums;
 }
 .bpp-effect-line {
   margin: var(--space-4) 0;
+  line-height: 1.75;
 }
+/* Numbers keep a quarter-em from the Chinese around them, as CJK typesetting does. */
 .bpp-effect-value {
+  margin-inline: 0.2em;
   color: var(--bpp-tier);
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.bpp-effect-step {
+  color: var(--text-3);
+  font-size: 0.85em;
 }
 strong.bpp-effect-value {
   text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 .bpp-card-unavailable {
   color: var(--text-3);
@@ -1846,8 +1894,7 @@ strong.bpp-effect-value {
   font-weight: 600;
   margin-block-end: var(--space-6);
 }
-.bpp-detail-head p,
-.bpp-detail-enchant > p:not(.bpp-effect-line) {
+.bpp-detail-head p {
   font-size: var(--type-small);
   color: var(--text-2);
 }

@@ -211,6 +211,11 @@ describe('Card Text', () => {
   });
 });
 
+const tags = (selector: string) =>
+  [...container.querySelectorAll(`${selector} .bpp-detail-tags li`)].map(
+    (tag) => tag.textContent
+  );
+
 it('renders only localized card and enchantment tags', async () => {
   await render(
     <CardDetail
@@ -262,10 +267,8 @@ it('renders only localized card and enchantment tags', async () => {
       }}
     />
   );
-  expect(container.querySelector('header p')?.textContent).toBe('中型 · 科技');
-  expect(container.querySelector('.bpp-detail-enchant p')?.textContent).toBe(
-    '武器'
-  );
+  expect(tags('header')).toEqual(['中型', '科技']);
+  expect(tags('.bpp-detail-enchant')).toEqual(['武器']);
 });
 
 describe('CardTile', () => {
