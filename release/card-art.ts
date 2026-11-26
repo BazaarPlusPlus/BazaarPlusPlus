@@ -100,7 +100,7 @@ export async function cardArtStale(
       published.game?.buildid !== String(buildid) ||
       published.game?.gameData !== gameData ||
       published.game?.zh !== zh ||
-      published.version !== 2 ||
+      published.version !== 3 ||
       !validFx(published.fx) ||
       locales.some((locale) => !isTextFile(locale, published.text?.[locale])) ||
       published.names === undefined,

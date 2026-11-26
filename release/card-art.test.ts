@@ -50,7 +50,7 @@ function artDirectory(files: string[]) {
   fs.writeFileSync(
     path.join(dir, 'index.json'),
     JSON.stringify({
-      version: 2,
+      version: 3,
       text,
       game: { buildid: '7', gameData: 'e1', zh: 'e1' },
       cards: { example: art },

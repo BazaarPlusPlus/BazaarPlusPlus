@@ -96,7 +96,7 @@ The game's own item and skill art, one WebP per distinct art, extracted from the
 The persistent material effect on a captured enchanted item. The Card Art index optionally maps its TemplateId to a material descriptor with the renderer profile, keyword sets, values and texture bindings (ADR 0022).
 
 **Card Text** (卡牌文本):
-The localized item or skill definition keyed by TemplateId in the Card Art index’s locale files. It carries tier attributes, tooltip lines and enchantment definitions from GameData. Each line records its applicable tiers, translation availability and how much of its text can be resolved from the definition. A Run refers to a captured instance, whose values can differ from Card Text. See ADR 0021.
+The localized item or skill definition keyed by TemplateId in the Card Art index’s locale files. It carries tier attributes, tooltip lines and enchantment definitions from GameData; a locale file stores each distinct enchantment definition once and each card names it by position. Each line records its applicable tiers, translation availability and how much of its text can be resolved from the definition. A Run refers to a captured instance, whose values can differ from Card Text. See ADR 0021.
 
 ## Mod hosts
 

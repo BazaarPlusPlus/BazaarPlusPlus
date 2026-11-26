@@ -11,16 +11,50 @@ it('chooses the locale file and falls back only for an absent Chinese file', () 
   expect(cardTextFile({ en, zh: '../bad' }, 'zh')).toBeNull();
   expect(cardTextFile(undefined, 'en')).toBeNull();
 });
-it('reads the catalog from the same-origin Card Art proxy', async () => {
-  const cards = { sample: { title: 'Radar Module' } };
+it('reads the catalog from the same-origin Card Art proxy and resolves shared enchantments', async () => {
+  const shiny = { tags: [], lines: [] };
+  const heavy = { tags: ['Weapon'], lines: [] };
   const tagLabels = { Tech: '科技' };
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(Response.json({ version: 1, cards, tagLabels }));
+  const fetch = vi.fn().mockResolvedValue(
+    Response.json({
+      version: 2,
+      enchantments: [shiny, heavy],
+      cards: {
+        radar: { title: 'Radar Module', enchantments: { Shiny: 0, Heavy: 1 } },
+        sword: { title: 'Sword', enchantments: { Shiny: 0 } }
+      },
+      tagLabels
+    })
+  );
   vi.stubGlobal('fetch', fetch);
   const signal = new AbortController().signal;
-  expect(await loadCardText(zh, signal)).toEqual({ cards, tagLabels });
+  expect(await loadCardText(zh, signal)).toEqual({
+    cards: {
+      radar: {
+        title: 'Radar Module',
+        enchantments: { Shiny: shiny, Heavy: heavy }
+      },
+      sword: { title: 'Sword', enchantments: { Shiny: shiny } }
+    },
+    tagLabels
+  });
   expect(fetch).toHaveBeenCalledWith('/card-art/' + zh, { signal });
+});
+
+it('refuses a card that names a missing enchantment', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      Response.json({
+        version: 2,
+        enchantments: [],
+        cards: { radar: { title: 'Radar Module', enchantments: { Shiny: 0 } } }
+      })
+    )
+  );
+  await expect(loadCardText(zh, new AbortController().signal)).rejects.toThrow(
+    'Invalid Card Text'
+  );
 });
 
 it.each([undefined, 'fx-0123456789abcdef0123.json'])(
@@ -31,7 +65,7 @@ it.each([undefined, 'fx-0123456789abcdef0123.json'])(
       'fetch',
       vi.fn().mockResolvedValue(
         Response.json({
-          version: 2,
+          version: 3,
           cards: { ITEM: file },
           names: { ITEM: 'Example' },
           text: { en, zh },
