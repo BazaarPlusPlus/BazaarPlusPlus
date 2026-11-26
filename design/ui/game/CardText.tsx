@@ -50,6 +50,22 @@ export function CardText({
         const next = line.segments[i + 1];
         const percent =
           next && 'text' in next ? next.text.match(/^[%％]/)?.[0] : undefined;
+        const values = line.tiers.map((quality) => segment.tiers?.[quality]);
+        // A value every tier shares reads once instead of repeating along the ladder.
+        if (
+          values.every((value) => value !== undefined && value === values[0])
+        ) {
+          const Value = tier ? 'strong' : 'span';
+          return (
+            <Value
+              key={key}
+              className={`bpp-effect-value bpp-tier-${(tier ?? '').toLowerCase()}`}
+            >
+              {values[0]}
+              {percent}
+            </Value>
+          );
+        }
         return (
           <Fragment key={key}>
             {line.tiers.map((quality, j) => {
@@ -57,7 +73,7 @@ export function CardText({
               const Value = tier === quality ? 'strong' : 'span';
               return (
                 <Fragment key={quality}>
-                  {j > 0 && ' » '}
+                  {j > 0 && <span className="bpp-effect-step"> » </span>}
                   {value === undefined ? (
                     missing
                   ) : (

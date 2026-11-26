@@ -46,12 +46,7 @@ export async function fragment(
   if (material.version !== 1 || material.profile !== 'premium-card-v1')
     return null;
   const program = programs[enchant];
-  if (
-    !program ||
-    (material.size !== 'small' && !program.allSizes) ||
-    (tinyMode && enchant !== 'Tiny')
-  )
-    return null;
+  if (!program || (tinyMode && enchant !== 'Tiny')) return null;
 
   const keywords = material.keywords[enchant]?.[tinyMode ? 'tiny' : 'normal'];
   const size = '_CRDSIZE_' + material.size.toUpperCase();

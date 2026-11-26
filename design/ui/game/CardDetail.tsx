@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { FxFace } from './enchantment-fx/Face';
-import { CardArt, EnchantLabel, type GameCard } from './Card';
+import { CardArt, EnchantLabel, TierLabel, type GameCard } from './Card';
 import { CardText, type CardTextLine } from './CardText';
 import { enchantments, type CardTier, type Enchantment } from './types';
 
@@ -37,6 +37,19 @@ function subscribe(notify: () => void) {
   return () => {
     subscribers.delete(notify);
   };
+}
+
+function Tags({ tags }: { tags: (string | false | undefined)[] }) {
+  const shown = tags.filter(Boolean);
+  return (
+    shown.length > 0 && (
+      <ul className="bpp-detail-tags">
+        {shown.map((tag) => (
+          <li key={String(tag)}>{tag}</li>
+        ))}
+      </ul>
+    )
+  );
 }
 
 export type CardDefinition = {
@@ -112,7 +125,7 @@ export function CardDetail({
       <header className="bpp-detail-head">
         {card.art && (
           <div
-            className="bpp-detail-art"
+            className={`bpp-detail-art bpp-tier-${(card.tier ?? '').toLowerCase()}`}
             data-size={card.size ?? DEFINITION_SIZES[definition?.size ?? '']}
           >
             <CardArt src={card.art} alt="" fallback="" />
@@ -123,28 +136,31 @@ export function CardDetail({
         )}
         <div>
           <h2 id={titleId}>{definition?.title ?? card.name}</h2>
-          <p>
-            {[
-              card.tierLabel,
+          {/* The art's frame shows the tier; its word stays for screen readers. */}
+          <TierLabel label={card.tierLabel} />
+          <Tags
+            tags={[
               definition && (labels.sizes[definition.size] ?? definition.size),
               ...localizedTags(definition?.tags ?? [])
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-          <EnchantLabel enchant={card.enchant} label={card.enchantLabel} />
-          {attrs?.CooldownMax != null && (
-            <p>
-              {labels.cooldown} {attrs.CooldownMax / 1000}
-              {labels.seconds}
-            </p>
-          )}
-          {attrs?.AmmoMax != null && (
-            <p>
-              {labels.ammo} {attrs.AmmoMax}
+            ]}
+          />
+          {(attrs?.CooldownMax != null || attrs?.AmmoMax != null) && (
+            <p className="bpp-detail-stats">
+              {attrs?.CooldownMax != null && (
+                <span>
+                  {labels.cooldown} {attrs.CooldownMax / 1000}
+                  {labels.seconds}
+                </span>
+              )}
+              {attrs?.AmmoMax != null && (
+                <span>
+                  {labels.ammo} {attrs.AmmoMax}
+                </span>
+              )}
             </p>
           )}
         </div>
+        <EnchantLabel enchant={card.enchant} label={card.enchantLabel} />
       </header>
       {definition ? (
         lines(definition.lines)
@@ -152,7 +168,7 @@ export function CardDetail({
         <p className="bpp-card-unavailable">{labels.unavailable}</p>
       )}
       {effects.length > 0 && (entries.length > 0 || !preview) && (
-        <section>
+        <section className="bpp-detail-enchants">
           <div className="bpp-detail-section-head">
             <h3>{labels.enchantments}</h3>
             {!preview && (
@@ -181,7 +197,7 @@ export function CardDetail({
                     label={enchant ? enchantLabels[enchant] : name}
                   />
                 </h4>
-                {tags.length > 0 && <p>{tags.join(' · ')}</p>}
+                <Tags tags={tags} />
                 {lines(effect.lines)}
               </section>
             );
