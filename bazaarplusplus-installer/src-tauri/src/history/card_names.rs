@@ -50,7 +50,7 @@ impl GameCardNames {
     }
 }
 
-fn installed_cache_dir() -> Option<PathBuf> {
+pub(crate) fn installed_cache_dir() -> Option<PathBuf> {
     let home = dirs::home_dir()?;
     if cfg!(target_os = "macos") {
         Some(home.join("Library/Application Support/com.TempoStorm.TheBazaar/prod/cache"))

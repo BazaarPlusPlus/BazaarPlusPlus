@@ -1,5 +1,6 @@
 import type { CommandAdapter } from './commandAdapter';
 import { SemanticProblemError } from './problems';
+import type { HistoryRunDetail } from '../types/backend';
 import {
   defaultCropSettings,
   emptyHistoryRunList,
@@ -13,6 +14,24 @@ import {
   fallbackBootstrap,
   idleStreamStatus
 } from './previewDefaults';
+
+/** The site's fixed real Run, in `vp dev` only: tests and builds keep an empty History. */
+async function previewRun(): Promise<HistoryRunDetail | null> {
+  if (import.meta.env.MODE !== 'development') return null;
+  return (await import('./preview-run.json')).default as HistoryRunDetail;
+}
+
+// Browser Preview reads the published catalog; there is no export to run.
+const previewCardCatalog = {
+  revision: 'published',
+  current: true,
+  gameFound: true,
+  progress: null,
+  failed: false,
+  exportedAtMs: null,
+  files: 0,
+  bytes: 0
+};
 
 export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
   return {
@@ -48,9 +67,23 @@ export function createPreviewCommands(native: CommandAdapter): CommandAdapter {
     }),
     applyOverlayCropCode: async (code) => ({ ...defaultCropSettings, code }),
     resetOverlayCrop: async () => defaultCropSettings,
-    listHistoryRuns: async () => emptyHistoryRunList,
-    getCardArtIndex: async () => ({}),
-    getHistoryRunDetail: async () => null,
+    listHistoryRuns: async () => {
+      const run = await previewRun();
+      return run
+        ? {
+            ...emptyHistoryRunList,
+            summary: { runs: 1, videos: 0, win_rate: null },
+            runs: [{ ...run.run, thumbnail_url: null }],
+            heroes: [run.run.hero]
+          }
+        : emptyHistoryRunList;
+    },
+    getCardCatalog: async () => previewCardCatalog,
+    rebuildCardCatalog: async () => previewCardCatalog,
+    getHistoryRunDetail: async (runId) => {
+      const run = await previewRun();
+      return run?.run.run_id === runId ? run : null;
+    },
     revealRunScreenshot: async () => null,
     revealBattleVideo: async () => null,
     deleteBattleVideo: (...args) => native.deleteBattleVideo(...args),

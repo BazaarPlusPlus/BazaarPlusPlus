@@ -430,9 +430,9 @@ test('a Run detail decodes the stored Run into a decision timeline', async ({
     /^\/card-art\/\d{20}\.webp$/
   );
   // The socket effect in the hand set is not a board item.
-  await expect(board.getByTitle(/^Socket/)).toHaveCount(0);
+  await expect(board.getByLabel(/^Socket/)).toHaveCount(0);
   await expect(board.getByRole('img', { name: 'Microphone' })).toHaveCount(0);
-  await expect(board.getByTitle('Microphone · 青铜')).toHaveText(
+  await expect(board.getByLabel('Microphone · 青铜')).toHaveText(
     'Microphone青铜'
   );
 

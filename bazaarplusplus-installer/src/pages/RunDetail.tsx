@@ -9,9 +9,16 @@ import {
   Trash2,
   Video
 } from 'lucide-react';
-import { BattleBoards, useBattleArt } from '../features/history/BattleBoards';
+import { BattleBoards } from '../features/history/BattleBoards';
+import { HistoryCardCatalog } from '../features/history/HistoryCardCatalog';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Button, buttonClassName, StatusPanel } from '@bpp/ui';
+import {
+  Button,
+  buttonClassName,
+  fillTerm,
+  gameTerms,
+  StatusPanel
+} from '@bpp/ui';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
@@ -55,8 +62,8 @@ export default function RunDetail() {
   );
   const page = useRunDetailPage();
   const detail = page.detail;
-  const art = useBattleArt(Boolean(detail?.battles.length));
   const { locale, t } = useI18n();
+  const terms = gameTerms[locale];
   const runResult = detail ? formatRunResultLabel(detail.run) : null;
   const deleteOperation = useConfirmedOperation<
     VideoDeleteTarget,
@@ -227,106 +234,106 @@ export default function RunDetail() {
             </div>
           </section>
 
-          <LocalDays
-            detail={detail}
-            art={art}
-            empty={
-              <StatusPanel
-                headingLevel={3}
-                kind="empty"
-                framed={false}
-                icon={<Video />}
-                title={t('noLocalBattles')}
-                body={t('noLocalBattlesDescription')}
-                actions={
-                  <Button
-                    size="sm"
-                    onClick={() => void page.refresh()}
-                    disabled={page.busy}
-                    busy={page.refreshing}
-                    icon={<RefreshCw />}
-                  >
-                    {t('refresh')}
-                  </Button>
-                }
-              />
-            }
-            renderBattles={(dayBattles) => (
-              <div className="overflow-x-auto">
-                <table className="bpp-table">
-                  <colgroup>
-                    <col style={{ width: '7%' }} />
-                    <col style={{ width: '9%' }} />
-                    <col style={{ width: '17%' }} />
-                    <col style={{ width: '21%' }} />
-                    <col style={{ width: '15%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '21%' }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th scope="col">{t('battleColResult')}</th>
-                      <th scope="col">{t('battleColOpponentHero')}</th>
-                      <th scope="col">{t('battleColOpponentPlayer')}</th>
-                      <th scope="col">{t('battleColRank')}</th>
-                      <th scope="col">{t('battleColRating')}</th>
-                      <th scope="col" className="text-right">
-                        {t('battleColVideo')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dayBattles.map((battle) =>
-                      'battle_id' in battle ? (
-                        <BattleRow
-                          key={battle.battle_id}
-                          art={art}
-                          battle={battle}
-                          page={page}
-                          onRequestDelete={(target) => {
-                            if (!target.video) return;
-                            deleteOperation.controller.request({
-                              kind: 'delete-video',
-                              battleId: target.battle_id,
-                              videoId: target.video.video_id,
-                              runStartedAt: detail.run.started_at_utc,
-                              day: target.day,
-                              opponent:
-                                [
-                                  target.opponent_name,
-                                  target.opponent_hero &&
-                                    formatHero(target.opponent_hero, t)
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ') || '-',
-                              durationMs: target.video.duration_ms
-                            });
-                          }}
-                        />
-                      ) : (
-                        <tr key={battle.id}>
-                          <td>
-                            {battle.outcome &&
-                              t(
-                                battle.outcome === 'win'
-                                  ? 'battleResultWin'
-                                  : 'battleResultLoss'
-                              )}
-                          </td>
-                          <td colSpan={5}>
-                            {t('path_monster')}{' '}
-                            {battle.encounterId?.slice(0, 8)}{' '}
-                            {battle.hour !== null &&
-                              t('path_hour', { n: battle.hour })}
-                          </td>
-                        </tr>
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          />
+          <HistoryCardCatalog>
+            <LocalDays
+              detail={detail}
+              empty={
+                <StatusPanel
+                  headingLevel={3}
+                  kind="empty"
+                  framed={false}
+                  icon={<Video />}
+                  title={t('noLocalBattles')}
+                  body={t('noLocalBattlesDescription')}
+                  actions={
+                    <Button
+                      size="sm"
+                      onClick={() => void page.refresh()}
+                      disabled={page.busy}
+                      busy={page.refreshing}
+                      icon={<RefreshCw />}
+                    >
+                      {t('refresh')}
+                    </Button>
+                  }
+                />
+              }
+              renderBattles={(dayBattles) => (
+                <div className="overflow-x-auto">
+                  <table className="bpp-table">
+                    <colgroup>
+                      <col style={{ width: '7%' }} />
+                      <col style={{ width: '9%' }} />
+                      <col style={{ width: '17%' }} />
+                      <col style={{ width: '21%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '21%' }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th scope="col">{t('battleColResult')}</th>
+                        <th scope="col">{t('battleColOpponentHero')}</th>
+                        <th scope="col">{t('battleColOpponentPlayer')}</th>
+                        <th scope="col">{t('battleColRank')}</th>
+                        <th scope="col">{t('battleColRating')}</th>
+                        <th scope="col" className="text-right">
+                          {t('battleColVideo')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dayBattles.map((battle) =>
+                        'battle_id' in battle ? (
+                          <BattleRow
+                            key={battle.battle_id}
+                            battle={battle}
+                            page={page}
+                            onRequestDelete={(target) => {
+                              if (!target.video) return;
+                              deleteOperation.controller.request({
+                                kind: 'delete-video',
+                                battleId: target.battle_id,
+                                videoId: target.video.video_id,
+                                runStartedAt: detail.run.started_at_utc,
+                                day: target.day,
+                                opponent:
+                                  [
+                                    target.opponent_name,
+                                    target.opponent_hero &&
+                                      formatHero(target.opponent_hero, t)
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ') || '-',
+                                durationMs: target.video.duration_ms
+                              });
+                            }}
+                          />
+                        ) : (
+                          <tr key={battle.id}>
+                            <td>
+                              {battle.outcome &&
+                                t(
+                                  battle.outcome === 'win'
+                                    ? 'battleResultWin'
+                                    : 'battleResultLoss'
+                                )}
+                            </td>
+                            <td colSpan={5}>
+                              {terms.replay.kinds.monster}{' '}
+                              {battle.encounterId?.slice(0, 8)}{' '}
+                              {battle.hour !== null &&
+                                fillTerm(terms.replay.hour, { n: battle.hour })}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            />
+          </HistoryCardCatalog>
         </>
       ) : null}
 
@@ -385,12 +392,10 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 }
 
 function BattleRow({
-  art,
   battle,
   page,
   onRequestDelete
 }: {
-  art: ReturnType<typeof useBattleArt>;
   battle: HistoryBattleRow;
   page: ReturnType<typeof useRunDetailPage>;
   onRequestDelete: (battle: HistoryBattleRow) => void;
@@ -488,7 +493,7 @@ function BattleRow({
 
       <tr>
         <td colSpan={6}>
-          <BattleBoards battle={battle} art={art} />
+          <BattleBoards battle={battle} />
         </td>
       </tr>
       {failure && (

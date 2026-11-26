@@ -48,7 +48,7 @@ for (const webgl of [true, false]) {
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/records/' + SAMPLE_RUN_ID + '?lang=en');
-    const tile = page.getByTitle(/Tambourine.*Shiny/).first();
+    const tile = page.getByLabel(/Tambourine.*Shiny/).first();
     await tile.scrollIntoViewIfNeeded();
     await expect(tile.getByRole('img')).toBeVisible();
     const canvas = tile.locator('canvas');

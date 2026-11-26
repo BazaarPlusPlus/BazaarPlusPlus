@@ -20,18 +20,18 @@ for (const [key, title, en] of pages) {
         )
         .toBeGreaterThan(0);
     if (key === 'run-replay') {
-      await page.getByRole('button', { name: '买入 · 飞鱼' }).click();
-      await expect(page.locator('.bpp-moment-title')).toHaveText('买入 · 飞鱼');
+      await page.getByRole('button', { name: '购买 · 飞鱼' }).click();
+      await expect(page.locator('.bpp-moment-title')).toHaveText('购买 · 飞鱼');
       await page.getByRole('button', { name: '上一步' }).click();
       await expect(page.locator('.bpp-moment-title')).toHaveText(
-        '买入 · 皮皮虾'
+        '购买 · 皮皮虾'
       );
       await page
-        .getByRole('button', { name: '买入 · 皮皮虾' })
+        .getByRole('button', { name: '购买 · 皮皮虾' })
         .press('ArrowDown');
-      await expect(page.locator('.bpp-moment-title')).toHaveText('买入 · 飞鱼');
+      await expect(page.locator('.bpp-moment-title')).toHaveText('购买 · 飞鱼');
       await expect(
-        page.getByRole('button', { name: '买入 · 飞鱼' })
+        page.getByRole('button', { name: '购买 · 飞鱼' })
       ).toBeFocused();
     }
     expect(

@@ -34,3 +34,5 @@
 - 组件库不能有 `react` 以外的运行时依赖，因为它没有自己的 `node_modules`。
 - `design/components/index.d.ts` 删除，`design/tokens.json` 的 `components` 映射指向 `design/ui/`。组件库不发布到 claude.ai 的 Design System artifact。
 - site 的部署工作流监听 `design/components/bundle.css`、`design/ui/**` 和 `design/ui-classes.ts`。
+
+2026-11-27 注：[ADR 0025](0025-card-catalog-in-the-ui-kit.md) 修改了两条规则：组件库可以引入根目录 `runs/`；两端相同的游戏数据读取（卡牌目录）和游戏术语归组件库。

@@ -46,8 +46,6 @@ tokio = { version = "1.53.1", features = [
   "sync",
   "net"
 ] }
-reqwest = { version = "0.13", default-features = false, features = ["json"] }
-rustls = { version = "0.23", default-features = false, features = ["ring"] }
 rusqlite = { version = "0.43.0", features = ["bundled"] }
 chrono = { version = "0.4", features = ["clock", "serde"] }
 image = { version = "0.25", default-features = false, features = [
@@ -58,6 +56,7 @@ image = { version = "0.25", default-features = false, features = [
 include_dir = "0.7"
 specta = { version = "=2.0.0-rc.25", features = ["derive"] }
 specta-typescript = "=0.0.12"
+card-catalog = { path = "card-catalog" }
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 tempfile = "3"
 sha2 = "0.11.0"
@@ -109,7 +108,7 @@ allow_attributes_without_reason = "warn"
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 
-[target.'cfg(unix)'.dev-dependencies]
+[target.'cfg(unix)'.dependencies]
 libc = "0.2.189"
 
 [profile.release]
@@ -130,4 +129,17 @@ opt-level = 3
 opt-level = 3
 
 [profile.release.package.lz4_flex]
+opt-level = 3
+
+# `tauri dev` runs the same card catalog export; unoptimized it takes many times longer.
+[profile.dev.package.card-catalog]
+opt-level = 3
+
+[profile.dev.package.texture2ddecoder]
+opt-level = 3
+
+[profile.dev.package.libwebp-sys]
+opt-level = 3
+
+[profile.dev.package.lz4_flex]
 opt-level = 3

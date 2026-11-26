@@ -140,6 +140,12 @@ function tierClass(tier: CardTier | null) {
   return tier ? `bpp-tier-${tier.toLowerCase()}` : '';
 }
 
+/** The tile's name; a tile with a hover preview shows no native tooltip over it. */
+function tileName(parts: string[], card: GameCard) {
+  const text = parts.filter(Boolean).join(' · ');
+  return card.preview ? { 'aria-label': text } : { title: text };
+}
+
 export function CardTile({ card }: { card: GameCard }) {
   const Element = card.onOpen ? 'button' : 'span';
   const { hover, panel } = usePreview(card.preview);
@@ -151,9 +157,7 @@ export function CardTile({ card }: { card: GameCard }) {
         onClick={card.onOpen}
         data-size={card.size ?? undefined}
         className={`bpp-card ${tierClass(card.tier)}`}
-        title={[card.name, card.tierLabel, card.enchantLabel]
-          .filter(Boolean)
-          .join(' · ')}
+        {...tileName([card.name, card.tierLabel, card.enchantLabel], card)}
       >
         <span className="bpp-card-face">
           <CardArt src={card.art} alt={card.name} fallback={card.name} />
@@ -195,7 +199,7 @@ export function SkillTile({ card }: { card: GameCard }) {
         type={card.onOpen ? 'button' : undefined}
         onClick={card.onOpen}
         className={`bpp-skill-tile ${tierClass(card.tier)}`}
-        title={[card.name, card.tierLabel].filter(Boolean).join(' · ')}
+        {...tileName([card.name, card.tierLabel], card)}
       >
         <CardArt src={card.art} alt={card.name} fallback={card.name} />
         <TierLabel label={card.tierLabel} />

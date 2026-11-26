@@ -95,6 +95,9 @@ The game's own item and skill art, one WebP per distinct art, extracted from the
 **Enchantment FX** (附魔特效):
 The persistent material effect on a captured enchanted item. The Card Art index optionally maps its TemplateId to a material descriptor with the renderer profile, keyword sets, values and texture bindings (ADR 0022).
 
+**Card Catalog** (卡牌目录):
+One `index.json` with the Card Art, Card Text and Enchantment FX files it names, and the UI kit component (`CardCatalog`) that reads it to show cards: names, art, hover details, the card dialog and Enchantment FX. The site reads the published set; the installer reads the set it exports from the installed game (ADR 0025).
+
 **Card Text** (卡牌文本):
 The localized item or skill definition keyed by TemplateId in the Card Art index’s locale files. It carries tier attributes, tooltip lines and enchantment definitions from GameData; a locale file stores each distinct enchantment definition once and each card names it by position. Each line records its applicable tiers, translation availability and how much of its text can be resolved from the definition. A Run refers to a captured instance, whose values can differ from Card Text. See ADR 0021.
 

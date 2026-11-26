@@ -12,7 +12,7 @@ pub(super) fn library(game: &Path) -> Option<&Path> {
     (game.file_name()? == "buildarm64" && game.join(BUNDLE).is_dir()).then_some(parent)
 }
 
-pub(super) fn game_bundle(game: &Path) -> PathBuf {
+pub(crate) fn game_bundle(game: &Path) -> PathBuf {
     game.join(if library(game).is_some() {
         BUNDLE
     } else {

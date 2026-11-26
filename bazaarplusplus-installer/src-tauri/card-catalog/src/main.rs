@@ -54,6 +54,8 @@ fn main() -> Result<()> {
         zh_etag: Some(zh_etag),
         publication: true,
         require_fx,
+        progress: None,
+        threads: std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
     })?;
     println!("{}", summary.json());
     Ok(())

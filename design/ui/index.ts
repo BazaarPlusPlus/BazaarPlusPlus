@@ -75,3 +75,21 @@ export {
   type ReplayVisitView
 } from './game/RunReplay';
 export type { CardFx, FxMaterial } from './game/enchantment-fx/program';
+export {
+  CardCatalog,
+  useCardCatalog,
+  type CardDialogHost,
+  type CardInput,
+  type CardSource
+} from './game/catalog';
+export {
+  DecisionReplay,
+  StreamFrames,
+  type ReplayBattle
+} from './game/Decisions';
+export {
+  fillTerm,
+  gameTerms,
+  type GameLocale,
+  type GameTerms
+} from './game/terms';

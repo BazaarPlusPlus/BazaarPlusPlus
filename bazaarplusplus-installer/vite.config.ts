@@ -171,6 +171,13 @@ export default defineConfig({
     watch: {
       ignored: ['**/src-tauri/**']
     },
+    // Browser Preview reads the published card catalog; the app reads its own export.
+    proxy: {
+      '/card-art/': {
+        target: 'https://cdn.bazaarplusplus.com',
+        changeOrigin: true
+      }
+    },
     fs: {
       allow: [searchForWorkspaceRoot(process.cwd()), '../design', '../runs']
     }

@@ -113,13 +113,16 @@ pub fn combat_replays_dir_in(data_root: &Path) -> PathBuf {
     data_root.join(COMBAT_REPLAYS_DIRECTORY)
 }
 
-pub fn overlay_cache_dir() -> PathBuf {
+pub fn installer_cache_dir() -> PathBuf {
     let base = dirs::cache_dir()
         .or_else(dirs::config_dir)
         .or_else(dirs::data_local_dir)
         .unwrap_or_else(std::env::temp_dir);
     base.join(INSTALLER_STATE_DIRECTORY)
-        .join(OVERLAY_CACHE_DIRECTORY)
+}
+
+pub fn overlay_cache_dir() -> PathBuf {
+    installer_cache_dir().join(OVERLAY_CACHE_DIRECTORY)
 }
 
 fn overlay_settings_base_dir() -> PathBuf {

@@ -3,7 +3,7 @@
 
 use crate::json::{canonical, hex};
 use crate::resample::{resize, Filter};
-use crate::texture::{py_round, texture};
+use crate::texture::{py_round, texture_raw, Raw};
 use crate::unity::{Env, Serialized, Value};
 use crate::webp;
 use anyhow::{anyhow, Context, Result};
@@ -11,7 +11,6 @@ use serde_json::{json, Map, Value as Json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 /// Union of texture and UnityPerMaterial reads across the non-premium vertex and fragment
 /// programs, all three sizes and both Tiny geometry modes, Steam build 26592248.
@@ -134,6 +133,7 @@ fn number(v: &Value) -> Json {
 }
 
 /// A shader property's type and defaults.
+#[derive(Clone)]
 pub struct ShaderProperty {
     /// 0 colour, 1 vector, otherwise a scalar.
     pub kind: i64,
@@ -169,6 +169,7 @@ pub struct Material {
 }
 
 /// Writes descriptors; textures other than the illustration are encoded through `encode`.
+#[derive(Clone)]
 pub struct Describer {
     properties: HashMap<String, ShaderProperty>,
     values: Vec<String>,
@@ -343,14 +344,19 @@ impl MaterialExporter {
         })
     }
 
-    pub fn export(
-        &mut self,
+    /// A copy of the descriptor writer for one worker thread.
+    pub fn describer(&self) -> Describer {
+        self.describer.clone()
+    }
+
+    /// Everything a descriptor needs from the bundles: the material's values and the raw
+    /// pixels of its profile textures. Describing it needs no bundle access.
+    pub fn prepare(
+        &self,
         env: &Env,
         material_file: &Serialized,
         material: &Value,
-        art: &str,
-        height: usize,
-    ) -> Result<String> {
+    ) -> Result<Prepared> {
         let (shader_file, shader_id) = env.deref(material_file, material.at("m_Shader")?)?;
         if (shader_file.name.clone(), shader_id) != self.shader {
             return Err(anyhow!("unsupported card shader"));
@@ -381,7 +387,7 @@ impl MaterialExporter {
             );
         }
         let mut slots = HashMap::new();
-        let mut files: HashMap<(String, i64), Rc<Serialized>> = HashMap::new();
+        let mut raws: HashMap<(String, i64), Raw> = HashMap::new();
         for (name, s) in pairs("m_TexEnvs")? {
             // Only the profile's slots are read; others can point into bundles the set does not load.
             if !self.describer.textures.contains(&name) {
@@ -400,7 +406,10 @@ impl MaterialExporter {
                 let tex = file.read(path_id)?;
                 let settings = tex.at("m_TextureSettings")?;
                 let key = (file.name.clone(), path_id);
-                files.insert(key.clone(), file);
+                // The illustration is the art file already written; only effect maps are encoded.
+                if name != "_MainTex" && !raws.contains_key(&key) {
+                    raws.insert(key.clone(), texture_raw(env, &file, path_id, true)?);
+                }
                 Some(TextureInfo {
                     key,
                     width: usize::try_from(tex.at("m_Width")?.int()?)?,
@@ -424,12 +433,38 @@ impl MaterialExporter {
             .iter()
             .map(|k| k.str().map(str::to_owned))
             .collect::<Result<_>>()?;
-        let output = self.describer.output.clone();
+        Ok(Prepared {
+            material: Material {
+                floats,
+                colors,
+                slots,
+                keywords,
+            },
+            raws,
+        })
+    }
+}
+
+pub struct Prepared {
+    material: Material,
+    raws: HashMap<(String, i64), Raw>,
+}
+
+impl Describer {
+    /// The descriptor for a prepared material, encoding its textures here.
+    pub fn describe_prepared(
+        &mut self,
+        prepared: &Prepared,
+        art: &str,
+        height: usize,
+    ) -> Result<String> {
+        let output = self.output.clone();
         let mut encode = |info: &TextureInfo, size: (usize, usize)| -> Result<String> {
-            let file = files
+            let image = prepared
+                .raws
                 .get(&info.key)
-                .ok_or_else(|| anyhow!("texture file missing"))?;
-            let image = texture(env, file, info.key.1, true)?;
+                .ok_or_else(|| anyhow!("texture pixels missing"))?
+                .decode()?;
             immutable(
                 &output,
                 "tex-",
@@ -437,17 +472,7 @@ impl MaterialExporter {
                 &texture_webp(&image.rgba, image.width, image.height, size)?,
             )
         };
-        self.describer.describe(
-            &Material {
-                floats,
-                colors,
-                slots,
-                keywords,
-            },
-            art,
-            height,
-            &mut encode,
-        )
+        self.describe(&prepared.material, art, height, &mut encode)
     }
 }
 

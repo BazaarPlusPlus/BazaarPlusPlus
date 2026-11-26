@@ -37,7 +37,20 @@ test('each public visual export belongs to a live demo', () => {
   expect(Object.values(families).flat().sort()).toEqual(
     Object.keys(ui)
       .filter(
-        (k) => !['buttonClassName', 'enchantments', 'cardTiers'].includes(k)
+        (k) =>
+          ![
+            'buttonClassName',
+            'enchantments',
+            'cardTiers',
+            'gameTerms',
+            'fillTerm',
+            // The card catalog binds the components above to product data; the
+            // installer's catalog and Run Detail tests cover them.
+            'CardCatalog',
+            'useCardCatalog',
+            'DecisionReplay',
+            'StreamFrames'
+          ].includes(k)
       )
       .sort()
   );

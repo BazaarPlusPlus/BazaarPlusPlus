@@ -17,10 +17,10 @@ The BazaarPlusPlus design system: the one source for design tokens, the shared `
 
 `ui/` has no `package.json` and no build; each product compiles it as its own source ([ADR-0018](../docs/adr/0018-one-web-component-library.md)).
 
-- A component goes here when both products render it, or when its spec lives in `components/` and nothing in it is product-specific. A component that reads a product's data, router, i18n or modal stack stays in that product and composes these.
+- A component goes here when both products render it, or when its spec lives in `components/` and nothing in it is product-specific. A component that reads a product's data, router, i18n or modal stack stays in that product and composes these. The card catalog (`game/catalog.tsx`), the game terms (`game/terms.ts`) and the Run replay wiring (`game/Decisions.tsx`) are the same for both products and live here ([ADR-0025](../docs/adr/0025-card-catalog-in-the-ui-kit.md)); a product passes its card source, its modal host and the Run's own data.
 - Draw only with `bundle.css` classes. Tailwind does not scan `../design`, so a utility class here renders unstyled; the `bundle-classes` tests fail on any class `bundle.css` does not define.
-- Copy comes in through props; the library has no strings of its own beyond what a prop overrides.
-- Import only `react` and files in `ui/`. Files here resolve React from the importing product (`resolve.dedupe`, the tsconfig `react` path), so a second runtime dependency would have nowhere to resolve from.
+- Copy comes in through props; the library's only strings are the game terms in `game/terms.ts`.
+- Import only `react`, files in `ui/` and the root `runs/` sources (by relative path). Files here resolve React from the importing product (`resolve.dedupe`, the tsconfig `react` path), so a second runtime dependency would have nowhere to resolve from.
 - Tests live in the products, which have jsdom: the installer's `src/components/ui/library.test.tsx` covers behaviour. `ui/tsconfig.json` and `ui/vite.config.ts` give it its own type check and lint, which the root `typecheck` and `lint` scripts run.
 
 ## Changing the system

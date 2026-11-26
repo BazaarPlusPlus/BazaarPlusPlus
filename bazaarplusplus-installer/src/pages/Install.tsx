@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { PageShell } from '../components/ui/PageShell';
 import { StatusPanel } from '@bpp/ui';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
+import { GameAssetsPanel } from '../features/install/GameAssetsPanel';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';
 import { InstallConfirmModal } from '../features/install/InstallConfirmModal';
 import { InstallStatusPanel } from '../features/install/InstallStatusPanel';
@@ -180,6 +181,7 @@ export default function Install() {
             modInstalled={snapshot.data.mod_state.installed}
             gamePath={snapshot.data.selected_game_path}
           />
+          <GameAssetsPanel />
           <InstallActionsPanel snapshot={snapshot} intents={intents} />
         </>
       ) : null}
