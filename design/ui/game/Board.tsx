@@ -1,4 +1,4 @@
-import { CardTile, type GameCard } from './Card';
+import { CardTile, SkillTile, type GameCard } from './Card';
 import type { CardSize } from './types';
 
 type Skill = GameCard & { id: string };
@@ -58,8 +58,8 @@ export function SkillStrip({
   return (
     <ul aria-label={label} className="bpp-skill-strip">
       {cards.map((card) => (
-        <li key={card.id} className="bpp-skill">
-          <CardTile card={card} caption />
+        <li key={card.id}>
+          <SkillTile card={card} />
         </li>
       ))}
     </ul>

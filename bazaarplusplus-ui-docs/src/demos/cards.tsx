@@ -9,11 +9,13 @@ export default function Cards({ lang }: DemoProps) {
         {cardTiers.map((tier) => (
           <CardTile
             key={tier}
-            caption
-            card={card(
-              lang,
-              pinned.find((p) => p.tier === tier)!
-            )}
+            card={{
+              ...card(
+                lang,
+                pinned.find((p) => p.tier === tier)!
+              ),
+              onOpen: () => {}
+            }}
           />
         ))}
       </div>

@@ -68,35 +68,24 @@ function tierClass(tier: CardTier | null) {
   return tier ? `bpp-tier-${tier.toLowerCase()}` : '';
 }
 
-export function CardTile({
-  card,
-  caption = false
-}: {
-  card: GameCard;
-  caption?: boolean;
-}) {
+export function CardTile({ card }: { card: GameCard }) {
   const Element = card.onOpen ? 'button' : 'span';
   return (
     <Element
       type={card.onOpen ? 'button' : undefined}
       onClick={card.onOpen}
       data-size={card.size ?? undefined}
-      className={`bpp-card ${tierClass(card.tier)} ${enchantClass(card.enchant)} ${card.enchant ? 'bpp-card-enchant' : ''} ${caption ? 'bpp-card-caption' : ''}`}
+      className={`bpp-card ${tierClass(card.tier)}`}
       title={[card.name, card.tierLabel, card.enchantLabel]
         .filter(Boolean)
         .join(' · ')}
     >
       <span className="bpp-card-face">
-        <CardArt
-          src={card.art}
-          alt={caption ? '' : card.name}
-          fallback={caption ? '' : card.name}
-        />
+        <CardArt src={card.art} alt={card.name} fallback={card.name} />
         {card.fx && card.enchant && (
           <FxFace source={card.fx} enchant={card.enchant} />
         )}
       </span>
-      {caption && <span className="bpp-card-name">{card.name}</span>}
       <TierLabel label={card.tierLabel} />
       <EnchantLabel enchant={card.enchant} label={card.enchantLabel} />
       {card.change && (
@@ -108,6 +97,22 @@ export function CardTile({
           {card.change === 'new' ? '+' : '↑'}
         </span>
       )}
+    </Element>
+  );
+}
+
+/** A skill: round, ringed in its tier, named only in its title and alt text. */
+export function SkillTile({ card }: { card: GameCard }) {
+  const Element = card.onOpen ? 'button' : 'span';
+  return (
+    <Element
+      type={card.onOpen ? 'button' : undefined}
+      onClick={card.onOpen}
+      className={`bpp-skill-tile ${tierClass(card.tier)}`}
+      title={[card.name, card.tierLabel].filter(Boolean).join(' · ')}
+    >
+      <CardArt src={card.art} alt={card.name} fallback={card.name} />
+      <TierLabel label={card.tierLabel} />
     </Element>
   );
 }
