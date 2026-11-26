@@ -141,6 +141,25 @@ export async function downloadCardArt(
   return { buildid: String(buildid), gameData, zh };
 }
 
+// A full set is about 4,500 objects, each a conditional PUT plus a read-back when it exists;
+// one at a time that outlasts the workflow's 45 minutes.
+const PUBLISH_CONCURRENCY = 16;
+
+async function eachLimited<T>(
+  items: readonly T[],
+  work: (item: T) => Promise<void>
+) {
+  let next = 0;
+  await Promise.all(
+    Array.from(
+      { length: Math.min(PUBLISH_CONCURRENCY, items.length) },
+      async () => {
+        while (next < items.length) await work(items[next++]);
+      }
+    )
+  );
+}
+
 /** Publish the index last so readers can resolve every referenced image and locale file. */
 export async function publishCardArt(
   directory: string,
@@ -177,13 +196,16 @@ export async function publishCardArt(
     }
     return bytes;
   }
-  for (const file of files) {
+  for (const file of files)
     if (!artFile.test(file))
       throw new Error(`unexpected Card Art file: ${file}`);
+  await eachLimited(files, async (file) => {
     await verifyAndPublish(file, artFile, 'image/webp');
-  }
-  const verifiedTextures = new Set(files);
-  for (const name of new Set(Object.values(index.fx))) {
+  });
+  const art = new Set(files);
+  // Materials share textures; each texture is verified and published once.
+  const textures = new Map<string, Promise<unknown>>();
+  await eachLimited([...new Set(Object.values(index.fx))], async (name) => {
     const bytes = await verifyAndPublish(
       name,
       materialFile,
@@ -203,11 +225,12 @@ export async function publishCardArt(
       const pattern = main ? artFile : textureFile;
       if (!file || !pattern.test(file))
         throw new Error(`invalid texture in ${name}: ${slot}`);
-      if (verifiedTextures.has(file)) continue;
-      await verifyAndPublish(file, pattern, 'image/webp');
-      verifiedTextures.add(file);
+      if (art.has(file)) continue;
+      if (!textures.has(file))
+        textures.set(file, verifyAndPublish(file, pattern, 'image/webp'));
+      await textures.get(file);
     }
-  }
+  });
   for (const locale of locales) {
     const name = index.text?.[locale];
     if (!isTextFile(locale, name))
