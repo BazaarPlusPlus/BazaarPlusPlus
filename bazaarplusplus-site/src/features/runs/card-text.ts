@@ -21,10 +21,28 @@ export async function loadCardText(file: string, signal: AbortSignal) {
   const body = (await response.json()) as {
     version: number;
     tagLabels?: Record<string, string>;
-    cards: Record<string, CardDefinition>;
+    // Each distinct enchantment definition is stored once; a card names it by position.
+    enchantments: CardDefinition['enchantments'][string][];
+    cards: Record<
+      string,
+      Omit<CardDefinition, 'enchantments'> & {
+        enchantments: Record<string, number>;
+      }
+    >;
   };
-  if (body.version !== 1 || !body.cards) throw new Error('Invalid Card Text');
-  return { cards: body.cards, tagLabels: body.tagLabels ?? {} };
+  if (body.version !== 2 || !body.cards || !body.enchantments)
+    throw new Error('Invalid Card Text');
+  const cards: Record<string, CardDefinition> = {};
+  for (const [id, card] of Object.entries(body.cards)) {
+    const enchantments: CardDefinition['enchantments'] = {};
+    for (const [name, position] of Object.entries(card.enchantments)) {
+      const effect = body.enchantments[position];
+      if (!effect) throw new Error('Invalid Card Text');
+      enchantments[name] = effect;
+    }
+    cards[id] = { ...card, enchantments };
+  }
+  return { cards, tagLabels: body.tagLabels ?? {} };
 }
 
 export function useCardText(locale: Locale) {

@@ -1455,16 +1455,37 @@ html[data-bpp-platform='windows'] .bpp-header {
   position: absolute;
   inset: 0;
 }
-.bpp-card {
+.bpp-card,
+.bpp-skill-tile {
+  --bpp-frame: var(--bpp-tier, var(--line-strong));
   position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  /* A metal frame in the tier colour: lit at the top, shaded at the foot, with a dark
+     rim outside so it holds its edge against any panel or art. */
+  border: 3px solid transparent;
+  background:
+    linear-gradient(var(--bg-panel), var(--bg-panel)) padding-box,
+    linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--bpp-frame) 70%, var(--text-1)),
+        var(--bpp-frame) 40%,
+        color-mix(in srgb, var(--bpp-frame) 75%, var(--bg-canvas))
+      )
+      border-box;
+  box-shadow:
+    0 0 0 1px var(--bg-canvas),
+    0 2px 4px color-mix(in srgb, var(--bg-canvas) 70%, transparent);
+  transition:
+    translate var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease),
+    filter var(--t-fast) var(--ease);
+}
+.bpp-card {
   display: flex;
   flex-direction: column;
   height: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-  border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
-  border-radius: var(--r-inner);
-  background: var(--bg-panel);
+  border-radius: var(--r-control);
   font-size: var(--type-micro);
   line-height: normal;
   overflow-wrap: anywhere;
@@ -1476,6 +1497,45 @@ html[data-bpp-platform='windows'] .bpp-header {
   place-items: center;
   position: relative;
   overflow: hidden;
+  border-radius: var(--r-inner);
+}
+/* A dark inner rim parts the frame from the art. */
+.bpp-card-face::after,
+.bpp-skill-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--bg-canvas) 80%, transparent);
+}
+.bpp-card.bpp-tier-diamond,
+.bpp-card.bpp-tier-legendary,
+.bpp-skill-tile.bpp-tier-diamond,
+.bpp-skill-tile.bpp-tier-legendary {
+  box-shadow:
+    0 0 0 1px var(--bg-canvas),
+    0 0 10px color-mix(in srgb, var(--bpp-tier) 45%, transparent);
+}
+button.bpp-card:hover,
+button.bpp-card:focus-visible,
+button.bpp-skill-tile:hover,
+button.bpp-skill-tile:focus-visible {
+  translate: 0 -2px;
+  filter: brightness(1.1);
+  box-shadow:
+    0 0 0 1px var(--bg-canvas),
+    0 6px 14px color-mix(in srgb, var(--bpp-frame) 40%, transparent);
+}
+button.bpp-card:focus-visible,
+button.bpp-skill-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+button.bpp-card:active,
+button.bpp-skill-tile:active {
+  translate: 0;
 }
 .bpp-card-fallback {
   padding: var(--space-2);
@@ -1484,12 +1544,13 @@ html[data-bpp-platform='windows'] .bpp-header {
   overflow-wrap: break-word;
   hyphens: auto;
 }
-/* On a tile the frame blends the enchantment and tier colours; their words stay
-   for screen readers and the title. A tile wide enough for the word shows the enchantment. */
+/* A tile shows only art: the frame carries the tier and the material carries the
+   enchantment. Their words stay for screen readers and the title. */
 .bpp-card .bpp-tier-label,
+.bpp-card .bpp-enchant,
+.bpp-skill-tile .bpp-tier-label,
 .bpp-decision-card .bpp-tier-label,
-.bpp-moment .bpp-card-chip .bpp-tier-label,
-.bpp-board-card .bpp-enchant {
+.bpp-moment .bpp-card-chip .bpp-tier-label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1499,15 +1560,6 @@ html[data-bpp-platform='windows'] .bpp-header {
 }
 .bpp-board-card {
   container: bpp-board-card / inline-size;
-}
-@container bpp-board-card (min-width: 4rem) {
-  .bpp-board-card .bpp-enchant {
-    position: static;
-    width: auto;
-    height: auto;
-    clip-path: none;
-    padding-inline: var(--space-4);
-  }
 }
 .bpp-card-art {
   position: absolute;
@@ -1562,17 +1614,21 @@ html[data-bpp-platform='windows'] .bpp-header {
   padding: 0;
   margin: 0;
 }
-.bpp-skill .bpp-card {
-  border: none;
-  overflow: visible;
-  align-items: center;
-}
-.bpp-skill .bpp-card-face {
-  width: var(--control-md);
-  height: var(--control-md);
+.bpp-skill-tile {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-24) * 2);
+  height: calc(var(--space-24) * 2);
   border-radius: var(--r-pill);
-  border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
-  flex: none;
+  color: var(--text-2);
+}
+/* Without art, a skill shows its name's first letter; the whole name stays for screen readers. */
+.bpp-skill-tile .bpp-card-fallback {
+  padding: 0;
+  font-size: 0;
+}
+.bpp-skill-tile .bpp-card-fallback::first-letter {
+  font-size: var(--type-small);
 }
 .bpp-skill-state {
   color: var(--text-3);
@@ -1592,22 +1648,6 @@ html[data-bpp-platform='windows'] .bpp-header {
   border: var(--space-2) solid var(--bpp-tier, var(--line-strong));
 }
 
-.bpp-card-name {
-  color: var(--text-1);
-  font-size: var(--type-micro);
-}
-
-.bpp-card-enchant {
-  border-color: transparent;
-  background:
-    linear-gradient(var(--bg-panel), var(--bg-panel)) padding-box,
-    linear-gradient(
-        135deg,
-        var(--bpp-enchant-mark, var(--bpp-enchant)),
-        var(--bpp-tier, var(--line-strong))
-      )
-      border-box;
-}
 .bpp-card-fx {
   position: absolute;
   inset: 0;
@@ -1615,11 +1655,8 @@ html[data-bpp-platform='windows'] .bpp-header {
   height: 100%;
   pointer-events: none;
 }
-.bpp-card-caption .bpp-card-face {
-  aspect-ratio: 1;
-  flex: none;
-}
 button.bpp-card,
+button.bpp-skill-tile,
 button.bpp-card-chip {
   cursor: pointer;
   padding: 0;
@@ -1952,7 +1989,6 @@ button.bpp-visit-identity {
 .bpp-card[data-size='3'] .bpp-card-face {
   aspect-ratio: 3 / 2;
 }
-.bpp-board-card .bpp-card[data-size] .bpp-card-face,
-.bpp-skill .bpp-card[data-size] .bpp-card-face {
+.bpp-board-card .bpp-card[data-size] .bpp-card-face {
   aspect-ratio: auto;
 }

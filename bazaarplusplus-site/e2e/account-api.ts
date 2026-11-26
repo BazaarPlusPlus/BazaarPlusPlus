@@ -240,9 +240,23 @@ export async function mockCardArt(
     if (file === en) {
       await route.fulfill({
         json: {
-          version: 1,
+          version: 2,
           locale: 'en',
           tagLabels: { Instrument: 'Instrument' },
+          enchantments: [
+            {
+              tags: [],
+              lines: [
+                {
+                  id: 0,
+                  available: true,
+                  resolved: 'full',
+                  tiers: ['Silver'],
+                  segments: [{ text: 'This has +1 Multicast.' }]
+                }
+              ]
+            }
+          ],
           cards: {
             'd6c55b70-fcc7-454c-af9c-06b99d2d01e3': {
               title: 'Tambourine',
@@ -251,20 +265,7 @@ export async function mockCardArt(
               attributes: {},
               startingTier: 'Silver',
               lines: [],
-              enchantments: {
-                Shiny: {
-                  tags: [],
-                  lines: [
-                    {
-                      id: 0,
-                      available: true,
-                      resolved: 'full',
-                      tiers: ['Silver'],
-                      segments: [{ text: 'This has +1 Multicast.' }]
-                    }
-                  ]
-                }
-              }
+              enchantments: { Shiny: 0 }
             }
           }
         }
@@ -273,7 +274,7 @@ export async function mockCardArt(
     }
     if (file === 'index.json') {
       await route.fulfill({
-        json: { version: 2, game: {}, cards: files, names, text: { en } }
+        json: { version: 3, game: {}, cards: files, names, text: { en } }
       });
       return;
     }

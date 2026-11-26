@@ -18,6 +18,7 @@ import {
   CardText,
   type CardTextLine,
   Dialog,
+  SkillStrip,
   StatusPanel
 } from '@bpp/ui';
 
@@ -289,16 +290,21 @@ describe('CardTile', () => {
 
   it('leaves a plain skill on its illustration', () => {
     const html = renderToStaticMarkup(
-      <CardTile
-        card={{
-          name: 'Keen Eye',
-          art: 'skill.webp',
-          tier: null,
-          tierLabel: '',
-          enchant: null,
-          enchantLabel: ''
-        }}
-        caption
+      <SkillStrip
+        cards={[
+          {
+            id: 'keen-eye',
+            name: 'Keen Eye',
+            art: 'skill.webp',
+            tier: null,
+            tierLabel: '',
+            enchant: null,
+            enchantLabel: ''
+          }
+        ]}
+        label="Skills"
+        emptyLabel=""
+        missingLabel=""
       />
     );
     expect(html).toContain('skill.webp');

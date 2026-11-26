@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+  type SyntheticEvent
+} from 'react';
 import {
   Button,
   CardDetail,
@@ -61,6 +67,11 @@ function DetailsDialog({
   );
 }
 
+function WarmCardText({ locale }: { locale: Locale }) {
+  useCardText(locale);
+  return null;
+}
+
 export function CardDetails({
   children,
   locale
@@ -69,9 +80,28 @@ export function CardDetails({
   locale: Locale;
 }) {
   const [selection, setSelection] = useState<Selection | null>(null);
+  // Card Text holds every card, so fetch it once a card that opens is first pointed at or focused.
+  const [warm, setWarm] = useState(false);
+  const approach = (event: SyntheticEvent) => {
+    if (
+      !warm &&
+      event.target instanceof Element &&
+      event.target.closest(
+        'button.bpp-card, button.bpp-skill-tile, button.bpp-card-chip'
+      )
+    )
+      setWarm(true);
+  };
   return (
     <SelectionContext.Provider value={setSelection}>
-      {children}
+      <div
+        style={{ display: 'contents' }}
+        onPointerOver={approach}
+        onFocus={approach}
+      >
+        {children}
+      </div>
+      {warm && <WarmCardText locale={locale} />}
       {selection && (
         <DetailsDialog
           selection={selection}

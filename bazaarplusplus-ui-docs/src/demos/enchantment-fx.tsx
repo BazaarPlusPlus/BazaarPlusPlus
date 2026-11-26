@@ -5,11 +5,7 @@ export default function Gallery({ lang }: DemoProps) {
   return (
     <div className="gallery">
       {enchantments.map((enchant, index) => (
-        <CardTile
-          key={enchant}
-          card={card(lang, pinned[index], enchant)}
-          caption
-        />
+        <CardTile key={enchant} card={card(lang, pinned[index], enchant)} />
       ))}
     </div>
   );

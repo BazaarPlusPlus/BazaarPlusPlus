@@ -326,6 +326,22 @@ def card_definition(card, language):
     return definition
 
 
+def shared_enchantments(cards):
+    """Store each distinct enchantment definition once; a card names it by its position.
+    Most cards share their enchantment text, so this halves the file."""
+    table, positions, compact = [], {}, {}
+    for key, card in sorted(cards.items()):
+        refs = {}
+        for name, effect in sorted(card["enchantments"].items()):
+            text = json.dumps(effect, ensure_ascii=False, sort_keys=True)
+            if text not in positions:
+                positions[text] = len(table)
+                table.append(effect)
+            refs[name] = positions[text]
+        compact[key] = {**card, "enchantments": refs}
+    return compact, table
+
+
 def write_card_text(database, translations_path, previous_path, previous, output):
     with closing(sqlite3.connect(translations_path.as_uri() + "?mode=ro", uri=True)) as zh:
         translations = dict(zh.execute("SELECT hash, text FROM translation"))
@@ -362,18 +378,28 @@ def write_card_text(database, translations_path, previous_path, previous, output
             if hashlib.sha256(data).hexdigest()[:20] != match[1]:
                 raise ValueError(f"previous Card Text digest mismatch: {filename}")
             prior = json.loads(data)
-            cards.update(
-                {key: card for key, card in prior["cards"].items() if key not in current_ids}
-            )
+            shared = prior.get("enchantments", [])
+            for key, card in prior["cards"].items():
+                if key not in current_ids:
+                    # A version 1 file holds each enchantment inline instead of by position.
+                    cards[key] = {
+                        **card,
+                        "enchantments": {
+                            name: shared[effect] if isinstance(effect, int) else effect
+                            for name, effect in card["enchantments"].items()
+                        },
+                    }
             for key, entry in prior["keywords"].items():
                 language.keywords.setdefault(key, entry)
             for tag, label in prior.get("tagLabels", {}).items():
                 if tag not in tags:
                     tag_labels[tag] = label
+        cards, enchantments = shared_enchantments(cards)
         payload = {
-            "version": 1,
+            "version": 2,
             "locale": locale,
             "cards": cards,
+            "enchantments": enchantments,
             "keywords": language.keywords,
             "tagLabels": tag_labels,
         }
@@ -425,7 +451,7 @@ def card_index(cards, names, current, previous, buildid, gamedata_etag, zh_etag,
     }
     return {
         **({"fx": retained_fx | fx} if fx is not None else {}),
-        "version": 2,
+        "version": 3,
         "text": text,
         "game": {"buildid": buildid, "gameData": gamedata_etag, "zh": zh_etag},
         "cards": dict(sorted(cards.items())),

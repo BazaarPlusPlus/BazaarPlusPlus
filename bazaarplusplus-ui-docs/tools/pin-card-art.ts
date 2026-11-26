@@ -15,9 +15,29 @@ async function fetchFile(name: string) {
 const raw = await fetchFile('index.json');
 type Files = Record<string, string>;
 type Text = {
-  cards: Record<string, CardDefinition & { type: string }>;
+  cards: Record<
+    string,
+    Omit<CardDefinition, 'enchantments'> & {
+      type: string;
+      enchantments: Record<string, number>;
+    }
+  >;
+  enchantments: CardDefinition['enchantments'][string][];
   tagLabels: Files;
 };
+// Card Text stores each distinct enchantment once; a card names it by position.
+function definition(text: Text, id: string): CardDefinition {
+  const card = text.cards[id];
+  return {
+    ...card,
+    enchantments: Object.fromEntries(
+      Object.entries(card.enchantments).map(([name, at]) => [
+        name,
+        text.enchantments[at]
+      ])
+    )
+  };
+}
 const index = JSON.parse(raw.toString()) as {
   cards: Files;
   fx?: Files;
@@ -104,8 +124,8 @@ writeFileSync(
   JSON.stringify(
     {
       id: detailId,
-      zh: zh.cards[detailId],
-      en: en.cards[detailId],
+      zh: definition(zh, detailId),
+      en: definition(en, detailId),
       tags: { zh: zh.tagLabels, en: en.tagLabels }
     },
     null,

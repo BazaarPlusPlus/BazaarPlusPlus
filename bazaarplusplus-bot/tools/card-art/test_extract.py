@@ -1,5 +1,6 @@
 """Index shape tests for extract.py; stdlib only (UnityPy and Pillow load inside main)."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -69,7 +70,7 @@ class IndexTest(unittest.TestCase):
         self.assertEqual(
             index,
             {
-                "version": 2,
+                "version": 3,
                 "text": {"en": "en.json", "zh": "zh.json"},
                 "game": {"buildid": "7", "gameData": "e1", "zh": "zh1"},
                 "cards": {"aaaa": "2.webp", "old": "1.webp"},
@@ -203,10 +204,27 @@ class CardTextTest(unittest.TestCase):
 
                 files = write(None)
                 db.execute("DELETE FROM cards WHERE id = ?", (next(iter(self.fixture["cards"])),))
-                self.assertEqual(files, write({"version": 2, "text": files}))
+                self.assertEqual(files, write({"version": 3, "text": files}))
+                # The first run after version 2 merges retired cards from inline version 1 files.
+                inline = {}
                 for locale, name in files.items():
                     payload = json.loads((out / name).read_bytes())
-                    self.assertEqual((payload["version"], payload["locale"]), (1, locale))
+                    shared = payload.pop("enchantments")
+                    for card in payload["cards"].values():
+                        card["enchantments"] = {
+                            n: shared[i] for n, i in card["enchantments"].items()
+                        }
+                    data = json.dumps(payload, ensure_ascii=False).encode()
+                    inline[locale] = f"text-{locale}-{hashlib.sha256(data).hexdigest()[:20]}.json"
+                    (out / inline[locale]).write_bytes(data)
+                self.assertEqual(files, write({"version": 2, "text": inline}))
+                for locale, name in files.items():
+                    payload = json.loads((out / name).read_bytes())
+                    self.assertEqual((payload["version"], payload["locale"]), (2, locale))
+                    shared = payload["enchantments"]
+                    self.assertEqual(len(shared), len({json.dumps(e, sort_keys=True) for e in shared}))
+                    for card in payload["cards"].values():
+                        self.assertTrue(all(0 <= i < len(shared) for i in card["enchantments"].values()))
                     expected_labels = (
                         {"Weapon": "Weapon", "Relic": "Relic", "Tech": "Tech"}
                         if locale == "en"

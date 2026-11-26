@@ -12,14 +12,34 @@ export default function BoardDemo({ lang }: DemoProps) {
         lang,
         pinned.find((p) => p.size === size)!
       ),
-      { slot: [0, 2, 5][i] }
+      { slot: [0, 2, 5][i], onOpen: () => {} }
     )
   );
+  const skills = [
+    ...['Bronze', 'Silver', 'Gold', 'Diamond', 'Legendary'].map((tier) =>
+      Object.assign(
+        card(
+          lang,
+          pinned.find((p) => p.tier === tier)!
+        ),
+        {
+          onOpen: () => {}
+        }
+      )
+    ),
+    { ...card(lang, pinned[0]), id: 'no-art', art: null }
+  ];
   return (
     <div className="grid gap-4">
       <Board cards={cards} {...obs} />
       <Board cards={[]} {...obs} />
       <Board cards={null} {...obs} />
+      <SkillStrip
+        cards={skills}
+        emptyLabel={translate(lang, '无技能', 'No skills')}
+        missingLabel={translate(lang, '未记录技能', 'Skills not recorded')}
+        label={translate(lang, '技能', 'Skills')}
+      />
       <SkillStrip
         cards={[]}
         emptyLabel={translate(lang, '无技能', 'No skills')}
