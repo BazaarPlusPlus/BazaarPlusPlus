@@ -42,7 +42,6 @@ internal sealed partial class HistoryPanel
             );
             _uiView.SetBppAccountActions(
                 ToggleBppAccountForm,
-                OpenBppAccountActivateDevice,
                 _uiRefresh.Guard<string?>(SubmitBppAccountInput)
             );
             _uiView.PreviewContainerBoundsChanged += OnPreviewContainerBoundsChanged;

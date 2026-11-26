@@ -104,7 +104,7 @@ export function useSignedOutRedirect(
 
 export const ACCOUNT_QUERY = ['account'] as const;
 
-/** Wins and losses, final rank, rating with its change, and mode. */
+/** Wins and losses, final rank, and rating with its change. */
 export function RunFacts({ run, locale }: { run: RunSummary; locale: Locale }) {
   const copy = getSiteCopy(locale).account;
   const delta = new Intl.NumberFormat(getIntlLocale(locale), {
@@ -126,7 +126,7 @@ export function RunFacts({ run, locale }: { run: RunSummary; locale: Locale }) {
           losses: run.losses ?? '—'
         })}
       </span>
-      {[run.final_player_rank, rating, run.game_mode]
+      {[run.final_player_rank, rating]
         .filter((value) => value != null)
         .map((value) => (
           <span key={value} className="text-text-2">

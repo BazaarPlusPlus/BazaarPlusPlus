@@ -17,7 +17,6 @@ internal sealed partial class HistoryPanelView
     private readonly Action _toggleAccountLink;
     private readonly Action _markAccountLinked;
     private Action? _toggleBppAccount;
-    private Action? _openBppActivateDevice;
     private Action<string?>? _submitBppAccount;
     private string _accountCode = string.Empty;
     private string _bppAccountText = string.Empty;
@@ -36,7 +35,6 @@ internal sealed partial class HistoryPanelView
         _accountSubmit = null!,
         _accountLinked = null!,
         _bppAccountToggle = null!,
-        _bppAccountActivate = null!,
         _bppAccountSubmit = null!;
     private TextMeshProUGUI _databaseLabel = null!,
         _moreStatus = null!,
@@ -47,7 +45,6 @@ internal sealed partial class HistoryPanelView
         _accountBanner = null!,
         _bppAccountTitle = null!,
         _bppAccountStatus = null!,
-        _bppAccountHint = null!,
         _bppAccountPrompt = null!,
         _bppAccountNotice = null!,
         _bppAccountBanner = null!;
@@ -172,7 +169,6 @@ internal sealed partial class HistoryPanelView
         Column(bppWords, InGameSizes.Space4);
         _bppAccountTitle = kit.Text(bppWords, string.Empty, KitTextRole.Section);
         _bppAccountStatus = Wrapped(kit.Text(bppWords, string.Empty, KitTextRole.Body));
-        _bppAccountHint = Wrapped(kit.Text(bppWords, string.Empty, KitTextRole.Caption));
         var bppButtons = DesktopKit.Rect(bppRow.transform, "Buttons");
         Column(bppButtons, InGameSizes.Space8);
         _bppAccountToggle = kit.Button(
@@ -181,13 +177,6 @@ internal sealed partial class HistoryPanelView
             KitButtonKind.Secondary,
             KitSize.Sm,
             () => _toggleBppAccount?.Invoke()
-        );
-        _bppAccountActivate = kit.Button(
-            bppButtons,
-            string.Empty,
-            KitButtonKind.Quiet,
-            KitSize.Sm,
-            () => _openBppActivateDevice?.Invoke()
         );
 
         var bppForm = DesktopKit.Rect(card, "BppAccountForm");
@@ -297,14 +286,10 @@ internal sealed partial class HistoryPanelView
 
         _bppAccountTitle.text = m.BppAccountTitleText;
         _bppAccountStatus.text = m.BppAccountStatusText;
-        Show(_bppAccountHint, m.BppAccountHintText, Muted);
         _bppAccountToggle.gameObject.SetActive(m.BppAccountActionVisible);
         _bppAccountToggle.Label = m.BppAccountActionText;
         _bppAccountToggle.interactable = m.BppAccountControlsEnabled;
-        _bppAccountActivate.gameObject.SetActive(m.BppAccountActivateActionVisible);
-        _bppAccountActivate.Label = m.BppAccountActivateActionText;
-        _bppAccountActivate.interactable = m.BppAccountControlsEnabled;
-        if (!m.BppAccountFormVisible || !m.BppAccountInputVisible)
+        if (!m.BppAccountFormVisible)
         {
             _bppAccountInput?.DeactivateInputField();
             if (!m.AccountLinkFormVisible)
@@ -315,7 +300,6 @@ internal sealed partial class HistoryPanelView
         Show(_bppAccountNotice, m.BppAccountNoticeText, Muted);
         if (_bppAccountInput != null)
         {
-            _bppAccountInput.gameObject.SetActive(m.BppAccountInputVisible);
             _bppAccountInput.interactable = m.BppAccountControlsEnabled;
             if (_bppAccountInput.placeholder is TextMeshProUGUI placeholder)
                 placeholder.text = m.BppAccountInputPlaceholder;

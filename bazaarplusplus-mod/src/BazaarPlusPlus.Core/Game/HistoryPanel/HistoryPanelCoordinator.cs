@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Core.GameAuth;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
-using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -20,9 +19,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
     private readonly ModApiSession? _modApiSession;
     private readonly BazaarDbLinkClient? _linkClient;
     private readonly BazaarDbAccountLinkStore _accountLinkStore;
-    private readonly BppAccountSessionStore? _bppAccountStore;
     private readonly BppGameAuthReader? _gameAuthReader;
-    private readonly Func<string?>? _profileDisplayName;
     private readonly Func<float> _unscaledTime;
     private readonly Func<string?> _profileAccountId;
     private readonly Action _requestUiRefresh;
@@ -53,9 +50,7 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         _modApiSession = dependencies.ModApiSession;
         _linkClient = dependencies.AccountLinkClient;
         _accountLinkStore = dependencies.AccountLinkStore;
-        _bppAccountStore = dependencies.BppAccountStore;
         _gameAuthReader = dependencies.GameAuthReader;
-        _profileDisplayName = dependencies.ProfileDisplayName;
         _unscaledTime = dependencies.UnscaledTime;
         _profileAccountId = dependencies.ProfileAccountId;
         _requestUiRefresh =
@@ -114,8 +109,6 @@ public sealed partial class HistoryPanelCoordinator : IDisposable
         SetAccountLinkBanner(null, StatusSeverity.Neutral);
         SetBppAccountBanner(null, StatusSeverity.Neutral);
         RefreshAccountLinkHint();
-        RefreshBppAccountFromStore();
-        _ = RefreshBppAccountSessionAsync();
         _state.ReplayActionInProgress = false;
         _state.ReplayActionBattleId = null;
         _state.ReplayFailureMessage = null;

@@ -1,4 +1,5 @@
 import type { ValidatedBundleDescriptor } from '../bundle/manifest';
+import { BUNDLE_PREFIX_BYTES } from '../bundle/prefix';
 import { apiError, type HttpError } from '../errors';
 import type { BundleReceipt } from '../http/schemas';
 import { logEvent } from '../observability';
@@ -12,12 +13,6 @@ type ConflictReason = 'bundle_id_conflict' | 'run_already_bundled';
 export interface CommitTimes {
   availableAtMs: number;
   storedAtMs: number;
-  verifiedAccountId?: string | null;
-  // The BPP Account the Device Token belongs to; the Run Summary is written only
-  // while that account is still the one linked to the game account.
-  verifiedBppAccountId?: string | null;
-  // True when the Run segment was copied to the linked account's run detail.
-  detailStored?: boolean;
 }
 
 interface ExistingBundleRow {
@@ -30,7 +25,6 @@ type StatementName =
   | 'insert_bundle'
   | 'insert_ghost'
   | 'count_eligible'
-  | 'insert_run_summary'
   | 'insert_uploader';
 
 interface NamedStatement {
@@ -112,6 +106,7 @@ function buildStatements(
   times: CommitTimes
 ): NamedStatement[] {
   const battles = JSON.stringify(descriptor.battles);
+  const run = descriptor.runProjection;
   return [
     {
       name: 'insert_bundle',
@@ -119,8 +114,11 @@ function buildStatements(
         .prepare(
           `INSERT INTO bundles (
             bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
-            object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
-          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`
+            object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot,
+            hero, victories, losses, final_player_rank, final_player_rating,
+            final_player_rating_delta, ended_at_ms, run_offset, run_length
+          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+            ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)`
         )
         .bind(
           descriptor.bundleId,
@@ -132,7 +130,18 @@ function buildStatements(
           descriptor.createdAtMs,
           times.storedAtMs,
           times.availableAtMs,
-          descriptor.screenshot === null ? 0 : 1
+          descriptor.screenshot === null ? 0 : 1,
+          run?.hero ?? null,
+          run?.victories ?? null,
+          run?.losses ?? null,
+          run?.final_player_rank ?? null,
+          run?.final_player_rating ?? null,
+          run?.final_player_rating_delta ?? null,
+          run?.ended_at_ms ?? null,
+          BUNDLE_PREFIX_BYTES +
+            descriptor.manifestBytes +
+            descriptor.run.offset,
+          descriptor.run.length
         )
     },
     {
@@ -188,47 +197,6 @@ function buildStatements(
         )
         .bind(battles, descriptor.uploaderAccountId)
     },
-    ...(times.verifiedAccountId === descriptor.uploaderAccountId &&
-    descriptor.runProjection !== null
-      ? [
-          {
-            name: 'insert_run_summary' as const,
-            statement: db
-              .prepare(
-                `INSERT INTO run_summaries (
-                  run_id, game_account_id, status, game_mode, hero,
-                  started_at_ms, ended_at_ms, day, victories, losses,
-                  final_player_rank, final_player_rating, final_player_rating_delta, stored_at_ms,
-                  detail_stored
-                )
-                SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15
-                WHERE EXISTS (
-                  SELECT 1 FROM bpp_accounts
-                  WHERE game_account_id = ?2 AND account_id = ?16
-                )
-                ON CONFLICT(run_id) DO NOTHING`
-              )
-              .bind(
-                descriptor.runId,
-                descriptor.uploaderAccountId,
-                descriptor.runProjection.status,
-                descriptor.runProjection.game_mode,
-                descriptor.runProjection.hero,
-                descriptor.runProjection.started_at_ms,
-                descriptor.runProjection.ended_at_ms,
-                descriptor.runProjection.day,
-                descriptor.runProjection.victories,
-                descriptor.runProjection.losses,
-                descriptor.runProjection.final_player_rank,
-                descriptor.runProjection.final_player_rating,
-                descriptor.runProjection.final_player_rating_delta,
-                times.storedAtMs,
-                times.detailStored === true ? 1 : 0,
-                times.verifiedBppAccountId ?? null
-              )
-          }
-        ]
-      : []),
     {
       name: 'insert_uploader',
       statement: db

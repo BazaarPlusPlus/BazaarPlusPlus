@@ -10,13 +10,9 @@ public static class PathConstants
     private const string BundleOutboxDirectoryName = "BundleOutbox";
     private const string CombatReplayVideoDirectoryName = "CombatReplayVideos";
     private const string FavoriteBattlesDirectoryName = "FavoriteBattles";
-    private const string BppAccountSessionFileName = "bpp-account.json";
 
     public static string RunLogDatabase(string dataRoot) =>
         Combine(dataRoot, RunLogDatabaseFileName);
-
-    public static string BppAccountSession(string dataRoot) =>
-        Combine(dataRoot, BppAccountSessionFileName);
 
     public static string CombatReplays(string dataRoot) =>
         Combine(dataRoot, CombatReplayDirectoryName);

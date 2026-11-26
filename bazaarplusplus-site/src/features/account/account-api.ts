@@ -8,37 +8,13 @@ export type RunSummary = {
   final_player_rank: string | null;
   final_player_rating: number | null;
   final_player_rating_delta: number | null;
-  game_mode: string | null;
-  ended_at_ms: number | null;
-  has_detail: boolean;
-};
-
-export type HeroStats = {
-  hero: string;
-  runs: number;
-  avg_victories: number;
-  best_victories: number;
-};
-
-export type RatingPoint = {
   ended_at_ms: number;
-  rating: number;
-  rank: string | null;
 };
 
 export type Me = {
   email: string;
   game: { user_name: string; linked_at_ms: number } | null;
-  stats: {
-    runs: number;
-    victories: number;
-    ten_win_runs: number;
-    heroes: HeroStats[];
-    rating: RatingPoint[];
-  };
 };
-
-export type RunsPage = { runs: RunSummary[]; next_cursor: string | null };
 
 export type BindCode = { code: string; expires_at_ms: number };
 
@@ -94,12 +70,9 @@ export function loadMe(signal: AbortSignal): Promise<Me> {
   return getJson('me', signal);
 }
 
-export function loadRuns(
-  cursor: string | null,
-  signal: AbortSignal
-): Promise<RunsPage> {
-  const query = cursor ? '?' + new URLSearchParams({ cursor }).toString() : '';
-  return getJson('runs' + query, signal);
+/** Every Record of the linked game account: its ranked Runs of the last 8 days. */
+export async function loadRuns(signal: AbortSignal): Promise<RunSummary[]> {
+  return (await getJson<{ runs: RunSummary[] }>('runs', signal)).runs;
 }
 
 export async function loadRun(
@@ -113,7 +86,7 @@ export async function loadRun(
   return body.run;
 }
 
-/** The stored Run segment bytes (`application/x-bpp-run-v6`). */
+/** The Record's Run segment bytes (`application/x-bpp-run-v6`). */
 export async function loadRunPayload(
   runId: string,
   signal: AbortSignal

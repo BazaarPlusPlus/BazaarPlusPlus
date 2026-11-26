@@ -65,19 +65,11 @@ public sealed class HistoryPanelViewModel
 
     public string BppAccountStatusText { get; set; } = string.Empty;
 
-    public string BppAccountHintText { get; set; } = string.Empty;
-
     public string BppAccountActionText { get; set; } = string.Empty;
 
     public bool BppAccountActionVisible { get; set; }
 
-    public string BppAccountActivateActionText { get; set; } = string.Empty;
-
-    public bool BppAccountActivateActionVisible { get; set; }
-
     public bool BppAccountFormVisible { get; set; }
-
-    public bool BppAccountInputVisible { get; set; }
 
     public string BppAccountFormPromptText { get; set; } = string.Empty;
 

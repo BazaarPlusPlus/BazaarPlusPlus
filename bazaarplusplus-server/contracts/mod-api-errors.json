@@ -46,7 +46,7 @@
       "code": "unauthorized",
       "status": 401,
       "retryable": false,
-      "meaning": "Missing or invalid service token, Device Token, or web session"
+      "meaning": "Missing or invalid service token or web session"
     },
     {
       "code": "invalid_credentials",
@@ -83,12 +83,6 @@
       "status": 404,
       "retryable": false,
       "meaning": "Unknown route, or a Run the signed-in account does not own"
-    },
-    {
-      "code": "account_not_bound",
-      "status": 404,
-      "retryable": false,
-      "meaning": "Game account is not linked to a BPP Account"
     },
     {
       "code": "method_not_allowed",

@@ -274,18 +274,21 @@ type LocalizedSiteCopy = {
     loading: string;
     loadError: string;
     retry: string;
+    recordsWindow: string;
     statRuns: string;
-    statVictories: string;
     statTenWins: string;
+    ratingChange: string;
     hero: string;
     heroRuns: string;
     avgVictories: string;
-    bestVictories: string;
     rating: string;
     ratingChart: string;
+    recordsUnlinked: string;
+    goBind: string;
     noRuns: string;
     allRecords: string;
-    more: string;
+    today: string;
+    yesterday: string;
     outcomes: Record<RunOutcomeTier, string>;
     winLoss: string;
     enchantments: Record<Enchantment, string>;
@@ -313,7 +316,6 @@ type LocalizedSiteCopy = {
     added: string;
     left: string;
     tierUp: string;
-    noDetail: string;
     detailError: string;
     notFound: string;
     path: {
@@ -467,27 +469,29 @@ const zh: LocalizedSiteCopy = {
     linkedAt: '绑定于 {date}',
     unlink: '解绑',
     unlinkWarning:
-      '解绑会永久删除网站上保存的战绩，游戏内的 BPP 账号也会退出。游戏的本地数据保留。',
+      '解绑后，网站不再显示这个游戏账号的战绩。游戏的本地数据保留。',
     logout: '退出登录',
     deleteAccount: '删除账号',
-    deleteWarning:
-      '删除账号会永久删除邮箱、密码和网站上保存的战绩。游戏的本地数据保留。',
+    deleteWarning: '删除账号会永久删除邮箱和密码。游戏的本地数据保留。',
     cancel: '取消',
     loading: '正在读取…',
     loadError: '未能读取。',
     retry: '重试',
+    recordsWindow: '最近 8 天的排位局',
     statRuns: '对局',
-    statVictories: '胜场',
     statTenWins: '十胜',
+    ratingChange: '分数变化',
     hero: '英雄',
     heroRuns: '对局',
     avgVictories: '平均胜场',
-    bestVictories: '最高胜场',
     rating: '分数',
-    ratingChart: '最近 {count} 局的分数',
-    noRuns: '绑定游戏账号后，完成的对局会出现在这里。',
+    ratingChart: '最近 8 天 {count} 局的分数',
+    recordsUnlinked: '绑定游戏账号后，这里显示最近 8 天的排位战绩。',
+    goBind: '去绑定',
+    noRuns: '最近 8 天没有排位对局。',
     allRecords: '全部战绩',
-    more: '加载更多',
+    today: '今天',
+    yesterday: '昨天',
     outcomes: {
       misfortune: '惨淡旅程',
       bronze: '青铜胜利',
@@ -544,9 +548,8 @@ const zh: LocalizedSiteCopy = {
     added: '新增',
     left: '离场',
     tierUp: '升级',
-    noDetail: '这局没有保存战斗详情。',
     detailError: '未能读取这局的战斗详情。',
-    notFound: '找不到这局。',
+    notFound: '找不到这局。超过 8 天的对局会被删除。',
     path: {
       decisions: '整局回放',
       board: '阵容',
@@ -993,27 +996,31 @@ const en: LocalizedSiteCopy = {
     linkedAt: 'Linked {date}',
     unlink: 'Unlink',
     unlinkWarning:
-      'Unlinking permanently deletes the runs stored on the website and signs out the BPP Account in the game. Local data in the game is kept.',
+      'After unlinking, the website no longer shows this game account’s runs. Local data in the game is kept.',
     logout: 'Sign out',
     deleteAccount: 'Delete account',
     deleteWarning:
-      'Deleting your account permanently deletes your email, password and the runs stored on the website. Local data in the game is kept.',
+      'Deleting your account permanently deletes your email and password. Local data in the game is kept.',
     cancel: 'Cancel',
     loading: 'Loading…',
     loadError: 'Couldn’t load this page.',
     retry: 'Retry',
+    recordsWindow: 'Ranked runs of the last 8 days',
     statRuns: 'Runs',
-    statVictories: 'Wins',
     statTenWins: '10 wins',
+    ratingChange: 'Rating change',
     hero: 'Hero',
     heroRuns: 'Runs',
     avgVictories: 'Avg wins',
-    bestVictories: 'Best',
     rating: 'Rating',
-    ratingChart: 'Rating over the last {count} runs',
-    noRuns: 'Link a game account and your finished runs appear here.',
+    ratingChart: 'Rating over {count} runs in the last 8 days',
+    recordsUnlinked:
+      'Link a game account to see your ranked runs of the last 8 days here.',
+    goBind: 'Link now',
+    noRuns: 'No ranked runs in the last 8 days.',
     allRecords: 'All runs',
-    more: 'Load more',
+    today: 'Today',
+    yesterday: 'Yesterday',
     outcomes: {
       misfortune: 'Misfortune journey',
       bronze: 'Bronze victory',
@@ -1070,9 +1077,8 @@ const en: LocalizedSiteCopy = {
     added: 'New',
     left: 'Left the board',
     tierUp: 'Upgraded',
-    noDetail: 'No battle details were stored for this run.',
     detailError: 'Couldn’t load the battle details of this run.',
-    notFound: 'This run wasn’t found.',
+    notFound: 'This run wasn’t found. Runs older than 8 days are deleted.',
     path: {
       decisions: 'Run replay',
       board: 'Board',

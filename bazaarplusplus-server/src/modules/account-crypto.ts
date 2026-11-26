@@ -1,6 +1,5 @@
 import { toHex } from '../bundle/hex';
 
-export const DEVICE_TOKEN_PREFIX = 'bppd_';
 export const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 export const VERIFICATION_CODE_MAX_ATTEMPTS = 5;
 export const HOURLY_EMAIL_SEND_LIMIT = 5;
@@ -88,12 +87,6 @@ export function fromBase64Url(text: string): Uint8Array | null {
   } catch {
     return null;
   }
-}
-
-export function generateDeviceToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return `${DEVICE_TOKEN_PREFIX}${toBase64Url(bytes)}`;
 }
 
 export function generateSessionToken(): string {

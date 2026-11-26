@@ -148,9 +148,7 @@ test('scheduled retention prunes expired sessions and Bind Codes and day-old ema
              ('recent', 'reset', 'a@example.com', 'h', 1, ?2)`).bind(
       NOW - DAY_MS - 1,
       NOW - DAY_MS + 1
-    ),
-    env.DB.prepare(`INSERT INTO bpp_device_tokens (token_hash, account_id, game_account_id, created_at_ms)
-      VALUES (?1, 'acct-a', 'game-a', 1)`).bind(hash('5'))
+    )
   ]);
 
   vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -174,7 +172,4 @@ test('scheduled retention prunes expired sessions and Bind Codes and day-old ema
   expect(
     await keys('SELECT account_id AS key FROM bpp_accounts ORDER BY account_id')
   ).toEqual(['acct-a', 'acct-b']);
-  expect(await keys('SELECT token_hash AS key FROM bpp_device_tokens')).toEqual(
-    [hash('5')]
-  );
 });

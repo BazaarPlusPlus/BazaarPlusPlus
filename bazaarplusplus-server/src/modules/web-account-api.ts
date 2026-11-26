@@ -3,12 +3,12 @@ import { RUN_CONTENT_TYPE } from '../bundle/prefix';
 import type { Env } from '../env';
 import { apiError, HttpError } from '../errors';
 import { jsonError, jsonResponse } from '../http/json';
+import { R2_RETENTION_MS } from '../limits';
 import { logError } from '../observability';
 import { enforceAccountRateLimit, enforceRateLimit } from './account-auth';
 import {
   BIND_CODE_TTL_MS,
   constantTimeHexEquals,
-  fromBase64Url,
   generateBindCode,
   generateSessionToken,
   generateSixDigitCode,
@@ -19,7 +19,6 @@ import {
   HOURLY_WINDOW_MS,
   normalizeEmail,
   sha256Hex,
-  toBase64Url,
   validPasswordLength,
   validSixDigitCode,
   VERIFICATION_CODE_MAX_ATTEMPTS,
@@ -28,7 +27,6 @@ import {
   WEB_SESSION_TTL_MS
 } from './account-crypto';
 import { renderVerificationEmail } from './account-email';
-import { deleteAccountRunDetails, readRunDetail } from './account-run-detail';
 import {
   readJsonObject,
   requireCodeSecret,
@@ -38,9 +36,6 @@ import { verifyTurnstile } from './turnstile';
 
 const SESSION_COOKIE_NAME = '__Host-bpp_session';
 const SESSION_MAX_AGE_SECONDS = Math.floor(WEB_SESSION_TTL_MS / 1000);
-const RECORDS_PAGE_SIZE = 50;
-const RATING_POINTS = 30;
-const TEN_WIN_VICTORIES = 10;
 const RUN_DETAIL_CACHE_CONTROL = 'private, no-store';
 
 type EmailPurpose = 'register' | 'reset';
@@ -53,33 +48,12 @@ export interface WebRunSummary {
   final_player_rank: string | null;
   final_player_rating: number | null;
   final_player_rating_delta: number | null;
-  game_mode: string | null;
-  ended_at_ms: number | null;
-  has_detail: boolean;
-}
-
-export interface WebAccountStats {
-  runs: number;
-  victories: number;
-  ten_win_runs: number;
-  heroes: Array<{
-    hero: string;
-    runs: number;
-    avg_victories: number;
-    best_victories: number;
-  }>;
-  rating: Array<{ ended_at_ms: number; rating: number; rank: string | null }>;
+  ended_at_ms: number;
 }
 
 export interface WebMeResponse {
   email: string;
   game: { user_name: string | null; linked_at_ms: number } | null;
-  stats: WebAccountStats;
-}
-
-interface EncodedCursor {
-  ended_at_ms: number | null;
-  run_id: string;
 }
 
 function isAllowedOrigin(origin: string, requestUrl: URL): boolean {
@@ -129,44 +103,6 @@ function buildSessionCookie(token: string | null): string {
     return `${SESSION_COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
   }
   return `${SESSION_COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_MAX_AGE_SECONDS}`;
-}
-
-function encodeCursor(cursor: EncodedCursor): string {
-  return toBase64Url(new TextEncoder().encode(JSON.stringify(cursor)));
-}
-
-function invalidCursor(): HttpError {
-  return apiError('invalid_query', 'cursor is invalid', {
-    details: { field: 'cursor' }
-  });
-}
-
-function decodeCursor(raw: string): EncodedCursor {
-  const bytes = fromBase64Url(raw);
-  if (bytes === null || bytes.byteLength === 0 || bytes.byteLength > 512) {
-    throw invalidCursor();
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    throw invalidCursor();
-  }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw invalidCursor();
-  }
-  const record = parsed as Record<string, unknown>;
-  const endedAtMs = record.ended_at_ms;
-  const runId = record.run_id;
-  if (
-    (endedAtMs !== null &&
-      (typeof endedAtMs !== 'number' || !Number.isSafeInteger(endedAtMs))) ||
-    typeof runId !== 'string' ||
-    !validIdentifier(runId)
-  ) {
-    throw invalidCursor();
-  }
-  return { ended_at_ms: endedAtMs, run_id: runId };
 }
 
 interface WebSession {
@@ -682,232 +618,95 @@ async function handleLogout(
   return ok(requestId, { 'Set-Cookie': buildSessionCookie(null) });
 }
 
-const EMPTY_STATS: WebAccountStats = {
-  runs: 0,
-  victories: 0,
-  ten_win_runs: 0,
-  heroes: [],
-  rating: []
-};
-
-async function readAccountStats(
-  db: D1Database,
-  gameAccountId: string
-): Promise<WebAccountStats> {
-  let results: D1Result[];
-  try {
-    results = await db.batch([
-      db
-        .prepare(
-          `SELECT COUNT(*) AS runs,
-                  COALESCE(SUM(victories), 0) AS victories,
-                  COALESCE(SUM(victories >= ?2), 0) AS ten_win_runs
-           FROM run_summaries
-           WHERE game_account_id = ?1`
-        )
-        .bind(gameAccountId, TEN_WIN_VICTORIES),
-      db
-        .prepare(
-          `SELECT hero,
-                  COUNT(*) AS runs,
-                  COALESCE(AVG(victories), 0) AS avg_victories,
-                  COALESCE(MAX(victories), 0) AS best_victories
-           FROM run_summaries
-           WHERE game_account_id = ?1 AND hero IS NOT NULL
-           GROUP BY hero
-           ORDER BY runs DESC, hero ASC`
-        )
-        .bind(gameAccountId),
-      db
-        .prepare(
-          `SELECT ended_at_ms, rating, rank FROM (
-             SELECT run_id, ended_at_ms, final_player_rating AS rating,
-                    final_player_rank AS rank
-             FROM run_summaries INDEXED BY idx_run_summaries_account_ended
-             WHERE game_account_id = ?1
-               AND ended_at_ms IS NOT NULL
-               AND final_player_rating IS NOT NULL
-             ORDER BY ended_at_ms DESC, run_id DESC
-             LIMIT ?2
-           )
-           ORDER BY ended_at_ms ASC, run_id ASC`
-        )
-        .bind(gameAccountId, RATING_POINTS)
-    ]);
-  } catch {
-    throw apiError('storage_unavailable', 'Account stats query failed');
-  }
-  const totals = results[0].results[0] as {
-    runs: number;
-    victories: number;
-    ten_win_runs: number;
-  };
-  return {
-    runs: totals.runs,
-    victories: totals.victories,
-    ten_win_runs: totals.ten_win_runs,
-    heroes: results[1].results as WebAccountStats['heroes'],
-    rating: results[2].results as WebAccountStats['rating']
-  };
-}
-
 async function handleGetMe(
   request: Request,
   env: Env,
   requestId: string
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
-  const linked =
-    session.gameAccountId !== null && session.linkedAtMs !== null
-      ? {
-          gameAccountId: session.gameAccountId,
-          linkedAtMs: session.linkedAtMs
-        }
-      : null;
   const body: WebMeResponse = {
     email: session.email,
     game:
-      linked === null
+      session.gameAccountId === null || session.linkedAtMs === null
         ? null
-        : { user_name: session.gameUserName, linked_at_ms: linked.linkedAtMs },
-    stats:
-      linked === null
-        ? EMPTY_STATS
-        : await readAccountStats(env.DB, linked.gameAccountId)
+        : { user_name: session.gameUserName, linked_at_ms: session.linkedAtMs }
   };
   return jsonResponse(body, { status: 200, requestId });
 }
 
-const RUN_SUMMARY_COLUMNS = `run_id, hero, victories, losses, final_player_rank,
-  final_player_rating, final_player_rating_delta, game_mode, ended_at_ms, detail_stored`;
+// A record is a Bundle that claims the linked game account, is still in R2,
+// and carries its terminal facts (ADR 0008). The list, the single Run and its
+// payload all use this predicate, so none can name a Bundle that is gone.
+const RECORD_PREDICATE = `uploader_account_id = ?1
+  AND stored_at_ms >= ?2
+  AND ended_at_ms IS NOT NULL`;
 
-type RunSummaryRow = Omit<WebRunSummary, 'has_detail'> & {
-  detail_stored: number;
-};
+const RECORD_COLUMNS = `run_id, hero, victories, losses, final_player_rank,
+  final_player_rating, final_player_rating_delta, ended_at_ms`;
 
-function toWebRunSummary({
-  detail_stored,
-  ...row
-}: RunSummaryRow): WebRunSummary {
-  return { ...row, has_detail: detail_stored === 1 };
-}
+// Far above what one player uploads in 8 days, so it only bounds the read when
+// someone floods Bundles that claim another player's id.
+const RECORDS_LIMIT = 1000;
 
-function readCursorQuery(requestUrl: URL): EncodedCursor | null {
-  for (const key of requestUrl.searchParams.keys()) {
-    if (key !== 'cursor') {
-      throw apiError('invalid_query', `Unknown query parameter: ${key}`, {
-        details: { field: key }
-      });
-    }
-  }
-  const values = requestUrl.searchParams.getAll('cursor');
-  if (values.length > 1) {
-    throw apiError('invalid_query', 'cursor must appear at most once', {
-      details: { field: 'cursor' }
-    });
-  }
-  return values.length === 1 && values[0] !== ''
-    ? decodeCursor(values[0])
-    : null;
-}
-
-async function queryRunPage(
-  db: D1Database,
-  gameAccountId: string,
-  cursor: EncodedCursor | null
-): Promise<RunSummaryRow[]> {
-  const from = `FROM run_summaries INDEXED BY idx_run_summaries_account_ended`;
-  const order = `ORDER BY ended_at_ms DESC, run_id DESC`;
-  let statement: D1PreparedStatement;
-  if (cursor === null) {
-    statement = db
-      .prepare(
-        `SELECT ${RUN_SUMMARY_COLUMNS} ${from}
-         WHERE game_account_id = ?1 ${order} LIMIT ?2`
-      )
-      .bind(gameAccountId, RECORDS_PAGE_SIZE + 1);
-  } else if (cursor.ended_at_ms !== null) {
-    statement = db
-      .prepare(
-        `SELECT ${RUN_SUMMARY_COLUMNS} ${from}
-         WHERE game_account_id = ?1
-           AND (
-             ended_at_ms < ?2
-             OR (ended_at_ms = ?2 AND run_id < ?3)
-             OR ended_at_ms IS NULL
-           )
-         ${order} LIMIT ?4`
-      )
-      .bind(
-        gameAccountId,
-        cursor.ended_at_ms,
-        cursor.run_id,
-        RECORDS_PAGE_SIZE + 1
-      );
-  } else {
-    statement = db
-      .prepare(
-        `SELECT ${RUN_SUMMARY_COLUMNS} ${from}
-         WHERE game_account_id = ?1 AND ended_at_ms IS NULL AND run_id < ?2
-         ${order} LIMIT ?3`
-      )
-      .bind(gameAccountId, cursor.run_id, RECORDS_PAGE_SIZE + 1);
-  }
-  try {
-    return (await statement.all<RunSummaryRow>()).results;
-  } catch {
-    throw apiError('storage_unavailable', 'Run summaries query failed');
-  }
+function recordWindowStart(): number {
+  return Date.now() - R2_RETENTION_MS;
 }
 
 async function handleListRuns(
   request: Request,
-  requestUrl: URL,
   env: Env,
   requestId: string
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
-  const cursor = readCursorQuery(requestUrl);
-  const rows =
-    session.gameAccountId === null
-      ? []
-      : await queryRunPage(env.DB, session.gameAccountId, cursor);
-  const hasMore = rows.length > RECORDS_PAGE_SIZE;
-  const page = hasMore ? rows.slice(0, RECORDS_PAGE_SIZE) : rows;
-  const last = page.at(-1);
-  return jsonResponse(
-    {
-      runs: page.map(toWebRunSummary),
-      next_cursor:
-        hasMore && last !== undefined
-          ? encodeCursor({ ended_at_ms: last.ended_at_ms, run_id: last.run_id })
-          : null
-    },
-    { status: 200, requestId }
-  );
+  let runs: WebRunSummary[] = [];
+  if (session.gameAccountId !== null) {
+    try {
+      runs = (
+        await env.DB.prepare(
+          `SELECT ${RECORD_COLUMNS}
+           FROM bundles INDEXED BY idx_bundles_uploader_stored
+           WHERE ${RECORD_PREDICATE}
+           ORDER BY stored_at_ms DESC, bundle_id DESC
+           LIMIT ?3`
+        )
+          .bind(session.gameAccountId, recordWindowStart(), RECORDS_LIMIT)
+          .all<WebRunSummary>()
+      ).results;
+    } catch {
+      throw apiError('storage_unavailable', 'Records query failed');
+    }
+  }
+  return jsonResponse({ runs }, { status: 200, requestId });
 }
 
 function runNotFound(): HttpError {
   return apiError('not_found', 'Run not found');
 }
 
+type RecordRow = WebRunSummary & {
+  object_key: string;
+  run_offset: number;
+  run_length: number;
+};
+
 async function findOwnedRun(
   db: D1Database,
   session: WebSession,
   runId: string
-): Promise<RunSummaryRow> {
+): Promise<RecordRow> {
   if (session.gameAccountId === null) throw runNotFound();
-  let row: RunSummaryRow | null;
+  let row: RecordRow | null;
   try {
     row = await db
       .prepare(
-        `SELECT ${RUN_SUMMARY_COLUMNS} FROM run_summaries
-         WHERE run_id = ?1 AND game_account_id = ?2`
+        `SELECT ${RECORD_COLUMNS}, object_key, run_offset, run_length
+         FROM bundles
+         WHERE run_id = ?3 AND ${RECORD_PREDICATE}`
       )
-      .bind(runId, session.gameAccountId)
-      .first<RunSummaryRow>();
+      .bind(session.gameAccountId, recordWindowStart(), runId)
+      .first<RecordRow>();
   } catch {
-    throw apiError('storage_unavailable', 'Run summaries query failed');
+    throw apiError('storage_unavailable', 'Records query failed');
   }
   if (row === null) throw runNotFound();
   return row;
@@ -921,12 +720,20 @@ async function handleGetRun(
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
   const row = await findOwnedRun(env.DB, session, runId);
-  return jsonResponse(
-    { run: toWebRunSummary(row) },
-    { status: 200, requestId }
-  );
+  const run: WebRunSummary = {
+    run_id: row.run_id,
+    hero: row.hero,
+    victories: row.victories,
+    losses: row.losses,
+    final_player_rank: row.final_player_rank,
+    final_player_rating: row.final_player_rating,
+    final_player_rating_delta: row.final_player_rating_delta,
+    ended_at_ms: row.ended_at_ms
+  };
+  return jsonResponse({ run }, { status: 200, requestId });
 }
 
+// Reads the Run segment straight out of the stored Bundle.
 async function handleGetRunPayload(
   request: Request,
   env: Env,
@@ -935,18 +742,20 @@ async function handleGetRunPayload(
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
   const row = await findOwnedRun(env.DB, session, runId);
-  if (row.detail_stored !== 1) throw runNotFound();
-  const object = await readRunDetail(
-    env.BUNDLE_BUCKET,
-    session.accountId,
-    runId
-  );
+  let object: R2ObjectBody | null;
+  try {
+    object = await env.BUNDLE_BUCKET.get(row.object_key, {
+      range: { offset: row.run_offset, length: row.run_length }
+    });
+  } catch {
+    throw apiError('storage_unavailable', 'Bundle storage is unavailable');
+  }
   if (object === null) throw runNotFound();
   return new Response(object.body, {
     status: 200,
     headers: {
       'Content-Type': RUN_CONTENT_TYPE,
-      'Content-Length': String(object.size),
+      'Content-Length': String(row.run_length),
       'Cache-Control': RUN_DETAIL_CACHE_CONTROL,
       'X-Request-Id': requestId
     }
@@ -996,23 +805,16 @@ async function handleBindCode(
   );
 }
 
-// R2 goes first: if the D1 batch then fails, a retry finds the rows and
-// deletes them, and no row ever points at a deleted detail object.
+// Records are the game account's Bundles; they stay as Ghost data and stop
+// showing here once the link is gone (ADR 0008).
 async function handleUnlink(
   request: Request,
   env: Env,
   requestId: string
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
-  await deleteAccountRunDetails(env.BUNDLE_BUCKET, session.accountId);
   try {
     await env.DB.batch([
-      env.DB.prepare(
-        `DELETE FROM run_summaries WHERE game_account_id = ?1`
-      ).bind(session.gameAccountId),
-      env.DB.prepare(
-        `DELETE FROM bpp_device_tokens WHERE account_id = ?1`
-      ).bind(session.accountId),
       env.DB.prepare(`DELETE FROM bpp_bind_codes WHERE account_id = ?1`).bind(
         session.accountId
       ),
@@ -1043,13 +845,9 @@ async function handleDeleteAccount(
   ) {
     throw apiError('invalid_credentials', 'Email or password is wrong');
   }
-  await deleteAccountRunDetails(env.BUNDLE_BUCKET, session.accountId);
   try {
-    // Deleting the account cascades to sessions, Device Tokens, and Bind Codes.
+    // Deleting the account cascades to sessions and Bind Codes.
     await env.DB.batch([
-      env.DB.prepare(
-        `DELETE FROM run_summaries WHERE game_account_id = ?1`
-      ).bind(session.gameAccountId),
       env.DB.prepare(`DELETE FROM bpp_email_challenges WHERE email = ?1`).bind(
         session.email
       ),
@@ -1110,7 +908,6 @@ function resolveRoute(
 async function dispatch(
   route: WebRoute,
   request: Request,
-  url: URL,
   env: Env,
   requestId: string
 ): Promise<Response> {
@@ -1130,7 +927,7 @@ async function dispatch(
     case 'me':
       return handleGetMe(request, env, requestId);
     case 'runs':
-      return handleListRuns(request, url, env, requestId);
+      return handleListRuns(request, env, requestId);
     case 'run':
       return handleGetRun(request, env, requestId, route.runId);
     case 'run_payload':
@@ -1175,7 +972,7 @@ export async function handleWebApiRequest(
     if (request.method === 'POST') {
       requireValidPostOrigin(request, url);
     }
-    return await dispatch(resolved.route, request, url, env, requestId);
+    return await dispatch(resolved.route, request, env, requestId);
   } catch (error) {
     if (error instanceof HttpError) {
       if (error.status >= 500) {

@@ -7,8 +7,6 @@ import { clientRateLimitKey } from '../http/request';
 import type { BundleReceipt } from '../http/schemas';
 import { MAX_BUNDLE_BYTES } from '../limits';
 import { logError, logEvent } from '../observability';
-import { evaluateDeviceTokenShadowAuth } from './account-auth';
-import { copyRunDetail, dropUnclaimedRunDetail } from './account-run-detail';
 import {
   type CommitOutcome,
   commitBundle,
@@ -229,29 +227,12 @@ export async function ingestBundle(
   }
 
   const objectWrite = await putConditionally(env, opened, digest);
-  const shadowAuth = await evaluateDeviceTokenShadowAuth(
-    request,
-    env.DB,
-    descriptor.uploaderAccountId
-  );
-  // The copy precedes the commit, so a stored Run Summary always has its detail.
-  // A failed copy fails the upload; the retry recovers the R2-only Bundle.
-  const detailStored =
-    shadowAuth.status === 'match' &&
-    shadowAuth.accountId !== null &&
-    descriptor.runProjection !== null;
-  if (detailStored) {
-    await copyRunDetail(env.BUNDLE_BUCKET, descriptor, shadowAuth.accountId);
-  }
   const now = Date.now();
   let outcome: CommitOutcome;
   try {
     outcome = await commitBundle(env.DB, descriptor, digest, {
       availableAtMs: now,
-      storedAtMs: objectWrite.storedAtMs,
-      verifiedAccountId: shadowAuth.verifiedAccountId,
-      verifiedBppAccountId: shadowAuth.accountId,
-      detailStored
+      storedAtMs: objectWrite.storedAtMs
     });
   } catch (error) {
     if (error instanceof HttpError && error.status === 503) {
@@ -262,15 +243,6 @@ export async function ingestBundle(
       });
     }
     throw error;
-  } finally {
-    if (detailStored && shadowAuth.accountId !== null) {
-      await dropUnclaimedRunDetail(
-        env.BUNDLE_BUCKET,
-        env.DB,
-        shadowAuth.accountId,
-        descriptor.runId
-      );
-    }
   }
   const committedAt = Date.now();
   if (outcome.kind === 'duplicate') {
@@ -291,10 +263,8 @@ export async function ingestBundle(
     run_id: descriptor.runId,
     bytes: descriptor.objectBytes,
     has_screenshot: descriptor.screenshot !== null,
-    shadow_auth: shadowAuth.status,
-    detail_stored: detailStored,
     outcome: 'stored',
-    // store_ms covers the remaining body transfer, R2 finishing the PUT, and the Run detail copy.
+    // store_ms covers the remaining body transfer and R2 finishing the PUT.
     manifest_ms: manifestReadAt - startedAt,
     inspect_ms: inspectedAt - manifestReadAt,
     body_ms:

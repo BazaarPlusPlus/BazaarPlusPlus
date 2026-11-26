@@ -49,8 +49,7 @@ public sealed class ModApiSession : IDisposable
         string contentDigest,
         string expectedBundleId,
         string expectedRunId,
-        CancellationToken cancellationToken,
-        string? deviceToken = null
+        CancellationToken cancellationToken
     ) =>
         _bundleUpload.UploadAsync(
             sealedFile,
@@ -58,16 +57,14 @@ public sealed class ModApiSession : IDisposable
             contentDigest,
             expectedBundleId,
             expectedRunId,
-            cancellationToken,
-            deviceToken
+            cancellationToken
         );
 
     public Task<GhostBattleQueryResult> QueryGhostBattlesAgainstMeAsync(
         string playerAccountId,
         int limit,
-        CancellationToken cancellationToken,
-        string? deviceToken = null
-    ) => _ghostBattles.QueryAgainstMeAsync(playerAccountId, limit, cancellationToken, deviceToken);
+        CancellationToken cancellationToken
+    ) => _ghostBattles.QueryAgainstMeAsync(playerAccountId, limit, cancellationToken);
 
     public Task<GhostBundleDownloadResult> DownloadGhostBundleAsync(
         string downloadUrl,
@@ -77,7 +74,7 @@ public sealed class ModApiSession : IDisposable
     public Task<ModApiHealthProbeResult> ProbeHealthAsync(CancellationToken cancellationToken) =>
         _health.ProbeAsync(cancellationToken);
 
-    public Task<BppAccountDeviceResult> BindBppAccountAsync(
+    public Task<BppAccountBindResult> BindBppAccountAsync(
         string bindCode,
         string gameToken,
         string gameAccountId,
@@ -93,26 +90,6 @@ public sealed class ModApiSession : IDisposable
             flavor,
             cancellationToken
         );
-
-    public Task<BppAccountDeviceResult> IssueBppAccountDeviceTokenAsync(
-        string gameToken,
-        string gameAccountId,
-        string platform,
-        string flavor,
-        CancellationToken cancellationToken
-    ) =>
-        _accounts.IssueDeviceTokenAsync(
-            gameToken,
-            gameAccountId,
-            platform,
-            flavor,
-            cancellationToken
-        );
-
-    public Task<BppAccountMeResult> GetBppAccountMeAsync(
-        string deviceToken,
-        CancellationToken cancellationToken
-    ) => _accounts.GetMeAsync(deviceToken, cancellationToken);
 
     public void Dispose()
     {

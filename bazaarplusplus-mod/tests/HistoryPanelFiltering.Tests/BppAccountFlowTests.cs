@@ -5,7 +5,7 @@ using BazaarPlusPlus.Core.GameAuth;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
-using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
+using BazaarPlusPlus.Game.HistoryPanel.Data;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -18,50 +18,7 @@ public sealed class BppAccountFlowTests
     private const string BindCode = "K7M2-Q9XR";
 
     [Fact]
-    public void SessionStoreRoundTripsAtomicallyAndMatchesOnlyStoredAccount()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), $"bpp-acct-store-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        try
-        {
-            var path = Path.Combine(dir, "bpp-account.json");
-            var store = new BppAccountSessionStore(path);
-            Assert.Null(store.TryRead());
-            Assert.Null(store.TryReadDeviceTokenForAccount("acct-1"));
-
-            store.Save(
-                new BppStoredAccountSession(
-                    "acct-1",
-                    "bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                    "Alice",
-                    "a***@example.com"
-                )
-            );
-            var loaded = store.TryRead();
-            Assert.NotNull(loaded);
-            Assert.Equal("acct-1", loaded!.GameAccountId);
-            Assert.Equal("bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", loaded.DeviceToken);
-            Assert.Equal("Alice", loaded.UserName);
-            Assert.Equal("a***@example.com", loaded.EmailMasked);
-            Assert.Equal(
-                "bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                store.TryReadDeviceTokenForAccount("acct-1")
-            );
-            Assert.Null(store.TryReadDeviceTokenForAccount("acct-2"));
-
-            store.Clear();
-            Assert.Null(store.TryRead());
-            Assert.False(File.Exists(path));
-        }
-        finally
-        {
-            if (Directory.Exists(dir))
-                Directory.Delete(dir, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task CoordinatorBindCodeActivationAnd401RefreshAndAccountSwitchClearing()
+    public async Task CoordinatorBindsWithCodeAndKeepsBindAvailable()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"bpp-acct-flow-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
@@ -71,7 +28,6 @@ public sealed class BppAccountFlowTests
             var requests = new List<(string Path, JObject? Body)>();
             var authReads = 0;
             var currentAccount = "acct-1";
-            var store = new BppAccountSessionStore(Path.Combine(dir, "bpp-account.json"));
             using var session =
                 ModApiSession.TryCreate(
                     "https://mod-api-v6.bazaarplusplus.com",
@@ -110,13 +66,11 @@ public sealed class BppAccountFlowTests
                 () => currentAccount
             )
             {
-                BppAccountStore = store,
                 GameAuthReader = () =>
                 {
                     authReads++;
                     return new BppGameAuthSnapshot("jwe.secret.token", "Steam", "Paid");
                 },
-                ProfileDisplayName = () => "LocalAlice",
             };
 
             var logSink = new CapturingLogSink();
@@ -129,9 +83,23 @@ public sealed class BppAccountFlowTests
                 new HistoryPanelReplayReturnPort(() => { }, () => { }, () => null, () => false)
             );
 
+            HistoryPanelViewModel Model() =>
+                HistoryPanelViewModelBuilder.Build(
+                    state,
+                    coordinator,
+                    new StubRunContext(),
+                    null,
+                    0f,
+                    Array.Empty<BazaarPlusPlus.Game.Supporters.BPPSupporterSample>(),
+                    default,
+                    default,
+                    hero => hero ?? string.Empty,
+                    DateTimeOffset.Now
+                );
+
             coordinator.OnPanelShown();
             Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
-            Assert.False(state.BppAccountBound);
+            Assert.True(Model().BppAccountActionVisible);
 
             // Opening the form shows the bind code input; an empty code never reaches the server.
             coordinator.ToggleBppAccountForm();
@@ -168,44 +136,34 @@ public sealed class BppAccountFlowTests
             await coordinator.TrySubmitBppAccountInputAsync(BindCode);
             Assert.Equal(BppAccountFlowPhase.EnterBindCode, state.BppAccountPhase);
             Assert.Contains("another BPP Account", state.BppAccountBannerMessage);
-            Assert.False(state.BppAccountBound);
 
-            // A valid bind code posts the trimmed code with the game token and persists the device token.
+            // A valid bind code posts the trimmed code with the game token; the banner names the linked account.
             responses.Enqueue(
                 Json(
                     HttpStatusCode.OK,
-                    """{"device_token":"bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","user_name":"OfficialAlice","email_masked":"a***@example.com"}"""
+                    """{"user_name":"OfficialAlice","email_masked":"a***@example.com"}"""
                 )
             );
             await coordinator.TrySubmitBppAccountInputAsync($"  {BindCode}  ");
             Assert.Equal(3, authReads);
-            Assert.True(state.BppAccountBound);
             Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
-            Assert.Equal("OfficialAlice", state.BppAccountUserName);
-            Assert.Equal("a***@example.com", state.BppAccountEmailMasked);
-            Assert.Equal(
-                "bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                store.TryReadDeviceTokenForAccount("acct-1")
-            );
+            Assert.Equal(StatusSeverity.Success, state.BppAccountBannerSeverity);
+            Assert.Contains("a***@example.com", state.BppAccountBannerMessage);
+            Assert.Contains("OfficialAlice", state.BppAccountBannerMessage);
+            Assert.Contains("bazaarplusplus.com/records", state.BppAccountBannerMessage);
+            var bound = Model();
+            Assert.False(bound.BppAccountFormVisible);
+            Assert.True(bound.BppAccountActionVisible);
+            Assert.Equal(state.BppAccountBannerMessage, bound.BppAccountBannerText);
             var bindRequest = requests[^1];
             Assert.Equal("/account/bind", bindRequest.Path);
             Assert.Equal(BindCode, bindRequest.Body!["bind_code"]!.ToString());
             Assert.Equal("jwe.secret.token", bindRequest.Body["game_token"]!.ToString());
             Assert.Equal("acct-1", bindRequest.Body["game_account_id"]!.ToString());
 
-            // GET /account/me 401 clears the stored device token and bound state.
-            responses.Enqueue(
-                Json(
-                    HttpStatusCode.Unauthorized,
-                    """{"error":{"code":"unauthorized","message":"revoked","retryable":false,"request_id":"r2"}}"""
-                )
-            );
-            await coordinator.RefreshBppAccountSessionAsync();
-            Assert.False(state.BppAccountBound);
-            Assert.Null(store.TryRead());
-
-            // Error mapping for account_mismatch tells player to restart the game.
+            // The mod keeps no link state, so Bind opens again; account_mismatch tells the player to restart the game.
             coordinator.ToggleBppAccountForm();
+            Assert.Equal(BppAccountFlowPhase.EnterBindCode, state.BppAccountPhase);
             responses.Enqueue(
                 Json(
                     HttpStatusCode.Conflict,
@@ -215,26 +173,7 @@ public sealed class BppAccountFlowTests
             await coordinator.TrySubmitBppAccountInputAsync(BindCode);
             Assert.Contains("restart the game", state.BppAccountBannerMessage);
 
-            // Activating this device calls POST /account/devices and persists the device token.
-            coordinator.ToggleBppAccountForm();
-            coordinator.OpenBppAccountActivateDevice();
-            Assert.Equal(BppAccountFlowPhase.ConfirmActivateDevice, state.BppAccountPhase);
-            responses.Enqueue(
-                Json(
-                    HttpStatusCode.OK,
-                    """{"device_token":"bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","user_name":"OfficialAlice","email_masked":"a***@example.com"}"""
-                )
-            );
-            await coordinator.TrySubmitBppAccountInputAsync(null);
-            Assert.Equal("/account/devices", requests[^1].Path);
-            Assert.True(state.BppAccountBound);
-            Assert.Equal(BppAccountFlowPhase.Idle, state.BppAccountPhase);
-            Assert.Equal(
-                "bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-                store.TryReadDeviceTokenForAccount("acct-1")
-            );
-
-            // Privacy: game token, bind code, and device token never enter BppLog.
+            // Privacy: the game token and bind codes never enter BppLog.
             BppLog.Flush();
             Assert.NotEmpty(logSink.Messages);
             foreach (var rendered in logSink.Messages)
@@ -242,7 +181,6 @@ public sealed class BppAccountFlowTests
                 Assert.DoesNotContain("jwe.secret.token", rendered, StringComparison.Ordinal);
                 Assert.DoesNotContain(BindCode, rendered, StringComparison.Ordinal);
                 Assert.DoesNotContain("WRONG777", rendered, StringComparison.Ordinal);
-                Assert.DoesNotContain("bppd_", rendered, StringComparison.Ordinal);
             }
         }
         finally

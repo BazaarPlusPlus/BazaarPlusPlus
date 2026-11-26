@@ -63,8 +63,7 @@ internal sealed class HistoryPanelMount : IBppMountable
                 HistoryPanelDecisions.ResolveAccountLinkGate(
                     services.Config.BazaarDbUploadEnabled.Value,
                     services.GameBuild.Channel
-                ),
-            PathConstants.BppAccountSession(dataRoot)
+                )
         );
         _localeChangedSubscription = services.EventBus.Subscribe<ChineseLocaleModeChanged>(_ =>
             HistoryPanel.RefreshLocalization()

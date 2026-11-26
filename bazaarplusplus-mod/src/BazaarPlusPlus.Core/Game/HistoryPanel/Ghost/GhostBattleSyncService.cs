@@ -20,7 +20,6 @@ public sealed class GhostBattleSyncService
     private readonly Func<string?> _profileAccountId;
     private readonly IPvpBattleEvidenceBinding _evidence;
     private readonly Func<Guid, bool> _hasCardTemplate;
-    private readonly Func<string?, string?>? _deviceTokenForAccount;
 
     // Avoid a discovery request every time the player returns to Ghost.
     private static readonly TimeSpan SyncTtl = TimeSpan.FromMinutes(5);
@@ -37,23 +36,6 @@ public sealed class GhostBattleSyncService
         IPvpBattleEvidenceBinding evidence,
         Func<Guid, bool> hasCardTemplate
     )
-        : this(
-            repository,
-            modApiSession,
-            profileAccountId,
-            evidence,
-            hasCardTemplate,
-            deviceTokenForAccount: null
-        ) { }
-
-    public GhostBattleSyncService(
-        HistoryPanelRepository repository,
-        ModApiSession modApiSession,
-        Func<string?> profileAccountId,
-        IPvpBattleEvidenceBinding evidence,
-        Func<Guid, bool> hasCardTemplate,
-        Func<string?, string?>? deviceTokenForAccount
-    )
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _modApiSession = modApiSession ?? throw new ArgumentNullException(nameof(modApiSession));
@@ -62,7 +44,6 @@ public sealed class GhostBattleSyncService
         _evidence = evidence ?? throw new ArgumentNullException(nameof(evidence));
         _hasCardTemplate =
             hasCardTemplate ?? throw new ArgumentNullException(nameof(hasCardTemplate));
-        _deviceTokenForAccount = deviceTokenForAccount;
     }
 
     public async Task<GhostBattleSyncResult> SyncRecentBattlesAsync(
@@ -233,14 +214,8 @@ public sealed class GhostBattleSyncService
         CancellationToken cancellationToken
     )
     {
-        var deviceToken = _deviceTokenForAccount?.Invoke(playerAccountId);
         var result = await _modApiSession
-            .QueryGhostBattlesAgainstMeAsync(
-                playerAccountId,
-                MaxSyncBattleLimit,
-                cancellationToken,
-                deviceToken
-            )
+            .QueryGhostBattlesAgainstMeAsync(playerAccountId, MaxSyncBattleLimit, cancellationToken)
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {

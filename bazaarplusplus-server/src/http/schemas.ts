@@ -270,35 +270,8 @@ export const AccountBindRequest = z
 
 export const AccountBindResponse = z
   .strictObject({
-    device_token: z.string(),
     user_name: z.string(),
     email_masked: z.string()
   })
   .meta({ id: 'AccountBindResponse' });
 export type AccountBindResponse = z.infer<typeof AccountBindResponse>;
-
-export const AccountDevicesRequest = z
-  .strictObject({
-    game_token: z.string(),
-    game_account_id: identifier,
-    platform: z.string(),
-    flavor: z.string()
-  })
-  .meta({ id: 'AccountDevicesRequest' });
-
-export const AccountDevicesResponse = z
-  .strictObject({
-    device_token: z.string(),
-    user_name: z.string(),
-    email_masked: z.string()
-  })
-  .meta({ id: 'AccountDevicesResponse' });
-export type AccountDevicesResponse = z.infer<typeof AccountDevicesResponse>;
-
-export const AccountMeResponse = z
-  .strictObject({
-    user_name: z.string(),
-    email_masked: z.string()
-  })
-  .meta({ id: 'AccountMeResponse' });
-export type AccountMeResponse = z.infer<typeof AccountMeResponse>;

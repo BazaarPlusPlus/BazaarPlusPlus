@@ -24,7 +24,7 @@ A contract change lands in one pull request together with every consumer it brea
 | Contract | Owner | Consumers |
 |---|---|---|
 | Bundle V6 binary and manifest | `bazaarplusplus-server/contracts/v6/`, shared goldens in `fixtures/` beneath it | mod writes and reads Ghost Bundles, server ingests, analyzer reads, bot reads |
-| Run segment inside a Bundle V6 | `bazaarplusplus-mod/docs/contracts/run-payload-v6.md`, shared golden `bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64` | server stores it opaque (and copies it as a linked account's Run detail), analyzer, bot and the site's Run detail page decode it |
+| Run segment inside a Bundle V6 | `bazaarplusplus-mod/docs/contracts/run-payload-v6.md`, shared golden `bazaarplusplus-mod/tests/BundleV6Codec.Tests/fixtures/run-payload-v6.fixture.b64` | server stores it opaque (and serves its byte range as a linked account's Record), analyzer, bot and the site's Run detail page decode it |
 | Mod API HTTP routes | `bazaarplusplus-server/docs/api-reference.md` | mod, bot |
 | Website account API (`WebApi` `/api/*`) | `handleWebApiRequest` in `bazaarplusplus-server/src/modules/web-account-api.ts` | site (`bazaarplusplus-site/src/features/account/account-api.ts` and `bazaarplusplus-site/worker.ts`) |
 | Hero and build snapshots | `bazaarplusplus-analyzer/contracts/v6/`, shared goldens in `fixtures/` beneath it and the hero alias table `hero-aliases.json`, plus `bazaarplusplus-analyzer/docs/specs/consumer-data-contract.md` | site Hero Analysis, mod build recommendations, installer History (hero aliases), the QQ hero daily report (`scripts/qqbot/hero-report.ts`), bot hero report |

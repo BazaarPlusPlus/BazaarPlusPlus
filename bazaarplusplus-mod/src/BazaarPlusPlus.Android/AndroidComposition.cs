@@ -13,7 +13,6 @@ using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
-using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -253,8 +252,7 @@ internal sealed class AndroidComposition
             _core.Services,
             ReleaseManifestEndpoints.AndroidPlatformKey,
             nowSeconds,
-            DatabaseOptions,
-            AndroidHistoryPorts.ProfileAccountId
+            DatabaseOptions
         );
     }
 
@@ -322,8 +320,7 @@ internal sealed class AndroidComposition
                     Settings.BazaarDbUploadEnabled.Value,
                     _core.Services.GameBuild.Channel
                 ),
-            AndroidHistoryPorts.ReadGameAuthSnapshot,
-            AndroidHistoryPorts.ProfileDisplayName
+            AndroidHistoryPorts.ReadGameAuthSnapshot
         );
 
     internal static HistoryPanelDependencies CreateHistoryDependencies(
@@ -338,8 +335,7 @@ internal sealed class AndroidComposition
         BazaarDbAccountLinkStore accountLinkStore,
         BazaarDbLinkClient? accountLinkClient,
         Func<AccountLinkGate>? accountLinkGate,
-        BppGameAuthReader? gameAuthReader = null,
-        Func<string?>? profileDisplayName = null
+        BppGameAuthReader? gameAuthReader = null
     )
     {
         ArgumentNullException.ThrowIfNull(runContext);
@@ -347,10 +343,6 @@ internal sealed class AndroidComposition
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(hasCardTemplate);
         var repository = new HistoryPanelRepository(databasePath);
-        var dataRoot = Path.GetDirectoryName(databasePath);
-        var bppAccountStore = !string.IsNullOrWhiteSpace(dataRoot)
-            ? new BppAccountSessionStore(PathConstants.BppAccountSession(dataRoot!))
-            : null;
         var ghostBattles =
             session == null
                 ? null
@@ -359,8 +351,7 @@ internal sealed class AndroidComposition
                     session,
                     profileAccountId,
                     AndroidPvpBattleEvidence.Instance,
-                    hasCardTemplate,
-                    bppAccountStore == null ? null : bppAccountStore.TryReadDeviceTokenForAccount
+                    hasCardTemplate
                 );
         var data = new HistoryPanelDataService(
             repository,
@@ -392,9 +383,7 @@ internal sealed class AndroidComposition
                 runtime,
                 replay
             ),
-            BppAccountStore = bppAccountStore,
             GameAuthReader = gameAuthReader,
-            ProfileDisplayName = profileDisplayName,
         };
     }
 

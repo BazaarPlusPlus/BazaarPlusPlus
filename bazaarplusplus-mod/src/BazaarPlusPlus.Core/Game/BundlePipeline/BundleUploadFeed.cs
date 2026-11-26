@@ -2,7 +2,6 @@
 using System.Security.Cryptography;
 using BazaarPlusPlus.Core.Events;
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 using BazaarPlusPlus.Game.Upload;
 using BazaarPlusPlus.Infrastructure;
 using BazaarPlusPlus.Infrastructure.Logging;
@@ -58,13 +57,11 @@ public static class BundleUploadFeed
         private readonly int _retryIntervalSeconds;
         private readonly Func<DateTimeOffset> _utcNow;
         private readonly Func<double> _jitterSample;
-        private readonly Func<string?, string?> _deviceTokenForAccount;
 
         // Only the active attempt owns the backoff state. Other threads set _backoffClearRequested.
         private int _consecutiveEndpointFailures;
         private DateTimeOffset? _queueBackoffUntil;
         private int _backoffClearRequested;
-        private string? _currentAccountId;
 
         public Session(
             IBppServices services,
@@ -77,8 +74,6 @@ public static class BundleUploadFeed
             var root = services.Paths.RequireDataRoot();
             _queueStore = new BundleQueueStore(PathConstants.RunLogDatabase(root), databaseOptions);
             _files = new SystemBundleOutboxFiles(PathConstants.BundleOutbox(root));
-            var accountStore = new BppAccountSessionStore(PathConstants.BppAccountSession(root));
-            _deviceTokenForAccount = accountStore.TryReadDeviceTokenForAccount;
             _modApiSession =
                 ModApiSession.TryCreate(
                     ModApiUploadDefaults.ApiBaseUrl,
@@ -99,8 +94,7 @@ public static class BundleUploadFeed
             BundleQueueStore queueStore,
             IBundleOutboxFiles files,
             Func<DateTimeOffset>? utcNow = null,
-            Func<double>? jitterSample = null,
-            Func<string?, string?>? deviceTokenForAccount = null
+            Func<double>? jitterSample = null
         )
         {
             _services = services ?? throw new ArgumentNullException(nameof(services));
@@ -111,13 +105,6 @@ public static class BundleUploadFeed
             _files = files ?? throw new ArgumentNullException(nameof(files));
             _utcNow = utcNow ?? (static () => DateTimeOffset.UtcNow);
             _jitterSample = jitterSample ?? new Random().NextDouble;
-            _deviceTokenForAccount = deviceTokenForAccount ?? (static _ => null);
-        }
-
-        public void UpdateCurrentAccountId(string? accountId)
-        {
-            var normalized = string.IsNullOrWhiteSpace(accountId) ? null : accountId!.Trim();
-            Volatile.Write(ref _currentAccountId, normalized);
         }
 
         public async Task<UploadAttemptResult> RunAttemptAsync(CancellationToken cancellationToken)
@@ -151,7 +138,6 @@ public static class BundleUploadFeed
                     if (!string.Equals(digest, row.ContentSha256Hex, StringComparison.Ordinal))
                         throw new InvalidDataException("bundle_digest_mismatch");
                     stream.Seek(0, SeekOrigin.Begin);
-                    var deviceToken = _deviceTokenForAccount(Volatile.Read(ref _currentAccountId));
                     var response = await _modApiSession
                         .UploadBundleAsync(
                             stream,
@@ -159,8 +145,7 @@ public static class BundleUploadFeed
                             row.ContentDigest,
                             row.BundleId,
                             row.RunId,
-                            cancellationToken,
-                            deviceToken
+                            cancellationToken
                         )
                         .ConfigureAwait(false);
                     ApplyResponse(row, response);

@@ -202,7 +202,7 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
       headers: { 'Content-Type': 'application/json' }
     });
 
-  await record(jsonPost('/account/devices', '{not-json'), accountEnv);
+  await record(jsonPost('/account/bind', '{not-json'), accountEnv);
   await record(
     jsonPost('/account/bind', { bind_code: 'bad', ...claim('acct-err-1') }),
     accountEnv
@@ -292,22 +292,18 @@ test('real HTTP failures emit exactly the declared codes, statuses, and retry fl
       accountEnv
     );
 
+    // A well-formed code reaches the official check before the code lookup.
+    const bind = { bind_code: 'ABCDEFGH', ...claim('acct-err-1') };
     fetchSpy.mockResolvedValueOnce(new Response('denied', { status: 401 }));
-    await record(jsonPost('/account/devices', claim('acct-err-1')), accountEnv);
+    await record(jsonPost('/account/bind', bind), accountEnv);
 
     fetchSpy.mockResolvedValueOnce(
       new Response('bad gateway', { status: 502 })
     );
-    await record(jsonPost('/account/devices', claim('acct-err-1')), accountEnv);
+    await record(jsonPost('/account/bind', bind), accountEnv);
 
     fetchSpy.mockResolvedValueOnce(official('acct-other'));
-    await record(jsonPost('/account/devices', claim('acct-err-1')), accountEnv);
-
-    fetchSpy.mockResolvedValueOnce(official('acct-unbound'));
-    await record(
-      jsonPost('/account/devices', claim('acct-unbound')),
-      accountEnv
-    );
+    await record(jsonPost('/account/bind', bind), accountEnv);
   } finally {
     fetchSpy.mockRestore();
   }

@@ -367,14 +367,7 @@ public sealed class HistoryTouchLayout
         BppAccountToggle = new TouchRect(w - actionWidth, 0f, actionWidth, target);
         BppAccountTitle = new TouchRect(0f, 0f, Math.Max(0f, BppAccountToggle.Left - Gap), target);
         BppAccountStatus = new TouchRect(0f, BppAccountToggle.Bottom + small, w, line2);
-        BppAccountHint = new TouchRect(0f, BppAccountStatus.Bottom + small, w, line2);
-        BppAccountActivate = new TouchRect(
-            w - linkedWidth,
-            BppAccountHint.Bottom + small,
-            linkedWidth,
-            target
-        );
-        BppAccountFormTop = BppAccountHint.Bottom + small;
+        BppAccountFormTop = BppAccountStatus.Bottom + small;
         BppAccountPrompt = new TouchRect(0f, BppAccountFormTop, w, metrics.Dp(48f));
         BppAccountNotice = new TouchRect(0f, BppAccountPrompt.Bottom + small, w, metrics.Dp(64f));
         BppAccountSubmit = new TouchRect(
@@ -390,7 +383,6 @@ public sealed class HistoryTouchLayout
             target
         );
         BppAccountBanner = new TouchRect(0f, BppAccountSubmit.Bottom + small, w, line2);
-        BppAccountCompactHeight = BppAccountActivate.Bottom;
         BppAccountExpandedHeight = BppAccountBanner.Bottom;
         MoreContentHeight = BppAccountTop + BppAccountExpandedHeight;
 
@@ -585,10 +577,6 @@ public sealed class HistoryTouchLayout
 
     public TouchRect BppAccountStatus { get; }
 
-    public TouchRect BppAccountHint { get; }
-
-    public TouchRect BppAccountActivate { get; }
-
     public float BppAccountFormTop { get; }
 
     public TouchRect BppAccountPrompt { get; }
@@ -600,8 +588,6 @@ public sealed class HistoryTouchLayout
     public TouchRect BppAccountSubmit { get; }
 
     public TouchRect BppAccountBanner { get; }
-
-    public float BppAccountCompactHeight { get; }
 
     public float BppAccountExpandedHeight { get; }
 

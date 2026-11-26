@@ -16,9 +16,6 @@ internal static class AndroidHistoryPorts
     public static string? ProfileAccountId() =>
         OnMainThread("profile_account") ? AndroidClientCache.TryGetProfileAccountId() : null;
 
-    public static string? ProfileDisplayName() =>
-        OnMainThread("profile_display_name") ? AndroidClientCache.TryGetProfileUsername() : null;
-
     public static BppGameAuthSnapshot? ReadGameAuthSnapshot() =>
         OnMainThread("game_auth") ? AndroidGameAuthBridge.TryRead() : null;
 

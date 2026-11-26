@@ -69,7 +69,10 @@ test('account pages preserve the fixed window and equal-timestamp cursor without
   const values = Array.from({ length: 103 }, (_, i) => {
     const id = `01J${String(i + 100).padStart(23, '0')}`;
     return env.DB.prepare(
-      `INSERT INTO bundles VALUES (?, ?, 'pages', ?, ?, 10, ?, ?, ?, 0)`
+      `INSERT INTO bundles (
+        bundle_id, run_id, uploader_account_id, object_key, bundle_sha256,
+        object_bytes, client_created_at_ms, stored_at_ms, available_at_ms, has_screenshot
+      ) VALUES (?, ?, 'pages', ?, ?, 10, ?, ?, ?, 0)`
     ).bind(
       id,
       `page-${i}`,

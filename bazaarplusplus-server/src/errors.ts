@@ -30,7 +30,6 @@ export const API_ERROR_CODES = [
   'insufficient_scope',
   'captcha_failed',
   'not_found',
-  'account_not_bound',
   'method_not_allowed',
   'bundle_id_conflict',
   'run_already_bundled',

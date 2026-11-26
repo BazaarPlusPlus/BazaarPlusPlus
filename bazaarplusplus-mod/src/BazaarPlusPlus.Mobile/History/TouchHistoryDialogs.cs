@@ -34,8 +34,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     private readonly TextMeshProUGUI _bppTitle;
     private readonly HistoryButton _bppToggle;
     private readonly TextMeshProUGUI _bppStatus;
-    private readonly TextMeshProUGUI _bppHint;
-    private readonly HistoryButton _bppActivate;
     private readonly GameObject _bppForm;
     private readonly TextMeshProUGUI _bppPrompt;
     private readonly TextMeshProUGUI _bppNotice;
@@ -44,7 +42,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     private readonly TextMeshProUGUI _bppBanner;
     private string? _inputAccount;
     private BppAccountFlowPhase _bppRenderedPhase;
-    private (bool Form, bool Status, bool Linked, bool BppForm, bool BppActivate)? _shownRows;
+    private (bool Form, bool Status, bool Linked, bool BppForm)? _shownRows;
 
     public TouchHistoryMoreDialog(
         RectTransform parent,
@@ -245,24 +243,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             TouchHistoryUi.Muted,
             wrap: true
         );
-        _bppHint = TouchHistoryUi.Label(
-            _bppSection,
-            font,
-            "BppAccountHint",
-            layout.BppAccountHint,
-            layout.BodyFont,
-            TextAlignmentOptions.TopLeft,
-            TouchHistoryUi.Muted,
-            wrap: true
-        );
-        _bppActivate = TouchHistoryUi.Button(
-            _bppSection,
-            font,
-            "bpp_account_activate",
-            layout.BppAccountActivate,
-            layout.ButtonFont,
-            () => _actions.OpenBppActivateDevice?.Invoke()
-        );
         var bppForm = UiKit.Rect(
             "BppAccountForm",
             _bppSection,
@@ -379,15 +359,14 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         if (!m.AccountLinkFormVisible)
             _accountInput.DeactivateInputField(false);
         TouchHistoryUi.SetActive(_form, m.AccountLinkFormVisible);
-        if (!m.BppAccountFormVisible || !m.BppAccountInputVisible)
+        if (!m.BppAccountFormVisible)
             _bppInput.DeactivateInputField(false);
         TouchHistoryUi.SetActive(_bppForm, m.BppAccountFormVisible);
         var rowsKey = (
             m.AccountLinkFormVisible,
             hasStatus,
             m.AccountAlreadyLinkedButtonVisible,
-            m.BppAccountFormVisible,
-            m.BppAccountActivateActionVisible
+            m.BppAccountFormVisible
         );
         if (_shownRows != rowsKey)
         {
@@ -409,10 +388,19 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
                 : _layout.AccountFormTop;
             var bppOffset = bazaarDbBottom + _layout.Gap;
             _bppSection.anchoredPosition = new Vector2(0f, -bppOffset);
-            var bppHeight =
-                m.BppAccountFormVisible ? _layout.BppAccountExpandedHeight
-                : m.BppAccountActivateActionVisible ? _layout.BppAccountCompactHeight
-                : _layout.BppAccountFormTop + _layout.BppAccountBanner.Height;
+            // With the form closed the banner moves up under the status line, so a bind result stays in view.
+            var bppBanner = _layout.BppAccountBanner;
+            if (!m.BppAccountFormVisible)
+                bppBanner = new TouchRect(
+                    bppBanner.Left,
+                    _layout.BppAccountFormTop,
+                    bppBanner.Width,
+                    bppBanner.Height
+                );
+            TouchScreen.Place(_bppBanner.GetComponent<RectTransform>(), bppBanner);
+            var bppHeight = m.BppAccountFormVisible
+                ? _layout.BppAccountExpandedHeight
+                : bppBanner.Bottom;
             var content = bppOffset + bppHeight - rise;
             _scroll.content.sizeDelta = new Vector2(_layout.MoreScroll.Width, content);
             Fit(content);
@@ -427,14 +415,10 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
 
         _bppTitle.text = m.BppAccountTitleText;
         _bppStatus.text = m.BppAccountStatusText;
-        _bppHint.text = m.BppAccountHintText;
         TouchHistoryUi.SetActive(_bppToggle.GameObject, m.BppAccountActionVisible);
         _bppToggle.Set(m.BppAccountActionText, enabled: m.BppAccountControlsEnabled);
-        TouchHistoryUi.SetActive(_bppActivate.GameObject, m.BppAccountActivateActionVisible);
-        _bppActivate.Set(m.BppAccountActivateActionText, enabled: m.BppAccountControlsEnabled);
         _bppPrompt.text = m.BppAccountFormPromptText;
         _bppNotice.text = m.BppAccountNoticeText;
-        TouchHistoryUi.SetActive(_bppInput.gameObject, m.BppAccountInputVisible);
         _bppInput.interactable = m.BppAccountControlsEnabled;
         if (_bppInput.placeholder is TextMeshProUGUI bppPlaceholder)
             bppPlaceholder.text = m.BppAccountInputPlaceholder;
@@ -487,7 +471,6 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
         Action<string> Redeem,
         Action MarkLinked,
         Action? ToggleBppAccountForm = null,
-        Action? OpenBppActivateDevice = null,
         Action<string>? SubmitBppAccount = null
     );
 }

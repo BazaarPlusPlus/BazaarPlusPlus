@@ -10,8 +10,6 @@ internal sealed class ModApiRoutes
         QueryGhostBattles = BuildAbsolute("/ghost-battles");
         Health = BuildAbsolute("/health");
         AccountBind = BuildAbsolute("/account/bind");
-        AccountDevices = BuildAbsolute("/account/devices");
-        AccountMe = BuildAbsolute("/account/me");
     }
 
     public Uri ApiBaseUri { get; }
@@ -23,10 +21,6 @@ internal sealed class ModApiRoutes
     public string Health { get; }
 
     public string AccountBind { get; }
-
-    public string AccountDevices { get; }
-
-    public string AccountMe { get; }
 
     public static ModApiRoutes? TryCreate(string? apiBaseUrl)
     {

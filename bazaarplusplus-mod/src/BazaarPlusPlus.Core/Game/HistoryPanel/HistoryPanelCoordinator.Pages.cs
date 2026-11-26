@@ -351,8 +351,6 @@ public sealed partial class HistoryPanelCoordinator
         SetAccountLinkBanner(null, StatusSeverity.Neutral);
         SetBppAccountBanner(null, StatusSeverity.Neutral);
         RefreshAccountLinkHint();
-        RefreshBppAccountFromStore();
-        _ = RefreshBppAccountSessionAsync();
         ClearDetail();
         RefreshSectionOnEntry();
         StartGhostMaintenance();

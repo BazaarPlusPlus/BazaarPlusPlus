@@ -1,6 +1,5 @@
 #nullable enable
 using System.Globalization;
-using System.Net.Http.Headers;
 using BazaarPlusPlus.ModApi.Bundle;
 using BazaarPlusPlus.ModApi.Http;
 using BazaarPlusPlus.ModApi.Models;
@@ -22,8 +21,7 @@ internal sealed class GhostBattleClient
     public async Task<GhostBattleQueryResult> QueryAgainstMeAsync(
         string playerAccountId,
         int limit,
-        CancellationToken cancellationToken,
-        string? deviceToken = null
+        CancellationToken cancellationToken
     )
     {
         if (string.IsNullOrWhiteSpace(playerAccountId))
@@ -37,13 +35,6 @@ internal sealed class GhostBattleClient
                     $"player_account_id={Uri.EscapeDataString(playerAccountId.Trim())}&limit={Math.Clamp(limit, 1, 200)}",
             }.Uri.ToString();
             using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
-            if (!string.IsNullOrWhiteSpace(deviceToken))
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue(
-                    "Bearer",
-                    deviceToken!.Trim()
-                );
-            }
             using var response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false);

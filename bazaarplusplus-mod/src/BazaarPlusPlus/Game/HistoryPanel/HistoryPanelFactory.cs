@@ -3,7 +3,6 @@ using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.BundlePipeline;
 using BazaarPlusPlus.Game.CombatReplay;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
-using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Ghost;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
@@ -23,8 +22,7 @@ internal static class HistoryPanelFactory
         string combatReplayDirectoryPath,
         string combatReplayVideoDirectoryPath,
         BazaarDbLinkClient? accountLinkClient = null,
-        Func<AccountLinkGate>? accountLinkGate = null,
-        string? bppAccountSessionPath = null
+        Func<AccountLinkGate>? accountLinkGate = null
     )
     {
         if (runContext == null)
@@ -40,11 +38,8 @@ internal static class HistoryPanelFactory
         if (!string.IsNullOrWhiteSpace(databasePath))
             repository = new HistoryPanelRepository(databasePath);
 
-        BppAccountSessionStore? bppAccountStore = !string.IsNullOrWhiteSpace(bppAccountSessionPath)
-            ? new BppAccountSessionStore(bppAccountSessionPath!)
-            : null;
         Func<ISavedReplayRuntime?> savedReplays = () => combatReplayRuntimeAccessor()?.SavedReplays;
-        var ghostSyncService = CreateGhostSyncService(repository, modApiSession, bppAccountStore);
+        var ghostSyncService = CreateGhostSyncService(repository, modApiSession);
         var dataService = new HistoryPanelDataService(
             repository,
             ghostSyncService,
@@ -86,16 +81,13 @@ internal static class HistoryPanelFactory
                         savedReplays,
                         replayService
                     ),
-            BppAccountStore = bppAccountStore,
             GameAuthReader = BppGameAuthBridge.TryRead,
-            ProfileDisplayName = BppClientCacheBridge.TryGetProfileDisplayUsername,
         };
     }
 
     private static GhostBattleSyncService? CreateGhostSyncService(
         HistoryPanelRepository? repository,
-        ModApiSession? modApiSession,
-        BppAccountSessionStore? bppAccountStore
+        ModApiSession? modApiSession
     )
     {
         if (repository == null || modApiSession == null)
@@ -106,8 +98,7 @@ internal static class HistoryPanelFactory
             modApiSession,
             BppClientCacheBridge.TryGetProfileAccountId,
             DesktopPvpBattleEvidence.Instance,
-            DesktopHistoryCardTemplates.Instance.Contains,
-            bppAccountStore == null ? null : bppAccountStore.TryReadDeviceTokenForAccount
+            DesktopHistoryCardTemplates.Instance.Contains
         );
     }
 }
