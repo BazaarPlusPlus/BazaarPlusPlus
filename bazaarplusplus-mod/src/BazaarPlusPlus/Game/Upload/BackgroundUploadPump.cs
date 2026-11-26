@@ -1,6 +1,5 @@
 #nullable enable
 using BazaarPlusPlus.Core.Runtime;
-using BazaarPlusPlus.GameInterop;
 using BazaarPlusPlus.Host;
 using BazaarPlusPlus.Storage.Sqlite;
 using UnityEngine;
@@ -17,8 +16,7 @@ internal sealed class BackgroundUploadPump : MonoBehaviour
             services,
             HostPlatformKey.Current,
             Time.unscaledTime,
-            SqliteOpenOptions.Default,
-            BppClientCacheBridge.TryGetProfileAccountId
+            SqliteOpenOptions.Default
         );
     }
 

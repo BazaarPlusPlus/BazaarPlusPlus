@@ -13,7 +13,6 @@ const SITE_ORIGIN = 'https://bazaarplusplus.com';
 const PREVIEW_ORIGIN = 'https://bazaarplusplus-site-preview.cauyxy.workers.dev';
 const PASSWORD = 'correct horse battery';
 const BIND_CODE = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
-const DEVICE_TOKEN = /^bppd_[A-Za-z0-9_-]{43}$/;
 // Any token passes under the test secret in vitest.config.ts.
 const TURNSTILE_TOKEN = 'turnstile-test-token';
 // The test siteverify reports the action after the colon (vitest.config.ts).
@@ -191,7 +190,7 @@ async function linkedAccount(
   email: string,
   gameAccountId: string,
   userName = 'Player'
-): Promise<{ cookie: string; deviceToken: string; accountId: string }> {
+): Promise<{ cookie: string; accountId: string }> {
   const cookie = await register(harness, email);
   const code = await newBindCode(harness, cookie);
   const fetchSpy = vi
@@ -204,12 +203,7 @@ async function linkedAccount(
   );
   fetchSpy.mockRestore();
   expect(bound.status).toBe(200);
-  const { device_token } = await bound.json<{ device_token: string }>();
-  return {
-    cookie,
-    deviceToken: device_token,
-    accountId: await accountIdOf(email)
-  };
+  return { cookie, accountId: await accountIdOf(email) };
 }
 
 // A D1 binding that runs `before` once, right before the first statement whose
@@ -340,8 +334,7 @@ describe('website registration, login, and password reset', () => {
     expect(me.status).toBe(200);
     expect(await me.json()).toEqual({
       email: 'new@example.com',
-      game: null,
-      stats: { runs: 0, victories: 0, ten_win_runs: 0, heroes: [], rating: [] }
+      game: null
     });
 
     // The code is spent; an existing email gets 200 and no code.
@@ -870,7 +863,7 @@ describe('Bind Codes and linking from the mod', () => {
     expect(await errorCode(linked)).toBe('game_account_already_bound');
   });
 
-  test('POST /account/bind links the game account, consumes the code, and issues a Device Token', async () => {
+  test('POST /account/bind links the game account and consumes the code', async () => {
     const harness = makeHarness();
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const errSpy = vi
@@ -924,13 +917,7 @@ describe('Bind Codes and linking from the mod', () => {
     expect(new Headers(calledInit.headers).get('Authorization')).toBe(
       'Bearer jwe.game.token.secret'
     );
-    const body = await bound.json<{
-      device_token: string;
-      user_name: string;
-      email_masked: string;
-    }>();
-    expect(body.device_token).toMatch(DEVICE_TOKEN);
-    expect(body).toMatchObject({
+    expect(await bound.json()).toEqual({
       user_name: 'Alice',
       email_masked: 'a***@example.com'
     });
@@ -941,20 +928,6 @@ describe('Bind Codes and linking from the mod', () => {
         aliceId
       )
     ).toBe(0);
-    const token = await env.DB.prepare(
-      `SELECT token_hash, account_id, game_account_id FROM bpp_device_tokens WHERE account_id = ?1`
-    )
-      .bind(aliceId)
-      .first<{
-        token_hash: string;
-        account_id: string;
-        game_account_id: string;
-      }>();
-    expect(token).toEqual({
-      token_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
-      account_id: aliceId,
-      game_account_id: 'acct-alpha'
-    });
 
     const me = await webGet(harness, '/api/me', cookie);
     const meBody = await me.json<{
@@ -971,21 +944,9 @@ describe('Bind Codes and linking from the mod', () => {
       )
     ).toBe('invalid_bind_code');
 
-    const modMe = await worker.fetch(
-      new Request(`${MOD_ORIGIN}/account/me`, {
-        headers: { Authorization: `Bearer ${body.device_token}` }
-      }),
-      harness.bindings
-    );
-    expect(await modMe.json()).toEqual({
-      user_name: 'Alice',
-      email_masked: 'a***@example.com'
-    });
-
     const logs = JSON.stringify([...logSpy.mock.calls, ...errSpy.mock.calls]);
     for (const secret of [
       code,
-      body.device_token,
       'jwe.game.token.secret',
       'alice@example.com',
       PASSWORD
@@ -1064,7 +1025,7 @@ describe('Bind Codes and linking from the mod', () => {
     ).toBe(1);
     expect(
       await count(
-        `SELECT COUNT(*) AS c FROM bpp_device_tokens WHERE account_id = ?1`,
+        `SELECT COUNT(*) AS c FROM bpp_accounts WHERE account_id = ?1 AND game_account_id IS NOT NULL`,
         loser
       )
     ).toBe(0);
@@ -1094,377 +1055,184 @@ describe('Bind Codes and linking from the mod', () => {
       )
     ).toBe(1);
 
-    // POST /account/bind reads success from the token INSERT ... SELECT alone:
-    // D1 reports its own changes, not the batch's.
+    // POST /account/bind reads success from the link UPDATE alone: D1 reports
+    // each statement's own changes, not the batch's.
     const results = await env.DB.batch([
       env.DB.prepare(
-        `UPDATE bpp_accounts SET updated_at_ms = 2 WHERE account_id = ?1`
+        `UPDATE bpp_accounts SET updated_at_ms = 2 WHERE account_id = ?1 AND game_account_id IS NULL`
       ).bind(other),
-      env.DB.prepare(
-        `INSERT INTO bpp_device_tokens (token_hash, account_id, game_account_id, created_at_ms)
-         SELECT ?2, account_id, game_account_id, 1
-         FROM bpp_accounts WHERE account_id = ?1 AND game_account_id = 'acct-none'`
-      ).bind(other, 'f'.repeat(64))
+      env.DB.prepare(`DELETE FROM bpp_bind_codes WHERE account_id = ?1`).bind(
+        other
+      )
     ]);
-    expect(results.map(({ meta }) => meta.changes)).toEqual([1, 0]);
-  });
-
-  test('POST /account/devices issues a token for a linked game account and refuses an unlinked one', async () => {
-    const harness = makeHarness();
-    const { deviceToken } = await linkedAccount(
-      harness,
-      'devices@example.com',
-      'acct-devices',
-      'Before'
-    );
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    fetchSpy.mockResolvedValueOnce(officialSummary('acct-devices', 'Renamed'));
-    const issued = await modPost(harness, '/account/devices', {
-      game_token: 'tok',
-      game_account_id: 'acct-devices',
-      platform: 'Steam',
-      flavor: 'Paid'
-    });
-    expect(issued.status).toBe(200);
-    const body = await issued.json<{
-      device_token: string;
-      user_name: string;
-      email_masked: string;
-    }>();
-    expect(body.device_token).toMatch(DEVICE_TOKEN);
-    expect(body.device_token).not.toBe(deviceToken);
-    expect(body).toMatchObject({
-      user_name: 'Renamed',
-      email_masked: 'd***@example.com'
-    });
-
-    fetchSpy.mockResolvedValueOnce(officialSummary('acct-free', 'Free'));
-    const unlinked = await modPost(harness, '/account/devices', {
-      game_token: 'tok',
-      game_account_id: 'acct-free',
-      platform: 'Steam',
-      flavor: 'Paid'
-    });
-    expect(unlinked.status).toBe(404);
-    expect(await errorCode(unlinked)).toBe('account_not_bound');
-
-    // A linked game account id alone is not enough: the official API must
-    // accept the token and name that same account.
-    const claim = {
-      game_token: 'forged',
-      game_account_id: 'acct-devices',
-      platform: 'Steam',
-      flavor: 'Paid'
-    };
-    fetchSpy.mockResolvedValueOnce(new Response(null, { status: 401 }));
-    const rejected = await modPost(harness, '/account/devices', claim);
-    expect(await errorCode(rejected)).toBe('game_token_rejected');
-
-    fetchSpy.mockResolvedValueOnce(officialSummary('acct-other', 'Other'));
-    const foreign = await modPost(harness, '/account/devices', claim);
-    expect(foreign.status).toBe(409);
-    expect(await errorCode(foreign)).toBe('account_mismatch');
-
-    const tokens = await harness.bindings.DB.prepare(
-      `SELECT COUNT(*) AS n FROM bpp_device_tokens WHERE game_account_id = 'acct-devices'`
-    ).first<{ n: number }>();
-    expect(tokens?.n).toBe(2);
+    expect(results.map(({ meta }) => meta.changes)).toEqual([1, 1]);
   });
 });
 
-describe('Run Summaries and stored Run detail', () => {
+describe('records read from Bundles', () => {
   const runBytes = new Uint8Array([
     0x1f, 0x8b, 0x08, 0, 0xde, 0xad, 0xbe, 0xef, 0x42, 0x17
   ]);
   const screenshotBytes = new Uint8Array([0xff, 0xd8, 0x55, 0x66, 0xff, 0xd9]);
 
-  test('a matching upload copies exactly the Run segment and marks detail_stored; others store nothing', async () => {
+  async function upload(
+    harness: Harness,
+    options: Parameters<typeof makeBundleFixture>[0]
+  ): Promise<void> {
+    const fixture = await makeBundleFixture(options);
+    const response = await worker.fetch(
+      uploadRequest(fixture.body, fixture.headers),
+      harness.bindings
+    );
+    expect(response.status).toBe(201);
+  }
+
+  test('every upload keeps its terminal facts and Run range on the Bundle row', async () => {
     const harness = makeHarness();
-    const { deviceToken, accountId } = await linkedAccount(
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await upload(harness, {
+      bundleId: '01J00000000000000000001001',
+      runId: 'run-facts',
+      uploaderAccountId: 'acct-anyone',
+      runProjection: RUN_PROJECTION,
+      runBytes,
+      screenshotBytes
+    });
+    await upload(harness, {
+      bundleId: '01J00000000000000000001002',
+      runId: 'run-legacy',
+      uploaderAccountId: 'acct-anyone'
+    });
+
+    const rows = await env.DB.prepare(
+      `SELECT run_id, hero, victories, losses, final_player_rank, final_player_rating,
+              final_player_rating_delta, ended_at_ms, object_key, run_offset, run_length
+       FROM bundles WHERE uploader_account_id = 'acct-anyone' ORDER BY run_id`
+    ).all<Record<string, unknown> & { object_key: string }>();
+    expect(rows.results.map(({ object_key: _key, ...row }) => row)).toEqual([
+      {
+        run_id: 'run-facts',
+        hero: 'Vanessa',
+        victories: 10,
+        losses: 2,
+        final_player_rank: 'Legend',
+        final_player_rating: 1450,
+        final_player_rating_delta: 28,
+        ended_at_ms: 1_785_625_000_000,
+        run_offset: expect.any(Number),
+        run_length: runBytes.byteLength
+      },
+      {
+        run_id: 'run-legacy',
+        hero: null,
+        victories: null,
+        losses: null,
+        final_player_rank: null,
+        final_player_rating: null,
+        final_player_rating_delta: null,
+        ended_at_ms: null,
+        run_offset: expect.any(Number),
+        run_length: expect.any(Number)
+      }
+    ]);
+    // The stored range is exactly the Run segment, ahead of the Screenshot.
+    const [facts] = rows.results;
+    const ranged = await env.BUNDLE_BUCKET.get(facts.object_key, {
+      range: {
+        offset: Number(facts.run_offset),
+        length: Number(facts.run_length)
+      }
+    });
+    expect(new Uint8Array(await ranged!.arrayBuffer())).toEqual(runBytes);
+  });
+
+  test('a linked account sees its own Bundles from before the link, within the R2 window, with terminal facts', async () => {
+    const harness = makeHarness();
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    // Uploaded before the player linked: the records still include it.
+    await upload(harness, {
+      bundleId: '01J00000000000000000002001',
+      runId: 'run-before-link',
+      uploaderAccountId: 'acct-player',
+      runProjection: RUN_PROJECTION,
+      runBytes
+    });
+    const { cookie } = await linkedAccount(
       harness,
       'player@example.com',
       'acct-player'
     );
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-
-    const upload = async (
-      options: Parameters<typeof makeBundleFixture>[0],
-      authorization: string | null
-    ) => {
-      const fixture = await makeBundleFixture(options);
-      if (authorization !== null) {
-        fixture.headers.set('Authorization', authorization);
-      }
-      const response = await worker.fetch(
-        uploadRequest(fixture.body, fixture.headers),
-        harness.bindings
-      );
-      expect(response.status).toBe(201);
-    };
-
-    await upload(
-      {
-        bundleId: '01J00000000000000000001001',
-        runId: 'run-match',
-        uploaderAccountId: 'acct-player',
-        runProjection: RUN_PROJECTION,
-        runBytes,
-        screenshotBytes
-      },
-      `Bearer ${deviceToken}`
-    );
-    await upload(
-      {
-        bundleId: '01J00000000000000000001002',
-        runId: 'run-legacy',
-        uploaderAccountId: 'acct-player'
-      },
-      `Bearer ${deviceToken}`
-    );
-    await upload(
-      {
-        bundleId: '01J00000000000000000001003',
-        runId: 'run-absent',
-        uploaderAccountId: 'acct-player',
-        runProjection: RUN_PROJECTION
-      },
-      null
-    );
-    await upload(
-      {
-        bundleId: '01J00000000000000000001004',
-        runId: 'run-mismatch',
-        uploaderAccountId: 'acct-other',
-        runProjection: RUN_PROJECTION
-      },
-      `Bearer ${deviceToken}`
-    );
-    await upload(
-      {
-        bundleId: '01J00000000000000000001005',
-        runId: 'run-invalid',
-        uploaderAccountId: 'acct-player',
-        runProjection: RUN_PROJECTION
-      },
-      'Bearer bppd_not-a-valid-token'
-    );
-
-    const ingestEvents = logSpy.mock.calls
-      .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
-      .filter((entry) => entry.event === 'bundle.ingest');
-    expect(
-      ingestEvents.map((event) => [event.shadow_auth, event.detail_stored])
-    ).toEqual([
-      ['match', true],
-      ['match', false],
-      ['absent', false],
-      ['mismatch', false],
-      ['invalid', false]
-    ]);
-
-    const copy = await env.BUNDLE_BUCKET.get(
-      `account-runs/${accountId}/run-match.run`
-    );
-    expect(copy?.httpMetadata?.contentType).toBe('application/x-bpp-run-v6');
-    expect(new Uint8Array(await copy!.arrayBuffer())).toEqual(runBytes);
-    const listed = await env.BUNDLE_BUCKET.list({
-      prefix: `account-runs/${accountId}/`
+    await upload(harness, {
+      bundleId: '01J00000000000000000002002',
+      runId: 'run-after-link',
+      uploaderAccountId: 'acct-player',
+      runProjection: { ...RUN_PROJECTION, hero: 'Dooley', victories: 4 },
+      runBytes
     });
-    expect(listed.objects.map(({ key }) => key)).toEqual([
-      `account-runs/${accountId}/run-match.run`
-    ]);
-
-    const summaries = await env.DB.prepare(
-      `SELECT run_id, hero, victories, final_player_rating, detail_stored
-       FROM run_summaries WHERE game_account_id = 'acct-player'`
-    ).all();
-    expect(summaries.results).toEqual([
-      {
-        run_id: 'run-match',
-        hero: 'Vanessa',
-        victories: 10,
-        final_player_rating: 1450,
-        detail_stored: 1
-      }
-    ]);
-
-    // Ghost discovery shadow auth never changes the response.
-    logSpy.mockClear();
-    for (const [account, authorization] of [
-      ['acct-player', `Bearer ${deviceToken}`],
-      ['acct-player', null],
-      ['acct-other', `Bearer ${deviceToken}`],
-      ['acct-player', 'Bearer bppd_wrong']
+    for (const [bundleId, runId, uploader, projection] of [
+      ['01J00000000000000000002003', 'run-no-facts', 'acct-player', undefined],
+      [
+        '01J00000000000000000002004',
+        'run-expired',
+        'acct-player',
+        RUN_PROJECTION
+      ],
+      ['01J00000000000000000002005', 'run-other', 'acct-other', RUN_PROJECTION]
     ] as const) {
-      const headers = new Headers();
-      if (authorization !== null) headers.set('Authorization', authorization);
-      const response = await worker.fetch(
-        new Request(
-          `${MOD_ORIGIN}/ghost-battles?player_account_id=${account}`,
-          { headers }
-        ),
-        harness.bindings
-      );
-      expect(response.status).toBe(200);
+      await upload(harness, {
+        bundleId,
+        runId,
+        uploaderAccountId: uploader,
+        runProjection: projection,
+        runBytes
+      });
     }
-    expect(
-      logSpy.mock.calls
-        .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
-        .filter((entry) => entry.event === 'ghost.discovery')
-        .map((entry) => entry.shadow_auth)
-    ).toEqual(['match', 'absent', 'mismatch', 'invalid']);
+    // Older than the 8-day R2 lifecycle: its object may already be gone.
+    await env.DB.prepare(
+      `UPDATE bundles SET stored_at_ms = ?1 WHERE run_id = 'run-expired'`
+    )
+      .bind(Date.now() - 8 * 24 * 60 * 60 * 1000 - 1000)
+      .run();
 
-    // Bundle retention leaves Run Summaries and their detail in place.
+    const listed = await webGet(harness, '/api/runs', cookie);
+    expect(listed.status).toBe(200);
+    const { runs } = await listed.json<{ runs: Array<{ run_id: string }> }>();
+    expect(runs.map(({ run_id }) => run_id).sort()).toEqual([
+      'run-after-link',
+      'run-before-link'
+    ]);
+    expect(runs.find(({ run_id }) => run_id === 'run-after-link')).toEqual({
+      run_id: 'run-after-link',
+      hero: 'Dooley',
+      victories: 4,
+      losses: 2,
+      final_player_rank: 'Legend',
+      final_player_rating: 1450,
+      final_player_rating_delta: 28,
+      ended_at_ms: 1_785_625_000_000
+    });
+
+    for (const runId of ['run-no-facts', 'run-expired', 'run-other']) {
+      for (const suffix of ['', '/payload']) {
+        const response = await webGet(
+          harness,
+          `/api/runs/${runId}${suffix}`,
+          cookie
+        );
+        expect(response.status, `${runId}${suffix}`).toBe(404);
+      }
+    }
+
+    // Ghost discovery and retention see these rows as ordinary Bundles.
     await pruneExpiredBundles(env.DB, Date.now() + 20 * 24 * 60 * 60 * 1000);
     expect(await count(`SELECT COUNT(*) AS c FROM bundles`)).toBe(0);
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM run_summaries WHERE game_account_id = 'acct-player'`
-      )
-    ).toBe(1);
-  });
-
-  test('a failed Run copy fails the upload as retryable before the commit, and the retry stores it', async () => {
-    const harness = makeHarness();
-    const { deviceToken, accountId } = await linkedAccount(
-      harness,
-      'retry@example.com',
-      'acct-retry'
-    );
-    const fixture = await makeBundleFixture({
-      bundleId: '01J00000000000000000002001',
-      runId: 'run-retry',
-      uploaderAccountId: 'acct-retry',
-      runProjection: RUN_PROJECTION,
-      runBytes,
-      screenshotBytes
+    expect(await (await webGet(harness, '/api/runs', cookie)).json()).toEqual({
+      runs: []
     });
-    fixture.headers.set('Authorization', `Bearer ${deviceToken}`);
-
-    const failingBucket = new Proxy(env.BUNDLE_BUCKET, {
-      get(target, property) {
-        if (property === 'put') {
-          return (key: string, ...rest: unknown[]) =>
-            key.startsWith('account-runs/')
-              ? Promise.reject(new Error('R2 is down'))
-              : (target.put as (...args: unknown[]) => unknown)(key, ...rest);
-        }
-        const value = Reflect.get(target, property);
-        return typeof value === 'function' ? value.bind(target) : value;
-      }
-    });
-    vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    const failed = await worker.fetch(
-      uploadRequest(fixture.body, fixture.headers),
-      { ...harness.bindings, BUNDLE_BUCKET: failingBucket }
-    );
-    expect(failed.status).toBe(503);
-    expect(await failed.json()).toMatchObject({
-      error: { code: 'storage_unavailable', retryable: true }
-    });
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM bundles WHERE run_id = 'run-retry'`
-      )
-    ).toBe(0);
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM run_summaries WHERE run_id = 'run-retry'`
-      )
-    ).toBe(0);
-
-    const retried = await worker.fetch(
-      uploadRequest(fixture.body, fixture.headers),
-      harness.bindings
-    );
-    expect(retried.status).toBe(201);
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM run_summaries WHERE run_id = 'run-retry' AND detail_stored = 1`
-      )
-    ).toBe(1);
-    const copy = await env.BUNDLE_BUCKET.get(
-      `account-runs/${accountId}/run-retry.run`
-    );
-    expect(new Uint8Array(await copy!.arrayBuffer())).toEqual(runBytes);
-  });
-
-  test('an unlink that lands during an upload leaves neither a Run Summary nor its copy', async () => {
-    const harness = makeHarness();
-    const { deviceToken, accountId } = await linkedAccount(
-      harness,
-      'unlink-race@example.com',
-      'acct-unlink-race'
-    );
-    const fixture = await makeBundleFixture({
-      bundleId: '01J00000000000000000009001',
-      runId: 'run-unlink-race',
-      uploaderAccountId: 'acct-unlink-race',
-      runProjection: RUN_PROJECTION,
-      runBytes,
-      screenshotBytes
-    });
-    fixture.headers.set('Authorization', `Bearer ${deviceToken}`);
-
-    // Unlink clears R2 first, then D1. Here its D1 half commits after this
-    // upload authenticated and copied, right before the upload's commit batch.
-    const racingDb = interleavedDb(/^$/, () =>
-      env.DB.prepare(
-        `UPDATE bpp_accounts SET game_account_id = NULL WHERE account_id = ?1`
-      )
-        .bind(accountId)
-        .run()
-    );
-    const response = await worker.fetch(
-      uploadRequest(fixture.body, fixture.headers),
-      { ...harness.bindings, DB: racingDb }
-    );
-    expect(response.status).toBe(201);
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM run_summaries WHERE run_id = 'run-unlink-race'`
-      )
-    ).toBe(0);
-    expect(
-      await env.BUNDLE_BUCKET.head(
-        `account-runs/${accountId}/run-unlink-race.run`
-      )
-    ).toBeNull();
   });
 });
 
 describe('website account API', () => {
-  async function seedRuns(gameAccountId: string): Promise<void> {
-    const statements = [];
-    for (let index = 0; index < 51; index += 1) {
-      statements.push(
-        env.DB.prepare(
-          `INSERT INTO run_summaries (
-            run_id, game_account_id, hero, victories, losses, final_player_rank,
-            final_player_rating, final_player_rating_delta, game_mode, ended_at_ms, stored_at_ms,
-            detail_stored
-          ) VALUES (?1, ?2, ?3, ?4, 1, 'Legend', ?5, 15, 'Ranked', ?6, 1, 0)`
-        ).bind(
-          `${gameAccountId}-run-${String(index).padStart(3, '0')}`,
-          gameAccountId,
-          index % 3 === 0 ? 'Dooley' : 'Vanessa',
-          index % 11,
-          1000 + index,
-          1_785_600_000_000 + index * 1000
-        )
-      );
-    }
-    statements.push(
-      env.DB.prepare(
-        `INSERT INTO run_summaries (
-          run_id, game_account_id, hero, victories, losses, final_player_rank,
-          final_player_rating, final_player_rating_delta, game_mode, ended_at_ms, stored_at_ms
-        ) VALUES (?2, ?1, NULL, NULL, 3, 'Gold', 900, -10, 'Ranked', NULL, 1)`
-      ).bind(gameAccountId, `${gameAccountId}-run-null-time`)
-    );
-    await env.DB.batch(statements);
-  }
-
   test('serves /api/* only through WebApi, checks Origin on POST, and answers 404 and 405', async () => {
     const harness = makeHarness();
     expect(
@@ -1532,87 +1300,32 @@ describe('website account API', () => {
     expect((await webGet(harness, '/api/me')).status).toBe(401);
   });
 
-  test('/api/me aggregates the linked account and /api/runs pages its Run Summaries', async () => {
+  test('/api/me names the linked game account, and an unlinked account has no records', async () => {
     const harness = makeHarness();
     const { cookie } = await linkedAccount(
       harness,
-      'stats@example.com',
-      'acct-stats',
-      'Stats'
+      'me@example.com',
+      'acct-me',
+      'Me'
     );
-    await seedRuns('acct-stats');
-
     const me = await (
       await webGet(harness, '/api/me', cookie)
     ).json<{
-      game: { user_name: string };
-      stats: {
-        runs: number;
-        victories: number;
-        ten_win_runs: number;
-        heroes: Array<Record<string, unknown>>;
-        rating: Array<{ ended_at_ms: number; rating: number; rank: string }>;
-      };
+      email: string;
+      game: { user_name: string; linked_at_ms: number };
     }>();
-    expect(me.game.user_name).toBe('Stats');
-    const victories = Array.from({ length: 51 }, (_, index) => index % 11);
-    expect(me.stats.runs).toBe(52);
-    expect(me.stats.victories).toBe(victories.reduce((a, b) => a + b, 0));
-    expect(me.stats.ten_win_runs).toBe(victories.filter((v) => v >= 10).length);
-    const dooley = victories.filter((_, index) => index % 3 === 0);
-    expect(me.stats.heroes).toEqual([
-      {
-        hero: 'Vanessa',
-        runs: 34,
-        avg_victories: expect.any(Number),
-        best_victories: 10
-      },
-      {
-        hero: 'Dooley',
-        runs: 17,
-        avg_victories: dooley.reduce((a, b) => a + b, 0) / dooley.length,
-        best_victories: Math.max(...dooley)
-      }
-    ]);
-    expect(me.stats.rating).toHaveLength(30);
-    expect(me.stats.rating[0]).toEqual({
-      ended_at_ms: 1_785_600_000_000 + 21_000,
-      rating: 1021,
-      rank: 'Legend'
+    expect(me).toEqual({
+      email: 'me@example.com',
+      game: { user_name: 'Me', linked_at_ms: expect.any(Number) }
     });
-    expect(me.stats.rating.at(-1)?.rating).toBe(1050);
-
-    const page1 = await (
-      await webGet(harness, '/api/runs', cookie)
-    ).json<{
-      runs: Array<{ run_id: string; has_detail: boolean }>;
-      next_cursor: string | null;
-    }>();
-    expect(page1.runs).toHaveLength(50);
-    expect(page1.runs[0]).toMatchObject({
-      run_id: 'acct-stats-run-050',
-      has_detail: false
-    });
-    const page2 = await (
-      await webGet(
-        harness,
-        `/api/runs?cursor=${encodeURIComponent(page1.next_cursor ?? '')}`,
-        cookie
-      )
-    ).json<{ runs: Array<{ run_id: string }>; next_cursor: string | null }>();
-    expect(page2.runs.map(({ run_id }) => run_id)).toEqual([
-      'acct-stats-run-000',
-      'acct-stats-run-null-time'
-    ]);
-    expect(page2.next_cursor).toBeNull();
-    expect((await webGet(harness, '/api/runs?other=1', cookie)).status).toBe(
-      400
-    );
 
     const unlinkedCookie = await register(harness, 'empty@example.com');
     expect(
       await (await webGet(harness, '/api/runs', unlinkedCookie)).json()
-    ).toEqual({ runs: [], next_cursor: null });
+    ).toEqual({ runs: [] });
+    expect(
+      (await webGet(harness, '/api/runs/run-1', unlinkedCookie)).status
+    ).toBe(404);
   });
 
   test('/api/runs/<id> and its payload serve only the signed-in owner', async () => {
@@ -1629,9 +1342,9 @@ describe('website account API', () => {
       runId: 'run-owned',
       uploaderAccountId: 'acct-own',
       runProjection: RUN_PROJECTION,
-      runBytes
+      runBytes,
+      screenshotBytes: new Uint8Array([0xff, 0xd8, 0xff, 0xd9])
     });
-    fixture.headers.set('Authorization', `Bearer ${owner.deviceToken}`);
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     expect(
       (
@@ -1641,10 +1354,6 @@ describe('website account API', () => {
         )
       ).status
     ).toBe(201);
-    await env.DB.prepare(
-      `INSERT INTO run_summaries (run_id, game_account_id, hero, stored_at_ms)
-       VALUES ('run-summary-only', 'acct-own', 'Mak', 1)`
-    ).run();
 
     const run = await webGet(harness, '/api/runs/run-owned', owner.cookie);
     expect(run.status).toBe(200);
@@ -1657,9 +1366,7 @@ describe('website account API', () => {
         final_player_rank: 'Legend',
         final_player_rating: 1450,
         final_player_rating_delta: 28,
-        game_mode: 'Ranked',
-        ended_at_ms: 1_785_625_000_000,
-        has_detail: true
+        ended_at_ms: 1_785_625_000_000
       }
     });
 
@@ -1678,7 +1385,6 @@ describe('website account API', () => {
     for (const [path, cookie] of [
       ['/api/runs/run-owned', stranger.cookie],
       ['/api/runs/run-owned/payload', stranger.cookie],
-      ['/api/runs/run-summary-only/payload', owner.cookie],
       ['/api/runs/run-missing', owner.cookie]
     ] as const) {
       const response = await webGet(harness, path, cookie);
@@ -1686,41 +1392,50 @@ describe('website account API', () => {
       expect(await errorCode(response)).toBe('not_found');
     }
     expect((await webGet(harness, '/api/runs/run-owned')).status).toBe(401);
+
+    // The D1 row outlives its object by up to a week; a gone object is not found.
+    const { object_key } = (await env.DB.prepare(
+      `SELECT object_key FROM bundles WHERE run_id = 'run-owned'`
+    ).first<{ object_key: string }>())!;
+    await env.BUNDLE_BUCKET.delete(object_key);
+    const gone = await webGet(
+      harness,
+      '/api/runs/run-owned/payload',
+      owner.cookie
+    );
+    expect(gone.status).toBe(404);
+    expect(await errorCode(gone)).toBe('not_found');
   });
 
-  test('unlink deletes the Run detail objects first, then the game link, its Runs, tokens, and code', async () => {
+  test('unlink removes only the game link and Bind Code; the Bundles stay as Ghost data', async () => {
     const harness = makeHarness();
     const linked = await linkedAccount(harness, 'unlink@example.com', 'acct-u');
-    const other = await linkedAccount(harness, 'keep@example.com', 'acct-k');
-    await seedRuns('acct-u');
-    await env.DB.prepare(
-      `INSERT INTO run_summaries (run_id, game_account_id, stored_at_ms) VALUES ('run-kept', 'acct-k', 1)`
-    ).run();
-    for (let index = 0; index < 3; index += 1) {
-      await env.BUNDLE_BUCKET.put(
-        `account-runs/${linked.accountId}/run-${index}.run`,
-        new Uint8Array([index])
-      );
-    }
-    await env.BUNDLE_BUCKET.put(
-      `account-runs/${other.accountId}/run-kept.run`,
-      new Uint8Array([9])
+    const fixture = await makeBundleFixture({
+      bundleId: '01J00000000000000000004001',
+      runId: 'run-unlinked',
+      uploaderAccountId: 'acct-u',
+      runProjection: RUN_PROJECTION
+    });
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await worker.fetch(
+      uploadRequest(fixture.body, fixture.headers),
+      harness.bindings
     );
+    expect(
+      (
+        await (
+          await webGet(harness, '/api/runs', linked.cookie)
+        ).json<{
+          runs: unknown[];
+        }>()
+      ).runs
+    ).toHaveLength(1);
 
     const unlinked = await webPost(harness, '/api/unlink', {}, linked.cookie);
     expect(unlinked.status).toBe(200);
     expect(await unlinked.json()).toEqual({ ok: true });
     expect(unlinked.headers.get('Set-Cookie')).toBeNull();
 
-    for (const [accountId, keys] of [
-      [linked.accountId, []],
-      [other.accountId, [`account-runs/${other.accountId}/run-kept.run`]]
-    ] as const) {
-      const listed = await env.BUNDLE_BUCKET.list({
-        prefix: `account-runs/${accountId}/`
-      });
-      expect(listed.objects.map(({ key }) => key)).toEqual(keys);
-    }
     const account = await env.DB.prepare(
       `SELECT game_account_id, game_user_name, linked_at_ms FROM bpp_accounts WHERE account_id = ?1`
     )
@@ -1733,48 +1448,27 @@ describe('website account API', () => {
     });
     expect(
       await count(
-        `SELECT COUNT(*) AS c FROM run_summaries WHERE game_account_id = 'acct-u'`
-      )
-    ).toBe(0);
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM run_summaries WHERE game_account_id = 'acct-k'`
+        `SELECT COUNT(*) AS c FROM bundles WHERE uploader_account_id = 'acct-u'`
       )
     ).toBe(1);
-    expect(
-      await count(
-        `SELECT COUNT(*) AS c FROM bpp_device_tokens WHERE account_id = ?1`,
-        linked.accountId
-      )
-    ).toBe(0);
 
-    // The website session stays signed in; the mod's token is revoked.
+    // The website session stays signed in and shows no records.
     const me = await webGet(harness, '/api/me', linked.cookie);
     expect(me.status).toBe(200);
-    expect(await me.json()).toMatchObject({ game: null, stats: { runs: 0 } });
+    expect(await me.json()).toMatchObject({ game: null });
     expect(
-      (
-        await worker.fetch(
-          new Request(`${MOD_ORIGIN}/account/me`, {
-            headers: { Authorization: `Bearer ${linked.deviceToken}` }
-          }),
-          harness.bindings
-        )
-      ).status
-    ).toBe(401);
+      await (await webGet(harness, '/api/runs', linked.cookie)).json()
+    ).toEqual({ runs: [] });
+    expect(
+      (await webGet(harness, '/api/runs/run-unlinked', linked.cookie)).status
+    ).toBe(404);
     // A fresh Bind Code can link again.
     await newBindCode(harness, linked.cookie);
   });
 
-  test('account delete checks the password, then removes R2 objects, rows, and the cookie', async () => {
+  test('account delete checks the password, then removes the rows and the cookie', async () => {
     const harness = makeHarness();
     const linked = await linkedAccount(harness, 'delete@example.com', 'acct-d');
-    await seedRuns('acct-d');
-    await env.BUNDLE_BUCKET.put(
-      `account-runs/${linked.accountId}/run-000.run`,
-      new Uint8Array([1])
-    );
-    const prefix = `account-runs/${linked.accountId}/`;
     await webPost(harness, '/api/password/reset/start', {
       email: 'delete@example.com'
     });
@@ -1787,7 +1481,12 @@ describe('website account API', () => {
     );
     expect(wrong.status).toBe(401);
     expect(await errorCode(wrong)).toBe('invalid_credentials');
-    expect((await env.BUNDLE_BUCKET.list({ prefix })).objects).toHaveLength(1);
+    expect(
+      await count(
+        `SELECT COUNT(*) AS c FROM bpp_accounts WHERE account_id = ?1`,
+        linked.accountId
+      )
+    ).toBe(1);
 
     const deleted = await webPost(
       harness,
@@ -1797,14 +1496,11 @@ describe('website account API', () => {
     );
     expect(deleted.status).toBe(200);
     expect(deleted.headers.get('Set-Cookie')).toContain('Max-Age=0');
-    expect((await env.BUNDLE_BUCKET.list({ prefix })).objects).toHaveLength(0);
     for (const [table, column, value] of [
       ['bpp_accounts', 'account_id', linked.accountId],
       ['bpp_web_sessions', 'account_id', linked.accountId],
-      ['bpp_device_tokens', 'account_id', linked.accountId],
       ['bpp_bind_codes', 'account_id', linked.accountId],
-      ['bpp_email_challenges', 'email', 'delete@example.com'],
-      ['run_summaries', 'game_account_id', 'acct-d']
+      ['bpp_email_challenges', 'email', 'delete@example.com']
     ]) {
       expect(
         await count(

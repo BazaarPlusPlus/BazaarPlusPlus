@@ -156,11 +156,9 @@ A site account: one normalized email address and a password, created on bazaarpl
 **Bind Code** (绑定码):
 An 8-character code from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` that an unlinked BPP Account generates on the site, valid 10 minutes, one per account; a new code replaces the previous one. The player types it into the mod's History panel, and `POST /account/bind` redeems it once to link the game account. D1 stores only its HMAC.
 
-**Device Token** (设备令牌):
-A per-device bearer credential (`bppd_` followed by 32 random bytes as unpadded base64url) issued by the server for a linked BPP Account and stored as a SHA-256 hash in D1. The mod stores it in the Data Root and sends it on Bundle uploads, Ghost queries (shadow auth), and `GET /account/me`. Unlinking revokes all Device Tokens for that account.
-
-**Run Summary** (每局摘要):
-One long-lived D1 row (`run_summaries`) recording the terminal `projection.run` fields of a Run uploaded with a matching Device Token for a linked BPP Account. With it the server keeps that Run's Run segment as stored Run detail (`account-runs/<account_id>/<run_id>.run` in R2, `detail_stored`), which the site decodes to show the Run. Retained across Bundle retention and deleted immediately when the game account is unlinked or the BPP Account deleted.
+**Record** (战绩):
+A Bundle the website shows a linked BPP Account as one of its Runs: its `run.player_account_id` is the linked game account, it is still in R2 (uploaded within 8 days), and its manifest carried the terminal `projection.run` facts, which the D1 Bundle row keeps (server ADR 0008). The site decodes its Run segment, read by byte range from the Bundle, to show the Run. A Record ends when its Bundle expires; unlinking only stops showing it.
+_Avoid_: Run Summary, Run detail copy
 
 ## Design
 

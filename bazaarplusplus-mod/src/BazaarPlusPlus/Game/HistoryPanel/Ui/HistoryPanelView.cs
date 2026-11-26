@@ -108,14 +108,9 @@ internal sealed partial class HistoryPanelView : IDisposable
         _pageBattles = battles;
     }
 
-    internal void SetBppAccountActions(
-        Action toggle,
-        Action openActivateDevice,
-        Action<string?> submit
-    )
+    internal void SetBppAccountActions(Action toggle, Action<string?> submit)
     {
         _toggleBppAccount = toggle;
-        _openBppActivateDevice = openActivateDevice;
         _submitBppAccount = submit;
     }
 

@@ -20,31 +20,13 @@ public static partial class HistoryPanelText
             "登入《The Bazaar》後即可綁定 BPP 帳號"
         );
 
-        private static readonly LocalizedTextSet NotBoundText = new(
-            "Not bound · bind to view your records on bazaarplusplus.com",
-            "尚未绑定 · 绑定后可在 bazaarplusplus.com 查看战绩",
-            "尚未綁定 · 綁定後可在 bazaarplusplus.com 查看戰績"
-        );
-
-        private static readonly LocalizedTextSet BoundStatusText = new(
-            "Bound to {0} ({1})",
-            "已绑定 {0}（{1}）",
-            "已綁定 {0}（{1}）"
-        );
-
-        private static readonly LocalizedTextSet BoundHintText = new(
-            "View your records or unbind on bazaarplusplus.com",
-            "前往 bazaarplusplus.com 查看战绩或解绑",
-            "前往 bazaarplusplus.com 查看戰績或解綁"
+        private static readonly LocalizedTextSet SignedInText = new(
+            "View your records on bazaarplusplus.com; to bind, enter a bind code generated there",
+            "在 bazaarplusplus.com 查看战绩；绑定时输入网站上生成的绑定码",
+            "在 bazaarplusplus.com 查看戰績；綁定時輸入網站上產生的綁定碼"
         );
 
         private static readonly LocalizedTextSet BindButtonText = new("Bind", "绑定", "綁定");
-
-        private static readonly LocalizedTextSet ActivateDeviceButtonText = new(
-            "Activate this device",
-            "在本设备启用",
-            "在此裝置啟用"
-        );
 
         private static readonly LocalizedTextSet CollapseText = new("Hide", "收起", "收起");
 
@@ -60,12 +42,6 @@ public static partial class HistoryPanelText
             "BPP 會將目前遊戲登入憑證傳送到 BPP 伺服器一次，僅用於向官方確認帳號歸屬，確認後立即丟棄；憑證約 24 小時後失效。"
         );
 
-        private static readonly LocalizedTextSet ActivatePromptText = new(
-            "Activate your already-bound BPP Account on this device?",
-            "此游戏账号已在其他设备绑定？确认后在本设备启用。",
-            "此遊戲帳號已在其他裝置綁定？確認後在此裝置啟用。"
-        );
-
         private static readonly LocalizedTextSet BindCodePlaceholderText = new(
             "Bind code",
             "绑定码",
@@ -78,12 +54,6 @@ public static partial class HistoryPanelText
             "同意並綁定"
         );
 
-        private static readonly LocalizedTextSet ConfirmActivateButtonText = new(
-            "Confirm & activate",
-            "确认并在本设备启用",
-            "確認並在此裝置啟用"
-        );
-
         private static readonly LocalizedTextSet WorkingText = new(
             "Working...",
             "处理中...",
@@ -91,15 +61,9 @@ public static partial class HistoryPanelText
         );
 
         private static readonly LocalizedTextSet BindSucceededText = new(
-            "BPP Account bound",
-            "BPP 账号绑定成功",
-            "BPP 帳號綁定成功"
-        );
-
-        private static readonly LocalizedTextSet DeviceActivatedText = new(
-            "Activated on this device",
-            "已在本设备启用",
-            "已在此裝置啟用"
+            "Bound to {0} ({1}) · view your last 8 days of records at bazaarplusplus.com/records",
+            "已绑定 {0}（{1}）· 在 bazaarplusplus.com/records 查看最近 8 天战绩",
+            "已綁定 {0}（{1}）· 在 bazaarplusplus.com/records 查看最近 8 天戰績"
         );
 
         private static readonly LocalizedTextSet EmptyBindCodeText = new(
@@ -132,12 +96,6 @@ public static partial class HistoryPanelText
             "官方帳號服務暫時無法使用，請稍後重試"
         );
 
-        private static readonly LocalizedTextSet AccountNotBoundText = new(
-            "This game account is not bound yet",
-            "当前游戏账号尚未绑定",
-            "目前遊戲帳號尚未綁定"
-        );
-
         private static readonly LocalizedTextSet GameAccountAlreadyBoundText = new(
             "This game account is bound to another BPP Account",
             "该游戏账号已绑定其他 BPP 账号",
@@ -166,21 +124,9 @@ public static partial class HistoryPanelText
 
         public static string SignedOut() => Resolve(SignedOutText);
 
-        public static string NotBound() => Resolve(NotBoundText);
-
-        public static string BoundStatus(string emailMasked, string userName) =>
-            string.Format(
-                CultureInfo.InvariantCulture,
-                Resolve(BoundStatusText),
-                emailMasked,
-                userName
-            );
-
-        public static string BoundHint() => Resolve(BoundHintText);
+        public static string SignedIn() => Resolve(SignedInText);
 
         public static string BindButton() => Resolve(BindButtonText);
-
-        public static string ActivateDeviceButton() => Resolve(ActivateDeviceButtonText);
 
         public static string Collapse() => Resolve(CollapseText);
 
@@ -188,19 +134,19 @@ public static partial class HistoryPanelText
 
         public static string CredentialNotice() => Resolve(CredentialNoticeText);
 
-        public static string ActivatePrompt() => Resolve(ActivatePromptText);
-
         public static string BindCodePlaceholder() => Resolve(BindCodePlaceholderText);
 
         public static string BindSubmitButton() => Resolve(BindSubmitButtonText);
 
-        public static string ConfirmActivateButton() => Resolve(ConfirmActivateButtonText);
-
         public static string Working() => Resolve(WorkingText);
 
-        public static string BindSucceeded() => Resolve(BindSucceededText);
-
-        public static string DeviceActivated() => Resolve(DeviceActivatedText);
+        public static string BindSucceeded(string emailMasked, string userName) =>
+            string.Format(
+                CultureInfo.InvariantCulture,
+                Resolve(BindSucceededText),
+                emailMasked,
+                userName
+            );
 
         public static string EmptyBindCode() => Resolve(EmptyBindCodeText);
 
@@ -212,7 +158,6 @@ public static partial class HistoryPanelText
                 "account_mismatch" => Resolve(AccountMismatchText),
                 "game_token_rejected" => Resolve(GameTokenRejectedText),
                 "game_api_unavailable" => Resolve(GameApiUnavailableText),
-                "account_not_bound" => Resolve(AccountNotBoundText),
                 "game_account_already_bound" => Resolve(GameAccountAlreadyBoundText),
                 "invalid_bind_code" => Resolve(InvalidBindCodeText),
                 "rate_limited" => Resolve(RateLimitedText),

@@ -2,7 +2,6 @@
 using BazaarPlusPlus.Core.GameAuth;
 using BazaarPlusPlus.Core.RunContext;
 using BazaarPlusPlus.Game.HistoryPanel.AccountLink;
-using BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 using BazaarPlusPlus.Game.HistoryPanel.Favorites;
 using BazaarPlusPlus.Game.HistoryPanel.Storage;
 using BazaarPlusPlus.ModApi.Clients;
@@ -56,9 +55,5 @@ public sealed class HistoryPanelDependencies
 
     public HistoryFavoriteService? Favorites { get; init; }
 
-    public BppAccountSessionStore? BppAccountStore { get; init; }
-
     public BppGameAuthReader? GameAuthReader { get; init; }
-
-    public Func<string?>? ProfileDisplayName { get; init; }
 }

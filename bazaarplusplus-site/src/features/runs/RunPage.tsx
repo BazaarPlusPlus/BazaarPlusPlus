@@ -362,14 +362,11 @@ export default function RunPage({ location, replacePage }: Props) {
             }
           />
         ))}
-      {run &&
-        (run.has_detail ? (
-          <CardDetails locale={locale} key={runId}>
-            <Timeline runId={runId} locale={locale} />
-          </CardDetails>
-        ) : (
-          <StatusPanel kind="empty" title={copy.noDetail} />
-        ))}
+      {run && (
+        <CardDetails locale={locale} key={runId}>
+          <Timeline runId={runId} locale={locale} />
+        </CardDetails>
+      )}
     </PageLayout>
   );
 }

@@ -30,7 +30,7 @@ bun run wrangler r2 bucket lifecycle add bazaarplusplus-bundle-v6 v6-bundle-rete
 bun run wrangler r2 bucket lifecycle list bazaarplusplus-bundle-v6
 ```
 
-The listing must show the `bundles/` prefix expiring after 8 days, and no rule without a prefix: the analyzer keeps its Data Root under `analyzer-state/` in the same bucket ([ADR 0007](../../docs/adr/0007-one-public-bucket-and-domain.md)). This rule is the only Bundle retention. Run detail objects under `account-runs/` must stay outside it: the Worker deletes them only when a player unlinks or deletes a BPP Account (server [ADR 0007](adr/0007-site-first-accounts.md)).
+The listing must show the `bundles/` prefix expiring after 8 days, and no rule without a prefix: the analyzer keeps its Data Root under `analyzer-state/` in the same bucket ([ADR 0007](../../docs/adr/0007-one-public-bucket-and-domain.md)). This rule is the only Bundle retention, and it also ends a linked account's Records (server [ADR 0008](adr/0008-records-from-bundles.md)).
 
 Create an R2 S3 API credential scoped to `bazaarplusplus-bundle-v6` with Object Read permission only. Do not grant write, delete, or access to another bucket, and do not reuse a credential scoped to another bucket.
 
@@ -142,7 +142,7 @@ work such as digesting or URL signing reads as zero.
 | `bundle.ingest` | `manifest_ms` | Receiving the prefix and manifest |
 | `bundle.ingest` | `inspect_ms` | D1 lookup of an existing Bundle or Run |
 | `bundle.ingest` | `body_ms` | Receiving the rest of the body while it streams into R2 |
-| `bundle.ingest` | `store_ms` | `body_ms` plus R2 finishing the PUT, plus the Run detail copy when `detail_stored` is true |
+| `bundle.ingest` | `store_ms` | `body_ms` plus R2 finishing the PUT |
 | `bundle.ingest` | `commit_ms` | The D1 commit batch |
 | `bundle.ingest` | `total_ms` | Sum of `manifest_ms`, `inspect_ms`, `store_ms`, `commit_ms` |
 | `ghost.discovery` | `rate_limit_ms` | The rate limiter call |

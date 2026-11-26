@@ -11,8 +11,8 @@ import {
   mockAccountApi,
   mockCardArt,
   runDetailHandlers,
-  streamRunHandlers,
-  runSummary
+  sampleRecords,
+  streamRunHandlers
 } from './account-api';
 
 const EMAIL = 'player@example.test';
@@ -233,7 +233,7 @@ test('an unlinked profile generates a bind code that links in the game', async (
   await expect(page.getByRole('main')).toContainText('SamplePlayer');
 });
 
-test('a linked profile shows stats, unlinks after confirming and deletes the account', async ({
+test('a linked profile links to its records, unlinks after confirming and deletes the account', async ({
   page
 }) => {
   let me: unknown = LINKED_ME;
@@ -254,13 +254,6 @@ test('a linked profile shows stats, unlinks after confirming and deletes the acc
   const main = page.getByRole('main');
   await expect(main).toContainText('SamplePlayer');
   await expect(main).toContainText('绑定于 2026年11月18日');
-  await expect(main.locator('dl').first()).toContainText('42');
-  await expect(main.locator('dl').first()).toContainText('214');
-  await expect(page.getByRole('row')).toHaveCount(4);
-  await expect(page.getByRole('cell', { name: 'TheDragons' })).toBeVisible();
-  await expect(
-    page.getByRole('img', { name: '最近 30 局的分数' })
-  ).toBeVisible();
   await expect(page.getByRole('link', { name: '全部战绩 →' })).toHaveAttribute(
     'href',
     '/records'
@@ -279,7 +272,7 @@ test('a linked profile shows stats, unlinks after confirming and deletes the acc
 
   await page.getByRole('button', { name: '解绑' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('永久删除网站上保存的战绩');
+  await expect(dialog).toContainText('网站不再显示这个游戏账号的战绩');
   await dialog.getByRole('button', { name: '取消' }).click();
   expect(calls).not.toContain('POST unlink');
   await page.getByRole('button', { name: '解绑' }).click();
@@ -296,42 +289,59 @@ test('a linked profile shows stats, unlinks after confirming and deletes the acc
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test('the records list pages and opens a Run', async ({ page }) => {
-  const calls = await mockAccountApi(page, {
-    'GET runs': (_body, request) => {
-      const cursor = new URL(request.url()).searchParams.get('cursor');
-      return {
-        json: cursor
-          ? {
-              runs: [
-                runSummary({
-                  run_id: 'older-run',
-                  hero: 'Hero8',
-                  victories: 10,
-                  losses: 0,
-                  has_detail: false
-                })
-              ],
-              next_cursor: null
-            }
-          : { runs: [runSummary()], next_cursor: 'older+run' }
-      };
-    },
+test('the records page sums the last 8 days, groups Runs by day and opens one', async ({
+  page
+}) => {
+  await mockAccountApi(page, {
+    'GET me': () => ({ json: LINKED_ME }),
+    'GET runs': () => ({ json: { runs: sampleRecords() } }),
     ...runDetailHandlers()
   });
   await mockCardArt(page, SAMPLE_TEMPLATE_IDS);
 
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/records?lang=en');
-  const rows = page.getByRole('main').getByRole('listitem');
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText('Silver victory');
-  await expect(rows.first()).toContainText('8–3');
-  await expect(rows.first()).toContainText('1218 (+18)');
-  await page.getByRole('button', { name: 'Load more' }).click();
-  await expect(rows).toHaveCount(2);
-  await expect(rows.nth(1)).toContainText('TheDragons');
-  await expect(rows.nth(1)).toContainText('Diamond victory');
-  expect(calls).toContain('GET runs?cursor=older%2Brun');
+  const main = page.getByRole('main');
+  await expect(main).toContainText('Ranked runs of the last 8 days');
+  const totals = main.locator('dl').first();
+  await expect(totals.locator('dt')).toHaveText([
+    'Runs',
+    'Avg wins',
+    '10 wins',
+    'Rating change'
+  ]);
+  await expect(totals.locator('dd')).toHaveText(['6', '6.2', '2', '+27']);
+  await expect(
+    page.getByRole('img', { name: 'Rating over 6 runs in the last 8 days' })
+  ).toBeVisible();
+  await expect(main).toContainText('1,218');
+  // Hero table: a header row and Stelle, Vanessa, TheDragons by runs.
+  const heroRows = main.getByRole('row');
+  await expect(heroRows).toHaveCount(4);
+  await expect(heroRows.nth(1)).toContainText(/Stelle\s*3\s*7\.0\s*1/);
+  await expect(heroRows.nth(3)).toContainText(/TheDragons\s*1\s*10\.0\s*1/);
+
+  // Days newest first; the late upload sorts by when it ended.
+  const days = main.getByRole('heading', { level: 2 });
+  await expect(days).toHaveCount(3);
+  await expect(days.nth(0)).toHaveText('Today');
+  await expect(days.nth(1)).toHaveText('Yesterday');
+  const rows = main.getByRole('listitem');
+  await expect(rows).toHaveCount(6);
+  await expect(rows.nth(0)).toContainText('Gold victory');
+  await expect(rows.nth(0)).toContainText('1218 (+22)');
+  await expect(rows.nth(2)).toContainText('7–5');
+  await expect(rows.nth(3)).toContainText('Diamond victory');
+  await page.screenshot({
+    path: test.info().outputPath('records-1280.png'),
+    fullPage: true
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalScroll(page);
+  await page.screenshot({
+    path: test.info().outputPath('records-390.png'),
+    fullPage: true
+  });
   await expect(page.getByRole('link', { name: 'My account' })).toHaveAttribute(
     'href',
     '/account?lang=en'
@@ -345,6 +355,30 @@ test('the records list pages and opens a Run', async ({ page }) => {
   await expect(
     page.getByRole('navigation').first().locator('[aria-current="page"]')
   ).toHaveText('My records');
+});
+
+test('the records page sends an unlinked player to link, and says when 8 days hold no Runs', async ({
+  page
+}) => {
+  let me: unknown = UNLINKED_ME;
+  await mockAccountApi(page, {
+    'GET me': () => ({ json: me }),
+    'GET runs': () => ({ json: { runs: [] } })
+  });
+  await page.goto('/records');
+  const main = page.getByRole('main');
+  await expect(main).toContainText(
+    '绑定游戏账号后，这里显示最近 8 天的排位战绩。'
+  );
+  await expect(main.getByRole('link', { name: '去绑定' })).toHaveAttribute(
+    'href',
+    '/account'
+  );
+
+  me = LINKED_ME;
+  await page.reload();
+  await expect(main).toContainText('最近 8 天没有排位对局。');
+  await expect(main.getByRole('link', { name: '去绑定' })).toHaveCount(0);
 });
 
 test('a Run detail decodes the stored Run into a decision timeline', async ({
@@ -572,21 +606,12 @@ test('a Run with a Run Message Stream groups shops, choices and fights inside it
   await checkWidth(320);
 });
 
-test('a Run without stored detail shows its summary, and an unknown Run is not found', async ({
-  page
-}) => {
-  await mockAccountApi(
-    page,
-    runDetailHandlers(runSummary({ has_detail: false }))
-  );
-  await page.goto(`/records/${SAMPLE_RUN_ID}?lang=en`);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Stelle');
-  await expect(page.getByRole('main')).toContainText(
-    'No battle details were stored for this run.'
-  );
-
+test('a Run that is gone or never existed is not found', async ({ page }) => {
+  await mockAccountApi(page, {});
   await page.goto('/records/missing-run?lang=en');
-  await expect(page.getByRole('main')).toContainText('This run wasn’t found.');
+  await expect(page.getByRole('main')).toContainText(
+    'This run wasn’t found. Runs older than 8 days are deleted.'
+  );
 });
 
 test('after unlinking, a Run viewed before shows only that it is gone', async ({
@@ -597,7 +622,7 @@ test('after unlinking, a Run viewed before shows only that it is gone', async ({
   await mockAccountApi(page, {
     'GET me': () => ({ json: linked ? LINKED_ME : UNLINKED_ME }),
     'GET runs': () => ({
-      json: { runs: linked ? [runSummary()] : [], next_cursor: null }
+      json: { runs: linked ? sampleRecords() : [] }
     }),
     'POST unlink': () => {
       linked = false;

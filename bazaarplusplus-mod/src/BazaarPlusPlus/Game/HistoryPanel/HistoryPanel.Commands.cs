@@ -80,11 +80,6 @@ internal sealed partial class HistoryPanel
         _coordinator?.ToggleBppAccountForm();
     }
 
-    private void OpenBppAccountActivateDevice()
-    {
-        _coordinator?.OpenBppAccountActivateDevice();
-    }
-
     private void SubmitBppAccountInput(string? input)
     {
         if (_coordinator != null)

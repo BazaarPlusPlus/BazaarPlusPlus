@@ -125,50 +125,86 @@ export function runSummary(overrides: Record<string, unknown> = {}) {
     final_player_rank: 'Gold',
     final_player_rating: 1218,
     final_player_rating_delta: 18,
-    game_mode: 'Ranked',
     ended_at_ms: ENDED_AT_MS,
-    has_detail: true,
     ...overrides
   };
 }
 
-const RATINGS = [
-  1104, 1110, 1098, 1121, 1135, 1129, 1142, 1150, 1138, 1156, 1163, 1149, 1170,
-  1176, 1168, 1181, 1189, 1177, 1192, 1200, 1186, 1194, 1206, 1199, 1210, 1196,
-  1203, 1214, 1200, 1218
-];
-
-export const UNLINKED_ME = {
-  email: 'player@example.test',
-  game: null,
-  stats: {
-    runs: 0,
-    victories: 0,
-    ten_win_runs: 0,
-    heroes: [],
-    rating: []
-  }
-};
+export const UNLINKED_ME = { email: 'player@example.test', game: null };
 
 export const LINKED_ME = {
   email: 'player@example.test',
-  game: { user_name: 'SamplePlayer', linked_at_ms: Date.UTC(2026, 10, 18) },
-  stats: {
-    runs: 42,
-    victories: 214,
-    ten_win_runs: 6,
-    heroes: [
-      { hero: 'Stelle', runs: 21, avg_victories: 5.62, best_victories: 10 },
-      { hero: 'Hero8', runs: 12, avg_victories: 4.75, best_victories: 10 },
-      { hero: 'Vanessa', runs: 9, avg_victories: 4.11, best_victories: 8 }
-    ],
-    rating: RATINGS.map((rating, index) => ({
-      ended_at_ms: ENDED_AT_MS - (RATINGS.length - index) * 3_600_000,
-      rating,
-      rank: 'Gold'
-    }))
-  }
+  game: { user_name: 'SamplePlayer', linked_at_ms: Date.UTC(2026, 10, 18) }
 };
+
+const HOUR_MS = 3_600_000;
+
+/**
+ * Six Records over three local days (today, yesterday, three days ago),
+ * listed in upload order with one late upload, as the server returns them:
+ * 6 runs, 37 wins (6.2 on average), two ten-win Runs, rating change +27.
+ */
+export function sampleRecords(now = Date.now()) {
+  const today = new Date(now);
+  today.setHours(12, 0, 0, 0);
+  // Noon plus a few hours stays inside its local day, across a DST change too.
+  const at = (daysAgo: number, hour: number) =>
+    today.getTime() - daysAgo * 24 * HOUR_MS + hour * HOUR_MS;
+  return [
+    // The newest is the sample Run, whose detail the Run page can open.
+    runSummary({
+      ended_at_ms: at(0, 0),
+      victories: 10,
+      losses: 2,
+      final_player_rating: 1218,
+      final_player_rating_delta: 22
+    }),
+    runSummary({
+      run_id: 'run-5',
+      ended_at_ms: at(0, -1),
+      hero: 'Vanessa',
+      victories: 3,
+      losses: 5,
+      final_player_rating: 1196,
+      final_player_rating_delta: -14
+    }),
+    runSummary({
+      run_id: 'run-3',
+      ended_at_ms: at(1, 2),
+      hero: 'Hero8',
+      victories: 10,
+      losses: 0,
+      final_player_rating: 1190,
+      final_player_rating_delta: 30
+    }),
+    // Uploaded late: listed after a newer Run.
+    runSummary({
+      run_id: 'run-4',
+      ended_at_ms: at(1, 4),
+      victories: 7,
+      losses: 5,
+      final_player_rating: 1210,
+      final_player_rating_delta: 20
+    }),
+    runSummary({
+      run_id: 'run-2',
+      ended_at_ms: at(3, 0),
+      victories: 4,
+      losses: 5,
+      final_player_rating: 1160,
+      final_player_rating_delta: -6
+    }),
+    runSummary({
+      run_id: 'run-1',
+      ended_at_ms: at(3, -2),
+      hero: 'Vanessa',
+      victories: 3,
+      losses: 5,
+      final_player_rating: 1166,
+      final_player_rating_delta: -25
+    })
+  ];
+}
 
 /** The signed-in Run detail calls for the sample Run. */
 export function runDetailHandlers(

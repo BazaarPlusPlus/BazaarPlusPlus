@@ -17,7 +17,7 @@
     },
     {
       "name": "Account",
-      "description": "BPP Account binding and device tokens"
+      "description": "BPP Account binding"
     },
     {
       "name": "Ingest",
@@ -94,7 +94,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token, Device Token, or web session",
+            "description": "- `unauthorized`: Missing or invalid service token or web session",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -271,7 +271,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token, Device Token, or web session",
+            "description": "- `unauthorized`: Missing or invalid service token or web session",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -499,7 +499,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token, Device Token, or web session",
+            "description": "- `unauthorized`: Missing or invalid service token or web session",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1077,7 +1077,7 @@
             }
           },
           "401": {
-            "description": "- `unauthorized`: Missing or invalid service token, Device Token, or web session",
+            "description": "- `unauthorized`: Missing or invalid service token or web session",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1175,7 +1175,7 @@
           "Account"
         ],
         "summary": "Link a game account to a BPP Account with a Bind Code",
-        "description": "The player creates the BPP Account and its Bind Code on bazaarplusplus.com. The Worker verifies the official game token against the read-only official account summary endpoint, links the game account in one D1 batch that consumes the code, and issues a Device Token. A game account linked to another BPP Account leaves the code unused.",
+        "description": "The player creates the BPP Account and its Bind Code on bazaarplusplus.com. The Worker verifies the official game token against the read-only official account summary endpoint and links the game account in one D1 batch that consumes the code. A game account linked to another BPP Account leaves the code unused.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1188,7 +1188,7 @@
         },
         "responses": {
           "200": {
-            "description": "Game account linked and Device Token issued",
+            "description": "Game account linked",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1303,301 +1303,6 @@
           },
           "502": {
             "description": "- `game_api_unavailable` (retryable): Official game API is unavailable or timed out",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/account/devices": {
-      "post": {
-        "tags": [
-          "Account"
-        ],
-        "summary": "Issue a Device Token for an already-linked game account",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AccountDevicesRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Device token issued",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountDevicesResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "- `invalid_body`: Missing, malformed, or invalid JSON request body",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "- `game_token_rejected`: Official game API rejected the game access token",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "- `account_not_bound`: Game account is not linked to a BPP Account",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "- `account_mismatch`: Official game account ID differs from the claimed game account ID",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "- `rate_limited` (retryable): Request rate exceeded",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "Retry-After": {
-                "description": "Seconds to wait",
-                "schema": {
-                  "const": "60"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "- `game_api_unavailable` (retryable): Official game API is unavailable or timed out",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "- `storage_unavailable` (retryable): Storage, email delivery, signing, or rate limiter unavailable",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/account/me": {
-      "get": {
-        "tags": [
-          "Account"
-        ],
-        "summary": "Read the linked BPP Account for a Device Token",
-        "description": "Requires `Authorization: Bearer bppd_<token>`. Returns `401 unauthorized` if the device token is missing, invalid, or revoked.",
-        "responses": {
-          "200": {
-            "description": "Linked BPP Account summary",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountMeResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "- `unauthorized`: Missing or invalid service token, Device Token, or web session",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "- `rate_limited` (retryable): Request rate exceeded",
-            "headers": {
-              "X-Request-Id": {
-                "description": "CF-Ray, or a server UUID",
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "Retry-After": {
-                "description": "Seconds to wait",
-                "schema": {
-                  "const": "60"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "- `internal_error` (retryable): Unclassified server error or invalid service configuration",
             "headers": {
               "X-Request-Id": {
                 "description": "CF-Ray, or a server UUID",
@@ -1752,32 +1457,6 @@
         ],
         "additionalProperties": false
       },
-      "AccountDevicesRequest": {
-        "type": "object",
-        "properties": {
-          "game_token": {
-            "type": "string"
-          },
-          "game_account_id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
-            "description": "Opaque identity"
-          },
-          "platform": {
-            "type": "string"
-          },
-          "flavor": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "game_token",
-          "game_account_id",
-          "platform",
-          "flavor"
-        ],
-        "additionalProperties": false
-      },
       "BotPlayersResponse": {
         "type": "object",
         "properties": {
@@ -1835,7 +1514,6 @@
                   "insufficient_scope",
                   "captcha_failed",
                   "not_found",
-                  "account_not_bound",
                   "method_not_allowed",
                   "bundle_id_conflict",
                   "run_already_bundled",
@@ -2425,46 +2103,6 @@
         "additionalProperties": false
       },
       "AccountBindResponse": {
-        "type": "object",
-        "properties": {
-          "device_token": {
-            "type": "string"
-          },
-          "user_name": {
-            "type": "string"
-          },
-          "email_masked": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "device_token",
-          "user_name",
-          "email_masked"
-        ],
-        "additionalProperties": false
-      },
-      "AccountDevicesResponse": {
-        "type": "object",
-        "properties": {
-          "device_token": {
-            "type": "string"
-          },
-          "user_name": {
-            "type": "string"
-          },
-          "email_masked": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "device_token",
-          "user_name",
-          "email_masked"
-        ],
-        "additionalProperties": false
-      },
-      "AccountMeResponse": {
         "type": "object",
         "properties": {
           "user_name": {

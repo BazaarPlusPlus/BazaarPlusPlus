@@ -7,8 +7,6 @@ namespace BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 public enum BppAccountAction
 {
     Bind,
-    ActivateDevice,
-    RefreshMe,
 }
 
 public enum BppAccountLogReason
@@ -21,18 +19,16 @@ public enum BppAccountLogReason
     AccountMismatch,
     GameTokenRejected,
     GameApiUnavailable,
-    AccountNotBound,
     GameAccountAlreadyBound,
     InvalidBindCode,
     RateLimited,
-    Unauthorized,
     RequestTimeout,
     ServerError,
     Transport,
     UnexpectedException,
 }
 
-/// <summary>Keep game tokens, device tokens, bind codes, emails, account IDs, and response bodies out of logs.</summary>
+/// <summary>Keep game tokens, bind codes, emails, account IDs, and response bodies out of logs.</summary>
 public static class BppAccountLog
 {
     internal static void Succeeded(string requestId, BppAccountAction action) =>
@@ -40,16 +36,6 @@ public static class BppAccountLog
             new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.bpp_account.succeeded"),
             ("request_id", requestId, BppLogCorrelationPolicy.Short),
             ("action", action)
-        );
-
-    internal static void TokenCleared(string requestId, BppAccountLogReason reason) =>
-        BppLog.InfoEvent(
-            new BppLogEvent(
-                BppLogFeatureScope.HistoryPanel,
-                "history_panel.bpp_account.token_cleared"
-            ),
-            ("request_id", requestId, BppLogCorrelationPolicy.Short),
-            ("reason_code", reason)
         );
 
     internal static void Failed(
@@ -89,11 +75,9 @@ public static class BppAccountLog
             "account_mismatch" => BppAccountLogReason.AccountMismatch,
             "game_token_rejected" => BppAccountLogReason.GameTokenRejected,
             "game_api_unavailable" => BppAccountLogReason.GameApiUnavailable,
-            "account_not_bound" => BppAccountLogReason.AccountNotBound,
             "game_account_already_bound" => BppAccountLogReason.GameAccountAlreadyBound,
             "invalid_bind_code" => BppAccountLogReason.InvalidBindCode,
             "rate_limited" => BppAccountLogReason.RateLimited,
-            "unauthorized" => BppAccountLogReason.Unauthorized,
             "request_timeout" => BppAccountLogReason.RequestTimeout,
             "transport_error" => BppAccountLogReason.Transport,
             _ => BppAccountLogReason.ServerError,

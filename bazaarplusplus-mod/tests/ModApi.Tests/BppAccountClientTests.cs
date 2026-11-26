@@ -8,7 +8,7 @@ using Xunit;
 public sealed class BppAccountClientTests
 {
     [Fact]
-    public async Task AccountRoutesAndDeviceTokenHeadersMatchContract()
+    public async Task BindRouteMatchesContract()
     {
         var requests = new List<(HttpMethod Method, string Path, string? Auth, string? Body)>();
         var responses = new Queue<HttpResponseMessage>();
@@ -43,10 +43,7 @@ public sealed class BppAccountClientTests
 
         // 1. bind 200
         responses.Enqueue(
-            Json(
-                HttpStatusCode.OK,
-                """{"device_token":"bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","user_name":"Alice","email_masked":"a***@example.com"}"""
-            )
+            Json(HttpStatusCode.OK, """{"user_name":"Alice","email_masked":"a***@example.com"}""")
         );
         var bind = await session.BindBppAccountAsync(
             "K7M2-Q9XR",
@@ -57,7 +54,6 @@ public sealed class BppAccountClientTests
             CancellationToken.None
         );
         Assert.True(bind.Succeeded);
-        Assert.Equal("bppd_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", bind.DeviceToken);
         Assert.Equal("Alice", bind.UserName);
         Assert.Equal("a***@example.com", bind.EmailMasked);
 
@@ -97,87 +93,6 @@ public sealed class BppAccountClientTests
         Assert.False(conflict.Succeeded);
         Assert.Equal("game_account_already_bound", conflict.ErrorCode);
 
-        // 4. account/devices 200
-        responses.Enqueue(
-            Json(
-                HttpStatusCode.OK,
-                """{"device_token":"bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","user_name":"Alice","email_masked":"a***@example.com"}"""
-            )
-        );
-        var device = await session.IssueBppAccountDeviceTokenAsync(
-            "jwe.token.2",
-            "acct-1",
-            "Steam",
-            "Paid",
-            CancellationToken.None
-        );
-        Assert.True(device.Succeeded);
-        Assert.Equal("bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", device.DeviceToken);
-
-        // 5. account/me 200 and 401
-        responses.Enqueue(
-            Json(HttpStatusCode.OK, """{"user_name":"Alice","email_masked":"a***@example.com"}""")
-        );
-        var me = await session.GetBppAccountMeAsync(
-            "bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-            CancellationToken.None
-        );
-        Assert.True(me.Succeeded);
-        Assert.Equal("Alice", me.UserName);
-        Assert.Equal("a***@example.com", me.EmailMasked);
-
-        responses.Enqueue(
-            Json(
-                HttpStatusCode.Unauthorized,
-                """{"error":{"code":"unauthorized","message":"bad token","retryable":false,"request_id":"r2"}}"""
-            )
-        );
-        var unauth = await session.GetBppAccountMeAsync(
-            "bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-            CancellationToken.None
-        );
-        Assert.False(unauth.Succeeded);
-        Assert.True(unauth.IsUnauthorized);
-
-        // 6. UploadBundleAsync & QueryGhostBattlesAgainstMeAsync attach Bearer only when token is given
-        responses.Enqueue(
-            Json(
-                HttpStatusCode.Created,
-                """{"bundle_id":"01J00000000000000000000001","run_id":"run-1","outcome":"stored"}"""
-            )
-        );
-        using (var payload = new MemoryStream(Encoding.UTF8.GetBytes("bundle")))
-        {
-            var uploaded = await session.UploadBundleAsync(
-                payload,
-                payload.Length,
-                "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:",
-                "01J00000000000000000000001",
-                "run-1",
-                CancellationToken.None,
-                "bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
-            );
-            Assert.Equal(BundleUploadDisposition.Uploaded, uploaded.Disposition);
-        }
-
-        responses.Enqueue(Json(HttpStatusCode.OK, """{"battles":[]}"""));
-        var ghostsWithToken = await session.QueryGhostBattlesAgainstMeAsync(
-            "acct-1",
-            20,
-            CancellationToken.None,
-            "bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
-        );
-        Assert.True(ghostsWithToken.Succeeded);
-
-        responses.Enqueue(Json(HttpStatusCode.OK, """{"battles":[]}"""));
-        var ghostsWithoutToken = await session.QueryGhostBattlesAgainstMeAsync(
-            "acct-2",
-            20,
-            CancellationToken.None,
-            deviceToken: null
-        );
-        Assert.True(ghostsWithoutToken.Succeeded);
-
         Assert.Equal(HttpMethod.Post, requests[0].Method);
         Assert.Equal("/account/bind", requests[0].Path);
         using (var bindBody = JsonDocument.Parse(requests[0].Body!))
@@ -190,12 +105,6 @@ public sealed class BppAccountClientTests
             Assert.Equal("Paid", root.GetProperty("flavor").GetString());
         }
         Assert.Null(requests[0].Auth);
-        Assert.Equal("/account/devices", requests[3].Path);
-        Assert.Equal("/account/me", requests[4].Path);
-        Assert.Equal("Bearer bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", requests[4].Auth);
-        Assert.Equal("Bearer bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", requests[6].Auth);
-        Assert.Equal("Bearer bppd_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", requests[7].Auth);
-        Assert.Null(requests[8].Auth);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string body) =>

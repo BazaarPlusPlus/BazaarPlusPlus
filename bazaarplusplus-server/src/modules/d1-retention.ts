@@ -13,7 +13,7 @@ export async function pruneExpiredAuthState(
 ): Promise<void> {
   const challengeCutoff = scheduledAtMs - AUTH_CHALLENGE_RETENTION_MS;
   // Prunes expired web sessions and Bind Codes, and email challenges expired
-  // for 24 hours. Accounts, Device Tokens, and run_summaries are never pruned here.
+  // for 24 hours. Accounts are never pruned here.
   await db.batch([
     db
       .prepare(`DELETE FROM bpp_web_sessions WHERE expires_at_ms < ?1`)

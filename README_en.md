@@ -43,7 +43,7 @@ Desktop includes Windows and macOS. ✅ supported　◐ partial　— not availa
 | Automatic end-of-run screenshots                  |   ✅    | ◐ only with BazaarDB upload on |
 | OBS stream overlay                                |   ✅    |               —                |
 
-All platforms upload run and replay data in the background while outside a run, powering Ghost Battles and the website's [hero statistics](https://bazaarplusplus.com/heroes?lang=en). Battle data with account IDs and display names removed may also be kept longer and used for analysis and research. If a player binds a BPP Account, long-lived Run Summaries without opponent account IDs or display names are also kept for viewing on the website and deleted immediately on unbind. See the [tutorial](https://bazaarplusplus.com/tutorial?lang=en) for the full feature list and platform differences.
+All platforms upload run and replay data in the background while outside a run, powering Ghost Battles and the website's [hero statistics](https://bazaarplusplus.com/heroes?lang=en). Battle data with account IDs and display names removed may also be kept longer and used for analysis and research. A player who binds a BPP Account can view their own ranked runs uploaded in the last 8 days on the website; these are the same run data, not a separate copy, and they expire with it. See the [tutorial](https://bazaarplusplus.com/tutorial?lang=en) for the full feature list and platform differences.
 
 ## Development
 

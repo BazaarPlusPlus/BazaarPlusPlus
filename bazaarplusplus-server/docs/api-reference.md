@@ -11,15 +11,13 @@ The Worker exposes exactly these routes:
 | Method | Path | Authentication |
 |---|---|---|
 | `GET` | `/health` | None |
-| `POST` | `/bundles` | Optional Device Token (shadow auth; required for Run Summaries); per-client rate limited |
+| `POST` | `/bundles` | None; per-client rate limited |
 | `GET` | `/bundles` | `BUNDLE_SYNC_TOKEN` |
-| `GET` | `/ghost-battles` | Optional Device Token (shadow auth); per-client rate limited |
+| `GET` | `/ghost-battles` | None; per-client rate limited |
 | `GET` | `/bazaardb/bundles` | `BAZAARDB_DELIVERY_TOKEN` |
 | `GET` | `/bot/players` | `BOT_STATS_TOKEN` |
 | `GET` | `/bot/bundles` | `BOT_STATS_TOKEN` |
 | `POST` | `/account/bind` | Bind Code and official game access token in JSON body; per-client rate limited |
-| `POST` | `/account/devices` | Official game access token in JSON body; per-client rate limited |
-| `GET` | `/account/me` | Device Token (`Authorization: Bearer bppd_…`); per-client rate limited |
 | `GET` | `/openapi.json` | None |
 | `GET` | `/docs` | None |
 
@@ -70,14 +68,13 @@ The machine-readable owner is [`contracts/mod-api-errors.json`](../contracts/mod
 | 400 | `invalid_bind_code` | `false` | Bind Code is malformed, unknown, or expired |
 | 400 | `invalid_password` | `false` | Password is shorter than 8 or longer than 128 characters |
 | 400 | `window_not_settled` | `false` | Bundle window ends after the settle point |
-| 401 | `unauthorized` | `false` | Missing or invalid service token, Device Token, or web session |
+| 401 | `unauthorized` | `false` | Missing or invalid service token or web session |
 | 401 | `invalid_credentials` | `false` | Email or password is wrong |
 | 401 | `game_token_rejected` | `false` | Official game API rejected the game access token |
 | 401 | `invalid_verification_code` | `false` | Verification code is invalid, expired, or exceeded max attempts |
 | 403 | `insufficient_scope` | `false` | Service token does not grant access to the route |
 | 403 | `captcha_failed` | `false` | Turnstile token is missing, invalid, spent, or from another host |
 | 404 | `not_found` | `false` | Unknown route, or a Run the signed-in account does not own |
-| 404 | `account_not_bound` | `false` | Game account is not linked to a BPP Account |
 | 405 | `method_not_allowed` | `false` | Unsupported method on a known route |
 | 409 | `bundle_id_conflict` | `false` | Bundle identity has different bytes |
 | 409 | `run_already_bundled` | `false` | Run belongs to another Bundle |
@@ -224,7 +221,7 @@ Response `200`:
 
 ## `POST /bundles`
 
-Public ingest for one sealed Bundle. `run.player_account_id` is a caller assertion and is not authenticated unless a valid `Authorization: Bearer bppd_…` Device Token matches it. Shadow authentication records `absent`, `match`, `mismatch`, or `invalid` in structured logs without rejecting uploads. Only uploads with a matching Device Token and a non-empty `run.projection.run` write a durable Run Summary row for the linked BPP Account. Before that commit, the Worker copies the Run segment (a ranged read of the stored Bundle) to `account-runs/<account_id>/<run_id>.run` and marks the row `detail_stored`; if the copy fails, the upload fails with `503 storage_unavailable` and nothing is committed, and the retry recovers the R2-only Bundle. The upload is [rate limited per client](#common-http-behavior) before any header or body is read; the mod treats `429` as a temporary outage, keeps the Bundle queued, and retries after `Retry-After`.
+Public ingest for one sealed Bundle. `run.player_account_id` is a caller assertion and is never authenticated. The D1 Bundle row keeps the terminal `run.projection.run` facts and the Run segment's absolute byte range, so a linked BPP Account's records read straight from it ([ADR 0008](adr/0008-records-from-bundles.md)). The upload is [rate limited per client](#common-http-behavior) before any header or body is read; the mod treats `429` as a temporary outage, keeps the Bundle queued, and retries after `Retry-After`.
 
 Required headers:
 
@@ -315,7 +312,7 @@ Public directional Ghost projection discovery:
 GET /ghost-battles?player_account_id=account-id&limit=200
 ```
 
-The route is [rate limited per client](#common-http-behavior) before business query parsing or D1 access; a denied request performs no D1 query or signing. An optional `Authorization: Bearer bppd_…` Device Token is evaluated in shadow mode (`absent`, `match`, `mismatch`, or `invalid` in structured logs) and never changes the response.
+The route is [rate limited per client](#common-http-behavior) before business query parsing or D1 access; a denied request performs no D1 query or signing.
 
 `player_account_id` is required. `limit` defaults to 200 and accepts 1–200. Both may appear only once; unknown parameters are invalid. The server lookback is exactly five days.
 
@@ -419,7 +416,7 @@ The URL is a bearer capability. The Worker never logs the complete URL and does 
 
 ## Retention and maintenance
 
-Bundle object deletion is provided only by the separately provisioned 8-day bucket lifecycle rule, which covers the `bundles/` prefix only. Run detail objects under `account-runs/` live until the player unlinks the game account or deletes the BPP Account; those website routes delete them. The scheduled handler runs every 15 minutes and deletes D1 Bundles whose `stored_at_ms` is strictly earlier than its scheduled time minus 15 days. Each delete commits at most 100 Bundles, with at most ten batches per invocation; backlog continues on later invocations. A Bundle at the exact 15-day boundary remains until a later run. Deletion cascades to Ghost projections. `bundle_uploaders` remains deployment-lifetime state and is never pruned by this handler. The same handler deletes expired web sessions and Bind Codes, and email codes expired for 24 hours; it never prunes BPP Accounts, Device Tokens, or Run Summaries. The handler does not access R2.
+Bundle object deletion is provided only by the separately provisioned 8-day bucket lifecycle rule, which covers the `bundles/` prefix only. The scheduled handler runs every 15 minutes and deletes D1 Bundles whose `stored_at_ms` is strictly earlier than its scheduled time minus 15 days. Each delete commits at most 100 Bundles, with at most ten batches per invocation; backlog continues on later invocations. A Bundle at the exact 15-day boundary remains until a later run. Deletion cascades to Ghost projections. `bundle_uploaders` remains deployment-lifetime state and is never pruned by this handler. The same handler deletes expired web sessions and Bind Codes, and email codes expired for 24 hours; it never prunes BPP Accounts. The handler does not access R2.
 
 Client timestamps do not extend D1 retention. Bundle identity deduplication ends when its metadata is pruned. The five-day Ghost and eight-day Bundle collection windows, including `GET /bazaardb/bundles`, remain unchanged. The 15-day cutoff is eligibility for asynchronous pruning, not a guarantee of deletion at an exact instant.
 
@@ -431,17 +428,15 @@ A matching retry of `POST /bundles` validates and commits an R2-only object left
 
 `GET /bot/bundles?account_id=` pages 100 candidate Bundles at a time, ordered by `(stored_at_ms, bundle_id)`. The first page defaults to the same Beijing start and server now. Repeat the returned `window.stored_from_ms`, `window.stored_before_ms` and `next_after` fields as `after_stored_at_ms` / `after_bundle_id` to keep subsequent pages fixed. Unknown and duplicate parameters are rejected; requested windows must be within the last three days plus five minutes for already queued requests. This allowance does not extend the Bot’s Run end-time window.
 
-Stored time is only a candidate filter. A yesterday report still requests uploads through now, so a late upload is included. The Bot decodes `RunFactsV6.EndedAtMs` and applies the final Beijing calendar window; the server never decompresses Runs and stores no bot report aggregates (only durable per-run summaries from `projection.run`, and an opaque copy of the Run segment, for linked BPP Accounts). Each item includes a complete-object SHA-256 and a presigned download URL. Presigned URLs are private bearer capabilities and must not be placed in group replies or report HTML.
+Stored time is only a candidate filter. A yesterday report still requests uploads through now, so a late upload is included. The Bot decodes `RunFactsV6.EndedAtMs` and applies the final Beijing calendar window; the server never decompresses Runs and stores no bot report aggregates. Each item includes a complete-object SHA-256 and a presigned download URL. Presigned URLs are private bearer capabilities and must not be placed in group replies or report HTML.
 
 `BOT_STATS_TOKEN` is a distinct optional service token. Until configured, Bot routes fail closed; the existing service routes continue to work. A configured Bot token cannot access the analyzer or BazaarDB feeds. Only the Bot applies its binding visibility policy; the token grants trusted per-account access.
 
 ## BPP Account routes
 
-A BPP Account is created on bazaarplusplus.com with an email and a password, then linked to one game account from the mod with a Bind Code ([ADR 0007](adr/0007-site-first-accounts.md)). The three mod routes are rate limited per client via `ACCOUNT_RATE_LIMITER` (`namespace_id = 1004`). Game access tokens are sent in JSON request bodies, verified against the hardcoded read-only official endpoint `https://enter.playthebazaar.com/api/Accounts/me/summary` (10s timeout), and discarded immediately without storage or logging. A wrong official `id` returns `409 account_mismatch`.
+A BPP Account is created on bazaarplusplus.com with an email and a password, then linked to one game account from the mod with a Bind Code ([ADR 0007](adr/0007-site-first-accounts.md)). The mod route is rate limited per client via `ACCOUNT_RATE_LIMITER` (`namespace_id = 1004`). Game access tokens are sent in JSON request bodies, verified against the hardcoded read-only official endpoint `https://enter.playthebazaar.com/api/Accounts/me/summary` (10s timeout), and discarded immediately without storage or logging. A wrong official `id` returns `409 account_mismatch`.
 
-- `POST /account/bind`: body `{ bind_code, game_token, game_account_id, platform, flavor }`. The Worker strips spaces and `-` from `bind_code` and uppercases it; a code that is then not 8 characters of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` returns `400 invalid_bind_code` before the official API is called. An unknown or expired code also returns `invalid_bind_code`. A game account already linked to another BPP Account returns `409 game_account_already_bound` and leaves the code usable. Otherwise one D1 batch links the game account, stores a SHA-256-hashed Device Token (`bppd_<base64url>`), and deletes the code; the response is `{ device_token, user_name, email_masked }`.
-- `POST /account/devices`: body `{ game_token, game_account_id, platform, flavor }`. Issues a new Device Token for an already-linked game account (else `404 account_not_bound`) and returns `{ device_token, user_name, email_masked }`.
-- `GET /account/me`: requires `Authorization: Bearer bppd_…`. Returns `{ user_name, email_masked }`, or `401 unauthorized` once the token is revoked by an unlink.
+- `POST /account/bind`: body `{ bind_code, game_token, game_account_id, platform, flavor }`. The Worker strips spaces and `-` from `bind_code` and uppercases it; a code that is then not 8 characters of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` returns `400 invalid_bind_code` before the official API is called. An unknown or expired code also returns `invalid_bind_code`. A game account already linked to another BPP Account returns `409 game_account_already_bound` and leaves the code usable. Otherwise one D1 batch links the game account and deletes the code; the response is `{ user_name, email_masked }`. The mod keeps no link state; the website shows it.
 
 Browser-facing website routes are not exposed on `mod-api-v6.bazaarplusplus.com`; they are served only through the Worker's `WebApi` named entrypoint, which `bazaarplusplus-site` binds under its same-origin `/api/*`. `handleWebApiRequest` in `src/modules/web-account-api.ts` owns their shapes. Every `POST` needs a same-origin `Origin` (else `403 forbidden_origin`). The session is the `__Host-bpp_session` cookie (`HttpOnly; Secure; SameSite=Lax; Path=/`, 30 days); D1 stores only its hash. Passwords are 8–128 characters and stored as PBKDF2-HMAC-SHA256 with 100,000 iterations and a 16-byte salt. Email codes are 6 digits, valid 10 minutes for 5 attempts, at most 5 sends per email per hour.
 
@@ -455,10 +450,10 @@ The three routes that take `turnstile_token` check it with Cloudflare Turnstile 
 | `POST /api/password/reset/start` `{email, turnstile_token}` | Always `200 {ok:true}`; emails a code only when the account exists |
 | `POST /api/password/reset/confirm` `{email, code, password}` | Sets the password, ends every session of the account, signs this browser in: `200 {email}` |
 | `POST /api/logout` | Ends this session: `200 {ok:true}` |
-| `GET /api/me` | `{email, game, stats}`; `game` is `null` or `{user_name, linked_at_ms}` |
-| `GET /api/runs?cursor=` | `{runs, next_cursor}`, 50 Run Summaries per page, each with `has_detail` |
-| `GET /api/runs/<run_id>` | `{run}`, or `404 not_found` unless the linked game account owns it |
-| `GET /api/runs/<run_id>/payload` | The stored Run segment, `Content-Type: application/x-bpp-run-v6`, `Cache-Control: private, no-store`, so the bytes never outlive the session in a shared browser |
+| `GET /api/me` | `{email, game}`; `game` is `null` or `{user_name, linked_at_ms}` |
+| `GET /api/runs` | `{runs}`: the linked game account's records, newest upload first, at most 1000. A record is a Bundle whose `run.player_account_id` is the linked game account, stored within the 8-day R2 window, with a terminal `ended_at_ms` |
+| `GET /api/runs/<run_id>` | `{run}`, or `404 not_found` unless it is one of those records |
+| `GET /api/runs/<run_id>/payload` | The record's Run segment, read by byte range from its Bundle (`404 not_found` once the object is gone), `Content-Type: application/x-bpp-run-v6`, `Cache-Control: private, no-store`, so the bytes never outlive the session in a shared browser |
 | `POST /api/bind-code` | `{code, expires_at_ms}`: a new 8-character Bind Code, valid 10 minutes, replacing the previous one; `409 game_account_already_bound` once linked |
-| `POST /api/unlink` | Deletes the Run detail objects, then the game link, its Run Summaries, Device Tokens, and Bind Code: `200 {ok:true}` |
-| `POST /api/account/delete` `{password}` | Deletes the Run detail objects, then the account and everything it owns, and clears the cookie |
+| `POST /api/unlink` | Deletes the game link and any Bind Code: `200 {ok:true}`. The Bundles stay until they expire, as for any player |
+| `POST /api/account/delete` `{password}` | Deletes the account and everything it owns, and clears the cookie |

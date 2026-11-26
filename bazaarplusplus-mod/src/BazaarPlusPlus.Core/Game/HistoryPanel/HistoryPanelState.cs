@@ -32,7 +32,6 @@ public enum BppAccountFlowPhase
 {
     Idle,
     EnterBindCode,
-    ConfirmActivateDevice,
 }
 
 public sealed class HistoryPanelState
@@ -119,14 +118,6 @@ public sealed class HistoryPanelState
     public BppAccountFlowPhase BppAccountPhase { get; set; }
 
     public bool BppAccountInProgress { get; set; }
-
-    public bool BppAccountBound { get; set; }
-
-    public string? BppAccountUserName { get; set; }
-
-    public string? BppAccountEmailMasked { get; set; }
-
-    public string? BppAccountLocalDisplayName { get; set; }
 
     public string? BppAccountBannerMessage { get; set; }
 

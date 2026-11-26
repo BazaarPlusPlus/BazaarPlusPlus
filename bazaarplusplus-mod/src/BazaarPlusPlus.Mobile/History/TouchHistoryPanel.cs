@@ -345,7 +345,6 @@ internal sealed class TouchHistoryPanel : IDisposable
                     ),
                     _uiRefresh.Guard(_coordinator.MarkAccountLinkedManually),
                     _coordinator.ToggleBppAccountForm,
-                    _coordinator.OpenBppAccountActivateDevice,
                     _uiRefresh.Guard<string?>(input =>
                         _ = _coordinator.TrySubmitBppAccountInputAsync(input)
                     )

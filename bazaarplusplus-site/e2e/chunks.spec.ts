@@ -64,7 +64,7 @@ for (const [route, href] of Object.entries(ROUTES)) {
     const routes = await installGoldenRoutes(page);
     await mockAccountApi(page, {
       'GET me': () => ({ json: LINKED_ME }),
-      'GET runs': () => ({ json: { runs: [runSummary()], next_cursor: null } }),
+      'GET runs': () => ({ json: { runs: [runSummary()] } }),
       ...runDetailHandlers()
     });
     await mockCardArt(page, []);

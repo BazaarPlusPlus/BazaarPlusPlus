@@ -1,22 +1,9 @@
 import { validIdentifier } from '../bundle/manifest';
 import type { Env } from '../env';
 import { apiError, type HttpError } from '../errors';
-import type {
-  AccountBindResponse,
-  AccountDevicesResponse,
-  AccountMeResponse
-} from '../http/schemas';
-import {
-  authenticateDeviceToken,
-  enforceAccountRateLimit
-} from './account-auth';
-import {
-  generateDeviceToken,
-  hmacBindCode,
-  maskEmail,
-  normalizeBindCode,
-  sha256Hex
-} from './account-crypto';
+import type { AccountBindResponse } from '../http/schemas';
+import { enforceAccountRateLimit } from './account-auth';
+import { hmacBindCode, maskEmail, normalizeBindCode } from './account-crypto';
 import type { VerificationEmail } from './account-email';
 import {
   type OfficialGameAccount,
@@ -222,26 +209,19 @@ export async function bindGameAccount(
     throw alreadyBound();
   }
 
-  const deviceToken = generateDeviceToken();
-  const tokenHash = await sha256Hex(deviceToken);
-  const liveCode = `EXISTS (
-    SELECT 1 FROM bpp_bind_codes
-    WHERE code_hash = ?2 AND account_id = ?1 AND expires_at_ms >= ?3
-  )`;
   let results: D1Result[];
   try {
+    // The link holds only while the code is still live; the code goes in the
+    // same batch, so a second redemption finds nothing to update.
     results = await env.DB.batch([
       env.DB.prepare(
         `UPDATE bpp_accounts
          SET game_account_id = ?4, game_user_name = ?5, linked_at_ms = ?3, updated_at_ms = ?3
-         WHERE account_id = ?1 AND game_account_id IS NULL AND ${liveCode}`
+         WHERE account_id = ?1 AND game_account_id IS NULL AND EXISTS (
+           SELECT 1 FROM bpp_bind_codes
+           WHERE code_hash = ?2 AND account_id = ?1 AND expires_at_ms >= ?3
+         )`
       ).bind(code.account_id, codeHash, now, official.id, official.userName),
-      env.DB.prepare(
-        `INSERT INTO bpp_device_tokens (token_hash, account_id, game_account_id, created_at_ms)
-         SELECT ?4, account_id, game_account_id, ?3
-         FROM bpp_accounts
-         WHERE account_id = ?1 AND game_account_id = ?5 AND ${liveCode}`
-      ).bind(code.account_id, codeHash, now, tokenHash, official.id),
       env.DB.prepare(`DELETE FROM bpp_bind_codes WHERE code_hash = ?1`).bind(
         codeHash
       )
@@ -260,72 +240,10 @@ export async function bindGameAccount(
     }
     throw apiError('storage_unavailable', 'Failed to link game account');
   }
-  if ((results[1]?.meta?.changes ?? 0) !== 1) throw invalidBindCode();
+  if ((results[0]?.meta?.changes ?? 0) !== 1) throw invalidBindCode();
 
   return {
-    device_token: deviceToken,
     user_name: official.userName,
     email_masked: maskEmail(code.email)
-  };
-}
-
-export async function issueAccountDeviceToken(
-  request: Request,
-  env: Env
-): Promise<AccountDevicesResponse> {
-  await enforceAccountRateLimit(request, env);
-  const body = await readJsonObject(request);
-  const official = await verifyClaim(readGameAccountClaim(body));
-
-  let account: { account_id: string; email: string } | null;
-  try {
-    account = await env.DB.prepare(
-      `SELECT account_id, email FROM bpp_accounts WHERE game_account_id = ?1`
-    )
-      .bind(official.id)
-      .first<{ account_id: string; email: string }>();
-  } catch {
-    throw apiError('storage_unavailable', 'Account storage is unavailable');
-  }
-  if (account === null) {
-    throw apiError(
-      'account_not_bound',
-      'Game account is not linked to a BPP Account'
-    );
-  }
-
-  const now = Date.now();
-  const deviceToken = generateDeviceToken();
-  const tokenHash = await sha256Hex(deviceToken);
-  try {
-    await env.DB.batch([
-      env.DB.prepare(
-        `UPDATE bpp_accounts SET game_user_name = ?1, updated_at_ms = ?2 WHERE account_id = ?3`
-      ).bind(official.userName, now, account.account_id),
-      env.DB.prepare(
-        `INSERT INTO bpp_device_tokens (token_hash, account_id, game_account_id, created_at_ms)
-         VALUES (?1, ?2, ?3, ?4)`
-      ).bind(tokenHash, account.account_id, official.id, now)
-    ]);
-  } catch {
-    throw apiError('storage_unavailable', 'Failed to issue device token');
-  }
-
-  return {
-    device_token: deviceToken,
-    user_name: official.userName,
-    email_masked: maskEmail(account.email)
-  };
-}
-
-export async function getAccountMe(
-  request: Request,
-  env: Env
-): Promise<AccountMeResponse> {
-  await enforceAccountRateLimit(request, env);
-  const account = await authenticateDeviceToken(request, env.DB);
-  return {
-    user_name: account.gameUserName ?? '',
-    email_masked: maskEmail(account.email)
   };
 }

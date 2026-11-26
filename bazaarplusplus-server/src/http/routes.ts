@@ -1,11 +1,7 @@
 import { z } from 'zod';
 import { BUNDLE_CONTENT_TYPE } from '../bundle/prefix';
 import { MAX_BUNDLE_BYTES } from '../limits';
-import {
-  bindGameAccount,
-  getAccountMe,
-  issueAccountDeviceToken
-} from '../modules/account-service';
+import { bindGameAccount } from '../modules/account-service';
 import {
   collectBazaarDbBundles,
   collectBundles
@@ -18,9 +14,6 @@ import type { RouteDefinition } from './route-shell';
 import {
   AccountBindRequest,
   AccountBindResponse,
-  AccountDevicesRequest,
-  AccountDevicesResponse,
-  AccountMeResponse,
   BotPlayersQuery,
   BotPlayersResponse,
   BotBundlesQuery,
@@ -282,8 +275,8 @@ export const ROUTES = [
       description:
         'The player creates the BPP Account and its Bind Code on bazaarplusplus.com. The Worker ' +
         'verifies the official game token against the read-only official account summary ' +
-        'endpoint, links the game account in one D1 batch that consumes the code, and issues ' +
-        'a Device Token. A game account linked to another BPP Account leaves the code unused.',
+        'endpoint and links the game account in one D1 batch that consumes the code. A game ' +
+        'account linked to another BPP Account leaves the code unused.',
       requestBody: {
         required: true,
         content: {
@@ -292,7 +285,7 @@ export const ROUTES = [
       },
       responses: {
         '200': {
-          description: 'Game account linked and Device Token issued',
+          description: 'Game account linked',
           content: { 'application/json': { schema: AccountBindResponse } }
         }
       },
@@ -306,61 +299,6 @@ export const ROUTES = [
         'game_api_unavailable',
         'storage_unavailable'
       ]
-    }
-  },
-  {
-    path: '/account/devices',
-    method: 'POST',
-    handler: async (context) => ({
-      status: 200,
-      body: await issueAccountDeviceToken(context.request, context.env)
-    }),
-    docs: {
-      tags: ['Account'],
-      summary: 'Issue a Device Token for an already-linked game account',
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': { schema: AccountDevicesRequest }
-        }
-      },
-      responses: {
-        '200': {
-          description: 'Device token issued',
-          content: { 'application/json': { schema: AccountDevicesResponse } }
-        }
-      },
-      errors: [
-        'invalid_body',
-        'game_token_rejected',
-        'account_not_bound',
-        'account_mismatch',
-        'rate_limited',
-        'game_api_unavailable',
-        'storage_unavailable'
-      ]
-    }
-  },
-  {
-    path: '/account/me',
-    method: 'GET',
-    handler: async (context) => ({
-      status: 200,
-      body: await getAccountMe(context.request, context.env)
-    }),
-    docs: {
-      tags: ['Account'],
-      summary: 'Read the linked BPP Account for a Device Token',
-      description:
-        'Requires `Authorization: Bearer bppd_<token>`. Returns `401 unauthorized` if the ' +
-        'device token is missing, invalid, or revoked.',
-      responses: {
-        '200': {
-          description: 'Linked BPP Account summary',
-          content: { 'application/json': { schema: AccountMeResponse } }
-        }
-      },
-      errors: ['unauthorized', 'rate_limited', 'storage_unavailable']
     }
   },
   {

@@ -2,6 +2,8 @@ import { env } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import worker from '../src/index';
+import { sha256Hex } from '../src/modules/account-crypto';
+import { handleWebApiRequest } from '../src/modules/web-account-api';
 import { seedBundleBacklog } from './fixtures/backlog';
 import { type RecordedD1Query, recordD1 } from './fixtures/d1';
 
@@ -133,4 +135,50 @@ test('keyset, BazaarDB, and Ghost reads stay bounded with a large live backlog',
     /^SELECT .* FROM ghost_battle_summaries /
   ).result;
   expect(ghost.meta.rows_read).toBeLessThan(20 + 10);
+});
+
+test('a linked account reads its records by a seek on its uploader index', async () => {
+  // Deleting the Bundles cascades to the Ghost rows the previous test added.
+  await env.DB.prepare(`DELETE FROM bundles`).run();
+  await seedBundleBacklog(env.DB, 500, NOW - 60_000);
+  // Other uploaders and old rows of the same uploader stay outside the seek.
+  await env.DB.prepare(
+    `UPDATE bundles SET uploader_account_id = 'someone-else'
+     WHERE bundle_id < '01J9' || printf('%022d', 200)`
+  ).run();
+  await env.DB.prepare(
+    `UPDATE bundles SET ended_at_ms = stored_at_ms,
+       stored_at_ms = CASE WHEN bundle_id < '01J9' || printf('%022d', 400)
+         THEN ?1 ELSE stored_at_ms END`
+  )
+    .bind(NOW - 10 * 24 * 60 * 60 * 1000)
+    .run();
+  const session = 'A'.repeat(43);
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO bpp_accounts (account_id, email, password_hash, game_account_id, linked_at_ms, created_at_ms, updated_at_ms)
+       VALUES ('plan-account', 'plan@example.com', 'x', 'backlog-uploader', 1, 1, 1)`
+    ),
+    env.DB.prepare(
+      `INSERT INTO bpp_web_sessions (session_hash, account_id, created_at_ms, expires_at_ms)
+       VALUES (?1, 'plan-account', 1, ?2)`
+    ).bind(await sha256Hex(session), NOW + 60_000)
+  ]);
+
+  const queries = recordD1(env.DB);
+  const response = await handleWebApiRequest(
+    new Request('https://bazaarplusplus.com/api/runs', {
+      headers: { Cookie: `__Host-bpp_session=${session}` }
+    }),
+    env
+  );
+  expect((await response.json<{ runs: unknown[] }>()).runs).toHaveLength(100);
+  const records = query(
+    queries,
+    /FROM bundles INDEXED BY idx_bundles_uploader_stored/
+  );
+  expect(records.result.meta.rows_read).toBeLessThan(110);
+  expect(await plan(records)).toContain(
+    'idx_bundles_uploader_stored (uploader_account_id=? AND stored_at_ms>?)'
+  );
 });
