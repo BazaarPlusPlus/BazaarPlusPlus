@@ -35,7 +35,6 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
-      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
         with:
           tool: just@1.58.0
@@ -81,7 +80,7 @@ jobs:
               curl -fsS "https://cdn.bazaarplusplus.com/card-art/$file" -o "$RUNNER_TEMP/$file"
             done
           fi
-          just bot::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --require-fx --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" --zh-etag "$ZH" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          just installer::card-art "$RUNNER_TEMP/game" "$RUNNER_TEMP/card-art" --require-fx --buildid "$BUILDID" --gamedata-etag "$GAMEDATA" --zh-etag "$ZH" "${previous[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish
         if: steps.stale.outputs.stale == 'true'
         env:

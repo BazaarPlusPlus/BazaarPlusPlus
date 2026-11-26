@@ -5,7 +5,7 @@ set positional-arguments
 check:
     bun run check
 
-# Exercise the Bot with local Workers and D1, then the Card Art index shape (stdlib Python).
+# Exercise the Bot with local Workers and D1.
 test:
     bun run test
 
@@ -24,7 +24,3 @@ preview *args:
 # Format Bot sources.
 fmt:
     bun run format
-
-# Extract Card Art from a `just release::card-art download` directory into <out> (tools/card-art/extract.py).
-card-art game out *args:
-    uv run --locked --script tools/card-art/extract.py "$1/Data" "$1/GameData.db.zip" "$2" "${@:3}"

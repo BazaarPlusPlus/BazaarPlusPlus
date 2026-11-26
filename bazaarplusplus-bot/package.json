@@ -8,7 +8,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit && oxlint --type-aware && oxfmt --check .",
-    "test": "vitest run && python3 -I -B -m unittest discover -s tools/card-art -p 'test_*.py'",
+    "test": "vitest run",
     "format": "oxfmt .",
     "preview": "bun test/preview.ts",
     "dev": "wrangler dev -c wrangler.toml -c wrangler.consumer.toml",

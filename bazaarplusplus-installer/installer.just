@@ -10,7 +10,7 @@ check-fast:
     bun run format:check
     bun run lint
     bun run check:ts
-    cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+    cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
     bun run docs:check
 
 # Generate bindings and run the Rust and JavaScript tests.
@@ -24,6 +24,10 @@ acceptance:
     : "${BPP_TEST_GAME_ROOT:?set it to a The Bazaar installation whose TheBazaar.app is copied; the source is never modified}"
     TAURI_CONFIG='{"bundle":{"resources":[]}}' cargo build --manifest-path src-tauri/Cargo.toml --bin bppinstaller
     BPP_TEST_INSTALLER_CLI="$(pwd)/src-tauri/target/debug/bppinstaller" TAURI_CONFIG='{"bundle":{"resources":[]}}' cargo test --manifest-path src-tauri/Cargo.toml --lib -- --ignored fresh_install_writes_payload_and_signed_trampoline_without_quitting_steam copied_steam_bundle_repair_acceptance
+
+# Extract Card Art from a `just release::card-art download` directory into <out>; options as card-catalog's usage line.
+card-art game out *args:
+    cargo run --quiet --locked --release --manifest-path src-tauri/Cargo.toml -p card-catalog --bin card-catalog -- "$1/Data" "$1/GameData.db.zip" "$2" "${@:3}"
 
 # Run the headless installer from source; use --help for commands.
 cli *args:

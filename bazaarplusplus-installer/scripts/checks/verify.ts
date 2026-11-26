@@ -115,7 +115,7 @@ export function verificationSteps({
         subset: 'native',
         label: 'Check Rust formatting',
         command: 'cargo',
-        args: ['fmt', '--manifest-path', manifestPath, '--', '--check']
+        args: ['fmt', '--all', '--manifest-path', manifestPath, '--', '--check']
       },
       {
         subset: 'native',
@@ -141,6 +141,7 @@ export function verificationSteps({
           '--locked',
           '--manifest-path',
           manifestPath,
+          '--workspace',
           '--all-targets',
           '--all-features',
           '--',
@@ -168,6 +169,7 @@ export function verificationSteps({
           '--locked',
           '--manifest-path',
           manifestPath,
+          '--workspace',
           '--all-features',
           '--no-deps',
           '--document-private-items'

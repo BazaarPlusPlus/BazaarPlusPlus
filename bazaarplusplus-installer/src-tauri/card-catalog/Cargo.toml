@@ -1,0 +1,25 @@
+[package]
+name = "card-catalog"
+version = "0.1.0"
+description = "Card Art, Card Text and Enchantment FX read from an installed The Bazaar"
+edition = "2021"
+rust-version = "1.100"
+publish = false
+
+[dependencies]
+anyhow = "1"
+libwebp-sys = "0.14.4"
+md-5 = "0.11"
+rusqlite = { version = "0.43.0", features = ["bundled"] }
+serde = "1"
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+sha2 = "0.11.0"
+tempfile = "3"
+texture2ddecoder = "0.1.2"
+lz4_flex = "0.11"
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

@@ -76,11 +76,17 @@ tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2.4.4"
 tauri-plugin-window-state = "2.4.1"
 
-[lints.rust]
+[lints]
+workspace = true
+
+[workspace]
+members = [".", "card-catalog"]
+
+[workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "warn"
 rust_2018_idioms = { level = "warn", priority = -1 }
 
-[lints.clippy]
+[workspace.lints.clippy]
 # A curated subset of pedantic and restriction lints: each flags a real smell
 # and has a mechanical fix. `verify` promotes all warnings to errors, and
 # `clippy.toml` exempts tests from the unwrap rule.
@@ -112,3 +118,16 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# Card Art decoding and encoding are compute-bound; the size profile makes them several times slower.
+[profile.release.package.card-catalog]
+opt-level = 3
+
+[profile.release.package.texture2ddecoder]
+opt-level = 3
+
+[profile.release.package.libwebp-sys]
+opt-level = 3
+
+[profile.release.package.lz4_flex]
+opt-level = 3
