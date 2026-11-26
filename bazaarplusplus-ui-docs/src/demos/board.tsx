@@ -1,5 +1,5 @@
 import { Board, SkillStrip } from '@bpp/ui';
-import { card, pinned } from '../cards';
+import { card, pinned, pinnedSkills, skill } from '../cards';
 import { type DemoProps, translate } from '../copy';
 export default function BoardDemo({ lang }: DemoProps) {
   const obs = {
@@ -16,18 +16,10 @@ export default function BoardDemo({ lang }: DemoProps) {
     )
   );
   const skills = [
-    ...['Bronze', 'Silver', 'Gold', 'Diamond', 'Legendary'].map((tier) =>
-      Object.assign(
-        card(
-          lang,
-          pinned.find((p) => p.tier === tier)!
-        ),
-        {
-          onOpen: () => {}
-        }
-      )
+    ...pinnedSkills.map((s) =>
+      Object.assign(skill(lang, s), { onOpen: () => {} })
     ),
-    { ...card(lang, pinned[0]), id: 'no-art', art: null }
+    Object.assign(skill(lang, pinnedSkills[0]), { id: 'no-art', art: null })
   ];
   return (
     <div className="grid gap-4">

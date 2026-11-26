@@ -14,6 +14,5 @@ export const pages = [
   ['card-detail', '卡牌详情', 'Card detail'],
   ['day-card', '回合记录', 'Day card'],
   ['decision-explorer', '决策回放', 'Decision explorer'],
-  ['frame-inspector', '原始帧', 'Frame inspector'],
-  ['enchantment-fx', '附魔特效', 'Enchantment FX']
+  ['frame-inspector', '原始帧', 'Frame inspector']
 ] as const;

@@ -95,6 +95,28 @@ for (const id of ids) {
     tier: zh.cards[id].startingTier
   });
 }
+// One real skill per starting tier for the skill strip.
+const skillIds = Object.keys(index.cards).sort();
+const skills = cardTiers.flatMap((tier) => {
+  const id = skillIds.find(
+    (candidate) =>
+      zh.cards[candidate]?.type === 'Skill' &&
+      zh.cards[candidate].startingTier === tier &&
+      zh.cards[candidate].title &&
+      en.cards[candidate]?.title
+  );
+  if (!id) return [];
+  files.add(index.cards[id]);
+  return [
+    {
+      id,
+      file: index.cards[id],
+      zh: zh.cards[id].title,
+      en: en.cards[id].title,
+      tier
+    }
+  ];
+});
 const names = [...files].sort();
 for (let i = 0; i < names.length; i += 6)
   // Keep at most six asset downloads in flight.
@@ -113,20 +135,26 @@ writeFileSync(
       game: index.game,
       text: index.text,
       cards,
+      skills,
       textures: names
     },
     null,
     2
   ) + '\n'
 );
+// Definitions for every pinned card and skill: the detail demo and the hover previews read them.
 writeFileSync(
   'src/demo-data/definition.json',
   JSON.stringify(
     {
       id: detailId,
-      zh: definition(zh, detailId),
-      en: definition(en, detailId),
-      tags: { zh: zh.tagLabels, en: en.tagLabels }
+      tags: { zh: zh.tagLabels, en: en.tagLabels },
+      cards: Object.fromEntries(
+        [...ids, ...skills.map((s) => s.id)].map((id) => [
+          id,
+          { zh: definition(zh, id), en: definition(en, id) }
+        ])
+      )
     },
     null,
     2

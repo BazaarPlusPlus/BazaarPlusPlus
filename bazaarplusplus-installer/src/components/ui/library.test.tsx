@@ -219,8 +219,8 @@ it('renders only localized card and enchantment tags', async () => {
         art: null,
         tier: null,
         tierLabel: '',
-        enchant: null,
-        enchantLabel: ''
+        enchant: 'Obsidian',
+        enchantLabel: '黑曜石'
       }}
       definition={{
         title: '雷达',
@@ -235,6 +235,7 @@ it('renders only localized card and enchantment tags', async () => {
       labels={{
         sizes: { Medium: '中型' },
         enchantments: '附魔',
+        allEnchantments: '',
         cooldown: '',
         ammo: '',
         seconds: '',
