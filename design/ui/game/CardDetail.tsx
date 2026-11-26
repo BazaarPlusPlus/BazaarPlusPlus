@@ -152,7 +152,7 @@ export function CardDetail({
         <p className="bpp-card-unavailable">{labels.unavailable}</p>
       )}
       {effects.length > 0 && (entries.length > 0 || !preview) && (
-        <section>
+        <section className="bpp-detail-enchants">
           <div className="bpp-detail-section-head">
             <h3>{labels.enchantments}</h3>
             {!preview && (

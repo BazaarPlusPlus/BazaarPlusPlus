@@ -1774,9 +1774,30 @@ strong.bpp-effect-value {
 .bpp-detail-toggle input {
   accent-color: var(--accent);
 }
+/* One row per enchantment: its pill, then its tags and effect lines beside it. Rows share
+   the pill column, so every effect starts at the same edge. */
+.bpp-detail-enchants {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.bpp-detail-enchants > * {
+  grid-column: 1 / -1;
+}
 .bpp-detail-enchant {
+  display: grid;
+  grid-template-columns: subgrid;
+  column-gap: var(--space-12);
+  align-items: baseline;
   padding: var(--space-8);
   border-top: 1px solid var(--line);
+}
+.bpp-detail-enchant > * {
+  grid-column: 2;
+  margin: 0;
+}
+.bpp-detail-enchant > h4 {
+  grid-column: 1;
+  grid-row: 1;
 }
 .bpp-detail-enchant[data-current='true'] {
   background: var(--bg-panel);
