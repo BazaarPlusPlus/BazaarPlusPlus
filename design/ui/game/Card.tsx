@@ -161,6 +161,12 @@ export function CardTile({ card }: { card: GameCard }) {
             <FxFace source={card.fx} enchant={card.enchant} />
           )}
         </span>
+        {card.enchant && (
+          <span
+            aria-hidden="true"
+            className={`bpp-card-gem ${enchantClass(card.enchant)}`}
+          />
+        )}
         <TierLabel label={card.tierLabel} />
         <EnchantLabel enchant={card.enchant} label={card.enchantLabel} />
         {card.change && (

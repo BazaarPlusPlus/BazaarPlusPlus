@@ -1583,22 +1583,51 @@ button.bpp-skill-tile:active {
   color: var(--text-2);
   font-size: var(--type-micro);
 }
+/* An enchantment reads as a gem: a faceted diamond in the enchantment's colour, alone on a
+   tile and leading a tinted pill wherever its name is written. */
+.bpp-enchant,
+.bpp-card-gem {
+  --bpp-gem: var(--bpp-enchant-mark, var(--bpp-enchant, var(--text-2)));
+}
 .bpp-enchant {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-6);
+  width: fit-content;
+  padding: 1px var(--space-8) 1px var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--bpp-gem) 45%, transparent);
+  border-radius: var(--r-pill);
   color: var(--bpp-enchant, var(--text-2));
-  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bpp-gem) 14%, var(--bg-panel));
   font-size: var(--type-micro);
+  font-weight: 600;
+  line-height: 1.5;
 }
-.bpp-enchant::before {
+.bpp-enchant::before,
+.bpp-card-gem {
   content: '';
   flex: none;
-  width: var(--space-4);
-  height: var(--space-4);
-  align-self: center;
-  border-radius: var(--r-pill);
-  background: var(--bpp-enchant-mark, currentColor);
+  width: var(--space-6);
+  height: var(--space-6);
+  rotate: 45deg;
+  border-radius: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bpp-gem) 45%, var(--text-1)),
+    var(--bpp-gem) 55%,
+    color-mix(in srgb, var(--bpp-gem) 70%, var(--bg-canvas))
+  );
+  box-shadow: 0 0 4px color-mix(in srgb, var(--bpp-gem) 70%, transparent);
+}
+/* On a tile the gem sits in the top corner, ringed so it holds against any art. */
+.bpp-card-gem {
+  position: absolute;
+  inset: var(--space-6) var(--space-6) auto auto;
+  z-index: 1;
+  width: var(--space-8);
+  height: var(--space-8);
+  outline: 1px solid var(--bg-canvas);
+  pointer-events: none;
 }
 .bpp-card-change {
   position: absolute;
