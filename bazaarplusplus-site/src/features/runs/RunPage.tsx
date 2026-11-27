@@ -165,7 +165,7 @@ function StepBody({ step, locale }: { step: TimelineStep; locale: Locale }) {
   );
 }
 
-/** Battle day cards plus the Decision path replay decoded lazily from the Run Message Stream. */
+/** Battle day cards plus the Decision Path replay decoded lazily from the Run Message Stream. */
 function RunBody({
   detail,
   steps,

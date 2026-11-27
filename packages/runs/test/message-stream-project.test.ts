@@ -57,7 +57,7 @@ function only<K extends DecisionEntry['kind']>(
   );
 }
 
-describe('Decision path projection', () => {
+describe('Decision Path projection', () => {
   test('tag observations follow the instance across sparse updates and freeze on the selected parent', async () => {
     const frames = [
       message(

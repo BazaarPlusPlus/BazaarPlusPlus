@@ -471,7 +471,7 @@ function validateAndroidPayload(
     const entry = payloadEntry(name, entries);
     if (!entry || !producers.has(entry.producer))
       throw new Error(
-        `Android Mod Payload holds ${name}, which release/payload.json does not give to the mod build`
+        `Android Payload holds ${name}, which release/payload.json does not give to the mod build`
       );
   }
   const staged = new Set(files.map((file) => file.path));
@@ -485,7 +485,7 @@ function validateAndroidPayload(
   );
   if (missing.length)
     throw new Error(
-      `Android Mod Payload lacks ${missing.join(', ')}; the Android host build must produce every required MelonLoader entry of release/payload.json`
+      `Android Payload lacks ${missing.join(', ')}; the Android host build must produce every required MelonLoader entry of release/payload.json`
     );
   const versionFile = path.join(
     payloadRoot,

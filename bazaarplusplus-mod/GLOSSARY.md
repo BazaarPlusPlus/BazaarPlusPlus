@@ -1,8 +1,8 @@
 # BazaarPlusPlus Mod
 
-Definitions pin down what a term means and where its boundary sits; mechanics live in code and `docs/ARCHITECTURE.md`.
+Domain vocabulary and boundaries for the mod. Cross-project terms (`Host`, `Payload`, `Data Root`, `Bundle`, `Run`, `Run Message Stream`, `Ghost Battle`, `Platform Release Manifest`, `Managed Payload`, `Updater`, `Snapshot Lock`) live in [the root glossary](../GLOSSARY.md); internal module seams and mechanics live in code and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Run / encounters
+## Run and encounters
 
 **Encounter**:
 A single stop on a run — a combat, PvP combat, event, shop, pedestal, loot, or level-up — that the player reaches and enters.
@@ -11,34 +11,15 @@ _Avoid_: node, map node
 **Pedestal**:
 An encounter that upgrades or enchants one of the player's existing items rather than granting a new one.
 
-**Encounter Status Probe**:
-The on-demand, pull-based read of the player's *current* run/encounter state (`IEncounterStateProbe`). Status queries, not a recorded timeline (ADR-0001).
-_Avoid_: encounter tracker, run timeline
-
-**Run Snapshot Probe**:
-The on-demand, pull-based read of the current run's recordable facts — day/hour, win/loss, hero, mode, player stats, rank, leaderboard placement (`IRunSnapshotProbe`). Consumers map it into their own records, never reading game globals.
-_Avoid_: run tracker
-
 **Game Build Channel**:
 The client's `Online`, `Ptr` (PTR and staging), or `Unknown` classification (`GameBuildInfoResolver`). It gates uploads and is recorded on runs to keep test data out of production.
 _Avoid_: environment, server flag
 
-**Run Logging Intake**:
-The pure `IBppFeature` that turns event-bus inputs into run-log sessions and persistence; it owns no run timeline.
-_Avoid_: RunLoggingController, run logger MonoBehaviour
-
 **Detailed Preview**:
 The shared switch for encounter and quest tooltip information supported by each host. Excludes upgrade and enchant previews.
 
-**Encounter Preview Module**:
-The event and hero reward query boundary both hosts share in Core: template id and card type, or level and hero, and native text in; rendered preview out. Each host supplies its plans and game reads.
-
-**End-of-Run Capture Workflow**:
-The single run-scoped state machine owning the end-of-run screenshot, from readiness to a fail-open outcome. Patches only send Continue and reveal-start intents (`IEndOfRunCaptureWorkflow`).
-_Avoid_: screenshot gate
-
-**Ghost Battle**:
-A PvP battle fetched from the mod backend in which the local player's uploaded build fought inside another player's run (the game's PvP is asynchronous — opponents are ghosts). Stored in the recorder's perspective (ADR-0002).
+**Ghost Battle** (mod scope):
+Defined in [the root glossary](../GLOSSARY.md). Stored locally in the recorder's perspective (ADR-0002).
 _Avoid_: remote battle, opponent battle
 
 ## Combat replay
@@ -57,15 +38,8 @@ _Avoid_: replay cache, orphan video
 **Native Frame Submission**:
 One recording tick's admission of the current rendered frame to a native encoder, including its output timing and capture/drop accounting. Platform capture resources live for the recording, not for the tick.
 
-**Saved Replay Playback**:
-The Core module (`SavedReplayPlayback`) owning one saved replay from admission to menu return on both hosts (ADR-0020).
-
 **Combat Impact Corpus**:
 Combat Impact's acceptance input in BPP types, exported host-side from game payloads (ADR-0019).
-
-**PvP Battle Capture Window**:
-Core's `PvpBattleCaptureWindow`: frames one PvP battle from a host's opening, combat and closing sims; hosts read and persist (ADR-0021).
-_Avoid_: matcher, collector, sequence candidate
 
 ## Overlay panels
 
@@ -81,125 +55,67 @@ Core's `OverlayPanelHost` plus a thin adapter per Host, owning Main Overlay Pane
 _Avoid_: panel mutex
 
 **Walkthrough Control**:
-The Overlay Panel Host's file trigger for the device walkthrough: `open <panel id>` in `walkthrough-command.txt` in the Data Root opens that Main Overlay Panel as a hotkey toggle would, on every Host. `shot <name>` captures the desktop window to `ui-shots/` (ADR-0027).
+The Overlay Panel Host's file trigger for the device walkthrough: `open <panel id>` in `walkthrough-command.txt` in the Data Root opens that Main Overlay Panel as a hotkey toggle would, on every Host; `shot <name>` captures the desktop window to `ui-shots/` (ADR-0027).
 _Avoid_: debug menu, test hook
 
 **Panel Switch-Off**:
 A panel's setting turned off: the host closes and notifies it, then releases Host resources.
 
 **Cursor Page / Counted Page**:
-One read of a History list. A cursor page holds rows plus time/ID anchors and whether newer or older rows exist; the battle timeline and Ghost recovery use it. A counted page adds the one-based position of its first row and the filtered total, from which the neighbours follow; the Runs and Ghost archives use it.
+One read of a History list. A cursor page holds rows plus time/ID anchors and whether newer or older rows exist (battle timeline, Ghost recovery). A counted page adds the one-based position of its first row and the filtered total (Runs and Ghost archives).
 _Avoid_: page with optional counts
 
-**Native Card Preview Host**:
-The sole owning module (`GameInterop/CardPreview`) for the game's native card prefabs; consumers reach them only through their own scopes.
-_Avoid_: global preview pool
-
-**Native Card Preview Scope / Session**:
-A scope is one real UI owner's resource boundary, with its own pool. A session is an opaque lease of one set-up card, exposing only layout and show/hide/hover intents.
-_Avoid_: preview handle
-
-## Fonts
-
-**Native Game Typography**:
-The single adapter (`GameInterop/Fonts/NativeGameTypography`) through which every BPP surface renders text with the game's own fonts; BPP embeds none.
-_Avoid_: custom font, font selector
-
-## Settings dock
+## Settings and loadout
 
 **Cycling Settings Dock Entry**:
 A settings-dock entry that cycles through an ordered value ladder on click; a bool toggle is the two-value case. Features contribute data only. Action buttons and lock toggles are not this concept.
-
-## Loadout
 
 **Random Cosmetic Pool**:
 The cosmetics of one category that the game's Randomize may equip for one hero at run start. The player leaves cosmetics out while Randomize is on (Pool Mode); a default cosmetic is never in it. With nothing left out, the game's own pick stands.
 
 ## Uploads
 
-**Run Bundle Contract**:
-The shared V6 reader/writer boundary (`RunBundleV6Contract`) that opens a Bundle, verifies its Run
-identity, and decides whether a Battle is importable; Bundle composition and Ghost Battle import share it.
-
-**Mod API Response**:
-The bounded HTTP response boundary for mod-backend JSON: error envelope, request ID, `Retry-After`,
-closed user code. Endpoint disposition and retry policy stay with each client.
-
-**Mod API Session**:
-One owned transport lifetime (`ModApiSession`) for one mod-backend consumer, exposing typed Bundle,
-Ghost Battle, and health operations but never its `HttpClient`.
-_Avoid_: shared global HttpClient, public endpoint-client chain
-
-**Bundle Seal Convergence**:
-The pure decision core for one Bundle seal pass (`BundleSealConvergence`, with
-`BundleSealFailurePolicy` and `BundleSealWakeSchedule`): continue, wait, degrade the screenshot, or
-terminate. It owns no clock, connection, file, codec, or Unity object.
-
 **Environment-Blocked Seal**:
-A waiting seal job whose failure came from the loaded runtime (a missing member, type load, or
-assembly binding failure) rather than its data; it is retried once per launch.
+A waiting seal job whose failure came from the loaded runtime (a missing member, type load, or assembly binding failure) rather than its data; it is retried once per launch.
 _Avoid_: JSON failure
 
 **Seal-Eligible Run**:
-A completed, non-PTR Ranked Run, not History-Only and not an Empty Run, with neither a seal job nor any outbox row;
-job discovery gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule
-(root `AGENTS.md` Contracts).
+A completed, non-PTR Ranked Run, not History-Only and not an Empty Run, with neither a seal job nor any outbox row; job discovery gives it a waiting job. `BundleQueueStore.SealEligibleRunCondition` is the one SQL rule (root `AGENTS.md` Contracts).
 _Avoid_: sealable run
-
-**Bundle Queue Store**:
-The concrete Storage owner of `bundle_seal_jobs` and `bundle_outbox` rows, SQL, and transactions,
-deliberately behind no same-shape repository interface.
-_Avoid_: outbox repository interface
-
-**Bundle Outbox Files**:
-The Game-owned, root-confined file port (`IBundleOutboxFiles`) for sealed Bundle artifacts.
-
-**Upload Feed Session**:
-`BundleUploadFeed.Session`, returned by feed activation: upload attempts, queue backoff, and their resources. The pump owns only cadence, shutdown drain, and shared gates.
-_Avoid_: per-feed upload controller
 
 ## Cards
 
 **Effective Card Tags**:
-The union of a card's runtime, template and active-enchantment public and hidden tags; repeated tags count once per card.
+The union of a card's runtime, template, and active-enchantment public and hidden tags; repeated tags count once per card.
 
 **Card Facet**:
 A Core enum for one card or combat property (`CardSize`, `CardSocket`), named member for member after the game enum it replaces (ADR-0015, ADR-0019).
 _Avoid_: game enums in Core
-
-**Live Card Walk**:
-A Host's raw run read in Card Facets (`LiveCardWalk`); Core's `LiveCardSnapshotRead` fits, numbers and reports it.
 
 **Saved Card Values**:
 A card's attribute values as captured (battle snapshot, build, combat), keyed by the game's member name (ADR-0017); a card BPP sets up shows them over its template's (`NativeCardSetUp`, `AndroidNativeCardSetUp`).
 _Avoid_: instance values, template values
 
 **Tiny**:
-A Medium or Large item the game shrank one size for the rest of the Run (`TActionCardTiny`): the live card's `Size` drops and its `Tiny` attribute is set, and it keeps its template. A captured board card keeps that smaller size, so anything drawing it takes the size from the card, not the template (`CardRentalSubject.ShownSize`). `EEnchantmentType.Tiny` is not how an item gets it; only a shader keyword uses that name.
+A Medium or Large item the game shrank one size for the rest of the Run (`TActionCardTiny`): the live card's `Size` drops and its `Tiny` attribute is set, while keeping its template. A captured board card keeps that smaller size, so anything drawing it takes the size from the card, not the template (`CardRentalSubject.ShownSize`). `EEnchantmentType.Tiny` is not how an item gets it; only a shader keyword uses that name.
 
 ## Mobile UI
 
 **Mobile UI**:
-BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) that the Android host compiles (ADR-0025). The Desktop UI is the Desktop Host's mouse-and-keyboard surfaces.
+BPP's touch surfaces, one source tree (`src/BazaarPlusPlus.Mobile/`) compiled by the Android host (ADR-0025). The Desktop UI is the Desktop Host's mouse-and-keyboard surfaces.
 _Avoid_: Android UI, touch port
 
 **Mobile Platform Port**:
-What the Android host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`, which lists its members): main-thread work, control actions, borrowed game art and font, the card rental, game reads and overlay registration. A panel's frames, and the HUD's, come from an overlay registration's tick, so no separate frame-driving member exists (ADR-0025).
+What the Android host gives the Mobile UI to reach its runtime (`IMobilePlatformPort`): main-thread work, control actions, borrowed game art and font, card rental, game reads, and overlay registration. Panel and HUD frames come from overlay registration ticks (ADR-0025).
 _Avoid_: shim, `#if` branch
 
 **Native Adjustment**:
-A change BPP makes to the game's own UI on a mobile platform, such as screen fill, the day clock's place or a HUD shortcut. Core decides it, the Mobile UI runs it, and the host reads and writes the game objects.
+A change BPP makes to the game's own UI on a mobile platform, such as screen fill, the day clock's place, or a HUD shortcut. Core decides it, the Mobile UI runs it, and the host reads and writes the game objects.
 _Avoid_: native patch, HUD hack
 
 **Screen Fill**:
-The Native Adjustment that lets the game fill a landscape screen narrower than 16:10 instead of letterboxing it: a lower aspect floor, a wider field of view, the day clock in the band above the board, the day-change overlay kept over the whole screen, and canvases kept as wide as 16:10 (`ScreenFill`, Core; the Mobile UI's `TouchScreenFill` runs it).
+The Native Adjustment that lets the game fill a landscape screen narrower than 16:10 instead of letterboxing it: a lower aspect floor, wider field of view, day clock in the band above the board, day-change overlay kept over the whole screen, and canvases kept at least 16:10 wide (`ScreenFill` in Core, `TouchScreenFill` in Mobile UI).
 _Avoid_: letterbox fix, fullscreen mode
-
-## Collection panel
-
-**Collection View State**:
-The single owner of the Collection Panel's presentable state (`CollectionViewState`, Core). Open takes **Collection Open Facts** (`CollectionOpenFacts`), the host's run and catalog reads.
-_Avoid_: ApplyFilters/RefreshView pairing; open selection inputs
 
 ## Collection sources
 
@@ -212,31 +128,18 @@ The card templates a source can offer, as structured rules (`CollectionSourceEnt
 **Collection Source Kind**:
 The source chip category: `Merchant` sources offer Items, `Trainer` sources offer Skills.
 
-## Day tiers
-
-**Day Tier Resolver**:
-The shared GameInterop adapter (`DayTiers/GameDataDayTierResolver`) turning live GameData into the run day's tier weights and `MaximumTier`, the highest usable tier (not the most likely).
-_Avoid_: DayTierSchedule, hardcoded tier table
-
-## Remote embedded data
+## Remote data and build
 
 **Remote Embedded Catalog**:
 The shared runtime lifecycle (`IRemoteEmbeddedCatalog<T>`) for data shipped as an embedded seed, cached under `<GameRoot>/BazaarPlusPlusV6/`, and refreshed remotely; features keep their parser and refresh policy (ADR-0007).
 _Avoid_: feature repository loader
 
-**Supporter Catalog Module**:
-The composition-owned Remote Embedded Catalog consumer for supporter data.
-
-**Platform Release Manifest**:
-Defined in `../GLOSSARY.md`; the mod reads its platform's version, Managed Payload and Android APK
-metadata through the dedicated mod endpoint (`ReleaseManifestEndpoints`), separately from the
-installer's updater and Mod API health.
+**Platform Release Manifest** (mod scope):
+Defined in [the root glossary](../GLOSSARY.md); the mod reads its platform's version, Managed Payload, and Android APK metadata through the dedicated mod endpoint (`ReleaseManifestEndpoints`), separately from the installer's updater and Mod API health.
 _Avoid_: Mod API health
 
 **Build Seed Fetch**:
-The build-time operation that stages, gates, and transactionally promotes remote embedded seeds.
-
-## Build
+The build-time operation that stages, gates, and transactionally promotes remote embedded seeds (ADR-0007).
 
 **Game-supplied library**:
 A third-party library the game's `Managed/` directory loads for the mod (Newtonsoft.Json, MessagePack). The mod's Mono target compiles against the game's file, never a package, and never publicizes or ships it (`build/GameLibraries.props`, ADR-0010).

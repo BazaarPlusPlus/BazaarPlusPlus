@@ -185,7 +185,7 @@ just release::promote --platform android
 ```
 
 1. 与桌面同一个提交（`VERSION` 相同）。本机发版在取包后，对每个来源执行 `BppAndroidSource=<publisher|play> just verify mod::android-build mod::test-core`。`mod::fetch android <来源>` 把锁条目 `android-<来源>` 的 Interop Snapshot 与 Loader Release 取到 `bazaarplusplus-mod/game-libs/`。
-2. `prepare` 为每个 Android 来源构建一个 Game Adaptation（[ADR 0019](adr/0019-android-launcher-adaptations.md)）：对照这个来源锁定的 interop 与 Loader Release 编译 Android 宿主，暂存到 `target/android/<来源>/payload/`，并核对暂存的 Android Mod Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。每个来源用自己的 interop，所以 `prepare` 拒绝 `-p:InteropPath=`；`-p:LemonLoaderPath=` 仍可覆盖，但覆盖的必须是锁条目钉住的那一份。
+2. `prepare` 为每个 Android 来源构建一个 Game Adaptation（[ADR 0019](adr/0019-android-launcher-adaptations.md)）：对照这个来源锁定的 interop 与 Loader Release 编译 Android 宿主，暂存到 `target/android/<来源>/payload/`，并核对暂存的 Android Payload 恰好是 Payload Inventory 里由 mod 构建产生的 `melonloader` 条目：清单要求而宿主没有产出的文件会被逐一点名。每个来源用自己的 interop，所以 `prepare` 拒绝 `-p:InteropPath=`；`-p:LemonLoaderPath=` 仍可覆盖，但覆盖的必须是锁条目钉住的那一份。
 3. `build` 重做 `prepare`，然后对每个来源：
    - 把 Payload 打成确定性的 Managed Payload zip（对象键 `<版本>/android-aarch64/managed/<来源>/`），用 Tauri updater 私钥签名；签名走 installer 锁定的 Tauri CLI，所以要先在 `bazaarplusplus-installer` 执行 `bun install --frozen-lockfile`。
    - 用 `buildInteropPackage` 打 Interop Package，用 Android 发布密钥签它的 `release <版本>` interop 声明。私钥由 `openssl pkcs12` 经密码文件从 keystore 取出，只放在系统临时目录，签完即删；keystore 里的证书必须是钉住的发布证书。

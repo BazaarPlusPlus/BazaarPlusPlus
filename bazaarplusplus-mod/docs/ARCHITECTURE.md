@@ -40,7 +40,7 @@ No shared project references a game, Unity, or loader assembly, so the compiler 
 
 | Core directory | Owns |
 |---|---|
-| `Cards/`, `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | card facets, item boards, live cards, settings port, event bus and BPP-owned snapshots, probe interfaces, run context, runtime services, `CoreComposition` |
+| `Cards/`, `Config/`, `Events/`, `GameState/`, `RunContext/`, `Runtime/` | card facets, item boards, live cards, settings port, event bus, BPP snapshots, pull probes (`IEncounterStateProbe`, `IRunSnapshotProbe`; consumers never read game globals), run context, `CoreComposition` |
 | `Logging/` | the `BppLog` facade and pipeline, the `IBppLogSink` port, operational health tracking |
 | `Localization/` | localization resolution, language and Chinese-mode helpers |
 | `Infrastructure/` | Release Manifest client, self-update staging, remote embedded catalogs, atomic and file-backed writes, async load cache, plugin version |
