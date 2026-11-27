@@ -73,10 +73,27 @@ async function sendCommand(
   }
 }
 
+function matchesLineTokens(text: string, tokens: readonly string[]): boolean {
+  for (const line of text.split(/\r?\n/)) {
+    let cursor = 0;
+    let matched = true;
+    for (const token of tokens) {
+      const index = line.indexOf(token, cursor);
+      if (index === -1) {
+        matched = false;
+        break;
+      }
+      cursor = index + token.length;
+    }
+    if (matched) return true;
+  }
+  return false;
+}
+
 async function awaitLog(
   logFile: string,
   offset: number,
-  pattern: RegExp,
+  tokens: readonly string[],
   label: string,
   timeoutSeconds = 15
 ): Promise<void> {
@@ -88,7 +105,7 @@ async function awaitLog(
       try {
         const buffer = Buffer.alloc(size - offset);
         fs.readSync(fd, buffer, 0, buffer.length, offset);
-        if (pattern.test(buffer.toString('utf8'))) return;
+        if (matchesLineTokens(buffer.toString('utf8'), tokens)) return;
       } finally {
         fs.closeSync(fd);
       }
@@ -129,9 +146,11 @@ export async function cliMain(argv: readonly string[]): Promise<number> {
       await awaitLog(
         logFile,
         offset,
-        new RegExp(
-          `overlay_panels\\.walkthrough\\.command.*panel_id=${panel}.*open_panel_id=${panel}`
-        ),
+        [
+          'overlay_panels.walkthrough.command',
+          `panel_id=${panel}`,
+          `open_panel_id=${panel}`
+        ],
         `overlay_panels.walkthrough.command.*panel_id=${panel}.*open_panel_id=${panel}`
       );
       // Native art and portraits arrive over a few frames after the open.
@@ -141,7 +160,7 @@ export async function cliMain(argv: readonly string[]): Promise<number> {
       await awaitLog(
         logFile,
         offset,
-        new RegExp(`overlay_panels\\.walkthrough\\.shot.*name=${name}`),
+        ['overlay_panels.walkthrough.shot', `name=${name}`],
         `overlay_panels.walkthrough.shot.*name=${name}`
       );
       const shot = path.join(data, 'ui-shots', `${name}.png`);
