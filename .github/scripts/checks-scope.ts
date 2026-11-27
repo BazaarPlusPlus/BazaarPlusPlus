@@ -257,8 +257,8 @@ export const SHARED_INPUTS: [string, string[]][] = [
     ['release']
   ]),
   // The desktop app icon is the Android App's launcher icon too
-  // (bazaarplusplus-android/tools/launcher-icon.py exports it, and the release
-  // lane's design::check fails a stale export).
+  // (design/launcher-icon.ts exports it, and the release lane's design::check
+  // fails a stale export).
   [
     'bazaarplusplus-installer/src-tauri/icons/app-icon.png',
     ['android', 'release']

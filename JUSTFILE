@@ -78,6 +78,11 @@ walkthrough *args:
 history-sample *args:
     bun scripts/workspace.ts run analyzer -- bun scripts/history-sample.ts "$@"
 
+# Extract Simplified Chinese hero, card, skill and enchantment names from the local game cache.
+[group('workspace')]
+zh-names out *args:
+    bun scripts/dev/zh-names.ts "$@"
+
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]
 verify +recipes:

@@ -10,6 +10,10 @@ build:
 kit-art:
     bun design/kit-art.ts
 
+# Export the desktop app icon as the Android App's adaptive launcher icon (mipmap-*/ic_launcher_*).
+launcher-icon:
+    bun design/launcher-icon.ts
+
 # Check that generated tokens and the Tailwind bridge, the shared stylesheet, the site's hero colours and the mod's supporter colours agree with design/tokens.json, and that the Desktop Kit's plates match design/kit-art.ts.
 check:
     bun design/build.ts --check
