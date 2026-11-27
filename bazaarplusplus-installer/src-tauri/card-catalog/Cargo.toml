@@ -16,7 +16,7 @@ serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 sha2 = "0.11.0"
 tempfile = "3"
 texture2ddecoder = "0.1.2"
-lz4_flex = "0.11"
+lz4_flex = "0.14"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [lints]
