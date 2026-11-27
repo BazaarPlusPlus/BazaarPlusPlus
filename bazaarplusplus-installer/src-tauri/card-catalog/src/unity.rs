@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 // ---------- byte reader ----------
@@ -101,7 +101,6 @@ pub struct NodeInfo {
 type BlockCache = (Vec<usize>, HashMap<usize, Rc<Vec<u8>>>);
 
 pub struct Bundle {
-    pub path: PathBuf,
     file: RefCell<File>,
     blocks: Vec<Block>,
     pub nodes: Vec<NodeInfo>,
@@ -186,7 +185,6 @@ impl Bundle {
             nodes.push(NodeInfo { offset, size, path });
         }
         Ok(Self {
-            path: path.to_owned(),
             file: RefCell::new(f),
             blocks,
             nodes,
@@ -434,7 +432,6 @@ fn read_value(node: &TypeNode, c: &mut Cursor<'_>) -> Result<Value> {
 // ---------- SerializedFile ----------
 
 pub struct ObjectInfo {
-    pub path_id: i64,
     pub start: u64,
     pub size: u32,
     pub type_index: usize,
@@ -511,7 +508,6 @@ impl Serialized {
             objects.insert(
                 path_id,
                 ObjectInfo {
-                    path_id,
                     start,
                     size,
                     type_index,

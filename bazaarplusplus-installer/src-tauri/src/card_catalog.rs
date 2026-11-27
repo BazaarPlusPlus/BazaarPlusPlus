@@ -4,7 +4,7 @@
 
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
-use anyhow::{bail, Context as _};
+use anyhow::Context as _;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
@@ -326,7 +326,7 @@ pub(crate) fn export(
             let _ = stdout.flush();
         }
     };
-    card_catalog::extract(&card_catalog::Inputs {
+    let summary = card_catalog::extract(&card_catalog::Inputs {
         data_dir,
         game_data: &game_data_copy,
         translations: &translations_copy,
@@ -341,22 +341,17 @@ pub(crate) fn export(
         // Half the cores: the export runs beside the game and the installer.
         threads: std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).clamp(1, 4)),
     })?;
-    prune_text(out_dir)?;
+    prune_text(out_dir, &summary.text)?;
     std::fs::write(out_dir.join(REVISION_FILE), revision)?;
     Ok(())
 }
 
-/// Card Text files are replaced on every game update; the index names the current two.
-fn prune_text(out_dir: &Path) -> anyhow::Result<()> {
-    let index: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(out_dir.join("index.json"))?)?;
-    let Some(text) = index["text"].as_object() else {
-        bail!("the card catalog index names no Card Text");
-    };
-    let keep: Vec<&str> = text
-        .values()
-        .filter_map(serde_json::Value::as_str)
-        .collect();
+/// Card Text files are replaced on every game update; keep only the current locale files.
+fn prune_text(
+    out_dir: &Path,
+    text: &std::collections::BTreeMap<String, String>,
+) -> anyhow::Result<()> {
+    let keep: Vec<&str> = text.values().map(String::as_str).collect();
     for entry in std::fs::read_dir(out_dir)? {
         let name = entry?.file_name();
         let name = name.to_string_lossy();
@@ -564,12 +559,11 @@ mod tests {
         for name in [old, kept[0], kept[1], "0123456789abcdef0123.webp"] {
             std::fs::write(dir.path().join(name), "").unwrap();
         }
-        std::fs::write(
-            dir.path().join("index.json"),
-            format!(r#"{{"text":{{"en":"{}","zh":"{}"}}}}"#, kept[0], kept[1]),
-        )
-        .unwrap();
-        prune_text(dir.path()).unwrap();
+        let text = std::collections::BTreeMap::from([
+            ("en".to_owned(), kept[0].to_owned()),
+            ("zh".to_owned(), kept[1].to_owned()),
+        ]);
+        prune_text(dir.path(), &text).unwrap();
         assert!(!dir.path().join(old).exists());
         for name in [kept[0], kept[1], "0123456789abcdef0123.webp"] {
             assert!(dir.path().join(name).exists(), "{name}");

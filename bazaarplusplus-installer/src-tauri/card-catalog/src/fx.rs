@@ -1,16 +1,16 @@
 //! Enchantment FX: the inputs of the non-premium PremiumCard vertex and fragment programs
 //! (ADR 0022), one immutable descriptor per card material.
 
-use crate::json::{canonical, hex};
+use crate::json::canonical;
 use crate::resample::{resize, Filter};
 use crate::texture::{py_round, texture_raw, Raw};
 use crate::unity::{Env, Serialized, Value};
 use crate::webp;
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Map, Value as Json};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 /// Union of texture and UnityPerMaterial reads across the non-premium vertex and fragment
 /// programs, all three sizes and both Tiny geometry modes, Steam build 26592248.
@@ -37,15 +37,6 @@ const KEYWORDS: [(&str, &str); 16] = [
 ];
 
 const POLAR_TEXTURES: [&str; 2] = ["_MysticalRunes", "_MysticalBorealLines"];
-
-pub fn immutable(output: &Path, prefix: &str, suffix: &str, data: &[u8]) -> Result<String> {
-    let filename = format!("{prefix}{}{suffix}", &hex(&Sha256::digest(data))[..20]);
-    let path = output.join(&filename);
-    if !path.exists() {
-        std::fs::write(&path, data)?;
-    }
-    Ok(filename)
-}
 
 fn texture_limit(slot: &str) -> usize {
     if POLAR_TEXTURES.contains(&slot)
@@ -168,14 +159,23 @@ pub struct Material {
     pub keywords: Vec<String>,
 }
 
+/// Summary metadata for one written Enchantment FX descriptor.
+pub struct Described {
+    pub file: String,
+    pub size: String,
+    pub has_mask: bool,
+    pub textures: Vec<String>,
+}
+
+type TextureCache = HashMap<(String, i64, String), Map<String, Json>>;
+
 /// Writes descriptors; textures other than the illustration are encoded through `encode`.
-#[derive(Clone)]
 pub struct Describer {
     properties: HashMap<String, ShaderProperty>,
     values: Vec<String>,
     textures: Vec<String>,
     output: PathBuf,
-    texture_files: HashMap<(String, i64, String), Map<String, Json>>,
+    texture_files: Mutex<TextureCache>,
 }
 
 pub type Encode<'a> = dyn FnMut(&TextureInfo, (usize, usize)) -> Result<String> + 'a;
@@ -197,7 +197,7 @@ impl Describer {
             values: names("values"),
             textures: names("textures"),
             output: output.to_owned(),
-            texture_files: HashMap::new(),
+            texture_files: Mutex::new(HashMap::new()),
         })
     }
 
@@ -208,7 +208,7 @@ impl Describer {
     }
 
     fn binding(
-        &mut self,
+        &self,
         name: &str,
         slot: Option<&Slot>,
         art: &str,
@@ -230,7 +230,16 @@ impl Describer {
             format!("{}:{}", texture_limit(name), POLAR_TEXTURES.contains(&name))
         };
         let key = (info.key.0.clone(), info.key.1, profile);
-        if !self.texture_files.contains_key(&key) {
+        let cached = self
+            .texture_files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(&key)
+            .cloned();
+        let mut entry = if let Some(entry) = cached {
+            entry
+        } else {
+            // Encode outside the lock so unique enchantment masks run concurrently across workers.
             // This profile samples RGB or RG from the illustration. Packed effect maps need
             // all four source channels, including RGB under transparent pixels.
             let (file, size) = if name == "_MainTex" {
@@ -242,47 +251,51 @@ impl Describer {
                 let size = texture_size(info.width, info.height, name);
                 (encode(info, size)?, size)
             };
-            let mut entry = Map::new();
-            entry.insert("file".into(), json!(file));
-            entry.insert("size".into(), json!([size.0, size.1]));
-            entry.insert("sourceSize".into(), json!([info.width, info.height]));
-            entry.insert("colorSpace".into(), info.color_space.clone());
-            entry.insert("wrap".into(), json!(info.wrap));
-            entry.insert("filter".into(), info.filter.clone());
-            entry.insert("mipCount".into(), info.mip_count.clone());
-            entry.insert("mipBias".into(), info.mip_bias.clone());
-            entry.insert("aniso".into(), info.aniso.clone());
-            self.texture_files.insert(key.clone(), entry);
-        }
-        let mut entry = self.texture_files[&key].clone();
+            let mut built = Map::new();
+            built.insert("file".into(), json!(file));
+            built.insert("size".into(), json!([size.0, size.1]));
+            built.insert("sourceSize".into(), json!([info.width, info.height]));
+            built.insert("colorSpace".into(), info.color_space.clone());
+            built.insert("wrap".into(), json!(info.wrap));
+            built.insert("filter".into(), info.filter.clone());
+            built.insert("mipCount".into(), info.mip_count.clone());
+            built.insert("mipBias".into(), info.mip_bias.clone());
+            built.insert("aniso".into(), info.aniso.clone());
+            self.texture_files
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .entry(key)
+                .or_insert(built)
+                .clone()
+        };
         entry.insert("st".into(), transform);
         Ok(Json::Object(entry))
     }
 
-    /// Write the material's descriptor and return its file name.
-    pub fn describe(
-        &mut self,
+    /// Write the material's descriptor and return its file name and summary metadata.
+    pub fn describe_meta(
+        &self,
         material: &Material,
         art: &str,
         height: usize,
         encode: &mut Encode<'_>,
-    ) -> Result<String> {
+    ) -> Result<Described> {
         let mut values = Map::new();
-        for name in self.values.clone() {
+        for name in &self.values {
             if name.ends_with("_ST") {
                 continue; // carried on the texture binding
             }
-            let prop = self.property(&name)?;
+            let prop = self.property(name)?;
             let value = if prop.kind == 0 || prop.kind == 1 {
-                json!(material.colors.get(&name).unwrap_or(&prop.defaults))
+                json!(material.colors.get(name).unwrap_or(&prop.defaults))
             } else {
                 material
                     .floats
-                    .get(&name)
+                    .get(name)
                     .cloned()
                     .unwrap_or_else(|| prop.defaults[0].clone())
             };
-            values.insert(name, value);
+            values.insert(name.clone(), value);
         }
         let size = material
             .keywords
@@ -291,9 +304,19 @@ impl Describer {
             .map(str::to_lowercase)
             .context("material without a _CRDSIZE_ keyword")?;
         let mut textures = Map::new();
-        for name in self.textures.clone() {
-            let binding = self.binding(&name, material.slots.get(&name), art, height, encode)?;
-            textures.insert(name, binding);
+        let mut effect_textures = Vec::new();
+        let mut has_mask = false;
+        for name in &self.textures {
+            let binding = self.binding(name, material.slots.get(name), art, height, encode)?;
+            if name != "_MainTex" {
+                if let Some(file) = binding.get("file").and_then(Json::as_str) {
+                    effect_textures.push(file.to_owned());
+                    if name == "_EnchantmentMask" {
+                        has_mask = true;
+                    }
+                }
+            }
+            textures.insert(name.clone(), binding);
         }
         let descriptor = json!({
             "version": 1,
@@ -303,12 +326,29 @@ impl Describer {
             "values": values,
             "textures": textures,
         });
-        immutable(
+        let file = crate::write_immutable(
             &self.output,
             "fx-",
             ".json",
             canonical(&descriptor).as_bytes(),
-        )
+        )?;
+        Ok(Described {
+            file,
+            size,
+            has_mask,
+            textures: effect_textures,
+        })
+    }
+
+    #[cfg(test)]
+    pub fn describe(
+        &self,
+        material: &Material,
+        art: &str,
+        height: usize,
+        encode: &mut Encode<'_>,
+    ) -> Result<String> {
+        Ok(self.describe_meta(material, art, height, encode)?.file)
     }
 }
 
@@ -344,9 +384,9 @@ impl MaterialExporter {
         })
     }
 
-    /// A copy of the descriptor writer for one worker thread.
-    pub fn describer(&self) -> Describer {
-        self.describer.clone()
+    /// Shared descriptor writer for worker threads.
+    pub fn describer(&self) -> &Describer {
+        &self.describer
     }
 
     /// Everything a descriptor needs from the bundles: the material's values and the raw
@@ -453,26 +493,26 @@ pub struct Prepared {
 impl Describer {
     /// The descriptor for a prepared material, encoding its textures here.
     pub fn describe_prepared(
-        &mut self,
+        &self,
         prepared: &Prepared,
         art: &str,
         height: usize,
-    ) -> Result<String> {
-        let output = self.output.clone();
+    ) -> Result<Described> {
+        let output = &self.output;
         let mut encode = |info: &TextureInfo, size: (usize, usize)| -> Result<String> {
             let image = prepared
                 .raws
                 .get(&info.key)
                 .ok_or_else(|| anyhow!("texture pixels missing"))?
                 .decode()?;
-            immutable(
-                &output,
+            crate::write_immutable(
+                output,
                 "tex-",
                 ".webp",
                 &texture_webp(&image.rgba, image.width, image.height, size)?,
             )
         };
-        self.describe(&prepared.material, art, height, &mut encode)
+        self.describe_meta(&prepared.material, art, height, &mut encode)
     }
 }
 
@@ -568,7 +608,7 @@ mod tests {
                 default_texture: Some("white".into()),
             },
         )]);
-        let mut describer = Describer::new(properties, dir.path()).unwrap();
+        let describer = Describer::new(properties, dir.path()).unwrap();
         let mut never = |_: &TextureInfo, _: (usize, usize)| -> Result<String> { unreachable!() };
         assert_eq!(
             describer
@@ -664,7 +704,7 @@ mod tests {
             textures.insert(file.clone(), t);
         }
         let dir = tempfile::tempdir().unwrap();
-        let mut describer = Describer::new(properties, dir.path()).unwrap();
+        let describer = Describer::new(properties, dir.path()).unwrap();
         let mut encode =
             |t: &TextureInfo, _: (usize, usize)| -> Result<String> { Ok(names[&t.key.1].clone()) };
         for item in fixture["items"].as_array().unwrap() {

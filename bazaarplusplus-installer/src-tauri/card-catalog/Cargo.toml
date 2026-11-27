@@ -19,7 +19,5 @@ texture2ddecoder = "0.1.2"
 lz4_flex = "0.11"
 zip = { version = "9", default-features = false, features = ["deflate"] }
 
-[dev-dependencies]
-
 [lints]
 workspace = true
