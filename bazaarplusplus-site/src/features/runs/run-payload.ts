@@ -7,7 +7,7 @@ import { decodeMessagePack } from '@bpp/runs/msgpack';
 const PAYLOAD_FORMAT_VERSION = 6;
 const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
 
-export type CardSetStatus = 'captured' | 'empty' | 'missing';
+type CardSetStatus = 'captured' | 'empty' | 'missing';
 
 export type RunCard = {
   instanceId: string;

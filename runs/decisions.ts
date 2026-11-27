@@ -171,7 +171,7 @@ export function presentVisit<C extends { name: string }>(
 }
 
 export type ReplayStep = {
-  /** The moment's response seq; a battle's opening uses its own. */
+  /** The action's command seq, or the opening response seq for a battle step. */
   seq: number;
   verb: VisitLabel;
   /** Consecutive moves read as one step that ends on the last move. */

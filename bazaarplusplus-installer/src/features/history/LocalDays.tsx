@@ -164,12 +164,7 @@ export function LocalDays({
   return (
     <>
       {failed && <p role="status">{terms.replay.error}</p>}
-      {!days.length &&
-        (input.section.state !== 'available' || visits !== undefined ? (
-          empty
-        ) : (
-          <p>{t('runDetailLoading')}</p>
-        ))}
+      {!days.length && empty}
       <ol className="flex flex-col gap-3">
         {days.map(({ day, battles: rows }) => (
           <DayCard
@@ -179,7 +174,7 @@ export function LocalDays({
                 ? terms.replay.unknownDay
                 : fillTerm(terms.day, { n: day })
             }
-            battles={rows.length ? renderBattles(rows) : null}
+            battles={renderBattles(rows)}
           />
         ))}
       </ol>

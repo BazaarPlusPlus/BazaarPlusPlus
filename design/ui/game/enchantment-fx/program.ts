@@ -127,7 +127,6 @@ const programs: Partial<
     Enchantment,
     {
       keyword: string;
-      allSizes?: boolean;
       module: () => Promise<{ default: string }>;
     }
   >
@@ -145,13 +144,11 @@ const programs: Partial<
   },
   Shiny: {
     keyword: 'DAZZLING',
-    allSizes: true,
     module: () => import('./programs/dazzling')
   },
   Tiny: { keyword: 'TINY', module: () => import('./programs/tiny') },
   Deadly: {
     keyword: 'DANGEROUS',
-    allSizes: true,
     module: () => import('./programs/dangerous')
   },
   Fiery: { keyword: 'FIERY', module: () => import('./programs/fiery') },

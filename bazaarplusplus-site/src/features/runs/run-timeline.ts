@@ -3,7 +3,7 @@ import type { CardSet, RunBattle, RunCard } from './run-payload';
 const ITEM_TYPE = 0;
 const TIERS = ['Bronze', 'Silver', 'Gold', 'Diamond', 'Legendary'];
 
-export type TimelineCard = RunCard & {
+type TimelineCard = RunCard & {
   /** Set from the second observed board on. */
   change: 'new' | 'tier-up' | null;
   /** The tier on the previous observed board, for a tier-up. */
@@ -28,7 +28,7 @@ function tierRank(tier: string | null): number {
 }
 
 /** Matches cards by InstanceId, which survives tier-ups. */
-export function diffCards(
+function diffCards(
   previous: readonly RunCard[] | null,
   current: readonly RunCard[]
 ): CardDiff {

@@ -1,6 +1,6 @@
 /**
  * The Game Message Schema: the MessagePack layout of the game's network messages, merged from
- * every Game Assembly Snapshot that tools/message-schema/generate.ts read. One schema serves
+ * every Game Assembly Snapshot that runs/tools/message-schema/generate.ts read. One schema serves
  * every Run: the mod records a message as the client re-serialized it, so a Run's bytes follow
  * its client build, and every client build the schema read is in it.
  *

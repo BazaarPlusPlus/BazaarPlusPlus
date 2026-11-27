@@ -1,6 +1,6 @@
 #:property PublishAot=false
 // Reads the MessagePack layout of the game's network messages from one assembly of a Game
-// Assembly Snapshot and prints it as JSON. tools/message-schema/generate.ts merges the output
+// Assembly Snapshot and prints it as JSON. runs/tools/message-schema/generate.ts merges the output
 // into the Game Message Schema; it does not interpret anything itself.
 //
 //   dotnet run extract.cs -- <assembly.dll> attributes <out.json>   desktop BazaarGameShared.dll:

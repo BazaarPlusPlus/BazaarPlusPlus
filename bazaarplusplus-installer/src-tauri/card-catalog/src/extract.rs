@@ -39,7 +39,7 @@ pub struct Inputs<'a> {
     /// Publication refuses a set that resolved too few cards.
     pub publication: bool,
     pub require_fx: bool,
-    /// Called with (cards done, cards in GameData) as the art is exported.
+    /// Called with (steps done, total steps) across card art and Enchantment FX export.
     pub progress: Option<&'a dyn Fn(usize, usize)>,
     /// Threads that decode, resize and encode art.
     pub threads: usize,

@@ -247,7 +247,7 @@ pub struct Language {
     /// Keyword entries by word, sorted.
     pub keywords: BTreeMap<String, Value>,
     labels: HashMap<String, String>,
-    /// Labels in the regex's alternation order.
+    /// Labels ordered longest-first so prefix matching picks the most specific keyword.
     alternatives: Vec<String>,
 }
 

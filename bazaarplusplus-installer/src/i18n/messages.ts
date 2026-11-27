@@ -362,7 +362,6 @@ const zh = {
   battleEmptySkills: '无技能',
   battleOpponentBoard: '对手阵容',
 
-  battleColDay: '天数',
   battleColResult: '结果',
   battleColOpponentHero: '对手英雄',
   battleColOpponentPlayer: '对手玩家',
@@ -895,7 +894,6 @@ const en: Record<MessageKey, string> = {
   battleEmptySkills: 'No skills',
   battleOpponentBoard: 'Opponent board',
 
-  battleColDay: 'Day',
   battleColResult: 'Result',
   battleColOpponentHero: 'Opponent hero',
   battleColOpponentPlayer: 'Opponent player',

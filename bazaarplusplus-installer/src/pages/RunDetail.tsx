@@ -262,13 +262,12 @@ export default function RunDetail() {
                 <div className="overflow-x-auto">
                   <table className="bpp-table">
                     <colgroup>
-                      <col style={{ width: '7%' }} />
-                      <col style={{ width: '9%' }} />
-                      <col style={{ width: '17%' }} />
-                      <col style={{ width: '21%' }} />
-                      <col style={{ width: '15%' }} />
                       <col style={{ width: '10%' }} />
-                      <col style={{ width: '21%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '23%' }} />
+                      <col style={{ width: '16%' }} />
+                      <col style={{ width: '11%' }} />
+                      <col style={{ width: '22%' }} />
                     </colgroup>
                     <thead>
                       <tr>

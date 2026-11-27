@@ -1,12 +1,12 @@
 // The Game Message Schema generator. See runs/message-stream/schema.ts.
 //
-//   bun tools/message-schema/generate.ts [snapshot...]   merge snapshots under
+//   bun runs/tools/message-schema/generate.ts [snapshot...]   merge snapshots under
 //       bazaarplusplus-mod/game-libs/ into the committed schema (default: the Snapshot Lock's
 //       macOS online and staging and its Android entries that are on disk); needs the .NET SDK.
-//       The schema is cumulative: a build stays once merged, so older Runs keep their names. A
-//       new game build is merged as an ordinary site change; until then its new keys and union
-//       cases stay raw and flagged, never lost.
-//   bun tools/message-schema/generate.ts check           fail when the committed schema is not
+//       The schema is cumulative: a build stays once merged, so older Runs keep their names.
+//       Until a new game build is merged, its new keys and union cases stay raw and flagged,
+//       never lost.
+//   bun runs/tools/message-schema/generate.ts check           fail when the committed schema is not
 //       what the generator writes for the sources it records; needs no snapshot
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

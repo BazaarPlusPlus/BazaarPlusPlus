@@ -15,7 +15,7 @@ describe('bpp-* classes', () => {
     ).toEqual([]);
   });
 
-  it('the site uses only bpp-* classes bundle.css defines', () => {
+  it('the UI documentation site uses only bpp-* classes bundle.css defines', () => {
     const src = join(import.meta.dirname, '..', 'src');
     expect(undefinedClasses(tsxFiles(src), productBppTokens, src)).toEqual([]);
   });

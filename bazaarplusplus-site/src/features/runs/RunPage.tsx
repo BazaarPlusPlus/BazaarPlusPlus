@@ -169,8 +169,8 @@ function StepBody({ step, locale }: { step: TimelineStep; locale: Locale }) {
   );
 }
 
-/** The decision path, decoded from the Run Message Stream after the page shows. */
-function Decisions({
+/** Battle day cards plus the Decision path replay decoded lazily from the Run Message Stream. */
+function RunBody({
   detail,
   steps,
   locale
@@ -282,7 +282,7 @@ function Timeline({ runId, locale }: { runId: string; locale: Locale }) {
     );
   }
   const { run, steps } = detail.data;
-  return <Decisions detail={run} steps={steps} locale={locale} />;
+  return <RunBody detail={run} steps={steps} locale={locale} />;
 }
 
 export default function RunPage({ location, replacePage }: Props) {
@@ -335,11 +335,9 @@ export default function RunPage({ location, replacePage }: Props) {
             </div>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small tabular-nums">
               <RunFacts run={run} locale={locale} />
-              {run.ended_at_ms != null && (
-                <span className="text-text-3">
-                  {date.format(run.ended_at_ms)}
-                </span>
-              )}
+              <span className="text-text-3">
+                {date.format(run.ended_at_ms)}
+              </span>
             </div>
           </>
         )}
