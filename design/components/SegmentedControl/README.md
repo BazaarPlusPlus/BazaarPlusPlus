@@ -1,6 +1,6 @@
 A radio group drawn as joined segments, for switching between a few views of the same content.
 
-Source: `SegmentedControl` in `design/ui/SegmentedControl.tsx` with `.bpp-segmented*`.
+Source: `SegmentedControl` in `packages/ui/src/SegmentedControl.tsx` with `.bpp-segmented*`.
 
 ## Use
 

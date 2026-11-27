@@ -55,9 +55,11 @@ BazaarPlusPlus 不改变游戏平衡，只做信息增强与记录：卡牌图�
 | `bazaarplusplus-server/`    | Cloudflare Worker：Bundle 上传、Ghost 发现与 BazaarDB 投递         |
 | `bazaarplusplus-bot/`       | QQ 群命令、账号绑定与战绩图片                                      |
 | `bazaarplusplus-analyzer/`  | 把 Bundle 汇总成英雄与阵容快照                                     |
-| `bazaarplusplus-ui-docs/` | [组件文档](https://ui.bazaarplusplus.com) |
+| `bazaarplusplus-ui-docs/`   | [组件文档](https://ui.bazaarplusplus.com)                          |
 | `bazaarplusplus-site/`      | bazaarplusplus.com                                                 |
-| `design/`                   | 设计 token、共享样式与品牌规范                                     |
+| `packages/ui/`              | 独立 React 19 + Tailwind 4 UI Kit（`@bazaarplusplus/ui`）          |
+| `packages/runs/`            | 共享对局消息流与决策投影内部包（`@bpp/runs`）                      |
+| `design/`                   | 跨端设计 token、品牌标志与规范                                     |
 | `VERSION`、`release/`       | 产品版本与发布流程                                                 |
 
 ```bash

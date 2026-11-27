@@ -1,6 +1,6 @@
 The one layout for a region with nothing to show yet: loading, empty, error and not-found. It is a mark, a title, at most one sentence of body and up to two actions.
 
-Source: `StatusPanel` in `design/ui/StatusPanel.tsx`, which the installer and the site render, styled by `.bpp-status-panel*` in `bundle.css`.
+Source: `StatusPanel` in `packages/ui/src/StatusPanel.tsx`, which the installer and the site render, styled by `.bpp-status-panel*` in `packages/ui/styles/primitives.css`.
 
 ## Use
 
