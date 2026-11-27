@@ -12,7 +12,11 @@ import { signIn, withLoginCancellation } from './android-login.ts';
 import { inspectScreen } from './android-screen.ts';
 import type { LoginReceipt } from './android-login.ts';
 import type { ScreenReport } from './android-screen.ts';
-import { androidSdkPaths } from './android-sdk.ts';
+import { androidSdkPaths, listedDevices, onlyDevice } from './adb.ts';
+import type { AdbDevice } from './adb.ts';
+
+export { listedDevices, onlyDevice };
+export type { AdbDevice };
 
 export interface DeviceProfile {
   name: string;
@@ -76,11 +80,6 @@ export function assertArm64Runtime(
     throw new Error(
       'This x86_64 image has no active ARM64 native translation.'
     );
-}
-
-export interface AdbDevice {
-  serial: string;
-  state: string;
 }
 
 export interface InitReceipt {
@@ -377,41 +376,8 @@ function missingSeed(
     : `Seed AVD ${seed} is missing and no AVD here uses ${p.image.path}. Create one with that image in Android Studio, then rerun with --seed NAME.`;
 }
 
-// Keep device selection in sync with find_device in bazaarplusplus-mod/scripts/android.sh.
-export function listedDevices(listing: string): AdbDevice[] {
-  const lines = listing.split(/\r?\n/);
-  return lines
-    .slice(lines.findIndex((line) => line.startsWith('List of devices')) + 1)
-    .map((line) => line.trim().split(/\s+/))
-    .filter((fields) => fields.length >= 2)
-    .map(([serial, state]) => ({ serial, state }));
-}
-
 const listedText = (listed: AdbDevice[]): string =>
   listed.map((d) => `${d.serial} ${d.state}`).join(', ');
-
-export function onlyDevice(listing: string, selected?: string): string {
-  const all = listedDevices(listing);
-  const listed = selected
-    ? all.filter((device) => device.serial === selected)
-    : all;
-  if (selected && !listed.length)
-    throw new Error(`Selected Android device '${selected}' is not connected.`);
-  if (!listed.length)
-    throw new Error(
-      'No Android device is online; open one AVD with: just setup-device NAME --keep-open'
-    );
-  if (listed.length > 1)
-    throw new Error(
-      `More than one Android device is running (${listedText(listed)}); close all but one.`
-    );
-  const [{ serial, state }] = listed;
-  if (state !== 'device')
-    throw new Error(
-      `Device '${serial}' is ${state}; wait for it or close it (a stale entry with no emulator running clears with: adb kill-server).`
-    );
-  return serial;
-}
 
 export function assertEmulatorsStopped(listing: string): void {
   const active = listedDevices(listing).filter((device) =>

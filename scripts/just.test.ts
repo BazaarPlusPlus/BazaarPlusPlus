@@ -50,7 +50,7 @@ const moduleFiles = [
     .readFileSync(path.join(root, 'JUSTFILE'), 'utf8')
     .matchAll(/^mod [\w-]+ '([^']+)'$/gm)
 ].map((match) => match[1]);
-const modScripts = ['build', 'test', 'game', 'android'];
+const modScripts = ['build', 'test', 'game'];
 const shellQuote = (value: string): string =>
   `'${value.replaceAll("'", "'\\''")}'`;
 const rootOxfmt = (mode: string): [string, ...string[]] => [
@@ -542,19 +542,19 @@ test('secrets-check and secrets-sync delegate to the workspace secrets commands'
 const managedPath =
   "-p:ManagedPath=C:/Games/O'Brien/${USER}/$(printf injected); & Managed";
 
-for (const [recipe, script, command] of [
-  ['build', 'build', 'build'],
-  ['test', 'test', 'test'],
-  ['test-core', 'test', 'test-core'],
-  ['test-performance', 'test', 'test-performance'],
-  ['fetch-data', 'build', 'fetch-data'],
-  ['android-build', 'android', 'build']
-]) {
+for (const [recipe, tool, prefix] of [
+  ['build', 'mod-build', ['build']],
+  ['test', 'mod-test', ['test']],
+  ['test-core', 'mod-test', ['test-core']],
+  ['test-performance', 'mod-test', ['test-performance']],
+  ['fetch-data', 'mod-build', ['fetch-data']],
+  ['android-build', 'bun', ['../scripts/android/mod-loop.ts', 'build']]
+] satisfies [string, string, string[]][]) {
   test(`mod::${recipe} preserves argument boundaries`, (t) => {
     const f = fixture(t);
     succeeded(f.run([`mod::${recipe}`, '--fast', managedPath]));
     assert.deepEqual(f.calls(), [
-      call(f.dir, 'mod', `mod-${script}`, command, '--fast', managedPath)
+      call(f.dir, 'mod', tool, ...prefix, '--fast', managedPath)
     ]);
   });
 }
@@ -615,7 +615,7 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
   ]);
 });
 
-test('mod Android device recipes route to android.sh with a validated mode', (t) => {
+test('mod Android device recipes route to scripts/android/mod-loop.ts with a validated mode', (t) => {
   const f = fixture(t);
   assert.notEqual(f.run(['mod::android-mode', 'on']).status, 0);
   assert.deepEqual(f.calls(), []);
@@ -626,12 +626,33 @@ test('mod Android device recipes route to android.sh with a validated mode', (t)
   succeeded(f.run(['mod::android-capture', 'enabled-1']));
   succeeded(f.run(['mod::android-screen-check', 'baseline']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-android', 'deploy'),
-    call(f.dir, 'mod', 'mod-android', 'mode', 'observe'),
-    call(f.dir, 'mod', 'mod-android', 'launch'),
-    call(f.dir, 'mod', 'mod-android', 'launcher'),
-    call(f.dir, 'mod', 'mod-android', 'capture', 'enabled-1'),
-    call(f.dir, 'mod', 'mod-android', 'screen-check', 'baseline')
+    call(f.dir, 'mod', 'bun', '../scripts/android/mod-loop.ts', 'deploy'),
+    call(
+      f.dir,
+      'mod',
+      'bun',
+      '../scripts/android/mod-loop.ts',
+      'mode',
+      'observe'
+    ),
+    call(f.dir, 'mod', 'bun', '../scripts/android/mod-loop.ts', 'launch'),
+    call(f.dir, 'mod', 'bun', '../scripts/android/mod-loop.ts', 'launcher'),
+    call(
+      f.dir,
+      'mod',
+      'bun',
+      '../scripts/android/mod-loop.ts',
+      'capture',
+      'enabled-1'
+    ),
+    call(
+      f.dir,
+      'mod',
+      'bun',
+      '../scripts/android/mod-loop.ts',
+      'screen-check',
+      'baseline'
+    )
   ]);
 });
 

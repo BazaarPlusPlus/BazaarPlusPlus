@@ -10,8 +10,10 @@ import {
   UPDATER_ASSET,
   buildInteropPackage,
   buildRuntimeZip,
+  devSignInterop,
   stageAndroidAppRuntime
 } from './android-app.ts';
+import { interopStatement } from './android-interop.ts';
 import { platformInventory } from './payload-inventory.ts';
 import { readZipEntries } from './payload-zip.ts';
 
@@ -141,4 +143,41 @@ test('the Payload Inventory names the APK paths of what staging writes', () => {
     .map((entry) => entry.path);
   expect(inApk.length).toBeGreaterThan(0);
   expect(staged).toEqual(expect.arrayContaining(inApk));
+});
+
+test('devSignInterop signs the interop statement offline with a development RSA key', () => {
+  const dir = tempDir('dev-sign');
+  const zipPath = write(dir, 'interop.zip', 'zip-bytes');
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
+    modulusLength: 2048
+  });
+  const keyFile = write(
+    dir,
+    'key.pem',
+    privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+  );
+  const il2cpp = 'a'.repeat(64);
+  const metadata = 'b'.repeat(64);
+  const purpose = 'release 6.4.5';
+  const signature = devSignInterop({
+    zip: zipPath,
+    il2cpp,
+    metadata,
+    purpose,
+    keyFile
+  });
+  const statement = interopStatement({
+    zipSha256: sha256('zip-bytes'),
+    il2cppSha256: il2cpp,
+    metadataSha256: metadata,
+    purpose
+  });
+  expect(
+    crypto.verify(
+      'sha256',
+      statement,
+      publicKey,
+      Buffer.from(signature, 'base64')
+    )
+  ).toBe(true);
 });

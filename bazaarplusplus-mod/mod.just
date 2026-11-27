@@ -36,53 +36,49 @@ android-check:
 
 # Compile the Android host against the fetched Interop Snapshot; [-p:Name=Value ...].
 android-build *args:
-    bash scripts/android.sh build "$@"
+    bun ../scripts/android/mod-loop.ts build "$@"
 
 # Push the Android build to its MelonLoader Payload paths on ANDROID_SERIAL, or the only connected device.
 android-deploy:
-    bash scripts/android.sh deploy
+    bun ../scripts/android/mod-loop.ts deploy
 
 # Set the Android host's patch mode on the device; it applies on the next launch.
 [arg('mode', pattern='enabled|observe|disabled')]
 android-mode mode:
-    bash scripts/android.sh mode "$@"
+    bun ../scripts/android/mod-loop.ts mode "$@"
 
 # Set one key of the device's BazaarPlusPlus.cfg, such as Touch UpgradePreview true; it applies on the next launch.
 android-setting section key value:
-    bash scripts/android.sh setting "$@"
+    bun ../scripts/android/mod-loop.ts setting "$@"
 
 # Restart the debug Android App with an empty logcat buffer and tap Play on its launcher.
 android-launch:
-    bash scripts/android.sh launch
+    bun ../scripts/android/mod-loop.ts launch
 
 # Restart the debug Android App and stop at its launcher, without starting the game.
 android-launcher:
-    bash scripts/android.sh launcher
-
-# Development only: copy recent cloud runs into desktop or Android history as History-Only Runs, or clear them; see --help.
-history-sample *args:
-    bash scripts/history-sample.sh "$@"
+    bun ../scripts/android/mod-loop.ts launcher
 
 # Development only: open panels in the running desktop game and capture each inside the game; see --help.
 ui-shots *args:
-    bash scripts/ui-shots.sh "$@"
+    bun ../scripts/dev/desktop-shots.ts "$@"
 
 # Save logs, a screenshot and display metadata under artifacts/android/<run>/.
 android-capture run:
-    bash scripts/android.sh capture "$@"
+    bun ../scripts/android/mod-loop.ts capture "$@"
 
 # Capture and reject portrait or overridden displays before judging UI layout; never changes device settings.
 android-screen-check run:
-    bash scripts/android.sh screen-check "$@"
+    bun ../scripts/android/mod-loop.ts screen-check "$@"
 
 # Build, deploy, relaunch in a mode, capture into artifacts/android/smoke-<mode>/, and assert the three levels.
 [arg('mode', pattern='enabled|observe|disabled')]
 android-smoke mode:
-    bash scripts/android.sh smoke "$@"
+    bun ../scripts/android/mod-loop.ts smoke "$@"
 
 # Re-assert the three smoke levels on a capture directory, such as a downloaded CI artifact.
 android-verify dir:
-    bash scripts/android.sh verify "$@"
+    bun ../scripts/android/mod-loop.ts verify "$@"
 
 # Export a game replay corpus to a Combat Impact Corpus and project it: <absolute-corpus-path> [report-path] [--benchmark].
 test-corpus +args:

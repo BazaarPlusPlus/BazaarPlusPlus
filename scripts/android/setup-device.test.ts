@@ -21,7 +21,7 @@ import {
   assertArm64Runtime,
   assertEmulatorsStopped
 } from './setup-device.ts';
-import { androidSdkPaths } from './android-sdk.ts';
+import { androidSdkPaths } from './adb.ts';
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof childProcess>();

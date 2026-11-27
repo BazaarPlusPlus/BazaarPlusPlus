@@ -52,8 +52,7 @@ dev-signing-key:
 
 # Print the development key's base64 signature of the interop statement for <zip>; <purpose> is "release <version>".
 dev-sign-interop zip il2cpp metadata purpose:
-    printf 'bpp-interop-v1\n%s\n%s\n%s\n%s\n' "$(shasum -a 256 "$1" | cut -d ' ' -f 1)" "$2" "$3" "$4" | openssl dgst -sha256 -sign build/dev-signing/key.pem | base64 | tr -d '\n'
-    echo
+    bun ../release/android-app.ts dev-sign-interop --zip "$1" --il2cpp "$2" --metadata "$3" --purpose "$4"
 
 # Have the debug App read releases from http://127.0.0.1:<port> through adb reverse; serve the public installer/ layout there, from latest/mod/android-aarch64.json down.
 dev-manifest-port port:
