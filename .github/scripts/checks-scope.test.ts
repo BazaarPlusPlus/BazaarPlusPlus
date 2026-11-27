@@ -45,7 +45,7 @@ const expectScopes = (files: string[], scopes: string[]) =>
 
 test('root documents, each project and global inputs select their daily gates', () => {
   expectScopes(
-    ['runs/decisions.ts'],
+    ['packages/runs/decisions.ts'],
     ['release', 'installer-frontend', 'site']
   );
   expectScopes(['README.md', 'AGENTS.md', 'docs/development.md'], ['release']);

@@ -403,7 +403,7 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
           for (const consumer of consumers)
             select(consumer, `Shared input: ${file}`);
       }
-    } else if (file.startsWith('runs/')) {
+    } else if (file.startsWith('packages/runs/')) {
       for (const scope of ['installer-frontend', 'site', 'release'])
         select(scope, file);
     } else if (file.startsWith('design/')) {

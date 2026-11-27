@@ -1,5 +1,5 @@
 import { decodeRunPayload } from '../../bazaarplusplus-site/src/features/runs/run-payload.ts';
-import { buildDecisionPath } from '../../runs/message-stream/decision-path';
+import { buildDecisionPath } from '../../packages/runs/message-stream/decision-path';
 import { FIXTURE_RUN_ID } from '../../bazaarplusplus-site/tools/run-fixture/build.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 

@@ -5,8 +5,8 @@ pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: '{JUSTFILE,**/*.just,package.json,bun.lock,bunfig.toml,tsconfig.json,vite.config.ts,vitest.config.ts,lefthook.yml,VERSION,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/**}'
-      run: just commands-check release::check
+      glob: '{JUSTFILE,**/*.just,package.json,bun.lock,bunfig.toml,tsconfig.json,vite.config.ts,vitest.config.ts,lefthook.yml,VERSION,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/**,packages/runs/**}'
+      run: just commands-check runs::check release::check
 
     - name: design
       glob: 'design/**'

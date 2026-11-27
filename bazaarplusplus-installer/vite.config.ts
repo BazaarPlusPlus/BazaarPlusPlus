@@ -125,19 +125,22 @@ export default defineConfig({
       {
         find: /^@bpp\/runs\/msgpack$/,
         replacement: fileURLToPath(
-          new URL('../runs/msgpack.ts', import.meta.url)
+          new URL('../packages/runs/msgpack.ts', import.meta.url)
         )
       },
       {
         find: /^@bpp\/runs\/decisions$/,
         replacement: fileURLToPath(
-          new URL('../runs/decisions.ts', import.meta.url)
+          new URL('../packages/runs/decisions.ts', import.meta.url)
         )
       },
       {
         find: /^@bpp\/runs\/decision-path$/,
         replacement: fileURLToPath(
-          new URL('../runs/message-stream/decision-path.ts', import.meta.url)
+          new URL(
+            '../packages/runs/message-stream/decision-path.ts',
+            import.meta.url
+          )
         )
       },
       {
@@ -179,7 +182,11 @@ export default defineConfig({
       }
     },
     fs: {
-      allow: [searchForWorkspaceRoot(process.cwd()), '../design', '../runs']
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        '../design',
+        '../packages/runs'
+      ]
     }
   }
 });

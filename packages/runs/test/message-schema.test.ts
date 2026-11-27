@@ -197,7 +197,7 @@ describe('Game Message Schema generator', () => {
   const recorded = (JSON.parse(committed) as GameMessageSchema).sources;
   const gameLibs = resolve(
     import.meta.dirname,
-    '../../bazaarplusplus-mod/game-libs'
+    '../../../bazaarplusplus-mod/game-libs'
   );
   // The first recorded desktop snapshot that is on disk, if any.
   const found = (existsSync(gameLibs) ? readdirSync(gameLibs) : [])

@@ -26,10 +26,11 @@ import {
 } from './merge';
 
 const RUNS = path.resolve(import.meta.dirname, '../..');
-const GAME_LIBS = path.resolve(RUNS, '../bazaarplusplus-mod/game-libs');
+const REPO_ROOT = path.resolve(RUNS, '../..');
+const GAME_LIBS = path.resolve(REPO_ROOT, 'bazaarplusplus-mod/game-libs');
 const LOCK = path.resolve(
-  RUNS,
-  '../bazaarplusplus-mod/build/game-libs.lock.json'
+  REPO_ROOT,
+  'bazaarplusplus-mod/build/game-libs.lock.json'
 );
 export const SCHEMA_PATH = path.join(
   RUNS,
@@ -188,7 +189,7 @@ function check() {
   if (problems.length) {
     for (const problem of problems) process.stderr.write(`${problem}\n`);
     process.stderr.write(
-      "Regenerate the Game Message Schema with 'just site::message-schema'\n"
+      "Regenerate the Game Message Schema with 'just runs::message-schema'\n"
     );
     process.exit(1);
   }

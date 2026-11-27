@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
-import type {
-  CardRef,
-  MessageStream,
-  Moment,
-  ReplayVisit
-} from '../../../runs/decisions';
 import { Badge } from '../Badge';
 import { EnchantLabel, type GameCard } from './Card';
 import { useCardCatalog } from './catalog';
 import { FrameInspector } from './FrameInspector';
+import type {
+  MessageStreamLike,
+  ReplayCardRef,
+  ReplayMoment,
+  ReplayVisit,
+  StreamFrameLike
+} from './replay-types';
 import { MomentPanel, RunReplay } from './RunReplay';
 import { fillTerm } from './terms';
 import { cardTiers, enchantments } from './types';
@@ -20,8 +21,11 @@ export type ReplayBattle = {
   outcome: 'win' | 'loss' | null;
 };
 
-function presentMoment(moment: Moment, display: (card: CardRef) => GameCard) {
-  const placed = (cards: NonNullable<Moment['snapshot']>['board']) =>
+function presentMoment(
+  moment: ReplayMoment,
+  display: (card: ReplayCardRef) => GameCard
+) {
+  const placed = (cards: NonNullable<ReplayMoment['snapshot']>['board']) =>
     cards?.map((c) => ({
       ...display(c),
       id: c.instanceId,
@@ -63,7 +67,7 @@ export function DecisionReplay({
   const { card, terms } = useCardCatalog();
   const labels = terms.replay;
   const display = useMemo(
-    () => (c: CardRef) =>
+    () => (c: ReplayCardRef) =>
       card({ ...c, name: c.templateId ? names?.(c.templateId) : null }),
     [card, names]
   );
@@ -181,7 +185,11 @@ export function DecisionReplay({
 }
 
 /** The Run Message Stream's raw frames, readable and downloadable. */
-export function StreamFrames({ stream }: { stream: MessageStream }) {
+export function StreamFrames<F extends StreamFrameLike = StreamFrameLike>({
+  stream
+}: {
+  stream: MessageStreamLike<F>;
+}) {
   const { terms } = useCardCatalog();
   return (
     <FrameInspector

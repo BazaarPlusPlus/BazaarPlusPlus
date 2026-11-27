@@ -6,12 +6,12 @@ import { resolve } from 'node:path';
 
 import { beforeAll, describe, expect, test, vi } from 'vite-plus/test';
 
-import { buildDecisionPath } from '../../runs/message-stream/decision-path';
-import { projectVisits } from '../../runs/message-stream/visits';
+import { buildDecisionPath } from '../../packages/runs/message-stream/decision-path';
+import { projectVisits } from '../../packages/runs/message-stream/visits';
 import {
   projectDecisions,
   type DecisionEntry
-} from '../../runs/message-stream/project';
+} from '../../packages/runs/message-stream/project';
 import {
   SchemaIndex,
   TObject,
@@ -19,10 +19,10 @@ import {
   countInputLeaves,
   countOutputLeaves,
   type Translated
-} from '../../runs/message-stream/translate';
-import { MessageStream } from '../../runs/message-stream/stream';
-import { unwrapMessage } from '../../runs/message-stream/wire';
-import { decodeMessagePackValue } from '../../runs/msgpack';
+} from '../../packages/runs/message-stream/translate';
+import { MessageStream } from '../../packages/runs/message-stream/stream';
+import { unwrapMessage } from '../../packages/runs/message-stream/wire';
+import { decodeMessagePackValue } from '../../packages/runs/msgpack';
 import {
   decodeRunPayload,
   type RunDetail
@@ -32,7 +32,7 @@ import {
   FIXTURE_RUN_ID,
   fixtureStrings
 } from '../tools/run-fixture/build';
-import { SCHEMA } from '../../runs/test/fixtures/game-messages';
+import { SCHEMA } from '../../packages/runs/test/fixtures/game-messages';
 
 // Full 727-frame replays yield between batches. Background test workers can take over five seconds.
 vi.setConfig({ testTimeout: 60_000 });

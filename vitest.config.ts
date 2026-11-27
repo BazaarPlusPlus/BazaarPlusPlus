@@ -14,12 +14,18 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'runs',
+          include: ['packages/runs/**/*.test.ts']
+        }
+      },
+      {
+        extends: true,
+        test: {
           name: 'tooling',
           include: [
             'scripts/**/*.test.ts',
             '.github/scripts/*.test.ts',
             'design/*.test.ts',
-            'runs/**/*.test.ts',
             '.agents/skills/*/scripts/*.test.ts'
           ]
         }

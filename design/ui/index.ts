@@ -67,4 +67,17 @@ export {
   StreamFrames,
   type ReplayBattle
 } from './game/Decisions';
+export type {
+  MessageStreamLike,
+  ReplayCardRef,
+  ReplayMoment,
+  ReplayPlacedCard,
+  ReplaySnapshot,
+  ReplayStep,
+  ReplayVerb,
+  ReplayVisit,
+  ReplayVisitKind,
+  ReplayVisitMeta,
+  StreamFrameLike
+} from './game/replay-types';
 export { fillTerm, gameTerms, type GameLocale } from './game/terms';

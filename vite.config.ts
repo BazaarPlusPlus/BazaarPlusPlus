@@ -7,7 +7,7 @@ const ignorePatterns = [
   '.claude/**',
   // oxfmt aligns tables by character count, which breaks Chinese tables.
   '**/*.md',
-  'runs/message-stream/game-message-schema.json'
+  'packages/runs/message-stream/game-message-schema.json'
 ];
 
 export default defineConfig({
