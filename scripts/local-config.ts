@@ -3,7 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { loadGithubSecrets } from '../release/github-secrets.ts';
+import {
+  SIGNING_STAGE_CONFIG_FILES,
+  loadGithubSecrets
+} from '../release/github-secrets.ts';
 
 // Load after setup installs root dependencies; --help works on a fresh clone.
 const require = createRequire(import.meta.url);
@@ -108,14 +111,7 @@ export const sections: SectionTable = {
       'ANDROID_KEY_ALIAS'
     ],
     // Local Apple signing uses Keychain. APPLE_CERTIFICATE_PASSWORD only travels to GitHub with the p12.
-    stage: {
-      'apple-signing-identity': 'APPLE_SIGNING_IDENTITY',
-      'apple-api-issuer': 'APPLE_API_ISSUER',
-      'apple-api-key': 'APPLE_API_KEY',
-      'apple-api-key-path': 'APPLE_API_KEY_PATH',
-      'android-keystore-password': 'ANDROID_KEYSTORE_PASSWORD',
-      'android-key-alias': 'ANDROID_KEY_ALIAS'
-    },
+    stage: { ...SIGNING_STAGE_CONFIG_FILES },
     optional: [
       'APPLE_API_KEY_PATH',
       'ANDROID_KEYSTORE_PASSWORD',

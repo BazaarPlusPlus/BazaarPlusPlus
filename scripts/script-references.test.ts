@@ -33,7 +33,7 @@ const BUN_COMMAND = new RegExp(
   'g'
 );
 const QUOTED_PATH = new RegExp(String.raw`["'](${SCRIPT})["']`, 'g');
-const PREFIX = /^(?:\$\{\{[^}]*\}\}|\$\([^)]*\)|\$\{?\w+\}?)\/|^\.{1,2}\//;
+const PREFIX = /^(?:\$\{\{[^}]*\}\}|\$\([^)]*\)|\$\{?\w+\}?)[/:]|^\.{1,2}\//;
 
 interface ScriptReference {
   file: string;

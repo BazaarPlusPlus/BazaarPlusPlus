@@ -106,7 +106,6 @@ jobs:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
       - run: just commands-check design::check runs::check runs::test release::check release::test
-      - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
   ui:
     name: ui (check, build and test)
@@ -521,10 +520,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
       - name: Reject Mod runtime or transitive dependency changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git show "$BASE_SHA:.github/scripts/check_mod_dependency_update.py" > "$RUNNER_TEMP/check_mod_dependency_update.py"
-          python3 "$RUNNER_TEMP/check_mod_dependency_update.py" "$BASE_SHA" "$HEAD_SHA"
+          git show "$BASE_SHA:.github/scripts/check-mod-dependency-update.ts" > "$RUNNER_TEMP/check-mod-dependency-update.ts"
+          bun "$RUNNER_TEMP/check-mod-dependency-update.ts" "$BASE_SHA" "$HEAD_SHA"

@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// The CLI and release-secrets.sh share this table of names and scopes. It contains no secret values.
+// The workspace CLI, CI release-secrets.ts and local-config.ts share this table
+// of names, scopes and signing staging filenames. It contains no secret values.
 
 export type GithubSecretScope =
   | 'repository-secret'
@@ -122,6 +123,67 @@ export function releaseWorkflowNames(table: GithubSecretsTable): string[] {
   return table.items.filter((item) => item.release).map((item) => item.name);
 }
 
+export const SIGNING_STAGE_CONFIG_FILES: Readonly<Record<string, string>> =
+  Object.freeze({
+    'apple-signing-identity': 'APPLE_SIGNING_IDENTITY',
+    'apple-api-issuer': 'APPLE_API_ISSUER',
+    'apple-api-key': 'APPLE_API_KEY',
+    'apple-api-key-path': 'APPLE_API_KEY_PATH',
+    'android-keystore-password': 'ANDROID_KEYSTORE_PASSWORD',
+    'android-key-alias': 'ANDROID_KEY_ALIAS'
+  });
+
+export interface StagedSigningEntry {
+  name: string;
+  file: string | ((env: NodeJS.ProcessEnv) => string);
+  encoding?: 'base64';
+}
+
+// Signing files staged into BPP_SIGNING_SECRETS_DIR for bundle.ts (desktop) and
+// release/android-release.ts (android). APPLE_API_KEY_PATH is inferred from
+// AuthKey_<APPLE_API_KEY>.p8.
+export function stagedSigningEntries(
+  platform: GithubSecretReleasePlatform
+): StagedSigningEntry[] {
+  const entries: StagedSigningEntry[] = [
+    { name: 'TAURI_SIGNING_PRIVATE_KEY', file: 'tauri-updater.key' }
+  ];
+  if (platform === 'macos') {
+    entries.push(
+      { name: 'APPLE_SIGNING_IDENTITY', file: 'apple-signing-identity' },
+      { name: 'APPLE_API_ISSUER', file: 'apple-api-issuer' },
+      { name: 'APPLE_API_KEY', file: 'apple-api-key' },
+      {
+        name: 'APPLE_API_KEY_P8',
+        file: (env) => `AuthKey_${env.APPLE_API_KEY}.p8`
+      }
+    );
+  } else if (platform === 'android') {
+    entries.push(
+      {
+        name: 'ANDROID_KEYSTORE',
+        file: 'android-release.p12',
+        encoding: 'base64'
+      },
+      { name: 'ANDROID_KEYSTORE_PASSWORD', file: 'android-keystore-password' },
+      { name: 'ANDROID_KEY_ALIAS', file: 'android-key-alias' }
+    );
+  }
+  return entries;
+}
+
+export function releaseWorkflowSecrets(table: GithubSecretsTable): string[] {
+  return table.items
+    .filter((item) => item.release && item.scope.endsWith('-secret'))
+    .map((item) => item.name);
+}
+
+export function releaseWorkflowVariables(table: GithubSecretsTable): string[] {
+  return table.items
+    .filter((item) => item.release && item.scope.endsWith('-variable'))
+    .map((item) => item.name);
+}
+
 export function requiredForRelease(
   table: GithubSecretsTable,
   platform: string,
@@ -141,64 +203,4 @@ export function requiredForRelease(
         (!item.release.platform || item.release.platform === platform)
     )
     .map((item) => item.name);
-}
-
-const usage = `GitHub secrets table (release/github-secrets.json):
-  bun release/github-secrets.ts names                      names release.yml reads
-  bun release/github-secrets.ts required <macos|windows|android> <prepare|release>
-  bun release/github-secrets.ts source NAME                where the value comes from
-  bun release/github-secrets.ts secrets                    names release.yml reads as secrets
-  bun release/github-secrets.ts variables                  names release.yml reads as variables`;
-
-export function cliMain(
-  argv: readonly string[],
-  { workspaceRoot }: GithubSecretsCliOptions = {}
-): number {
-  const [verb, ...rest] = argv;
-  try {
-    const table = loadGithubSecrets(workspaceRoot);
-    const print = (lines: readonly string[]) => {
-      if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
-    };
-    switch (verb) {
-      case 'names':
-        print(releaseWorkflowNames(table));
-        return 0;
-      case 'secrets':
-      case 'variables':
-        print(
-          table.items
-            .filter(
-              (item) =>
-                item.release &&
-                item.scope.endsWith(
-                  verb === 'secrets' ? '-secret' : '-variable'
-                )
-            )
-            .map((item) => item.name)
-        );
-        return 0;
-      case 'required':
-        if (rest.length !== 2) throw new Error(usage);
-        print(requiredForRelease(table, rest[0], rest[1]));
-        return 0;
-      case 'source': {
-        if (rest.length !== 1) throw new Error(usage);
-        const item = table.items.find((entry) => entry.name === rest[0]);
-        if (!item)
-          throw new Error(`${rest[0]} is not in ${GITHUB_SECRETS_PATH}`);
-        print([localSource(item)]);
-        return 0;
-      }
-      default:
-        throw new Error(usage);
-    }
-  } catch (error) {
-    process.stderr.write(`${error instanceof Error ? error.message : error}\n`);
-    return 2;
-  }
-}
-
-if (import.meta.main) {
-  process.exitCode = cliMain(process.argv.slice(2));
 }
