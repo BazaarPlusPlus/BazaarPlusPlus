@@ -725,7 +725,7 @@ for (const command of ['prepare', 'build', 'upload']) {
       const args = releaseArgs(command, '--platform', platform);
       if (command !== 'upload') args.push('--');
       if (command === 'build' && platform === 'android')
-        args.unshift('scripts/workspace.ts', 'run', 'release', '--', 'bun');
+        args[2] = 'release,signing';
       assert.deepEqual(f.calls(), [call(f.dir, null, 'bun', ...args)]);
     });
   }

@@ -44,6 +44,7 @@ test('nested shell build dispatch reuses the outer lock', async (t) => {
   const cwd = fixture(t);
   for (const file of [
     'scripts/mod-validation.ts',
+    'scripts/verify.ts',
     'scripts/git-command.ts',
     'bazaarplusplus-mod/scripts/lib.sh'
   ]) {

@@ -1,11 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
-import { lockedInteropEntry } from './interop-snapshot.ts';
-import { ANDROID_SOURCES, interopKey } from './snapshot-lock.ts';
 import type { InteropLockEntry } from './snapshot-lock.ts';
-import { WORKSPACE_ROOT } from './product.ts';
 
 // The Android App compares game code, so content-only updates need no release.
 // Different Interop Snapshots for identical game code require review.
@@ -35,48 +28,3 @@ export function captureKind(
     );
   return 'content';
 }
-
-const usage = `Usage:
-  bun release/android-adaptation.ts kind --source <publisher|play> --previous <game-libs.lock.json>
-      Print unchanged, content or code: how the locked android-<source> entry
-      differs from the one in the previous lock file`;
-
-interface PreviousLock {
-  entries?: Record<string, InteropLockEntry | null | undefined>;
-}
-
-export interface CliOptions {
-  workspaceRoot?: string;
-}
-
-export async function cliMain(
-  argv: readonly string[],
-  { workspaceRoot = WORKSPACE_ROOT }: CliOptions = {}
-): Promise<CaptureKind> {
-  const [command, ...rest] = argv;
-  const { values } = parseArgs({
-    args: rest,
-    strict: true,
-    options: { previous: { type: 'string' }, source: { type: 'string' } }
-  });
-  const source = ANDROID_SOURCES.find((name) => name === values.source);
-  if (command === 'kind' && values.previous && source) {
-    const previous = (
-      JSON.parse(fs.readFileSync(values.previous, 'utf8')) as PreviousLock
-    ).entries?.[interopKey(source)];
-    return captureKind(previous, lockedInteropEntry(workspaceRoot, source));
-  }
-  throw new Error(usage);
-}
-
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-)
-  cliMain(process.argv.slice(2)).then(
-    (line) => console.log(line),
-    (error: Error) => {
-      console.error(error.message);
-      process.exitCode = 1;
-    }
-  );

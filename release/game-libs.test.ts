@@ -1385,3 +1385,83 @@ test('publish of a desktop entry stores the tarball and the manifest, printing n
   expect(empty.err).toMatch(/Lock entry macos-online is empty/);
   expect(store.writes).toHaveLength(2);
 }, 30000);
+
+test('android-change, android-entry, and official-apk-url serve the watch workflow without inline evals', async () => {
+  const realLock = JSON.parse(
+    fs.readFileSync(path.join(WORKSPACE_ROOT, GAME_LIBS_LOCK_PATH), 'utf8')
+  ) as GameLibsLock;
+  const locked = realLock.entries['android-publisher']!;
+  const current: InteropLockEntry = {
+    ...locked,
+    apkSha256: 'a'.repeat(64),
+    capturedAt: NOW.toISOString()
+  };
+  const lock: GameLibsLock = {
+    ...realLock,
+    entries: { ...realLock.entries, 'android-publisher': current }
+  };
+  const { workspaceRoot } = workspace({ lock });
+  const previousFile = (entry: InteropLockEntry): string => {
+    const file = path.join(workspaceRoot, `previous-${entry.apkSha256}.json`);
+    write(
+      file,
+      JSON.stringify({
+        ...lock,
+        entries: { ...lock.entries, 'android-publisher': entry }
+      })
+    );
+    return file;
+  };
+  expect(await runCli(['official-apk-url'], { workspaceRoot })).toEqual({
+    code: 0,
+    out: ['https://data.playthebazaar.com/game/android/TheBazaar.apk\n'],
+    err: ''
+  });
+  const entryResult = await runCli(['android-entry', '--source', 'publisher'], {
+    workspaceRoot
+  });
+  expect(entryResult.code).toBe(0);
+  expect(JSON.parse(entryResult.out.join(''))).toEqual(current);
+
+  const kind = (entry: InteropLockEntry) =>
+    runCli(
+      [
+        'android-change',
+        '--source',
+        'publisher',
+        '--previous',
+        previousFile(entry)
+      ],
+      { workspaceRoot }
+    );
+  expect(await kind(current)).toEqual({
+    code: 0,
+    out: ['unchanged\n'],
+    err: ''
+  });
+  expect(await kind({ ...current, apkSha256: 'e'.repeat(64) })).toEqual({
+    code: 0,
+    out: ['content\n'],
+    err: ''
+  });
+  expect(await kind({ ...locked, il2cppSha256: 'f'.repeat(64) })).toEqual({
+    code: 0,
+    out: ['code\n'],
+    err: ''
+  });
+  expect((await runCli(['android-change'], { workspaceRoot })).code).toBe(1);
+  expect(
+    (
+      await runCli(
+        [
+          'android-change',
+          '--source',
+          'bogus',
+          '--previous',
+          previousFile(current)
+        ],
+        { workspaceRoot }
+      )
+    ).code
+  ).toBe(1);
+});

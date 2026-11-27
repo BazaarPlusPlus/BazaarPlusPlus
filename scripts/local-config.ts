@@ -560,6 +560,17 @@ function withStaging<T>(
   }
 }
 
+function resolveSingleProfile(profile: string): [string, SectionSpec] {
+  const found = Object.entries(sections).find(
+    ([, spec]) => spec.profile === profile
+  );
+  if (!found)
+    throw new Error(
+      `Unknown profile; use ${profiles.slice(0, -1).join(', ')} or ${profiles.at(-1)}`
+    );
+  return found;
+}
+
 export function withProfileEnvironment<T>(
   profile: string,
   home: string,
@@ -568,41 +579,50 @@ export function withProfileEnvironment<T>(
   repository = root
 ): T {
   assertExternal(home, [repository]);
-  const found = Object.entries(sections).find(
-    ([, spec]) => spec.profile === profile
-  );
-  if (!found)
-    throw new Error(
-      `Unknown profile; use ${profiles.slice(0, -1).join(', ')} or ${profiles.at(-1)}`
-    );
-  const [name, spec] = found;
+  const requested = profile.split(',');
+  const seen = new Set<string>();
+  const resolved: [string, SectionSpec][] = [];
+  for (const item of requested) {
+    if (seen.has(item)) throw new Error(`Duplicate profile: ${item}`);
+    seen.add(item);
+    resolved.push(resolveSingleProfile(item));
+  }
   const config = readConfig(home);
-  if (spec.projection) {
-    if (!config.sections.has(name) && !spec.optional)
-      throw new Error(`Missing [${name}] in ${CONFIG}; run just setup`);
-    refreshProjections(home, repository);
-    return use({ ...env });
-  }
-  if (spec.stage) {
-    if (env.BPP_SIGNING_SECRETS_DIR) return use({ ...env });
-    return withStaging(home, config, env, use);
-  }
-  const result = { ...env };
-  const values = config.sections.get(name)?.values || {};
-  const inject = spec.inject;
-  if (!inject) throw new Error(`[${name}] needs exactly one delivery`);
-  for (const key of inject) {
-    if (!result[key] && values[key]) result[key] = values[key];
-  }
-  for (const name of spec.injectFiles || []) {
-    if (result[name]) continue;
-    const file = loadGithubSecrets(repository).items.find(
-      (item) => item.name === name
-    )?.local.file;
-    if (!file) throw new Error(`${name} names no keys/ file`);
-    const source = ownedPath(home, file);
-    // Verbatim: OpenSSH rejects a private key without its final newline.
-    if (regularFile(source)) result[name] = fs.readFileSync(source, 'utf8');
-  }
-  return use(result);
+  const apply = (index: number, currentEnv: NodeJS.ProcessEnv): T => {
+    if (index === resolved.length) return use(currentEnv);
+    const [name, spec] = resolved[index];
+    if (spec.projection) {
+      if (!config.sections.has(name) && !spec.optional)
+        throw new Error(`Missing [${name}] in ${CONFIG}; run just setup`);
+      refreshProjections(home, repository);
+      return apply(index + 1, { ...currentEnv });
+    }
+    if (spec.stage) {
+      if (currentEnv.BPP_SIGNING_SECRETS_DIR)
+        return apply(index + 1, { ...currentEnv });
+      return withStaging(home, config, currentEnv, (stagedEnv) =>
+        apply(index + 1, stagedEnv)
+      );
+    }
+    const result = { ...currentEnv };
+    const values = config.sections.get(name)?.values || {};
+    const inject = spec.inject;
+    if (!inject) throw new Error(`[${name}] needs exactly one delivery`);
+    for (const key of inject) {
+      if (!result[key] && values[key]) result[key] = values[key];
+    }
+    for (const fileKey of spec.injectFiles || []) {
+      if (result[fileKey]) continue;
+      const file = loadGithubSecrets(repository).items.find(
+        (item) => item.name === fileKey
+      )?.local.file;
+      if (!file) throw new Error(`${fileKey} names no keys/ file`);
+      const source = ownedPath(home, file);
+      // Verbatim: OpenSSH rejects a private key without its final newline.
+      if (regularFile(source))
+        result[fileKey] = fs.readFileSync(source, 'utf8');
+    }
+    return apply(index + 1, result);
+  };
+  return apply(0, env);
 }

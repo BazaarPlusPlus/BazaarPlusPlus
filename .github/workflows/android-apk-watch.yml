@@ -76,7 +76,7 @@ jobs:
         id: download
         run: |
           sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/share/boost /usr/share/swift /opt/hostedtoolcache/CodeQL
-          url="$(bun -e "import { OFFICIAL_ANDROID_APK_URL } from './release/official-apk.ts'; console.log(OFFICIAL_ANDROID_APK_URL)")"
+          url="$(bun release/game-libs.ts official-apk-url)"
           curl --fail --location --retry 5 --retry-all-errors --dump-header "$RUNNER_TEMP/apk.headers" --output "$RUNNER_TEMP/TheBazaar.apk" "$url"
           # capture, etag or none (release/official-apk.ts downloadedApkKind).
           apk="$(bun release/game-libs.ts downloaded-apk --apk "$RUNNER_TEMP/TheBazaar.apk" --headers "$RUNNER_TEMP/apk.headers")"
@@ -155,11 +155,11 @@ jobs:
             source=publisher
             just mod::snapshot-android "$RUNNER_TEMP/TheBazaar.apk" ${ETAG:+--apk-etag "$ETAG"}
           fi
-          change="$(bun release/android-adaptation.ts kind --source "$source" --previous "$RUNNER_TEMP/previous-lock.json")"
-          entry() { bun -p "require('./bazaarplusplus-mod/build/game-libs.lock.json').entries['android-$source'].$1"; }
-          game="$(entry gameVersion)"
-          code="$(entry versionCode)"
-          echo "Captured $game ($source): $change change, interop $(entry interopSha256)" >> "$GITHUB_STEP_SUMMARY"
+          change="$(bun release/game-libs.ts android-change --source "$source" --previous "$RUNNER_TEMP/previous-lock.json")"
+          entry="$(bun release/game-libs.ts android-entry --source "$source")"
+          game="$(jq -r .gameVersion <<< "$entry")"
+          code="$(jq -r .versionCode <<< "$entry")"
+          echo "Captured $game ($source): $change change, interop $(jq -r .interopSha256 <<< "$entry")" >> "$GITHUB_STEP_SUMMARY"
           case "$change" in
             content | code) ;;
             unchanged)

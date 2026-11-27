@@ -22,7 +22,7 @@ prepare platform *args:
 # Prepare, verify, sign, and bundle on the native host (android: build and sign the Android App and the Interop Package, reading R2); never upload.
 [arg('platform', pattern='macos|windows|android')]
 build platform *args:
-    {{ if platform == "android" { "bun scripts/workspace.ts run release --" } else { "" } }} bun scripts/workspace.ts run signing -- bun release/cli.ts build --platform "$1" -- "${@:2}"
+    bun scripts/workspace.ts run {{ if platform == "android" { "release,signing" } else { "signing" } }} -- bun release/cli.ts build --platform "$1" -- "${@:2}"
 
 # Upload immutable platform artifacts without advancing latest.
 [arg('platform', pattern='macos|windows|android')]
