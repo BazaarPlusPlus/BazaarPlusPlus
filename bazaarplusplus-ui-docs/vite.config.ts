@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import {
   defaultClientConditions,
+  defaultServerConditions,
   defineConfig,
   lazyPlugins,
   searchForWorkspaceRoot
@@ -85,6 +86,11 @@ export default defineConfig({
   resolve: {
     conditions: ['@bpp/source', ...defaultClientConditions],
     dedupe: ['react', 'react-dom']
+  },
+  ssr: {
+    resolve: {
+      conditions: ['@bpp/source', ...defaultServerConditions]
+    }
   },
   server: {
     fs: {
