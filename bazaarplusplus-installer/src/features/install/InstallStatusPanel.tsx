@@ -1,6 +1,6 @@
 import { Copy, Check, Folder } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Badge, StatusBanner } from '@bpp/ui';
+import { Button, Badge, StatusBanner } from '@bazaarplusplus/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 import brandMark from '../../../static/brand/bpp-mark.svg';
 import { PrimaryInstallActionButton } from './PrimaryInstallActionButton';

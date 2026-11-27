@@ -188,9 +188,33 @@ export function synchronizeVersions(rootDir: string): VersionSnapshot {
   packageJson.version = packageVersion;
   writeJson(packagePath, packageJson);
 
+  updateRootBunLockWorkspaceVersion(
+    path.dirname(rootDir),
+    path.basename(rootDir),
+    packageVersion
+  );
+
   updateTauriVersion(rootDir, packageVersion);
   updateCargoVersion(rootDir, packageVersion);
   updateCargoLockVersion(rootDir, packageName, packageVersion);
 
   return collectVersionSnapshot(rootDir);
+}
+
+function updateRootBunLockWorkspaceVersion(
+  repoRoot: string,
+  workspaceKey: string,
+  version: string
+): void {
+  const lockPath = path.join(repoRoot, 'bun.lock');
+  if (!fs.existsSync(lockPath)) return;
+  const original = fs.readFileSync(lockPath, 'utf8');
+  const escaped = workspaceKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `("${escaped}":\\s*\\{\\s*"name":\\s*"[^"]+",\\s*"version":\\s*")([^"]+)(")`
+  );
+  const updated = original.replace(pattern, `$1${version}$3`);
+  if (updated !== original) {
+    fs.writeFileSync(lockPath, updated, 'utf8');
+  }
 }

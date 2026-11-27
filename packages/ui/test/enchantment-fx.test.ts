@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
-import type { Enchantment, FxMaterial } from '@bpp/ui';
-import { fragment } from '../../../../design/ui/game/enchantment-fx/program';
+import type { Enchantment, FxMaterial } from '../src/game/index';
+import { fragment } from '../src/game/enchantment-fx/program';
 
 function material(
   enchant: Enchantment,

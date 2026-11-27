@@ -54,6 +54,13 @@ function referencedScripts(): ScriptReference[] {
         if (/[*{}<>]/.test(script.replace(/\$\{\{[^}]*\}\}/g, ''))) continue;
         let target = script;
         while (PREFIX.test(target)) target = target.replace(PREFIX, '');
+        // Publishable package manifests declare built dist/ outputs in exports/main/types.
+        if (
+          /(^|\/)package\.json$/.test(file) &&
+          pattern === QUOTED_PATH &&
+          target.startsWith('dist/')
+        )
+          continue;
         found.push({ file, script, target });
       }
   }

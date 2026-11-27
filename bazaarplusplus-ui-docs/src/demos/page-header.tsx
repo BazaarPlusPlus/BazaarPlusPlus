@@ -1,4 +1,4 @@
-import { PageHeader, Badge } from '@bpp/ui';
+import { PageHeader, Badge } from '@bazaarplusplus/ui';
 import { translate, type DemoProps } from '../copy';
 
 export default function Demo({ lang }: DemoProps) {

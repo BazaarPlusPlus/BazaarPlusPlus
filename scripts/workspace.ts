@@ -176,8 +176,38 @@ export function pinnedToolVersions(
 const escapeRegExp = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+function workspaceMemberDirectories(
+  directory: string,
+  patterns: unknown
+): string[] {
+  if (!Array.isArray(patterns)) return [];
+  const directories: string[] = [];
+  for (const pattern of patterns) {
+    if (typeof pattern !== 'string') continue;
+    if (pattern.endsWith('/*')) {
+      const parent = path.join(directory, pattern.slice(0, -2));
+      if (!fs.existsSync(parent)) continue;
+      for (const entry of fs.readdirSync(parent, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const member = path.join(parent, entry.name);
+        if (fs.existsSync(path.join(member, 'package.json')))
+          directories.push(member);
+      }
+      continue;
+    }
+    const member = path.join(directory, pattern);
+    if (fs.existsSync(path.join(member, 'package.json')))
+      directories.push(member);
+  }
+  return directories;
+}
+
 export function staleDependencies(directory: string): string[] {
-  let manifest: Record<string, Record<string, string> | undefined>;
+  let manifest: {
+    workspaces?: unknown;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
   let lock: string;
   try {
     manifest = JSON.parse(
@@ -187,29 +217,52 @@ export function staleDependencies(directory: string): string[] {
   } catch {
     return [];
   }
-  const names = Object.keys({
-    ...manifest.dependencies,
-    ...manifest.devDependencies
-  });
-  return names.filter((name) => {
-    const quoted = escapeRegExp(name);
-    const locked = new RegExp(
-      `^ {4}"${quoted}": \\["${quoted}@([^"]+)"`,
-      'm'
-    ).exec(lock)?.[1];
-    if (locked === undefined) return false;
-    try {
-      const installed = JSON.parse(
-        fs.readFileSync(
-          path.join(directory, 'node_modules', name, 'package.json'),
-          'utf8'
-        )
-      ).version;
-      return installed !== locked;
-    } catch {
-      return true;
+  const sources = [
+    { dir: directory, manifest },
+    ...workspaceMemberDirectories(directory, manifest.workspaces).map(
+      (dir) => ({
+        dir,
+        manifest: JSON.parse(
+          fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+        ) as {
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+        }
+      })
+    )
+  ];
+  const stale = new Set<string>();
+  for (const source of sources) {
+    const entries = Object.entries({
+      ...source.manifest.dependencies,
+      ...source.manifest.devDependencies
+    });
+    for (const [name, spec] of entries) {
+      if (typeof spec === 'string' && spec.startsWith('workspace:')) continue;
+      const quoted = escapeRegExp(name);
+      const locked = new RegExp(
+        `^ {4}"${quoted}": \\["${quoted}@([^"]+)"`,
+        'm'
+      ).exec(lock)?.[1];
+      if (locked === undefined) continue;
+      const candidates =
+        source.dir === directory
+          ? [path.join(directory, 'node_modules', name, 'package.json')]
+          : [
+              path.join(source.dir, 'node_modules', name, 'package.json'),
+              path.join(directory, 'node_modules', name, 'package.json')
+            ];
+      let installed: string | undefined;
+      for (const candidate of candidates) {
+        try {
+          installed = JSON.parse(fs.readFileSync(candidate, 'utf8')).version;
+          break;
+        } catch {}
+      }
+      if (installed !== locked) stale.add(name);
     }
-  });
+  }
+  return [...stale];
 }
 
 export function doctor(
@@ -244,15 +297,7 @@ export function doctor(
         : `${command}: ${version}; the checkout pins ${pin}`
     );
   }
-  for (const project of [
-    '',
-    'installer',
-    'site',
-    'ui-docs',
-    'server',
-    'bot',
-    'analyzer'
-  ]) {
+  for (const project of ['', 'server', 'bot', 'analyzer']) {
     const directory = project
       ? path.join(repository, `bazaarplusplus-${project}`)
       : repository;
@@ -419,9 +464,9 @@ export function main(args: string[] = process.argv.slice(2)): void {
     initializeConfig(home);
     refreshProjections(home);
     if (!skipDeps) {
-      for (const project of ['installer', 'site', 'ui-docs', 'server', 'bot']) {
+      for (const project of ['server', 'bot']) {
         execute('bun', ['install', '--frozen-lockfile'], {
-          cwd: project ? path.join(root, `bazaarplusplus-${project}`) : root
+          cwd: path.join(root, `bazaarplusplus-${project}`)
         });
       }
       execute('uv', ['sync', '--locked'], {

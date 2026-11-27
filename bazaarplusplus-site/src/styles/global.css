@@ -1,7 +1,8 @@
 @import 'tailwindcss';
-@import './installer-tokens.css';
+@import '@bazaarplusplus/ui/tokens.css';
 @import './tokens.css';
-@import '../../../design/components/bundle.css';
+@import '@bazaarplusplus/ui/primitives.css';
+@import '@bazaarplusplus/ui/game.css';
 
 @layer base {
   html {

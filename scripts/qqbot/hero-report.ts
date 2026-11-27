@@ -227,7 +227,7 @@ const meter = (value: number, max: number, text: string) =>
 function fill(template: string, values: Record<string, string>): string {
   const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
   const all: Record<string, string> = {
-    tokens: read('bazaarplusplus-installer/src/styles/tokens.css'),
+    tokens: read('packages/ui/styles/tokens.css'),
     styles: read('scripts/qqbot/hero-report.css'),
     mark: read('design/assets/Logos/bpp-mark.svg'),
     cover: `data:image/jpeg;base64,${fs

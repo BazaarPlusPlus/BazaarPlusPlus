@@ -8,7 +8,7 @@ import {
   DialogCard,
   DialogFooter,
   DialogHeader
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui';
 import { useActiveModalDismissalPolicy } from './ModalCoordinator';
 import { useI18n } from '../../i18n/LocaleProvider';
 

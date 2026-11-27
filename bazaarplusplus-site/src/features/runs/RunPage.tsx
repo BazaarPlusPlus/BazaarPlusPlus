@@ -1,22 +1,20 @@
 import { useCallback, useMemo } from 'react';
 import { decisionDays } from '@bpp/runs/decisions';
 import { useQuery } from '@tanstack/react-query';
+import { Badge, Button, StatusPanel } from '@bazaarplusplus/ui';
 import {
-  Badge,
   Board,
-  SkillStrip,
-  Button,
   CardCatalog,
   DayCard,
   DecisionReplay,
-  StatusPanel,
+  SkillStrip,
   StreamFrames,
   fillTerm,
   gameTerms,
   useCardCatalog,
   type CardInput,
   type GameCard
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui/game';
 
 import {
   buildRouteHref,

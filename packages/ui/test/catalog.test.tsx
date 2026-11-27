@@ -16,7 +16,7 @@ import {
   useCardCatalog,
   type CardInput,
   type GameLocale
-} from '@bpp/ui';
+} from '../src/game/index';
 
 const en = 'text-en-00000000000000000000.json';
 const zh = 'text-zh-11111111111111111111.json';
@@ -93,7 +93,12 @@ afterEach(async () => {
 
 function Cards({ cards }: { cards: CardInput[] }) {
   const { card } = useCardCatalog();
-  return cards.map((input, i) => <CardTile key={i} card={card(input)} />);
+  return cards.map((item) => (
+    <CardTile
+      key={item.templateId ?? item.instanceId ?? ''}
+      card={card(item)}
+    />
+  ));
 }
 
 const input = (templateId: string | null, extra: Partial<CardInput> = {}) => ({

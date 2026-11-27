@@ -1,5 +1,5 @@
 import { RefreshCw } from 'lucide-react';
-import { Badge, Button, type BadgeTone } from '@bpp/ui';
+import { Badge, Button, type BadgeTone } from '@bazaarplusplus/ui';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type { MessageKey } from '../../i18n/messages';
 import { formatBytes, formatDateTime } from '../history/format';

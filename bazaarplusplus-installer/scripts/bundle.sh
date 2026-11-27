@@ -114,12 +114,17 @@ release_platforms_cli() {
 }
 
 install_dependencies() {
-    if [ ! -f "$INSTALLER_ROOT/bun.lock" ]; then
+    local lock_dir=""
+    if [ -f "$INSTALLER_ROOT/bun.lock" ]; then
+        lock_dir="$INSTALLER_ROOT"
+    elif [ -f "$INSTALLER_ROOT/../bun.lock" ]; then
+        lock_dir="$INSTALLER_ROOT/.."
+    else
         echo "Error: bun.lock is required for a reproducible dependency install; refusing an unlocked install." >&2
         return 1
     fi
 
-    invoke_step "Installing Bun dependencies" bun install --frozen-lockfile
+    invoke_step "Installing Bun dependencies" bun install --frozen-lockfile --cwd "$lock_dir"
 }
 
 ensure_required_rust_targets() {

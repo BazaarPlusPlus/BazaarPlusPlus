@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vite-plus/test';
-import { SegmentedControl } from '@bpp/ui';
+import { SegmentedControl } from '../src/index';
 
 describe('SegmentedControl', () => {
   it('labels the radio group and exposes option, checked, and disabled semantics', () => {

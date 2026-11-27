@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import type { FxMaterial } from '@bpp/ui';
+import type { FxMaterial } from '@bazaarplusplus/ui/game';
 import {
   mockAccountApi,
   runDetailHandlers,
@@ -76,7 +76,7 @@ for (const webgl of [true, false]) {
 async function openRendererFixture(page: Page) {
   const module = execFileSync(
     'bun',
-    ['build', '../design/ui/game/enchantment-fx/renderer.ts'],
+    ['build', '../packages/ui/src/game/enchantment-fx/renderer.ts'],
     { encoding: 'utf8' }
   );
   await page.route('**/fx-check/**', async (route) => {
@@ -111,7 +111,7 @@ for (const first of fixture.cases.filter((sample) => sample.time === 1)) {
         const path = './runtime.js';
         const { observeFx } = (await import(
           /* @vite-ignore */ path
-        )) as typeof import('../../design/ui/game/enchantment-fx/renderer');
+        )) as typeof import('../../packages/ui/src/game/enchantment-fx/renderer');
         const canvas = document.querySelector('canvas');
         if (!canvas) throw new Error('Missing test face');
         const native = window.requestAnimationFrame;
@@ -219,7 +219,7 @@ test('a visible face recovers after context loss and releases its backing store 
     const path = './runtime.js';
     const { observeFx } = (await import(
       /* @vite-ignore */ path
-    )) as typeof import('../../design/ui/game/enchantment-fx/renderer');
+    )) as typeof import('../../packages/ui/src/game/enchantment-fx/renderer');
     const face = document.querySelector('canvas');
     if (!face) throw new Error('Missing face');
     let buffer: HTMLCanvasElement | undefined;

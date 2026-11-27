@@ -1,0 +1,70 @@
+{
+  "name": "@bazaarplusplus/ui",
+  "version": "0.1.0",
+  "description": "React 19 + Tailwind 4 UI kit and The Bazaar game components for BazaarPlusPlus",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BazaarPlusPlus/BazaarPlusPlus.git",
+    "directory": "packages/ui"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "sideEffects": [
+    "styles/*.css",
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "styles",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "@bpp/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./game": {
+      "@bpp/source": "./src/game/index.ts",
+      "types": "./dist/game/index.d.ts",
+      "import": "./dist/game/index.js"
+    },
+    "./tokens.css": "./styles/tokens.css",
+    "./theme.css": "./styles/theme.css",
+    "./primitives.css": "./styles/primitives.css",
+    "./game.css": "./styles/game.css",
+    "./styles.css": "./styles/all.css"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "typecheck": "tsc --noEmit",
+    "lint": "vp lint --type-aware",
+    "lint:fix": "vp lint --type-aware --fix",
+    "format": "vp fmt --write .",
+    "format:check": "vp fmt --check .",
+    "test": "vp test run"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "tailwindcss": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "jsdom": "^31.0.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
+    "vite-plus": "1.7.0"
+  }
+}

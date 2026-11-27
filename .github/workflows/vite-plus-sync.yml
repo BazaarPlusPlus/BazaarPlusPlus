@@ -56,12 +56,10 @@ jobs:
           path: |
             head/package.json
             head/bun.lock
+            head/packages/ui/package.json
             head/bazaarplusplus-site/package.json
-            head/bazaarplusplus-site/bun.lock
             head/bazaarplusplus-ui-docs/package.json
-            head/bazaarplusplus-ui-docs/bun.lock
             head/bazaarplusplus-installer/package.json
-            head/bazaarplusplus-installer/bun.lock
 
   push:
     name: Push the alignment

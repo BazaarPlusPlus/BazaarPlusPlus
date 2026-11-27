@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import type { StreamOverlayDisplayMode } from '../types/backend';
-import { Button, Badge, SegmentedControl } from '@bpp/ui';
+import { Button, Badge, SegmentedControl } from '@bazaarplusplus/ui';
 import { PageShell } from '../components/ui/PageShell';
 import { useToast, type ToastTone } from '../components/ui/Toast';
 import { useStreamPage } from '../features/stream/useStreamPage';

@@ -1,7 +1,11 @@
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { fileURLToPath } from 'node:url';
-import { defineConfig, lazyPlugins, searchForWorkspaceRoot } from 'vite-plus';
+import {
+  defaultClientConditions,
+  defineConfig,
+  lazyPlugins,
+  searchForWorkspaceRoot
+} from 'vite-plus';
 
 export default defineConfig({
   test: { include: ['test/**/*.test.ts'] },
@@ -78,21 +82,13 @@ export default defineConfig({
     ]
   },
   plugins: lazyPlugins(() => [react(), tailwindcss()]),
-  // Shared @bpp/ui files resolve React from the site because design/ui has no node_modules.
   resolve: {
-    alias: [
-      {
-        find: '@bpp/ui',
-        replacement: fileURLToPath(
-          new URL('../design/ui/index.ts', import.meta.url)
-        )
-      }
-    ],
+    conditions: ['@bpp/source', ...defaultClientConditions],
     dedupe: ['react', 'react-dom']
   },
   server: {
     fs: {
-      allow: [searchForWorkspaceRoot(process.cwd()), '../design']
+      allow: [searchForWorkspaceRoot(process.cwd())]
     }
   }
 });

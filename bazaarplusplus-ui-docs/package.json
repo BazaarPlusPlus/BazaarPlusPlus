@@ -3,10 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "tokens": "bun -e \"require('node:fs').copyFileSync('../bazaarplusplus-installer/src/styles/tokens.css', 'src/styles/installer-tokens.css')\"",
-    "predev": "bun run tokens",
     "dev": "vp dev --host 0.0.0.0 --port 4176 --strictPort",
-    "prebuild": "bun run tokens",
     "build": "vp build",
     "preview": "bun run build && bun run preview:built",
     "preview:built": "vp preview --host 0.0.0.0 --port 4176 --strictPort",
@@ -20,12 +17,14 @@
     "format:check": "vp fmt --check ."
   },
   "dependencies": {
+    "@bazaarplusplus/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.1",
+    "@bpp/runs": "workspace:*",
+    "@playwright/test": "1.65.1",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -35,13 +34,6 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
     "wrangler": "^4.164.0",
     "vite-plus": "1.7.0"
-  },
-  "overrides": {
-    "miniflare": {
-      "undici": "7.30.1"
-    },
-    "sharp": "0.35.5",
-    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000"
   },
   "engines": {
     "bun": "1.4.4"

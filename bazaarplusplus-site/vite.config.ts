@@ -1,7 +1,11 @@
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { fileURLToPath } from 'node:url';
-import { defineConfig, lazyPlugins, searchForWorkspaceRoot } from 'vite-plus';
+import {
+  defaultClientConditions,
+  defineConfig,
+  lazyPlugins,
+  searchForWorkspaceRoot
+} from 'vite-plus';
 
 export default defineConfig({
   fmt: {
@@ -76,46 +80,13 @@ export default defineConfig({
     ]
   },
   plugins: lazyPlugins(() => [react(), tailwindcss()]),
-  // Shared @bpp/ui files resolve React from the site because design/ui has no node_modules.
   resolve: {
-    alias: [
-      {
-        find: /^@bpp\/runs\/msgpack$/,
-        replacement: fileURLToPath(
-          new URL('../packages/runs/msgpack.ts', import.meta.url)
-        )
-      },
-      {
-        find: /^@bpp\/runs\/decisions$/,
-        replacement: fileURLToPath(
-          new URL('../packages/runs/decisions.ts', import.meta.url)
-        )
-      },
-      {
-        find: /^@bpp\/runs\/decision-path$/,
-        replacement: fileURLToPath(
-          new URL(
-            '../packages/runs/message-stream/decision-path.ts',
-            import.meta.url
-          )
-        )
-      },
-      {
-        find: '@bpp/ui',
-        replacement: fileURLToPath(
-          new URL('../design/ui/index.ts', import.meta.url)
-        )
-      }
-    ],
+    conditions: ['@bpp/source', ...defaultClientConditions],
     dedupe: ['react', 'react-dom']
   },
   server: {
     fs: {
-      allow: [
-        searchForWorkspaceRoot(process.cwd()),
-        '../design',
-        '../packages/runs'
-      ]
+      allow: [searchForWorkspaceRoot(process.cwd())]
     }
   }
 });

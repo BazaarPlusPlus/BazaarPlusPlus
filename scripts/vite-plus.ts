@@ -7,6 +7,7 @@ const repository = path.resolve(import.meta.dirname, '..');
 
 export const VITE_PLUS_PROJECTS = [
   '.',
+  'packages/ui',
   'bazaarplusplus-site',
   'bazaarplusplus-ui-docs',
   'bazaarplusplus-installer'
@@ -99,7 +100,13 @@ export function misalignments(checkout = repository): string[] {
         version
       ],
       ['devDependencies.vite', manifest.devDependencies?.vite, core],
-      ['overrides.vite', manifest.overrides?.vite, core]
+      ...(project === '.'
+        ? ([['overrides.vite', manifest.overrides?.vite, core]] as [
+            string,
+            unknown,
+            string
+          ][])
+        : [])
     ];
     for (const [field, actual, expected] of pins)
       if (actual !== expected)
@@ -137,15 +144,17 @@ export function sync(checkout = repository, installFlags: string[] = []) {
     changed.add('.');
   }
   const coreSpec = ownerCoreSpec(checkout);
+  let needsLockSync = false;
   for (const project of VITE_PLUS_PROJECTS) {
     const file = manifestPath(checkout, project);
     const before = fs.readFileSync(file, 'utf8');
     const after = pinText(before, version, coreSpec);
     if (after === before) continue;
     fs.writeFileSync(file, after);
-    runBunInstall(checkout, project, installFlags);
     changed.add(project);
+    needsLockSync = true;
   }
+  if (needsLockSync) runBunInstall(checkout, '.', installFlags);
   const left = misalignments(checkout);
   if (left.length) throw new Error(`still misaligned:\n${left.join('\n')}`);
   return [...changed];

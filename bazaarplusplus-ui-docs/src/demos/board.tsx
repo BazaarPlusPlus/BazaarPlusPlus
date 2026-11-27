@@ -1,4 +1,4 @@
-import { Board, SkillStrip, gameTerms } from '@bpp/ui';
+import { Board, SkillStrip, gameTerms } from '@bazaarplusplus/ui/game';
 import { card, pinned, pinnedSkills, skill } from '../cards';
 import type { DemoProps } from '../copy';
 export default function BoardDemo({ lang }: DemoProps) {

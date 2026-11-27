@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogBody,
   DialogFooter
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui';
 import { translate, type DemoProps } from '../copy';
 import { useState } from 'react';
 export default function Demo({ lang }: DemoProps) {

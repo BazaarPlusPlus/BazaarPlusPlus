@@ -1,9 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const designRoot = import.meta.dirname;
-export const bundleCssPath = join(designRoot, 'components', 'bundle.css');
-export const libraryRoot = join(designRoot, 'ui');
+const uiRoot = import.meta.dirname;
+export const primitivesCssPath = join(uiRoot, 'styles', 'primitives.css');
+export const gameCssPath = join(uiRoot, 'styles', 'game.css');
+export const libraryStylesheets = [primitivesCssPath, gameCssPath] as const;
+export const libraryRoot = join(uiRoot, 'src');
 
 export interface UndefinedClass {
   file: string;
@@ -24,7 +26,7 @@ export function tsxFiles(root: string): string[] {
   return readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.tsx'))
     .map((entry) => join(entry.parentPath, entry.name))
-    .sort();
+    .toSorted();
 }
 
 function stringLiterals(source: string): string[] {
@@ -90,7 +92,7 @@ export function undefinedClasses(
   stylesheets: readonly string[] = []
 ): UndefinedClass[] {
   const defined = definedClasses(
-    [bundleCssPath, ...stylesheets]
+    [...libraryStylesheets, ...stylesheets]
       .map((path) => readFileSync(path, 'utf8'))
       .join('\n')
   );

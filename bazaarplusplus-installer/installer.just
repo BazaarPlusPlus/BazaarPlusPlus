@@ -40,7 +40,7 @@ dev:
 # Start the full Tauri desktop app; verifies the locked Bun dependencies before launch.
 app:
     bun scripts/checks/check-toolchain.ts "$(bun --version)"
-    bun install --frozen-lockfile
+    (cd .. && bun install --frozen-lockfile)
     bun run tauri dev
 
 # Format installer sources in place.

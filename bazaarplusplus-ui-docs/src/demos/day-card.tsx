@@ -1,4 +1,4 @@
-import { DayCard, fillTerm, gameTerms } from '@bpp/ui';
+import { DayCard, fillTerm, gameTerms } from '@bazaarplusplus/ui/game';
 import type { DemoProps } from '../copy';
 import run from '../demo-data/run.json';
 export default function Day({ lang }: DemoProps) {

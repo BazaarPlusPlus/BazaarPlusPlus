@@ -11,16 +11,14 @@ import {
   it,
   vi
 } from 'vite-plus/test';
+import { Button, Dialog, StatusPanel } from '../src/index';
 import {
-  Button,
   CardDetail,
   CardTile,
   CardText,
   type CardTextLine,
-  Dialog,
-  SkillStrip,
-  StatusPanel
-} from '@bpp/ui';
+  SkillStrip
+} from '../src/game/index';
 
 let container: HTMLDivElement;
 let root: Root;

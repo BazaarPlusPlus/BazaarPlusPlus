@@ -115,7 +115,11 @@ export function signInteropStatement({
 const x509 = (certificate: CertificateInput): crypto.X509Certificate =>
   certificate instanceof crypto.X509Certificate
     ? certificate
-    : new crypto.X509Certificate(certificate);
+    : new crypto.X509Certificate(
+        typeof certificate === 'string' || ArrayBuffer.isView(certificate)
+          ? certificate
+          : new Uint8Array(certificate)
+      );
 
 // Hash the DER bytes to match the digest reported by apksigner and pinned by ANDROID_RELEASE_SIGNER_SHA256.
 export function certificateSha256(certificate: CertificateInput): string {

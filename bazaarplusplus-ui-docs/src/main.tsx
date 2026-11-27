@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button } from '@bpp/ui';
+import { Button } from '@bazaarplusplus/ui';
 import { pages } from './pages';
 import { translate, type Locale, type DemoProps } from './copy';
 import Foundations from './Foundations';

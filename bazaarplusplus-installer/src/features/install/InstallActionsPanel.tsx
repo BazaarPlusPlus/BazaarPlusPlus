@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useI18n } from '../../i18n/LocaleProvider';
-import { Button } from '@bpp/ui';
+import { Button } from '@bazaarplusplus/ui';
 import { ResetDataFailureDetails } from './ResetDataFailureDetails';
 import { installFailurePaths } from './installProblems';
 import type {

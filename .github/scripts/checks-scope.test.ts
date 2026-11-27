@@ -72,7 +72,7 @@ test('root documents, each project and global inputs select their daily gates', 
     ['installer', 'installer-windows']
   );
   expectScopes(
-    ['bazaarplusplus-installer/bun.lock'],
+    ['bazaarplusplus-installer/package.json'],
     ['installer', 'installer-windows', 'release']
   );
   expectScopes(['bazaarplusplus-mod/docs/MEMORY.md'], ['mod-macos']);
@@ -156,10 +156,6 @@ test('shared inputs select owners and every contract consumer', () => {
       ['installer', 'installer-windows', 'mod', 'release']
     ],
     [
-      'bazaarplusplus-installer/src/styles/tokens.css',
-      ['installer-frontend', 'site', 'ui-docs']
-    ],
-    [
       'bazaarplusplus-installer/static/support/wechat-pay.svg',
       ['installer-frontend', 'site']
     ],
@@ -183,11 +179,14 @@ test('deletions and cross-directory moves include old and new consumers', () => 
   assert.deepEqual(
     selected(
       classifyChanges([
-        { status: 'D', file: 'bazaarplusplus-installer/src/styles/tokens.css' },
-        { status: 'A', file: 'bazaarplusplus-server/tokens.css' }
+        {
+          status: 'D',
+          file: 'bazaarplusplus-installer/static/support/wechat-pay.svg'
+        },
+        { status: 'A', file: 'bazaarplusplus-server/wechat-pay.svg' }
       ])
     ),
-    ['installer-frontend', 'server', 'site', 'ui-docs']
+    ['installer-frontend', 'server', 'site']
   );
   assert.deepEqual(
     selected(classifyChanges([{ status: 'D', file: 'docs/design.md' }])),
@@ -297,21 +296,17 @@ test('new cross-project reads cannot silently bypass consumers, including backsl
   assert.deepEqual(
     unregisteredReferences(
       file,
-      "import '../../bazaarplusplus-installer/src/styles/tokens.css'"
+      "import '../../bazaarplusplus-installer/static/support/wechat-pay.svg'"
     ),
     []
   );
 });
 
-test('design system inputs select the installer frontend, the site, the Android App, the server and the root gates', () => {
+test('design system inputs select the UI kit, installer frontend, site, Android App, server and root gates', () => {
   expectScopes(
+    ['design/tokens.json', 'design/build.ts', 'design/README.md'],
     [
-      'design/tokens.json',
-      'design/components/bundle.css',
-      'design/build.ts',
-      'design/README.md'
-    ],
-    [
+      'ui',
       'installer-frontend',
       'site',
       'ui-docs',
@@ -328,6 +323,7 @@ test('design system inputs select the installer frontend, the site, the Android 
     'release',
     'server',
     'site',
+    'ui',
     'ui-docs'
   ]);
 });
@@ -384,7 +380,7 @@ test('Installer build inputs request Windows while ordinary source uses macOS', 
       ['installer', 'installer-windows']
     );
   }
-  for (const file of ['package.json', 'bun.lock', 'bunfig.toml']) {
+  for (const file of ['package.json', 'bunfig.toml']) {
     expectScopes(
       [`bazaarplusplus-installer/${file}`],
       ['installer', 'installer-windows', 'release']
@@ -421,6 +417,7 @@ test('manual scopes select exactly the requested native platforms and their sour
       'release',
       'server',
       'site',
+      'ui',
       'ui-docs'
     ],
     'full/windows': [
@@ -432,6 +429,7 @@ test('manual scopes select exactly the requested native platforms and their sour
       'release',
       'server',
       'site',
+      'ui',
       'ui-docs'
     ],
     'full/android': [
@@ -443,6 +441,7 @@ test('manual scopes select exactly the requested native platforms and their sour
       'release',
       'server',
       'site',
+      'ui',
       'ui-docs'
     ],
     'installer/all': [
@@ -585,16 +584,12 @@ test('repository metadata and project recipes do not fan out to all platforms', 
     expectScopes([file], ['release']);
   expectScopes(['bazaarplusplus-ui-docs/src/main.tsx'], ['ui-docs']);
   expectScopes(
-    ['design/ui/Button.tsx'],
-    [
-      'installer-frontend',
-      'site',
-      'ui-docs',
-      'android',
-      'bot',
-      'server',
-      'release'
-    ]
+    ['packages/ui/src/Button.tsx'],
+    ['ui', 'installer-frontend', 'site', 'ui-docs']
+  );
+  expectScopes(
+    ['packages/ui/package.json'],
+    ['ui', 'installer-frontend', 'site', 'ui-docs', 'release']
   );
   expectScopes(['bazaarplusplus-site/site.just'], ['site', 'release']);
   expectScopes(['bazaarplusplus-site/package.json'], ['site', 'release']);

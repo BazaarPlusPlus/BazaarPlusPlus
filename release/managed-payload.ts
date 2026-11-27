@@ -345,17 +345,21 @@ export function signWithUpdaterKey({
       'Signing the Managed Payload needs the Tauri updater key: BPP_SIGNING_SECRETS_DIR/tauri-updater.key or TAURI_SIGNING_PRIVATE_KEY'
     );
   // The CLI's own entry script, run by this Node: a .cmd shim needs a shell on
-  // Windows.
-  const tauri = path.join(
-    installerRoot(workspaceRoot),
-    'node_modules',
-    '@tauri-apps',
-    'cli',
-    'tauri.js'
-  );
-  if (!fs.existsSync(tauri))
+  // Windows. Under Bun workspaces, @tauri-apps/cli is hoisted to root node_modules.
+  const tauriCandidates = [
+    path.join(
+      installerRoot(workspaceRoot),
+      'node_modules',
+      '@tauri-apps',
+      'cli',
+      'tauri.js'
+    ),
+    path.join(workspaceRoot, 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
+  ];
+  const tauri = tauriCandidates.find((candidate) => fs.existsSync(candidate));
+  if (!tauri)
     throw new Error(
-      `Signing the Managed Payload needs the installer's Tauri CLI; run bun install --frozen-lockfile in bazaarplusplus-installer (missing ${tauri})`
+      `Signing the Managed Payload needs the installer's Tauri CLI; run bun install --frozen-lockfile at the repo root (checked ${tauriCandidates.join(', ')})`
     );
   // The updater key has no password; the signer still needs the variable set.
   signing.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= '';

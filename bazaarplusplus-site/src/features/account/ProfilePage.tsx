@@ -8,7 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   StatusPanel
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui';
 
 import {
   buildRouteHref,

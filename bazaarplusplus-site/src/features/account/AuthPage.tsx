@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@bpp/ui';
+import { Button } from '@bazaarplusplus/ui';
 
 import {
   buildRouteHref,

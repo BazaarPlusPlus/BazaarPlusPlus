@@ -17,12 +17,8 @@ on:
     branches: [master]
     paths:
       - bazaarplusplus-site/**
-      - design/components/bundle.css
-      - design/tailwind-theme.css
+      - packages/ui/**
       - packages/runs/**
-      - design/ui/**
-      - design/ui-classes.ts
-      - bazaarplusplus-installer/src/styles/tokens.css
       - release/**
       - .github/workflows/deploy-site.yml
 
@@ -60,7 +56,6 @@ jobs:
         with:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
-        working-directory: bazaarplusplus-site
       - name: Require Cloudflare credentials
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

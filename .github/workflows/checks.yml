@@ -33,6 +33,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       release: ${{ steps.scope.outputs.release }}
+      ui: ${{ steps.scope.outputs.ui }}
       site: ${{ steps.scope.outputs.site }}
       ui-docs: ${{ steps.scope.outputs.ui-docs }}
       server: ${{ steps.scope.outputs.server }}
@@ -107,6 +108,25 @@ jobs:
       - run: just commands-check design::check runs::check runs::test release::check release::test
       - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
+  ui:
+    name: ui (check, build and test)
+    needs: classify
+    if: needs.classify.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: just@1.58.0
+      - run: bun install --frozen-lockfile
+      - run: just ui::check ui::test
+
   site:
     name: site (full check and test)
     needs: classify
@@ -126,7 +146,10 @@ jobs:
       - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
         with:
           tool: just@1.58.0
-      - run: bun install --frozen-lockfile
+      - if: env.PROJECT == 'site' || env.PROJECT == 'ui-docs'
+        run: bun install --frozen-lockfile
+      - if: env.PROJECT == 'server' || env.PROJECT == 'bot'
+        run: bun install --frozen-lockfile
         working-directory: bazaarplusplus-${{ env.PROJECT }}
       - if: env.PROJECT == 'site' || env.PROJECT == 'ui-docs'
         working-directory: bazaarplusplus-${{ env.PROJECT }}
@@ -195,7 +218,6 @@ jobs:
           bun-version-file: package.json
       - name: Install Installer Bun dependencies
         run: bun install --frozen-lockfile
-        working-directory: bazaarplusplus-installer
       # Consume committed bindings; native inputs also select real generation.
       - name: Verify Installer
         run: bun run verify --source-only --subset frontend
@@ -239,7 +261,6 @@ jobs:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       - name: Install Installer Bun dependencies
         run: bun install --frozen-lockfile
-        working-directory: bazaarplusplus-installer
       # Real binding generation precedes the diff check. Windows also repeats
       # script tests; both platforms use an empty source resource bundle.
       - name: Verify Installer
@@ -461,6 +482,7 @@ jobs:
       [
         classify,
         release,
+        ui,
         site,
         ui-docs,
         server,

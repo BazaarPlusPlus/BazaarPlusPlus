@@ -1,5 +1,5 @@
 import { getSiteCopy } from '../content/site-copy';
-import { Button, StatusPanel } from '@bpp/ui';
+import { Button, StatusPanel } from '@bazaarplusplus/ui';
 import { RefreshIcon } from '../shared/components/icons';
 import PageLayout, { PageHeading } from '../shared/components/PageLayout';
 import type { ResolvedSpaLocation } from './router';

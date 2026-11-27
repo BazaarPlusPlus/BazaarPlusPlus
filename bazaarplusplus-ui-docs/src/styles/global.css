@@ -1,7 +1,8 @@
 @import 'tailwindcss';
-@import './installer-tokens.css';
-@import '../../../design/tailwind-theme.css';
-@import '../../../design/components/bundle.css';
+@import '@bazaarplusplus/ui/tokens.css';
+@import '@bazaarplusplus/ui/theme.css';
+@import '@bazaarplusplus/ui/primitives.css';
+@import '@bazaarplusplus/ui/game.css';
 body {
   @apply bg-canvas text-text-1 font-sans text-body;
 }

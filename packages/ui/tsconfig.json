@@ -1,16 +1,13 @@
 {
-  // The library checks itself under the union of the installer's and the
-  // site's compiler options, so it compiles inside both. React types come from
-  // the root devDependencies; each product resolves the runtime from its own
-  // node_modules through `resolve.dedupe`.
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "customConditions": ["@bpp/source"],
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "types": [],
+    "types": ["node"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -23,5 +20,11 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["*.ts", "*.tsx"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/**/*.ts",
+    "test/**/*.tsx",
+    "ui-classes.ts"
+  ]
 }
