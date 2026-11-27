@@ -2,6 +2,12 @@
 @import './tokens.css';
 @import '../../../design/tailwind-theme.css';
 @import '../../../design/components/bundle.css';
+@import './shell.css';
+
+::selection {
+  background: var(--accent-line);
+  color: var(--text-1);
+}
 
 html[data-bpp-platform='windows'] {
   --font-ui:

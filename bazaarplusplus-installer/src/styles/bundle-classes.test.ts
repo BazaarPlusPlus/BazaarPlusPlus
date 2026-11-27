@@ -19,7 +19,8 @@ describe('bpp-* classes', () => {
     const src = join(import.meta.dirname, '..');
     expect(
       undefinedClasses(tsxFiles(src), productBppTokens, src, [
-        join(import.meta.dirname, 'index.css')
+        join(import.meta.dirname, 'index.css'),
+        join(import.meta.dirname, 'shell.css')
       ])
     ).toEqual([]);
   });

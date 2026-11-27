@@ -15,8 +15,12 @@ describe('bpp-* classes', () => {
     ).toEqual([]);
   });
 
-  it('the site uses only bpp-* classes bundle.css defines', () => {
+  it('the site uses only bpp-* classes a stylesheet defines', () => {
     const src = join(import.meta.dirname, '..', 'src');
-    expect(undefinedClasses(tsxFiles(src), productBppTokens, src)).toEqual([]);
+    expect(
+      undefinedClasses(tsxFiles(src), productBppTokens, src, [
+        join(src, 'styles', 'global.css')
+      ])
+    ).toEqual([]);
   });
 });

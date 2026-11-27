@@ -151,6 +151,6 @@ The mod's panels sit inside The Bazaar, so they speak the game's language rather
 
 ## Exceptions
 
-- **Previews are static.** Each component preview is the `bpp-*` markup styled by `components/bundle.css`, the same stylesheet the installer and the site import. The React components live in `ui/` (the Web component library); a component only one product needs stays in that product.
-- **Page-specific styles** (Install status, History run cards and stats, Run detail, Stream) stay in the installer's `src/styles/index.css`, on the same tokens.
+- **Live documentation.** Interactive previews and source examples live in `bazaarplusplus-ui-docs/` (published at https://ui.bazaarplusplus.com).
+- **Page-specific and shell styles** (installer shell chrome, toast, confirm dialog, History run cards and stats, Run detail, Stream; site `.panel` and `HeroBadge`) stay in each product's stylesheet, on the same tokens.
 - **Outside this system:** the OBS stream overlay (`src-tauri/resources/stream/`, with its Cinzel font and hero badge SVGs), the mod's native art (it is the game's), and the third-party WeChat Pay and Xiaohongshu marks under `static/support/`.

@@ -44,6 +44,66 @@
   }
 }
 
+::selection {
+  background: var(--accent-line);
+  color: var(--text-1);
+}
+
+.panel {
+  min-width: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+}
+
+.bpp-hero-badge {
+  display: inline-flex;
+  height: 24px;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  color: var(--text-1);
+  background: var(--bg-hover);
+  font-size: var(--type-small);
+  font-weight: 500;
+  line-height: 1.33;
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast);
+}
+.bpp-hero-badge.is-selected {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+}
+.bpp-hero-badge-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+}
+.bpp-hero-badge-value {
+  color: var(--text-2);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.bpp-hero-badge.is-selected .bpp-hero-badge-value {
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
 /* Keep the replay panel and its steps below the sticky site navigation. */
 .bpp-replay {
   --replay-top: calc(var(--row-height) + var(--space-8));
