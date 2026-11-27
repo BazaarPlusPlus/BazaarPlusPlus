@@ -468,7 +468,7 @@ test('prepare names every required inventory file the host build did not produce
         ])
     })
   ).rejects.toThrow(
-    'Android Mod Payload lacks MelonLoader/Mods/BazaarPlusPlus.Core.dll, MelonLoader/UserLibs/MessagePack.dll'
+    'Android Payload lacks MelonLoader/Mods/BazaarPlusPlus.Core.dll, MelonLoader/UserLibs/MessagePack.dll'
   );
   expect(
     fs.existsSync(adaptationPaths(f.workspaceRoot, 'publisher').buildRecord)
@@ -508,7 +508,7 @@ test('prepare refuses an interop directory that is not the locked snapshot and u
       }
     })
   ).rejects.toThrow(
-    /Android Mod Payload holds MelonLoader\/Mods\/Extra.dll, which release\/payload.json does not give to the mod build/
+    /Android Payload holds MelonLoader\/Mods\/Extra\.dll, which release\/payload\.json does not give to the mod build/
   );
   await expect(
     prepareAndroidPayload({

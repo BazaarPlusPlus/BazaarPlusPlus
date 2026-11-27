@@ -34,3 +34,5 @@ The operational rules (claim ownership, symbol-level citation form, re-verificat
 Agents start with `GLOSSARY.md`, open only the topic whose trigger matches the task, and consult an ADR only when its decision is in question. Re-verifying a changed document is a judgment call the author records in the pull request rather than a value stored in the file, so a documentation update costs one edit and a code pull request costs none. Historical mechanics are recovered from Git when explicitly needed.
 
 Amended 2026-11-11: the installer's tooling is Bun, so the check is `bun run docs:check` (`scripts/checks/docs-check.ts`), not `npm run docs:check`. The mention under Rejected Alternatives records the tree at `7e49fc8` and stays as written.
+
+Amended 2026-11-28: `AGENTS.md` now owns the System Map and task-triggered topic map checked by `bun run docs:check`, matching the rest of the monorepo (`bazaarplusplus-mod`, `-server`, `-site`, `-analyzer`), while `GLOSSARY.md` holds pure installer vocabulary.

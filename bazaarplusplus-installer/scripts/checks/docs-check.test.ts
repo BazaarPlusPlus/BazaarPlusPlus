@@ -128,14 +128,14 @@ test('a topic missing from the entry map fails', () => {
     {
       file: 'docs/architecture.md',
       line: 1,
-      message: 'topic is not linked from `GLOSSARY.md`'
+      message: 'topic is not linked from `AGENTS.md`'
     }
   ]);
 });
 
 test('a topic linked from the entry map passes, and ADRs need no entry', () => {
   const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'GLOSSARY.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'AGENTS.md', '[Architecture](docs/architecture.md)\n');
   writeFile(rootDir, 'docs/architecture.md', '# Architecture\n');
   writeFile(rootDir, 'docs/adr/0001-example.md', '# One\n');
 
@@ -147,7 +147,7 @@ test('a topic linked from the entry map passes, and ADRs need no entry', () => {
 
 test('runDocsCheck reports failure once any seam fails, and passes a clean tree', () => {
   const rootDir = createFixtureRoot();
-  writeFile(rootDir, 'GLOSSARY.md', '[Architecture](docs/architecture.md)\n');
+  writeFile(rootDir, 'AGENTS.md', '[Architecture](docs/architecture.md)\n');
   writeFile(rootDir, 'src/lib.rs', 'fn main() {}\n');
   writeFile(rootDir, 'docs/architecture.md', 'Entry point: `src/lib.rs`.\n');
 

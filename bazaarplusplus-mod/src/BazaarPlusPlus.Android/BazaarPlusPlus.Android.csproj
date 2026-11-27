@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    The Android Host (root GLOSSARY.md; docs/ARCHITECTURE.md Hosts): a LemonLoader MelonMod on
+    The Android Host (root GLOSSARY.md; docs/ARCHITECTURE.md Assemblies And Boundaries): a LemonLoader MelonMod on
     CoreCLR that compiles against the Interop Snapshot and the Loader Release, never against
     Managed/ and never publicized. net10.0 is the TFM of the Loader Release's own MelonLoader.dll.
   -->
@@ -25,9 +25,10 @@
   <Import Project="$(MSBuildThisFileDirectory)../../build/InteropPath.props" />
 
   <!--
-    The Android Mod Payload (release/payload.json, host melonloader): Payload.targets collects the
-    MelonLoader entries; the Android `release/cli.ts prepare` stages them through
-    CopyToPayloadStaging below, which `release/android-release.ts` then zips as the Managed Payload.
+    The Android Payload (release/payload.json, host melonloader): Payload.targets collects the
+    MelonLoader entries (Mods, UserLibs, and the Updater plugin); `release/cli.ts prepare` stages
+    them through CopyToPayloadStaging below, and `release/android-release.ts` then zips the
+    managed subset as the Managed Payload and packages the Updater into the Android App.
   -->
   <PropertyGroup>
     <BppPayloadHost>melonloader</BppPayloadHost>

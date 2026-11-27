@@ -4,13 +4,14 @@ The standalone mod-facing backend, a Cloudflare Worker, ingesting Bundle V6. Rep
 
 | When you are about to | Read |
 |---|---|
-| Name a domain concept, or change runtime boundaries | `GLOSSARY.md` |
+| Name a domain concept | `../GLOSSARY.md` |
+| Change runtime boundaries, ingest, or retention | `docs/architecture.md` |
 | Change module seams or where code lives | `README.md`, then `docs/adr/0001-deep-module-seams.md` |
 | Add or change a public route, request, or response | `docs/api-reference.md` |
 | Change the Bundle binary format or manifest | `contracts/v6/` |
 | Change the BazaarDB Feed | `docs/adr/0004-bazaardb-cursor-feed.md` |
 | Provision, migrate, or deploy | `docs/deployment-runbook.md` |
-| Change D1 or R2 retention, or Ghost storage columns | `GLOSSARY.md` (Runtime boundaries), then `docs/adr/0002-d1-retention.md` and `docs/adr/0003-ghost-summary-columns.md` |
+| Change D1 or R2 retention, or Ghost storage columns | `docs/architecture.md`, then `docs/adr/0002-d1-retention.md` and `docs/adr/0003-ghost-summary-columns.md` |
 
 ## Guardrails
 
@@ -18,7 +19,7 @@ The standalone mod-facing backend, a Cloudflare Worker, ingesting Bundle V6. Rep
 - `migrations-v6/` builds the V6 D1 (the tests apply it). Migration files are append-only once a production D1 has applied them; every schema change is a new numbered file in `migrations-v6/`.
 - Provisioning, remote migrations, and deploys mutate production Cloudflare; run them only when the user explicitly authorizes it.
 - Bundle upload is unauthenticated: `uploader_account_id` and `bundle_uploaders` are caller assertions and must never authorize a write. The website shows a linked BPP Account the Bundles that claim its game account id as its Records (ADR 0008); the link, verified by the official game token, is what lets that account read them.
-- Before changing ingest, Ghost projection eligibility, or Bundle download delivery, read the invariants in `GLOSSARY.md` (Runtime boundaries) and `docs/adr/0001-deep-module-seams.md` (Bundle opening, Bundle persistence).
+- Before changing ingest, Ghost projection eligibility, or Bundle download delivery, read the invariants in `docs/architecture.md` and `docs/adr/0001-deep-module-seams.md` (Bundle opening, Bundle persistence).
 - Protected routes authenticate before parsing or querying, and `GET /ghost-battles` and `POST /bundles` call their rate-limit binding, keyed by `clientRateLimitKey`, before any parsing, storage, or signing.
 - Adding a route updates `src/http/routes.ts` (handler and its `docs` operation), the `the public route table` cases in `test/worker.test.ts`, `docs/api-reference.md`, and the `test/goldens/openapi.json` golden together. A response body shape changes in `src/http/schemas.ts`, never in a module-local interface.
 - `contracts/mod-api-errors.json` owns HTTP error codes, statuses, and retry flags. A new or changed code also updates the error table in `docs/api-reference.md`, which `test/contracts/mod-api-errors.test.ts` requires to match the JSON row for row.

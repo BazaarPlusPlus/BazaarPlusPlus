@@ -95,7 +95,7 @@ const usage = `Product release commands (run from any directory):
   bun release/cli.ts prepare --platform macos      Build and validate one platform Payload
   bun release/cli.ts build --platform macos        Build and sign the native installer
   bun release/cli.ts upload --platform macos       Upload immutable platform artifacts
-  bun release/cli.ts prepare --platform android    Build the Android host and stage the Android Mod Payload
+  bun release/cli.ts prepare --platform android    Build the Android host and stage the Android Payload
   bun release/cli.ts build --platform android      Zip and sign the Managed Payload; build, align and sign
                                                     the Android App; pack the Interop Package and sign its
                                                     interop statement
