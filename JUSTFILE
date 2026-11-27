@@ -73,10 +73,15 @@ setup-device *args:
 walkthrough *args:
     bun scripts/android/walkthrough.ts "$@"
 
-# Development only: copy recent cloud runs into desktop or Android history, or clear them; just mod::history-sample has the usage.
+# Development only: copy recent cloud runs into desktop or Android history as History-Only Runs, or clear them; pass --help for usage.
 [group('workspace')]
 history-sample *args:
-    bun scripts/workspace.ts run analyzer -- bun scripts/history-sample.ts "$@"
+    bun scripts/workspace.ts run analyzer -- bun scripts/dev/history-sample.ts "$@"
+
+# Extract Simplified Chinese hero, card, skill and enchantment names from the local game cache.
+[group('workspace')]
+zh-names out *args:
+    bun scripts/dev/zh-names.ts "$@"
 
 # Run explicit verification recipes serially and retain their final exit status, SHA and logs.
 [group('workspace')]

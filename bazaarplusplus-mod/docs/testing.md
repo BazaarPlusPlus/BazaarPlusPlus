@@ -1,6 +1,6 @@
 # Test projects
 
-How a test project reaches the code it tests. `scripts/test.sh` owns the lanes (`just mod::test`, `just mod::test-core`), and `tests/Architecture.Tests/TestProjectRegistryTests.cs` holds every project to a registry that runs it.
+How a test project reaches the code it tests. `scripts/test.ts` owns the lanes (`just mod::test`, `just mod::test-core`), and `tests/Architecture.Tests/TestProjectRegistryTests.cs` holds every project to a registry that runs it.
 
 ## Reference Core, or link sources
 

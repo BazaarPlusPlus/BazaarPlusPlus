@@ -6,10 +6,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'vite-plus/test';
 
+import {
+  loadGithubSecrets,
+  releaseWorkflowNames,
+  releaseWorkflowSecrets,
+  releaseWorkflowVariables
+} from '../../release/github-secrets.ts';
+
 const scriptsDir = import.meta.dirname;
-const script = path.join(scriptsDir, 'release-secrets.sh');
+const script = path.join(scriptsDir, 'release-secrets.ts');
 const workflow = path.join(scriptsDir, '..', 'workflows', 'release.yml');
-const table = path.join(scriptsDir, '..', '..', 'release', 'github-secrets.ts');
 
 // Distinct values so a leak is attributable to one name.
 const keystoreBytes = Buffer.from([0x30, 0x82, 0x0a, 0x00, 0xff, 0x10, 0x42]);
@@ -32,15 +38,10 @@ const values: Record<string, string> = {
 function run(args: string[], secrets: Record<string, string> = values) {
   const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: os.tmpdir() };
   for (const [name, value] of Object.entries(secrets)) env[name] = value;
-  return spawnSync('bash', [script, ...args], { env, encoding: 'utf8' });
-}
-
-function tableNames(verb: string) {
-  const result = spawnSync(process.execPath, [table, verb], {
+  return spawnSync(process.execPath, [script, ...args], {
+    env,
     encoding: 'utf8'
   });
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout.trim().split('\n').filter(Boolean);
 }
 
 function assertNoValueLeak(result: SpawnSyncReturns<string>) {
@@ -54,6 +55,7 @@ function assertNoValueLeak(result: SpawnSyncReturns<string>) {
 
 test('release.yml reads exactly the names the table lists, each at its scope', () => {
   const text = fs.readFileSync(workflow, 'utf8');
+  const table = loadGithubSecrets();
   const referenced = (kind: string) =>
     [
       ...new Set(
@@ -66,11 +68,14 @@ test('release.yml reads exactly the names the table lists, each at its scope', (
   assert.equal(names.status, 0, names.stderr);
   assert.deepEqual(
     names.stdout.trim().split('\n').sort(),
-    tableNames('names').sort()
+    releaseWorkflowNames(table).sort()
   );
-  assert.deepEqual(referenced('secrets'), tableNames('secrets').sort());
-  assert.deepEqual(referenced('vars'), tableNames('variables').sort());
-  assert.deepEqual(Object.keys(values).sort(), tableNames('names').sort());
+  assert.deepEqual(referenced('secrets'), releaseWorkflowSecrets(table).sort());
+  assert.deepEqual(referenced('vars'), releaseWorkflowVariables(table).sort());
+  assert.deepEqual(
+    Object.keys(values).sort(),
+    releaseWorkflowNames(table).sort()
+  );
 });
 
 test('check passes when every name of the stage is present', () => {
@@ -139,7 +144,7 @@ test('windows needs no Apple material and no Android keystore', () => {
   assert.match(macos.stderr, /6 required secret\(s\) missing/);
 });
 
-test('stage writes the files bundle.sh reads from BPP_SIGNING_SECRETS_DIR', (t) => {
+test('stage writes the files bundle.ts reads from BPP_SIGNING_SECRETS_DIR', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-release-secrets-'));
   t.onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
   const macos = path.join(root, 'macos');

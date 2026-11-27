@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
-import { androidSdkPaths } from './android-sdk.ts';
+import { androidSdkPaths } from './adb.ts';
 import {
   assertExternal,
   configHome,

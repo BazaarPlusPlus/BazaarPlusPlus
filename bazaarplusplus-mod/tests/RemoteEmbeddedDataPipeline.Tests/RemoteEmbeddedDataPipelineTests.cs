@@ -404,8 +404,8 @@ public sealed class RemoteEmbeddedDataPipelineTests
             {
                 var result = await RunProcess(
                     repo,
-                    await BashForHost(repo),
-                    Path.Combine(repo, "scripts", "build.sh"),
+                    "bun",
+                    Path.Combine(repo, "scripts", "build.ts"),
                     "fetch-data",
                     $"-p:VoiceLinesRemoteUrl={server.BaseUrl}voice",
                     $"-p:TenWinBuildsRemoteUrl={server.BaseUrl}builds",
@@ -535,27 +535,6 @@ public sealed class RemoteEmbeddedDataPipelineTests
         string workingDirectory,
         params string[] arguments
     ) => await RunProcess(workingDirectory, "dotnet", arguments);
-
-    private static async Task<string> BashForHost(string workingDirectory)
-    {
-        if (!OperatingSystem.IsWindows())
-            return "bash";
-
-        // Resolve Git Bash explicitly because Windows can pick the WSL launcher for bare "bash".
-        var git = await RunProcess(workingDirectory, "git", "--exec-path");
-        Equal(0, git.ExitCode, "Could not locate Git for Windows. " + git.Output);
-        for (
-            var directory = new DirectoryInfo(git.Output.Trim());
-            directory != null;
-            directory = directory.Parent
-        )
-        {
-            var candidate = Path.Combine(directory.FullName, "bin", "bash.exe");
-            if (File.Exists(candidate))
-                return candidate;
-        }
-        throw new InvalidOperationException("Git for Windows does not contain bin/bash.exe.");
-    }
 
     private static async Task<(int ExitCode, string Output)> RunProcess(
         string workingDirectory,

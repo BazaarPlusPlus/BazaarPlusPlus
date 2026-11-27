@@ -13,7 +13,7 @@ The mod: the BepInEx Desktop Host and the LemonLoader Android Host (root `GLOSSA
 
 ## Build and test
 
-`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.sh`. Deploy only through `just mod::build --deploy`: a raw `dotnet build` skips the macOS trampoline repair every game update needs. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `GLOSSARY.md`); override with `-p:ManagedPath=...`, and `just mod::fetch <platform> <channel>` explains a mismatch.
+`just --list mod` lists every command; recipes live in `mod.just` and run `scripts/*.ts`. Deploy only through `just mod::build --deploy`: a raw `dotnet build` skips the macOS trampoline repair every game update needs. Game assemblies resolve via `ManagedPath` from the Snapshot Lock (`build/ManagedPath.props`, root `GLOSSARY.md`); override with `-p:ManagedPath=...`, and `just mod::fetch <platform> <channel>` explains a mismatch.
 
 What `just --list mod` cannot tell you:
 

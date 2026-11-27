@@ -628,7 +628,7 @@ function staleLauncherIcon(): string[] {
   return recorded === sha
     ? []
     : [
-        `${ANDROID_LAUNCHER_ICON} is stale for ${APP_ICON}; run \`just android::launcher-icon\``
+        `${ANDROID_LAUNCHER_ICON} is stale for ${APP_ICON}; run \`just design::launcher-icon\``
       ];
 }
 

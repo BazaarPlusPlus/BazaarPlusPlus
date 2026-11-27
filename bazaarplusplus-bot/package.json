@@ -7,9 +7,12 @@
     "bun": "1.4.4"
   },
   "scripts": {
-    "check": "tsc --noEmit && oxlint --type-aware && oxfmt --check .",
-    "test": "vitest run",
+    "check": "bun run typecheck && bun run lint && bun run format:check",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware",
     "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
     "preview": "bun test/preview.ts",
     "dev": "wrangler dev -c wrangler.toml -c wrangler.consumer.toml",
     "build": "wrangler deploy --dry-run --outdir dist/webhook && wrangler deploy -c wrangler.consumer.toml --dry-run --outdir dist/consumer"

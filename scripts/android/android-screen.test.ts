@@ -6,8 +6,11 @@ import { spawnSync } from 'node:child_process';
 import { test } from 'vite-plus/test';
 import type { TestContext } from 'vite-plus/test';
 import { inspectScreen } from './android-screen.ts';
+import { smokeWaitState, updateIniSetting } from './mod-loop.ts';
 
 const root = path.resolve(import.meta.dirname, '../..');
+const modLoopScript = path.join(root, 'scripts/android/mod-loop.ts');
+
 function png(width: number, height: number): Buffer {
   const buffer = Buffer.alloc(24);
   Buffer.from('89504e470d0a1a0a', 'hex').copy(buffer);
@@ -61,74 +64,81 @@ for (const [file, content, pattern] of [
   });
 }
 
-test('android.sh finds the one running device; capture keeps failure evidence and screen-check uses only read-only adb commands', (t) => {
+test('mod-loop finds the one running device; capture keeps failure evidence and screen-check uses only read-only adb commands', (t) => {
   const cwd = fixture(t);
-  for (const file of [
-    'scripts/android/android-screen.ts',
-    'bazaarplusplus-mod/scripts/android.sh',
-    'bazaarplusplus-mod/scripts/lib.sh'
-  ]) {
-    fs.mkdirSync(path.dirname(path.join(cwd, file)), { recursive: true });
-    fs.copyFileSync(path.join(root, file), path.join(cwd, file));
-  }
   const adb = path.join(cwd, 'fake-adb');
+  const adbScript = path.join(cwd, 'fake-adb.mjs');
+  fs.writeFileSync(
+    adbScript,
+    `import fs from 'node:fs';
+import path from 'node:path';
+const args = process.argv.slice(2);
+const fix = process.env.FIXTURE;
+if (process.env.MSYS_NO_PATHCONV !== '1') process.exit(93);
+if (args.join(' ') === 'devices') {
+  process.stdout.write('List of devices attached\\n' + fs.readFileSync(path.join(fix, 'devices.txt'), 'utf8'));
+  process.exit(0);
+}
+if (args[0] !== '-s' || args[1] !== 'fixture-device') process.exit(91);
+const cmd = args.slice(2).join(' ');
+if (cmd === 'get-state') process.stdout.write('device\\n');
+else if (cmd === 'logcat -d -v threadtime') process.stdout.write(fs.readFileSync(path.join(fix, 'logcat.txt')));
+else if (cmd === 'exec-out screencap -p') process.stdout.write(fs.readFileSync(path.join(fix, 'screen.png')));
+else if (cmd === 'shell wm size') process.stdout.write(fs.readFileSync(path.join(fix, 'wm-size.txt')));
+else if (cmd === 'shell wm density') process.stdout.write(fs.readFileSync(path.join(fix, 'wm-density.txt')));
+else if (cmd === 'shell settings get system user_rotation') process.stdout.write('1\\n');
+else if (cmd === 'shell settings get system accelerometer_rotation') process.stdout.write('0\\n');
+else if (cmd === 'shell dumpsys display') process.stdout.write('rotation=1\\n');
+else if (cmd === 'shell run-as com.bazaarplusplus.android.dev true') {}
+else if (cmd === 'exec-out run-as com.bazaarplusplus.android.dev cat no_backup/game-external/MelonLoader/MelonLoader/Latest.log') process.stdout.write('fixture log\\n');
+else if (args[2] === 'push') {
+  if (!fs.existsSync(args[3]) || args[4] !== '/data/local/tmp/bpp-staging') process.exit(94);
+} else if (cmd.startsWith('shell run-as com.bazaarplusplus.android.dev sh -c ')) {
+  if (!cmd.includes('cp /data/local/tmp/bpp-staging no_backup/game-external/test/payload.dll')) process.exit(95);
+} else if (cmd === 'shell rm -f /data/local/tmp/bpp-staging') {}
+else {
+  process.stderr.write('Unexpected/mutating adb command: ' + cmd + '\\n');
+  process.exit(92);
+}
+`
+  );
   fs.writeFileSync(
     adb,
-    `#!/bin/bash
-set -eu
-[[ "\${MSYS_NO_PATHCONV:-}" == 1 || "$*" == devices ]] || exit 93
-if [[ "$*" == devices ]]; then
-  echo 'List of devices attached'
-  cat "$FIXTURE/devices.txt"
-  exit 0
-fi
-[[ "$1" == -s && "$2" == fixture-device ]] || exit 91
-shift 2
-case "$*" in
-  'get-state') echo device ;;
-  'logcat -d -v threadtime') cat "$FIXTURE/logcat.txt" ;;
-  'exec-out screencap -p') cat "$FIXTURE/screen.png" ;;
-  'shell wm size') cat "$FIXTURE/wm-size.txt" ;;
-  'shell wm density') cat "$FIXTURE/wm-density.txt" ;;
-  'shell settings get system user_rotation') echo 1 ;;
-  'shell settings get system accelerometer_rotation') echo 0 ;;
-  'shell dumpsys display') echo 'rotation=1' ;;
-  'shell run-as com.bazaarplusplus.android.dev true') ;;
-  'exec-out run-as com.bazaarplusplus.android.dev cat no_backup/game-external/MelonLoader/MelonLoader/Latest.log') echo 'fixture log' ;;
-  'push '*) [[ -f "$2" && "$3" == /data/local/tmp/bpp-staging ]] || exit 94 ;;
-  'shell run-as com.bazaarplusplus.android.dev sh -c '*) [[ "$*" == *'cp /data/local/tmp/bpp-staging no_backup/game-external/test/payload.dll'* ]] || exit 95 ;;
-  'shell rm -f /data/local/tmp/bpp-staging') ;;
-  *) echo "Unexpected/mutating adb command: $*" >&2; exit 92 ;;
-esac
-`,
+    `#!/usr/bin/env bash\nexec '${process.execPath}' '${adbScript}' "$@"\n`,
     { mode: 0o755 }
   );
+  const modDir = path.join(cwd, 'bazaarplusplus-mod');
+  fs.mkdirSync(modDir, { recursive: true });
+
   const invoke = (
     command: string,
     name: string,
     serial = '',
     target?: string
-  ) =>
-    spawnSync(
-      'bash',
-      [
-        'bazaarplusplus-mod/scripts/android.sh',
-        command,
-        name,
-        ...(target ? [target] : [])
-      ],
-      {
-        cwd,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          ADB: adb.split(path.sep).join('/'),
-          ANDROID_SERIAL: serial,
-          FIXTURE: cwd.split(path.sep).join('/')
-        },
-        timeout: 10_000
-      }
+  ) => {
+    const runner = path.join(cwd, 'run-loop.mjs');
+    fs.writeFileSync(
+      runner,
+      `import { cliMain } from ${JSON.stringify(modLoopScript)};
+process.exitCode = await cliMain(${JSON.stringify([command, name, ...(target ? [target] : [])])}, {
+  workspaceRoot: ${JSON.stringify(cwd)},
+  modRoot: ${JSON.stringify(modDir)},
+  env: {
+    ...process.env,
+    ADB: ${JSON.stringify(adb)},
+    ANDROID_SERIAL: ${JSON.stringify(serial)},
+    FIXTURE: ${JSON.stringify(cwd)}
+  }
+});
+`
     );
+    return spawnSync(process.execPath, [runner], {
+      cwd,
+      encoding: 'utf8',
+      timeout: 15_000
+    });
+  };
+
   const online = (text: string) =>
     fs.writeFileSync(path.join(cwd, 'devices.txt'), text);
   for (const [devices, pattern] of [
@@ -162,13 +172,7 @@ esac
   assert.equal(good.status, 0, good.stderr);
   const input = path.join(cwd, 'input payload.dll');
   fs.writeFileSync(input, 'payload');
-  const hostInput =
-    process.platform === 'win32'
-      ? spawnSync('bash', ['-c', 'cygpath -u "$1"', 'bash', input], {
-          encoding: 'utf8'
-        }).stdout.trim()
-      : input;
-  const put = invoke('put', hostInput, 'fixture-device', 'test/payload.dll');
+  const put = invoke('put', input, 'fixture-device', 'test/payload.dll');
   assert.equal(put.status, 0, put.stderr);
   fs.writeFileSync(path.join(cwd, 'screen.png'), png(1080, 2400));
   const bad = invoke('screen-check', 'bad');
@@ -193,21 +197,8 @@ esac
 });
 
 test('smoke waits for a hooks summary that counts the version label, not the first one after the main menu', () => {
-  const state = (need: '0' | '1', lines: string[]) => {
-    const result = spawnSync(
-      'bash',
-      [
-        '-c',
-        'source "$1" && smoke_wait_state "$2"',
-        'bash',
-        'bazaarplusplus-mod/scripts/android.sh',
-        need
-      ],
-      { cwd: root, encoding: 'utf8', input: lines.join('\n') + '\n' }
-    );
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout.trim();
-  };
+  const state = (need: boolean, lines: string[]) =>
+    smokeWaitState(need, `${lines.join('\n')}\n`);
   const event = (name: string, fields = '') =>
     `[12:00:00.000] [BazaarPlusPlus] [BPP][Android] event=android.${name} ${fields}`;
   const menu = event('scene.loaded', 'name=MainMenuScene mode=Single');
@@ -217,14 +208,30 @@ test('smoke waits for a hooks summary that counts the version label, not the fir
 
   // Game 1.0.13113: a summary follows the main menu before the label is written.
   const early = [event('plugin.loaded'), menu, summary(0)];
-  assert.equal(state('1', early), 'menu');
-  assert.equal(state('0', early), 'ready');
-  assert.equal(state('1', [...early, label]), 'menu');
-  assert.equal(state('1', [...early, label, summary(1)]), 'ready');
-  assert.equal(state('1', [menu, summary(12)]), 'ready');
+  assert.equal(state(true, early), 'menu');
+  assert.equal(state(false, early), 'ready');
+  assert.equal(state(true, [...early, label]), 'menu');
+  assert.equal(state(true, [...early, label, summary(1)]), 'ready');
+  assert.equal(state(true, [menu, summary(12)]), 'ready');
 
-  assert.equal(state('1', [summary(1), label]), 'waiting');
-  assert.equal(state('1', [summary(1), menu]), 'waiting');
-  assert.equal(state('0', [summary(1), menu]), 'waiting');
-  assert.equal(state('1', []), 'waiting');
+  assert.equal(state(true, [summary(1), label]), 'waiting');
+  assert.equal(state(true, [summary(1), menu]), 'waiting');
+  assert.equal(state(false, [summary(1), menu]), 'waiting');
+  assert.equal(state(true, []), 'waiting');
+});
+
+test('updateIniSetting updates existing keys or appends new sections cleanly', () => {
+  assert.equal(
+    updateIniSetting(
+      '[Android]\nPatchMode = Disabled\n',
+      'Android',
+      'PatchMode',
+      'Enabled'
+    ),
+    '[Android]\nPatchMode = Enabled\n'
+  );
+  assert.equal(
+    updateIniSetting('[Other]\nKey = 1\n', 'Android', 'PatchMode', 'Observe'),
+    '[Other]\nKey = 1\n\n[Android]\n\nPatchMode = Observe\n'
+  );
 });

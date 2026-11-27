@@ -257,8 +257,8 @@ export const SHARED_INPUTS: [string, string[]][] = [
     ['release']
   ]),
   // The desktop app icon is the Android App's launcher icon too
-  // (bazaarplusplus-android/tools/launcher-icon.py exports it, and the release
-  // lane's design::check fails a stale export).
+  // (design/launcher-icon.ts exports it, and the release lane's design::check
+  // fails a stale export).
   [
     'bazaarplusplus-installer/src-tauri/icons/app-icon.png',
     ['android', 'release']
@@ -285,7 +285,7 @@ const INFORMATIONAL_REFERENCES: [string, string][] = [
   ],
   [
     'bazaarplusplus-mod/native/macos/build.sh',
-    'bazaarplusplus-installer/scripts/bundle.sh'
+    'bazaarplusplus-installer/scripts/bundle.ts'
   ]
 ];
 
@@ -396,7 +396,11 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       );
       if (windowsBuildInput(project, file))
         select(`${project}-windows`, `Windows build input: ${file}`);
-      if (file.endsWith('.just')) select('release', `Command recipe: ${file}`);
+      if (
+        file.endsWith('.just') ||
+        file.startsWith('bazaarplusplus-mod/scripts/')
+      )
+        select('release', `Command recipe or tooling: ${file}`);
       for (const [input, consumers] of SHARED_INPUTS) {
         if (covers(input, file))
           for (const consumer of consumers)

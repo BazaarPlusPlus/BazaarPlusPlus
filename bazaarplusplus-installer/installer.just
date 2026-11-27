@@ -5,13 +5,22 @@ set positional-arguments
 check:
     bun run verify --source-only
 
+# Run one source verification subset (frontend or native) for CI.
+[arg('subset', pattern='frontend|native')]
+check-subset subset:
+    bun run verify --source-only --subset "$1"
+
 # Pre-commit subset; full Rust checks, tests, binding generation and builds run in check.
 check-fast:
     bun run format:check
     bun run lint
-    bun run check:ts
+    bun run typecheck
     cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
     bun run docs:check
+
+# Compile the macOS Icon Composer asset with Xcode actool.
+compile-macos-icon:
+    bun scripts/release/compile-macos-icon.ts
 
 # Generate bindings and run the Rust and JavaScript tests.
 test:
@@ -37,9 +46,8 @@ cli *args:
 dev:
     bun run dev
 
-# Start the full Tauri desktop app; verifies the locked Bun dependencies before launch.
+# Start the full Tauri desktop app; installs locked Bun dependencies before launch.
 app:
-    bun scripts/checks/check-toolchain.ts "$(bun --version)"
     (cd .. && bun install --frozen-lockfile)
     bun run tauri dev
 

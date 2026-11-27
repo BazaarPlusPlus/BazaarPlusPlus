@@ -3,7 +3,7 @@ using BazaarPlusPlus.SteamSnapshot;
 
 // stdout carries one JSON line for steamToolRunner in release/game-assembly-snapshot.ts; everything else goes to stderr.
 const string Usage = """
-    BazaarPlusPlus.SteamSnapshot, driven by bazaarplusplus-mod/scripts/game.sh and release/card-art.ts:
+    BazaarPlusPlus.SteamSnapshot, driven by bazaarplusplus-mod/scripts/game.ts and release/card-art.ts:
       login --out <file>     Sign in at the terminal and save the login with owner-only access
       state --app <id> --branch <name> --depots <id,id>
                              Print the branch's buildid, update time and each depot's manifest

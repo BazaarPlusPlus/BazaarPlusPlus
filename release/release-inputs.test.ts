@@ -28,19 +28,26 @@ test('every named Payload tooling input exists', () => {
 // Value imports load inputs that must be hashed. Type-only imports are erased.
 const VALUE_IMPORT =
   /^\s*(?:import|export)\s+(?!type\s)[^;'"]*?\bfrom\s+['"](\.[^'"]+)['"]|^\s*import\s+['"](\.[^'"]+)['"]|\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/gm;
-const SCANNED = ['release/', 'bazaarplusplus-installer/scripts/release/'];
+const SCANNED = [
+  'release/',
+  'bazaarplusplus-installer/scripts/release/',
+  'bazaarplusplus-mod/scripts/'
+];
 
 test('release modules load no workspace file outside the Payload inputs', () => {
-  const pending = [
-    ...fs
-      .readdirSync(path.join(workspaceRoot, 'release'), { recursive: true })
-      .map((name) => `release/${String(name).split(path.sep).join('/')}`)
+  const tsSources = (dir: string) =>
+    fs
+      .readdirSync(path.join(workspaceRoot, dir), { recursive: true })
+      .map((name) => `${dir}/${String(name).split(path.sep).join('/')}`)
       .filter(
         (name) =>
           name.endsWith('.ts') &&
           !name.endsWith('.test.ts') &&
           !name.startsWith('release/test-support/')
-      )
+      );
+  const pending = [
+    ...tsSources('release'),
+    ...tsSources('bazaarplusplus-mod/scripts')
   ];
   const seen = new Set(pending);
   const outside = [];

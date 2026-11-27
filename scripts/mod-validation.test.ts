@@ -40,23 +40,27 @@ test('build lock rejects a concurrent command and is released after failure', as
   );
 });
 
-test('nested shell build dispatch reuses the outer lock', async (t) => {
+test('nested build lock dispatch reuses the outer lock', async (t) => {
   const cwd = fixture(t);
-  for (const file of [
-    'scripts/mod-validation.ts',
-    'scripts/git-command.ts',
-    'bazaarplusplus-mod/scripts/lib.sh'
-  ]) {
-    fs.mkdirSync(path.dirname(path.join(cwd, file)), { recursive: true });
-    fs.copyFileSync(path.join(root, file), path.join(cwd, file));
-  }
-  fs.writeFileSync(
-    path.join(cwd, 'bazaarplusplus-mod/scripts/build.sh'),
-    'source "$(dirname "$0")/lib.sh"\ncmd_build() { echo "nested build ran"; }\ndispatch "$@"\n'
+  const lockFile = path.join(cwd, 'bazaarplusplus-mod/scripts/build-lock.ts');
+  fs.mkdirSync(path.dirname(lockFile), { recursive: true });
+  fs.copyFileSync(
+    path.join(root, 'bazaarplusplus-mod/scripts/build-lock.ts'),
+    lockFile
   );
-  const script = 'bazaarplusplus-mod/scripts/build.sh';
+  const script = path.join(cwd, 'bazaarplusplus-mod/scripts/nested.ts');
+  fs.writeFileSync(
+    script,
+    `import path from 'node:path';
+import { withBuildLock } from './build-lock.ts';
+const workspace = path.resolve(import.meta.dirname, '../..');
+await withBuildLock(workspace, () => {
+  console.log('nested build ran');
+});
+`
+  );
   const invoke = (env: NodeJS.ProcessEnv) =>
-    spawnSync('bash', [script, 'build'], {
+    spawnSync('bun', [script], {
       cwd,
       env,
       encoding: 'utf8',

@@ -32,7 +32,7 @@ D1 只存 Binding。绑定不验证归属；任何人可查询仍被绑定的账
 1. 在同一 Cloudflare 账号创建 Queue 和 D1（名字由两个 Wrangler 配置持有），将真实 D1 ID 写入 `wrangler.consumer.toml`。启用 Browser Run。
 2. 对 server 应用新增迁移，对 Bot 应用 `migrations/`；在 server 与 consumer 设置相同的 `BOT_STATS_TOKEN`，其格式与现有 service token 相同且值必须不同。在两个 Worker 设置 `QQ_BOT_APP_SECRET`、`QQ_BOT_APP_ID`。本地 `.dev.vars` 不会自动上传。
 3. 部署 server、consumer、webhook。将 webhook 的 HTTPS `/webhook` 地址填入 QQ 开放平台，订阅 `GROUP_AT_MESSAGE_CREATE`。
-4. 用 `scripts/qqbot/zh-names.ts` 重新生成并发布现有名称数据：新增 `cards` 字段将模板 ID 对应到英文名称，原来的 `names` 再映射为中文。未更新时未知物品显示“物品资料待更新”，不展示 UUID。
+4. 用 `just zh-names`（`scripts/dev/zh-names.ts`）重新生成并发布现有名称数据：新增 `cards` 字段将模板 ID 对应到英文名称，原来的 `names` 再映射为中文。未更新时未知物品显示“物品资料待更新”，不展示 UUID。
 5. 测试群依次验证帮助、绑定、只 @、战绩 游戏名、英雄、解绑、未绑定查询；再由同一 QQ 用户在第二个测试群查自己，确认平台的 `member_openid` 跨群稳定。代码不混用 `author.id`；若实测不稳定，应先调整身份方案再开放使用。
 6. 检查 Browser Run 的中文字体、真实 Bundle 解码耗时与回复时限，以及 QQ 图片额度。失败日志只记录类型和错误码，不记录凭据、下载 URL 或对局正文。持续图片限额失败时可使用文字回退，或单独申请查询机器人。
 

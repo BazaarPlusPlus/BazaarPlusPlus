@@ -74,7 +74,7 @@ const help = `Workspace setup (Bun; setup installs its TOML parser before loadin
 
   bun scripts/workspace.ts setup [--skip-deps]
   bun scripts/workspace.ts doctor
-  bun scripts/workspace.ts run PROFILE -- COMMAND [ARG...]
+  bun scripts/workspace.ts run PROFILE[,PROFILE...] -- COMMAND [ARG...]
   bun scripts/workspace.ts secrets check [--dependabot]
   bun scripts/workspace.ts secrets push [--dependabot]
 

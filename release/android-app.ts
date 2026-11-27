@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildZipBuffer } from './payload-zip.ts';
+import { interopStatement, signInteropStatement } from './android-interop.ts';
 import { gameLibsStoreFromEnvironment } from './game-assembly-snapshot.ts';
 import {
   fetchInteropSnapshot,
@@ -199,8 +200,59 @@ function buildUpdater({
   );
 }
 
+export interface DevSignInteropOptions {
+  zip: string;
+  il2cpp: string;
+  metadata: string;
+  purpose: string;
+  keyFile: string;
+}
+
+export function devSignInterop({
+  zip,
+  il2cpp,
+  metadata,
+  purpose,
+  keyFile
+}: DevSignInteropOptions): string {
+  const statement = interopStatement({
+    zipSha256: sha256(fs.readFileSync(zip)),
+    il2cppSha256: il2cpp,
+    metadataSha256: metadata,
+    purpose
+  });
+  return signInteropStatement({ statement, keyFile });
+}
+
 async function main(argv: string[]): Promise<void> {
   const [command, ...rest] = argv;
+  if (command === 'dev-sign-interop') {
+    const { values } = parseArgs({
+      args: rest,
+      strict: true,
+      options: {
+        zip: { type: 'string' },
+        il2cpp: { type: 'string' },
+        metadata: { type: 'string' },
+        purpose: { type: 'string' },
+        key: { type: 'string' }
+      }
+    });
+    if (!values.zip || !values.il2cpp || !values.metadata || !values.purpose) {
+      throw new Error(
+        'Usage: bun release/android-app.ts dev-sign-interop --zip <zip> --il2cpp <sha256> --metadata <sha256> --purpose <purpose> [--key <pem>]'
+      );
+    }
+    const signature = devSignInterop({
+      zip: path.resolve(values.zip),
+      il2cpp: values.il2cpp,
+      metadata: values.metadata,
+      purpose: values.purpose,
+      keyFile: path.resolve(values.key ?? 'build/dev-signing/key.pem')
+    });
+    console.log(signature);
+    return;
+  }
   const { values } = parseArgs({
     args: rest,
     options: { out: { type: 'string' }, source: { type: 'string' } }
@@ -215,7 +267,7 @@ async function main(argv: string[]): Promise<void> {
     source === undefined
   )
     throw new Error(
-      'Usage: bun release/android-app.ts stage-runtime|interop-package [--source publisher|play] [--out <path>]'
+      'Usage: bun release/android-app.ts stage-runtime|interop-package|dev-sign-interop [--source publisher|play] [--out <path>]'
     );
   const workspaceRoot = WORKSPACE_ROOT;
   const entry = lockedInteropEntry(workspaceRoot, source);

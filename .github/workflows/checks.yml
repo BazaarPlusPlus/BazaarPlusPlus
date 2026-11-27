@@ -81,9 +81,12 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: package.json
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: just@1.58.0
       - run: |
           xcodebuild -version
-          bun bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
+          just installer::compile-macos-icon
 
   release:
     name: Release tooling
@@ -106,7 +109,6 @@ jobs:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
       - run: just commands-check design::check runs::check runs::test release::check release::test
-      - run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
   ui:
     name: ui (check, build and test)
@@ -216,12 +218,14 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: package.json
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: just@1.58.0
       - name: Install Installer Bun dependencies
         run: bun install --frozen-lockfile
       # Consume committed bindings; native inputs also select real generation.
       - name: Verify Installer
-        run: bun run verify --source-only --subset frontend
-        working-directory: bazaarplusplus-installer
+        run: just installer::check-subset frontend
 
   installer-macos:
     name: Installer (macos-26)
@@ -243,6 +247,9 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: package.json
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: just@1.58.0
       - name: Install the repository Rust toolchain and components
         working-directory: bazaarplusplus-installer
         run: |
@@ -264,8 +271,7 @@ jobs:
       # Real binding generation precedes the diff check. Windows also repeats
       # script tests; both platforms use an empty source resource bundle.
       - name: Verify Installer
-        run: bun run verify --source-only --subset native
-        working-directory: bazaarplusplus-installer
+        run: just installer::check-subset native
 
   installer-windows:
     name: Installer (windows-latest)
@@ -521,10 +527,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
       - name: Reject Mod runtime or transitive dependency changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git show "$BASE_SHA:.github/scripts/check_mod_dependency_update.py" > "$RUNNER_TEMP/check_mod_dependency_update.py"
-          python3 "$RUNNER_TEMP/check_mod_dependency_update.py" "$BASE_SHA" "$HEAD_SHA"
+          git show "$BASE_SHA:.github/scripts/check-mod-dependency-update.ts" > "$RUNNER_TEMP/check-mod-dependency-update.ts"
+          bun "$RUNNER_TEMP/check-mod-dependency-update.ts" "$BASE_SHA" "$HEAD_SHA"

@@ -49,5 +49,5 @@ ADR-0026 stands except §3's geometry clause for kit controls.
 - Spec: `../design/components/InGameKit/README.md`
 - Kit: `src/BazaarPlusPlus/Infrastructure/DesktopKit/`, `GameInterop/NativeSkin/DesktopNativeSkin.cs` (`DesktopKitArt`, `KitArt`, `RequestKitArt`), `src/BazaarPlusPlus/Resources/DesktopKit/`, `../design/kit-art.ts`, `../design/components/InGameKit/art/material.png`
 - Sizes: `../design/tokens.json`, `../design/build.ts` (`buildInGameSizes`), `src/BazaarPlusPlus/Infrastructure/UiTokens/InGameSizes.g.cs`
-- Gallery and captures: `Game/KitGallery/`, `Game/OverlayPanels/DesktopUiShot.cs`, `src/BazaarPlusPlus.Core/Game/OverlayPanels/WalkthroughControl.cs`, `scripts/ui-shots.sh`
+- Gallery and captures: `Game/KitGallery/`, `Game/OverlayPanels/DesktopUiShot.cs`, `src/BazaarPlusPlus.Core/Game/OverlayPanels/WalkthroughControl.cs`, `just mod::ui-shots` (`../scripts/dev/desktop-shots.ts`)
 - Rule: `tests/Architecture.Tests/InGameUiColourTests.cs`

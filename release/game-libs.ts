@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
+import { captureKind } from './android-adaptation.ts';
 import {
   GAME_LIBS_BUCKET,
   captureSnapshot,
@@ -26,11 +27,13 @@ import {
   checkGameLibsLock,
   fetchAndroidInput,
   fetchInteropSnapshot,
+  lockedInteropEntry,
   publishInteropSnapshot,
   uploadApks
 } from './interop-snapshot.ts';
 import type { GenerateInteropOptions } from './interop-snapshot.ts';
 import {
+  OFFICIAL_ANDROID_APK_URL,
   inspectDownloadedApk,
   officialApkChanged,
   recordApkEtag
@@ -39,7 +42,9 @@ import type { ApkHeadFetch } from './official-apk.ts';
 import { WORKSPACE_ROOT } from './product.ts';
 import type { FetchImpl, ObjectStore } from './r2-store.ts';
 import {
+  ANDROID_SOURCES,
   GAME_LIBS_LOCK_PATH,
+  interopKey,
   isInteropPlatform,
   lockKey,
   managedEntries,
@@ -48,6 +53,7 @@ import {
 } from './snapshot-lock.ts';
 import type {
   AndroidSource,
+  InteropLockEntry,
   ManagedPlatform,
   SnapshotChannel,
   SnapshotPlatform
@@ -59,7 +65,7 @@ function printLine(value: string): void {
 
 const log = (message: string): boolean => process.stderr.write(`${message}\n`);
 
-const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplusplus-mod/scripts/game.sh):
+const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplusplus-mod/scripts/game.ts):
   bun release/game-libs.ts game-version <managed-dir>
   bun release/game-libs.ts digest <managed-dir>
   bun release/game-libs.ts snapshot --managed <dir> --buildid <id> --steam-branch <branch>
@@ -97,11 +103,17 @@ const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplus
                                              Steam build is older than online's, else nothing
   bun release/game-libs.ts official-apk     Print changed or unchanged: the publisher's APK against
                                              the android-publisher entry's (size and ETag, no download)
+  bun release/game-libs.ts official-apk-url Print the publisher's official Android APK URL
   bun release/game-libs.ts downloaded-apk --apk <TheBazaar.apk> --headers <curl --dump-header file>
                                              Print {kind, size, sha256, etag, lockedSha256, lockedEtag,
                                              etagBranch}: kind is capture, etag or none
   bun release/game-libs.ts record-apk-etag --apk <TheBazaar.apk> --apk-etag <etag>
                                              Record the ETag the locked APK is now served with
+  bun release/game-libs.ts android-change --source <publisher|play> --previous <game-libs.lock.json>
+                                             Print unchanged, content or code: how the locked
+                                             android-<source> entry differs from the previous lock
+  bun release/game-libs.ts android-entry --source <publisher|play>
+                                             Print the locked android-<source> entry as JSON
 snapshot-android records the base APK and its splits (a Google Play install)
 under the entry its versionName names: android-play for a bare x.y.z, else
 android-publisher. It reuses that entry's toolchain, or the other Android
@@ -165,7 +177,8 @@ export async function cliMain(
         cpp2il: { type: 'string' },
         'native-package': { type: 'string', multiple: true },
         'apk-etag': { type: 'string' },
-        sha256s: { type: 'string' }
+        sha256s: { type: 'string' },
+        source: { type: 'string' }
       }
     });
     const modRoot = path.join(workspaceRoot, 'bazaarplusplus-mod');
@@ -180,6 +193,15 @@ export async function cliMain(
       const value = values[name];
       if (!value) throw new Error(`${verb} requires --${name}\n${usage}`);
       return value;
+    };
+    const androidSource = (): AndroidSource => {
+      const raw = required('source');
+      const matched = ANDROID_SOURCES.find((name) => name === raw);
+      if (!matched)
+        throw new Error(
+          `${verb} requires --source <${ANDROID_SOURCES.join('|')}>\n${usage}`
+        );
+      return matched;
     };
     const apks = values.apk ?? [];
     const oneApk = (): string => {
@@ -198,6 +220,10 @@ export async function cliMain(
           `Official APK ${result.officialSize} bytes, ETag ${result.officialEtag}; locked ${result.lockedGameVersion} ${result.lockedSize} bytes, ETag ${result.lockedEtag}`
         );
         printLine(result.changed ? 'changed' : 'unchanged');
+        return 0;
+      }
+      case 'official-apk-url': {
+        printLine(OFFICIAL_ANDROID_APK_URL);
         return 0;
       }
       case 'downloaded-apk': {
@@ -219,6 +245,25 @@ export async function cliMain(
           etag: required('apk-etag')
         });
         log(`Recorded the ETag of ${gameVersion} in ${GAME_LIBS_LOCK_PATH}`);
+        return 0;
+      }
+      case 'android-change': {
+        const source = androidSource();
+        const previousLock = JSON.parse(
+          fs.readFileSync(required('previous'), 'utf8')
+        ) as {
+          entries?: Record<string, InteropLockEntry | null | undefined>;
+        };
+        const previous = previousLock.entries?.[interopKey(source)];
+        printLine(
+          captureKind(previous, lockedInteropEntry(workspaceRoot, source))
+        );
+        return 0;
+      }
+      case 'android-entry': {
+        printLine(
+          JSON.stringify(lockedInteropEntry(workspaceRoot, androidSource()))
+        );
         return 0;
       }
       case 'game-version':

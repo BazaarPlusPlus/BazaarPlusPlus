@@ -18,7 +18,7 @@ What it does:
 Toolchain versions are pinned by `package.json` (`engines`, `packageManager`) and `rust-toolchain.toml`; workspace setup is in the [development guide](../docs/development.md).
 
 ```bash
-just installer::app  # Full desktop app (checks the toolchain, installs dependencies if needed)
+just installer::app  # Full desktop app (installs locked dependencies if needed)
 just installer::dev  # Frontend only, in the browser
 just installer::check
 ```
@@ -27,7 +27,7 @@ just installer::check
 
 ## Release build
 
-Platform builds run through the workspace release commands (`just release::build <platform>`); the full flow, credentials, and platform facts are in the [workspace release docs](../docs/release.md) and [installer release guide](docs/release.md). `scripts/bundle.sh` runs only inside the product build lock that `release::build` holds.
+Platform builds run through the workspace release commands (`just release::build <platform>`); the full flow, credentials, and platform facts are in the [workspace release docs](../docs/release.md) and [installer release guide](docs/release.md). `scripts/bundle.ts` runs only inside the product build lock that `release::build` holds.
 
 ## Documentation
 

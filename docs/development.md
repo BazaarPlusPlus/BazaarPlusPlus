@@ -59,13 +59,13 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 ### 根工具
 
-根工具是 `release/`、`scripts/`、`.github/scripts/`、`design/build.ts` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`vite.config.ts`（`lint` 块拦住绕过类型检查的写法，`fmt` 块管格式）和 `vitest.config.ts`（`release` 和 `tooling` 两个测试项目）。根目录的 lint 和格式化覆盖除各 `bazaarplusplus-*` 项目和 Markdown 以外的所有文件，包括 `design/`。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Bun 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
+根工具是 `release/`、`scripts/`、`.github/scripts/`、`design/`、`bazaarplusplus-mod/scripts/` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`vite.config.ts`（`lint` 块拦住绕过类型检查的写法，`fmt` 块管格式）和 `vitest.config.ts`（`release` 和 `tooling` 两个测试项目）。根目录的 lint 和格式化覆盖除各 `bazaarplusplus-*` 项目（`bazaarplusplus-mod/scripts/` 除外）和 Markdown 以外的所有文件，包括 `design/`。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Bun 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
 
 根工具、packages/ui、installer、site 和 ui-docs 用 Vite+（`vp`）：`vp check` 一次跑格式、lint 和类型检查，`vp test` 跑 Vitest，`vp build` 构建，`vp pack` 打包 `@bazaarplusplus/ui`；oxlint 和 oxfmt 的版本由 `vite-plus` 固定。server 与 bot 仍直接用 oxlint、oxfmt 和 Vitest 4，因为 `@cloudflare/vitest-pool-workers` 还不支持 Vite+ 自带的 Vitest 5（[ADR 0017](adr/0017-vite-plus.md)）。各项目使用同一组格式选项（根工具、packages/ui、installer、site、ui-docs 在 `vite.config.ts` 的 `fmt` 块，server 与 bot 在 `.oxfmtrc.json`），只有忽略路径不同。改格式选项时一起改。
 
 - Bun 直接运行 `.ts` 文件，没有单独的构建步骤。继续限制为可擦除的语法：`erasableSyntaxOnly` 拒绝 enum、namespace 和参数属性。相对 import 写 `.ts` 扩展名。类型 import 写成 `import type`，避免隐式运行时依赖。
-- 新脚本按用途放：发布模块放 `release/`，开发者工具和共享 helper 放 `scripts/`，只给 CI 用的放 `.github/scripts/`。测试和模块放在同一目录，命名为 `<模块>.test.ts`。
-- recipe、构建文件和 workflow 按路径启动脚本。`scripts/script-references.test.ts` 检查这些路径都存在，所以改名时要一起改。
+- 新脚本按用途放：发布模块放 `release/`，开发者工具和共享 helper 放 `scripts/`（Android 设备工具在 `scripts/android/`，开发维护脚本在 `scripts/dev/`），只给 CI 用的放 `.github/scripts/`。测试和模块放在同一目录，命名为 `<模块>.test.ts`。
+- recipe、构建文件和 workflow 按路径启动脚本。`scripts/script-references.test.ts` 检查这些路径都存在，并禁止新增 `.mjs`、`bazaarplusplus-analyzer/` 之外的 `.py` 以及白名单之外的 `.sh` 脚本，所以改名或调整时要一起改。
 
 ## 验证
 
@@ -83,7 +83,7 @@ just mod::build "-p:ManagedPath=/absolute/path/The Bazaar/Managed"
 
 Dependabot 更新配置在 `.github/dependabot.yml`，普通版本更新的分组和节奏由配置维护，安全告警继续保留。自动合并由 `.github/scripts/dependabot-auto-merge.ts` 登记，必需检查由 GitHub 分支规则维护。Dependabot PR 通过现有检查即可自动合并，接受兼容问题在后续使用中发现和修复；TypeScript 与类型感知 lint 工具、Tauri 的 JS 与 Cargo 依赖仍可能需要配套调整。
 
-Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check_mod_dependency_update.py`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
+Mod 的自动更新只开放测试工具白名单。编译期依赖同样可能改变游戏内行为，不能因为 `PrivateAssets`、补丁版本或 NuGet 版本号相同就认为兼容。游戏自带 DLL、生成器、publicizer 和随包运行库的维护遵循 [ADR-0010](../bazaarplusplus-mod/docs/adr/0010-compile-against-game-supplied-libraries.md)。机器人 PR 的实际差异还会经过 `.github/scripts/check-mod-dependency-update.ts`：允许测试工具版本修改，但生产锁文件或其他 Mod 文件变化必须转人工维护。
 
 云端 Actions 按用途命名为 `CI /`（代码验证）、`Security /`（安全扫描）、`Delivery /`（发布部署）和 `Operations /`（后台任务与依赖维护）。代码验证由 `.github/scripts/checks-scope.ts` 的 `classifyChanges` 选择项目，`planRun` 决定是否附加快照兼容性和性能检查；`.github/workflows/checks.yml` 执行计划，汇总消费同一份范围清单并显示本次计划验证的内容。PR 比较 merge-base 到 head，master push 比较 before 到 after，删除与重命名的新旧路径都参与分类。项目自己的命令 recipe 只选择本项目及根工具；已识别的仓库元数据只选根工具。未知共享输入或无法取得可靠 diff 时仍全量验证。跨项目契约扩展到消费者；未登记的源码依赖走全量，并由根工具测试阻止规则漂移。
 
@@ -141,7 +141,7 @@ master push 使用同一分类规则；选中的 Installer 原生 job 保存 Rus
 
 Android 没有云端的设备 lane：当前托管 runner 未配置经验证的 ARM64 游戏运行环境，自托管一台常开、常登录的机器只为夜间冒烟不值。x86_64 镜像可以提供 ARM64 转译，但转译能力不等于游戏、LemonLoader 和 mod 已验证通过；本机仍以主菜单和 hook 证据验收。发版前的设备验证在开发机上做：一台经 `just setup-device` 准备好的 AVD，`just mod::android-smoke enabled` 构建、部署进 debug App、从启动器重新启动、抓取并断言；`just mod::android-smoke disabled` 不装任何 patch，必须在 hook 命中级失败，用来证明断言不是空过。同一时间只驱动一台设备。
 
-断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android.sh` 的 `cmd_verify`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。三级只读版本标签和 hook 计数，不读主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。游戏 1.0.13113 在 `MainMenuScene` 加载之后十几秒才写版本标签，所以 `android-smoke` 等到主菜单之后有一条计入标签命中的 hooks summary 才抓取；`disabled` 不装 patch，只等主菜单。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
+断言分三级（注入成功、hook 命中、功能生效），定义在 `scripts/android/mod-loop.ts` 的 `verifySmokeDir`。三级分开，是因为前一级通过不说明后一级：DLL 加载了，patch 未必装上，patch 命中了标签未必写对。证据写进 `bazaarplusplus-mod/artifacts/android/smoke-<mode>/`（gitignored，含整机 logcat 和已登录账号的截图，不要提交，也不要原样贴进公开的 issue 或 PR）；`just mod::android-verify <目录>` 重算结论（路径按 `bazaarplusplus-mod/` 解析，最好传绝对路径），版本取自证据里的 `version.txt`，不受之后 `VERSION` 变动影响。三级只读版本标签和 hook 计数，不读主菜单；`android-smoke` 另外要求主菜单在超时内出现，登录过期卡在登录页的运行因此仍然失败。游戏 1.0.13113 在 `MainMenuScene` 加载之后十几秒才写版本标签，所以 `android-smoke` 等到主菜单之后有一条计入标签命中的 hooks summary 才抓取；`disabled` 不装 patch，只等主菜单。主菜单不产生记录，数据库行数只作证据。`observe` 只计数不写标签，必然在功能生效级失败。
 
 ## Git hooks
 

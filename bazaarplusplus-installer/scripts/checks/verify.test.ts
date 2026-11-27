@@ -13,11 +13,17 @@ test('source verification omits private release payload validation', () => {
     steps.some(
       ({ command, args }) =>
         command === 'bun' &&
-        args.includes('prebuild-check:source:after-bindings')
+        args[0] === 'scripts/checks/prebuild-check.ts' &&
+        args.includes('--source-only')
     )
   ).toBe(true);
   expect(
-    steps.some(({ args }) => args.includes('prebuild-check:after-bindings'))
+    steps.some(
+      ({ args }) =>
+        args[0] === 'scripts/checks/prebuild-check.ts' &&
+        !args.includes('--source-only') &&
+        !args.includes('--bindings-only')
+    )
   ).toBe(false);
 });
 
@@ -55,8 +61,11 @@ test('source verification excludes bundle resources in child processes without c
       )!.config
     ).toEqual({ ...config, bundle: { ...config.bundle, resources: [] } });
     expect(
-      observed.find(({ args }) => args.includes('generate:bindings:test'))!
-        .config.bundle.resources
+      observed.find(
+        ({ args }) =>
+          args[0] === 'scripts/generate-bindings.ts' &&
+          args.includes('--with-rust-tests')
+      )!.config.bundle.resources
     ).toEqual([]);
     expect(
       observed.some(
@@ -91,12 +100,12 @@ test.each(['linux', 'darwin', 'win32'] as const)(
       log() {},
       run(command, args) {
         observed.push([command, ...args].join(' '));
-        return { status: args.includes('check:ts') ? 17 : 0 };
+        return { status: args.includes('typecheck') ? 17 : 0 };
       }
     });
 
     expect(status).toBe(17);
-    expect(observed.at(-1)).toBe('bun run check:ts');
+    expect(observed.at(-1)).toBe('bun run typecheck');
     expect(observed.some((command) => command.includes('build:frontend'))).toBe(
       false
     );
@@ -190,7 +199,7 @@ test.each(['linux', 'darwin', 'win32'] as const)(
     expect(frontend.some(({ command }) => command === 'cargo')).toBe(false);
     expect(
       frontend.some(({ args }) =>
-        args.some((arg) => arg.startsWith('generate:bindings'))
+        args.some((arg) => arg.includes('generate-bindings.ts'))
       )
     ).toBe(false);
     expect(frontend.some(({ args }) => args.includes('build:frontend'))).toBe(
@@ -204,23 +213,29 @@ test.each(['linux', 'darwin', 'win32'] as const)(
       native.some(
         ({ args }) =>
           args.includes('build:frontend') ||
-          args.includes('check:ts') ||
+          args.includes('typecheck') ||
           args.includes('src')
       )
     ).toBe(false);
     for (const steps of [frontend, native]) {
       expect(
-        steps.some(({ args }) =>
-          args.includes('prebuild-check:source:after-bindings')
+        steps.some(
+          ({ args }) =>
+            args[0] === 'scripts/checks/prebuild-check.ts' &&
+            args.includes('--source-only')
         )
       ).toBe(true);
     }
     for (const steps of [full, native]) {
-      const generation = steps.findIndex(({ args }) =>
-        args.includes('generate:bindings:test')
+      const generation = steps.findIndex(
+        ({ args }) =>
+          args[0] === 'scripts/generate-bindings.ts' &&
+          args.includes('--with-rust-tests')
       );
-      const diff = steps.findIndex(({ args }) =>
-        args.includes('check:bindings')
+      const diff = steps.findIndex(
+        ({ args }) =>
+          args[0] === 'scripts/checks/prebuild-check.ts' &&
+          args.includes('--bindings-only')
       );
       expect(generation).toBeGreaterThanOrEqual(0);
       expect(diff).toBeGreaterThan(generation);
@@ -229,10 +244,7 @@ test.each(['linux', 'darwin', 'win32'] as const)(
 );
 
 test('frontend runner works without Rust and retains test and source contract failures', () => {
-  for (const failingScript of [
-    'test:unit',
-    'prebuild-check:source:after-bindings'
-  ]) {
+  for (const failingArg of ['test:unit', '--source-only']) {
     const observed: string[][] = [];
     expect(
       runVerification({
@@ -245,16 +257,16 @@ test('frontend runner works without Rust and retains test and source contract fa
         run(command, args) {
           if (
             command !== 'bun' ||
-            args.some((arg) => arg.startsWith('generate:bindings'))
+            args.some((arg) => arg.includes('generate-bindings.ts'))
           ) {
             throw new Error('Rust is unavailable');
           }
           observed.push(args);
-          return { status: args.includes(failingScript) ? 23 : 0 };
+          return { status: args.includes(failingArg) ? 23 : 0 };
         }
       })
     ).toBe(23);
-    expect(observed.at(-1)).toContain(failingScript);
+    expect(observed.at(-1)).toContain(failingArg);
   }
 });
 

@@ -27,7 +27,7 @@ Open the topic document whose triggers match the task at hand:
 `just installer::check` runs the full source gate, tests included; `installer::test` after it only repeats them. Inside the loop, pick the narrower gate that matches what changed:
 
 - Documentation or these instructions: `bun run docs:check`.
-- React or TypeScript: `bun run check:ts`; regenerate bindings with `bun run generate:bindings:if-stale` first when Rust signatures changed. Before committing, `just installer::check-fast` runs what the pre-commit hook runs (format, lint, types, cargo fmt, docs).
+- React or TypeScript: `bun run typecheck`; regenerate bindings with `bun run generate:bindings:if-stale` first when Rust signatures changed. Before committing, `just installer::check-fast` runs what the pre-commit hook runs (format, lint, types, cargo fmt, docs).
 - `scripts/`: `bun run vp test run <path>.test.ts` for the colocated test, otherwise run the touched script.
 - UI styling, tokens, shared `bpp-*` styles, the brand mark or UI copy: read `../docs/design.md`. Edit design tokens in `../design/` or shared Web UI in `../packages/ui/` (never the generated `../packages/ui/styles/tokens.css`), run `just design::build`, and run `just ui::check` and `just site::check` in the same change.
 - Versioning, bundled resources, or Tauri config: `just release::check`, then `just installer::check` (its source prebuild step checks the product projections). Release packaging only: `bun run prebuild-check` also verifies the prepared Payload and fails until `just release::prepare <platform>` has run.
@@ -35,7 +35,7 @@ Open the topic document whose triggers match the task at hand:
 
 Tests prove a behavior seam, an observable outcome of the boundary under test, through its public interface; mock call order and exact source text are not behavior.
 
-Rewrite goldens (`src/__shell_snapshots__/`, `src-tauri/tests/goldens/`) under `BPP_UPDATE_GOLDENS=1` with `bun run vp test run src/shell.snapshot.test.tsx` for the shell and `bun run generate:bindings:test` for Rust. A bare `cargo test` also needs `TAURI_CONFIG='{"bundle":{"resources":[]}}'`, the empty bundle `scripts/tauri-source-env.ts` supplies.
+Rewrite goldens (`src/__shell_snapshots__/`, `src-tauri/tests/goldens/`) under `BPP_UPDATE_GOLDENS=1` with `bun run vp test run src/shell.snapshot.test.tsx` for the shell and `bun scripts/generate-bindings.ts --with-rust-tests` for Rust. A bare `cargo test` also needs `TAURI_CONFIG='{"bundle":{"resources":[]}}'`, the empty bundle `scripts/tauri-source-env.ts` supplies.
 
 The Rust gates also run on Linux (cloud sessions; prerequisites in `../docs/development.md`). Code only macOS or Windows calls needs a matching `#[cfg(any(target_os = "macos", target_os = "windows"))]`, or Linux Clippy fails it as unused. A test that makes a file unreadable or unwritable returns early on `crate::test_support::permission_bits_are_bypassed()`, since root ignores permission bits.
 

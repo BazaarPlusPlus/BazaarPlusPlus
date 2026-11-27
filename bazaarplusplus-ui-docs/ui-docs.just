@@ -17,5 +17,10 @@ dev:
 build:
     bun run build
 
+# Refresh the committed Run and Card Art demo snapshots from the fixture and CDN.
+refresh-demo:
+    bun tools/export-run-demo.ts
+    bun tools/pin-card-art.ts
+
 fmt:
     bun run format

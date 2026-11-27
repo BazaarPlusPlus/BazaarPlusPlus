@@ -50,7 +50,6 @@ const moduleFiles = [
     .readFileSync(path.join(root, 'JUSTFILE'), 'utf8')
     .matchAll(/^mod [\w-]+ '([^']+)'$/gm)
 ].map((match) => match[1]);
-const modScripts = ['build', 'test', 'game', 'android'];
 const shellQuote = (value: string): string =>
   `'${value.replaceAll("'", "'\\''")}'`;
 const rootOxfmt = (mode: string): [string, ...string[]] => [
@@ -80,21 +79,13 @@ function fixture(t: TestContext) {
 const [tool, ...args] = process.argv.slice(2);
 if (tool === 'adb' && process.env.MSYS_NO_PATHCONV !== '1') process.exit(93);
 fs.appendFileSync(process.env.BPP_JUST_TEST_LOG, JSON.stringify({tool, args, cwd: process.cwd()}) + '\\n');
-if (process.env.BPP_JUST_TEST_FAIL === tool) process.exit(37);
+if (process.env.BPP_JUST_TEST_FAIL === tool || process.env.BPP_JUST_TEST_FAIL === \`\${tool}:\${args[0] ?? ''}\`) process.exit(37);
 `
   );
   const stub = (tool: string): string =>
     `#!/usr/bin/env bash\nexec ${shellQuote(process.execPath)} ${shellQuote(recorder)} ${shellQuote(tool)} "$@"\n`;
   for (const tool of ['bun', 'uv', 'dotnet', 'cargo', 'adb']) {
     fs.writeFileSync(path.join(bin, tool), stub(tool), { mode: 0o755 });
-  }
-  const modDir = path.join(dir, 'bazaarplusplus-mod');
-  fs.mkdirSync(path.join(modDir, 'scripts'));
-  for (const script of modScripts) {
-    fs.writeFileSync(
-      path.join(modDir, 'scripts', `${script}.sh`),
-      stub(`mod-${script}`)
-    );
   }
   fs.writeFileSync(
     path.join(dir, 'bazaarplusplus-android', 'gradlew'),
@@ -364,10 +355,11 @@ test('fmt formats every project, then re-projects release files', (t) => {
 
 test('a failing project stops the aggregate and preserves its exit code', (t) => {
   const f = fixture(t);
-  const result = f.run(['check'], { fail: 'mod-build' });
+  const result = f.run(['check'], { fail: 'bun:scripts/build.ts' });
   assert.equal(result.status, 37, result.stdout + result.stderr);
   const calls = f.calls();
-  assert.equal(calls.at(-1)?.tool, 'mod-build');
+  assert.equal(calls.at(-1)?.tool, 'bun');
+  assert.equal(calls.at(-1)?.args[0], 'scripts/build.ts');
   for (const project of [
     'installer',
     'site',
@@ -542,19 +534,19 @@ test('secrets-check and secrets-sync delegate to the workspace secrets commands'
 const managedPath =
   "-p:ManagedPath=C:/Games/O'Brien/${USER}/$(printf injected); & Managed";
 
-for (const [recipe, script, command] of [
-  ['build', 'build', 'build'],
-  ['test', 'test', 'test'],
-  ['test-core', 'test', 'test-core'],
-  ['test-performance', 'test', 'test-performance'],
-  ['fetch-data', 'build', 'fetch-data'],
-  ['android-build', 'android', 'build']
-]) {
+for (const [recipe, tool, prefix] of [
+  ['build', 'bun', ['scripts/build.ts', 'build']],
+  ['test', 'bun', ['scripts/test.ts', 'test']],
+  ['test-core', 'bun', ['scripts/test.ts', 'test-core']],
+  ['test-performance', 'bun', ['scripts/test.ts', 'test-performance']],
+  ['fetch-data', 'bun', ['scripts/build.ts', 'fetch-data']],
+  ['android-build', 'bun', ['../scripts/android/mod-loop.ts', 'build']]
+] satisfies [string, string, string[]][]) {
   test(`mod::${recipe} preserves argument boundaries`, (t) => {
     const f = fixture(t);
     succeeded(f.run([`mod::${recipe}`, '--fast', managedPath]));
     assert.deepEqual(f.calls(), [
-      call(f.dir, 'mod', `mod-${script}`, command, '--fast', managedPath)
+      call(f.dir, 'mod', tool, ...prefix, '--fast', managedPath)
     ]);
   });
 }
@@ -563,7 +555,7 @@ test('mod module recipes also accept the subcommand spelling', (t) => {
   const f = fixture(t);
   succeeded(f.run(['mod', 'build', managedPath]));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-build', 'build', managedPath)
+    call(f.dir, 'mod', 'bun', 'scripts/build.ts', 'build', managedPath)
   ]);
 });
 
@@ -574,12 +566,12 @@ test('mod::decompile requires a snapshot channel before running anything', (t) =
   succeeded(f.run(['mod::decompile', 'ptr', 'all']));
   succeeded(f.run(['mod::decompile', 'staging']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-game', 'decompile', 'ptr', 'all'),
-    call(f.dir, 'mod', 'mod-game', 'decompile', 'staging')
+    call(f.dir, 'mod', 'bun', 'scripts/game.ts', 'decompile', 'ptr', 'all'),
+    call(f.dir, 'mod', 'bun', 'scripts/game.ts', 'decompile', 'staging')
   ]);
 });
 
-test('mod snapshot recipes route to game.sh with validated platform and channel', (t) => {
+test('mod snapshot recipes route to game.ts with validated platform and channel', (t) => {
   const f = fixture(t);
   for (const bad of [
     ['mod::fetch', 'linux', 'online'],
@@ -595,9 +587,9 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
   succeeded(f.run(['mod::lock-check']));
   succeeded(f.run(['mod::publish', 'macos', 'staging']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-game', 'snapshot'),
-    call(f.dir, 'mod', 'mod-game', 'fetch', 'windows', 'ptr'),
-    call(f.dir, 'mod', 'mod-game', 'lock-check'),
+    call(f.dir, 'mod', 'bun', 'scripts/game.ts', 'snapshot'),
+    call(f.dir, 'mod', 'bun', 'scripts/game.ts', 'fetch', 'windows', 'ptr'),
+    call(f.dir, 'mod', 'bun', 'scripts/game.ts', 'lock-check'),
     call(
       f.dir,
       'mod',
@@ -606,8 +598,8 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
       'run',
       'release',
       '--',
-      'bash',
-      'scripts/game.sh',
+      'bun',
+      'scripts/game.ts',
       'publish',
       'macos',
       'staging'
@@ -615,7 +607,7 @@ test('mod snapshot recipes route to game.sh with validated platform and channel'
   ]);
 });
 
-test('mod Android device recipes route to android.sh with a validated mode', (t) => {
+test('mod Android device recipes route to scripts/android/mod-loop.ts with a validated mode', (t) => {
   const f = fixture(t);
   assert.notEqual(f.run(['mod::android-mode', 'on']).status, 0);
   assert.deepEqual(f.calls(), []);
@@ -626,22 +618,43 @@ test('mod Android device recipes route to android.sh with a validated mode', (t)
   succeeded(f.run(['mod::android-capture', 'enabled-1']));
   succeeded(f.run(['mod::android-screen-check', 'baseline']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-android', 'deploy'),
-    call(f.dir, 'mod', 'mod-android', 'mode', 'observe'),
-    call(f.dir, 'mod', 'mod-android', 'launch'),
-    call(f.dir, 'mod', 'mod-android', 'launcher'),
-    call(f.dir, 'mod', 'mod-android', 'capture', 'enabled-1'),
-    call(f.dir, 'mod', 'mod-android', 'screen-check', 'baseline')
+    call(f.dir, 'mod', 'bun', '../scripts/android/mod-loop.ts', 'deploy'),
+    call(
+      f.dir,
+      'mod',
+      'bun',
+      '../scripts/android/mod-loop.ts',
+      'mode',
+      'observe'
+    ),
+    call(f.dir, 'mod', 'bun', '../scripts/android/mod-loop.ts', 'launch'),
+    call(f.dir, 'mod', 'bun', '../scripts/android/mod-loop.ts', 'launcher'),
+    call(
+      f.dir,
+      'mod',
+      'bun',
+      '../scripts/android/mod-loop.ts',
+      'capture',
+      'enabled-1'
+    ),
+    call(
+      f.dir,
+      'mod',
+      'bun',
+      '../scripts/android/mod-loop.ts',
+      'screen-check',
+      'baseline'
+    )
   ]);
 });
 
-test('mod::matrix forwards the named channels to build.sh', (t) => {
+test('mod::matrix forwards the named channels to build.ts', (t) => {
   const f = fixture(t);
   succeeded(f.run(['mod::matrix']));
   succeeded(f.run(['mod::matrix', 'staging', 'ptr']));
   assert.deepEqual(f.calls(), [
-    call(f.dir, 'mod', 'mod-build', 'matrix'),
-    call(f.dir, 'mod', 'mod-build', 'matrix', 'staging', 'ptr')
+    call(f.dir, 'mod', 'bun', 'scripts/build.ts', 'matrix'),
+    call(f.dir, 'mod', 'bun', 'scripts/build.ts', 'matrix', 'staging', 'ptr')
   ]);
 });
 
@@ -650,7 +663,7 @@ test('mod::check ends with the snapshot lock check', (t) => {
   succeeded(f.run(['mod::check']));
   assert.deepEqual(
     f.calls().at(-1),
-    call(f.dir, 'mod', 'mod-game', 'lock-check')
+    call(f.dir, 'mod', 'bun', 'scripts/game.ts', 'lock-check')
   );
 });
 
@@ -725,7 +738,7 @@ for (const command of ['prepare', 'build', 'upload']) {
       const args = releaseArgs(command, '--platform', platform);
       if (command !== 'upload') args.push('--');
       if (command === 'build' && platform === 'android')
-        args.unshift('scripts/workspace.ts', 'run', 'release', '--', 'bun');
+        args[2] = 'release,signing';
       assert.deepEqual(f.calls(), [call(f.dir, null, 'bun', ...args)]);
     });
   }
@@ -771,7 +784,7 @@ test('installer::check-fast covers the commit subset without a Rust build', (t) 
     calls.every((entry) => entry.cwd === installer),
     JSON.stringify(calls)
   );
-  for (const script of ['format:check', 'lint', 'check:ts'])
+  for (const script of ['format:check', 'lint', 'typecheck'])
     assert.ok(hasCall(calls, call(f.dir, 'installer', 'bun', 'run', script)));
   const cargo = calls.filter((entry) => entry.tool === 'cargo');
   assert.ok(cargo.length > 0);
@@ -779,6 +792,38 @@ test('installer::check-fast covers the commit subset without a Rust build', (t) 
     cargo.every((entry) => entry.args[0] === 'fmt'),
     JSON.stringify(cargo)
   );
+});
+
+test('installer::check-subset and installer::compile-macos-icon route CI through just', (t) => {
+  const f = fixture(t);
+  assert.notEqual(f.run(['installer::check-subset', 'other']).status, 0);
+  assert.deepEqual(f.calls(), []);
+  succeeded(f.run(['installer::check-subset', 'frontend']));
+  succeeded(f.run(['installer::check-subset', 'native']));
+  succeeded(f.run(['installer::compile-macos-icon']));
+  assert.deepEqual(f.calls(), [
+    call(
+      f.dir,
+      'installer',
+      'bun',
+      'run',
+      'verify',
+      '--source-only',
+      '--subset',
+      'frontend'
+    ),
+    call(
+      f.dir,
+      'installer',
+      'bun',
+      'run',
+      'verify',
+      '--source-only',
+      '--subset',
+      'native'
+    ),
+    call(f.dir, 'installer', 'bun', 'scripts/release/compile-macos-icon.ts')
+  ]);
 });
 
 function hooksFixture(

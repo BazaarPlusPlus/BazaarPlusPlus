@@ -18,7 +18,7 @@ name: Delivery / Product release
 # repository variable CLOUDFLARE_ACCOUNT_ID and the repository secret
 # CLOUDFLARE_API_TOKEN (the operator token) are shared with other workflows;
 # release/github-secrets.json names every one, its scope and its local source,
-# and .github/scripts/release-secrets.sh checks them from that table. The R2
+# and .github/scripts/release-secrets.ts checks them from that table. The R2
 # S3 pair is derived from CLOUDFLARE_API_TOKEN (release/r2-store.ts).
 on:
   workflow_dispatch:
@@ -109,20 +109,20 @@ jobs:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        run: bash .github/scripts/release-secrets.sh check "$RELEASE_PLATFORM" "$STAGE"
+        run: bun .github/scripts/release-secrets.ts check "$RELEASE_PLATFORM" "$STAGE"
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: just@1.58.0
       - name: Compile the macOS Icon Composer asset
         if: matrix.platform == 'macos' && env.STAGE == 'release'
         run: |
           xcodebuild -version
-          bun bazaarplusplus-installer/scripts/release/compile-macos-icon.ts
+          just installer::compile-macos-icon
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: bazaarplusplus-mod/global.json
           cache: true
           cache-dependency-path: bazaarplusplus-mod/**/packages.lock.json
-      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
-        with:
-          tool: just@1.58.0
       - name: Install the repository Rust toolchain and components
         if: matrix.platform != 'android'
         working-directory: bazaarplusplus-installer
@@ -226,7 +226,7 @@ jobs:
           retention-days: 7
       - if: env.STAGE == 'prepare'
         run: echo "Dry run stopped after release::prepare for $RELEASE_PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
-      # bundle.sh reads signing material as files from BPP_SIGNING_SECRETS_DIR,
+      # bundle.ts reads signing material as files from BPP_SIGNING_SECRETS_DIR,
       # the same layout `bun scripts/workspace.ts run signing` stages locally.
       - if: env.STAGE == 'release'
         name: Stage the signing secrets
@@ -240,9 +240,9 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          bash .github/scripts/release-secrets.sh stage "$RELEASE_PLATFORM" "$RUNNER_TEMP/signing-secrets"
+          bun .github/scripts/release-secrets.ts stage "$RELEASE_PLATFORM" "$RUNNER_TEMP/signing-secrets"
           echo "BPP_SIGNING_SECRETS_DIR=$RUNNER_TEMP/signing-secrets" >> "$GITHUB_ENV"
-      # bundle.sh codesigns nested resources before Tauri bundles, so the
+      # bundle.ts codesigns nested resources before Tauri bundles, so the
       # Developer ID identity must already be in a keychain; Tauri then finds the
       # same identity through APPLE_SIGNING_IDENTITY and notarizes with the API key.
       - if: env.STAGE == 'release' && matrix.platform == 'macos'

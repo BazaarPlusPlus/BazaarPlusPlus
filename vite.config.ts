@@ -1,8 +1,23 @@
 import { defineConfig } from 'vite-plus';
 
-// Each bazaarplusplus-* project and packages/ui checks itself with its own config.
+// Each bazaarplusplus-* project and packages/ui checks itself with its own config;
+// bazaarplusplus-mod/scripts/** is TypeScript tooling checked at the root.
 const ignorePatterns = [
-  'bazaarplusplus-*/**',
+  'bazaarplusplus-installer/**',
+  'bazaarplusplus-site/**',
+  'bazaarplusplus-ui-docs/**',
+  'bazaarplusplus-server/**',
+  'bazaarplusplus-bot/**',
+  'bazaarplusplus-analyzer/**',
+  'bazaarplusplus-android/**',
+  'bazaarplusplus-mod/src/**',
+  'bazaarplusplus-mod/tests/**',
+  'bazaarplusplus-mod/build/**',
+  'bazaarplusplus-mod/tools/**',
+  'bazaarplusplus-mod/native/**',
+  'bazaarplusplus-mod/artifacts/**',
+  'bazaarplusplus-mod/game-libs/**',
+  'bazaarplusplus-mod/decompiled*/**',
   'packages/ui/**',
   // A symlink to .agents/skills, which is checked under its real path.
   '.claude/**',

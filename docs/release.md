@@ -18,7 +18,7 @@ just release::promote
 just release::promote --platform macos
 ```
 
-Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.sh managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror` 把一个平台已上传的下载推到大陆镜像，核对字节后记录地址，默认由工作流在上传后执行；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `scripts/bundle.sh` 只在 `release::build` 持有的构建锁内运行。
+Windows 将 `macos` 换成 `windows`。`release::prepare` 和 `release::build` 默认对照本平台的 online 锁条目编译（`scripts/game.ts managed-path` 只解析这一个条目），可在平台后追加 `"-p:ManagedPath=<absolute-path>"` 换一种取包方式，但该目录仍必须哈希到某个锁条目，否则 `prepare` 在落任何文件之前拒绝；不接受编译器、版本、目标或输出目录覆盖。`build` 包含 `prepare`，但不会自动上传；`upload` 不修改 latest；`mirror` 把一个平台已上传的下载推到大陆镜像，核对字节后记录地址，默认由工作流在上传后执行；`verify-mirror` 只读复核，不需要凭据；`promote` 发布双平台版本，`promote --platform` 只发布一个平台，见[按平台发布](#按平台发布)。installer 的 `scripts/bundle.ts` 只在 `release::build` 持有的构建锁内运行。
 
 `release/projections.ts` 的 `checkProductProjections` 是共享源码对齐入口：根 `check` 与 installer 预检查均调用它，验证版本、Payload 投影、两份 README badge、平台配置、updater endpoint 和快照锁 `bazaarplusplus-mod/build/game-libs.lock.json` 的格式（七个键齐全，条目为空或过期只告警，见 [ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）。发布 origin 和 updater endpoint 列表由 `release/downloads.ts` 的 `RELEASE_BASE_URL` 与 `UPDATER_ENDPOINTS` 定义；Tauri 配置必须与后者逐项相等。`sync` 更新版本和 badge，不改写发布 origin。
 
@@ -43,13 +43,13 @@ just 只转发，不缓存或跳过任何发布检查。直接调用 `bun releas
 
 ## GitHub Actions 发版
 
-`.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、所选平台的 Mod 验证（正式构建）、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。正式构建在 Payload 准备、签名与上传之前补齐所选平台的 Mod 验证：桌面执行 online 检查、功能测试、墙钟性能测试及 staging/ptr 兼容编译，Android 执行宿主编译和 Core 测试。任一步失败即停止发布；Installer 的完整原生验证由 `release::build` 调用 `bazaarplusplus-installer/scripts/bundle.sh` 的 `run_release_prechecks` 执行。`build_only` 同样执行这些验证，`dry_run` 保留仅准备 Payload 的行为。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.ts` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
+`.github/workflows/release.yml` 在原生 macOS 与 Windows runner 上依次执行 `just release::check`、`just mod::fetch <platform> online`、所选平台的 Mod 验证（正式构建）、`just release::prepare`、`just release::build`、`just release::upload`。build 与 upload 在同一个 job 里，满足"同机"要求。正式构建在 Payload 准备、签名与上传之前补齐所选平台的 Mod 验证：桌面执行 online 检查、功能测试、墙钟性能测试及 staging/ptr 兼容编译，Android 执行宿主编译和 Core 测试。任一步失败即停止发布；Installer 的完整原生验证由 `release::build` 调用 `bazaarplusplus-installer/scripts/bundle.ts` 的 `runReleasePrechecks` 执行。`build_only` 同样执行这些验证，`dry_run` 保留仅准备 Payload 的行为。macOS runner 必须支持 Icon Composer 源文件；工作流在准备 Payload 前运行 `bazaarplusplus-installer/scripts/release/compile-macos-icon.ts` 的 `compileMacOSIcon`，提前发现图标工具链不兼容，PR 检查也执行相同的真实图标编译。
 
 触发方式两种：`workflow_dispatch` 填 `version`（必须等于所选 ref 上的 `VERSION`，否则在装任何工具链之前失败），或推送 `v<VERSION>` 标签。手动触发时可选 `platform`，只重建需要验证的平台。`dry_run` 在 `prepare` 之后停止，只验证取包与 Payload 准备；需要验证完整签名和打包时用 `build_only`，它保留 Actions 安装包产物而不向 R2 上传。后者适合验证已暂存版本的修复，避免以新提交覆盖不可变版本目录。两者同时开启时，仍在 `prepare` 后停止。`skip_preview_channels` 只跳过本次运行的 staging/ptr 兼容编译并留下警告，online 的检查和测试照常执行；用于预览通道编译失败、又不应阻塞 online 发布的情况。预览通道的 Steam buildid 低于同平台 online 时，`mod::matrix` 自动跳过它并给出警告，因为它没有 online 以外的游戏改动；这种情况不需要这个开关。
 
 游戏程序集来自快照锁指向的 online 条目（[ADR 0004](adr/0004-pinned-game-assembly-snapshots.md)）：条目为空时 `mod::fetch` 失败并指出要采集哪个快照，不会退回本机 Steam。原生录制插件沿用 `release/native-recorder-input.ts` 的新鲜度判断：已提交的产物新鲜就直接复用；不新鲜时在 runner 上重建，但重建会改动跟踪文件，工作流随即以具名错误失败并把差异作为 `native-recorder-inputs-<platform>` 产物上传，用 `git apply` 合入提交后重跑，不会上传一个脏构建。
 
-每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret、大陆镜像的 SSH 私钥与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个平台构建 job 先用 `.github/scripts/release-secrets.sh check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `bundle.sh` 读取的 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `bun scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
+每个 GitHub secret 和变量的名字、作用域和本地来源只在 `release/github-secrets.json` 里维护：`release` 环境持有签名 secret、大陆镜像的 SSH 私钥与 Apple 三个标识符变量；仓库级变量 `CLOUDFLARE_ACCOUNT_ID`、仓库级 secret `CLOUDFLARE_API_TOKEN`（操作员 token，`checks.yml`、`analyzer.yml`、`deploy-site.yml` 共用）放在仓库级。每个平台构建 job 先用 `.github/scripts/release-secrets.ts check` 读同一张表按平台和阶段核对，缺一个就以 `::error` 点名并说明取值来源；签名材料由同一脚本 `stage` 成 `BPP_SIGNING_SECRETS_DIR` 文件布局，与本机 `bun scripts/workspace.ts run signing` 的暂存一致。R2 的 S3 密钥对不是 secret：`release/r2-store.ts` 从 `CLOUDFLARE_API_TOKEN` 推导（Access Key ID 是 token id，Secret 是 token 值的 SHA-256）。
 
 | 名字 | GitHub 作用域 | 本地来源 | 用途 |
 |---|---|---|---|
@@ -156,7 +156,7 @@ just release::promote --platform android
 官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`bun release/game-libs.ts official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
 
 - **没变**：sha256 与锁相同。ETag 也相同就什么都不做。ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。
-- **只改内容**：sha256 变了，它采集新的 `android-publisher` 条目（记下下载时的 ETag），再用 `bun release/android-adaptation.ts kind` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android publisher`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
+- **只改内容**：sha256 变了，它采集新的 `android-publisher` 条目（记下下载时的 ETag），再用 `bun release/game-libs.ts android-change` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android publisher`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
 - **代码变了**：任一个哈希变了。上传输入之后，它跑 `mod::android-build` 和 `mod::test-core`，再开一个只改锁文件的 PR，不升 `VERSION`。在适配它的版本发布之前，下载页的 Android 卡片显示"未适配，适配中"。
 
 这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。仓库设置里要允许 GitHub Actions 创建 PR。锁或打开的锁 PR 记录了官方 APK 之后，工作流把它的游戏写进公开的 `game-status/android.json`（`bun release/game-libs.ts android-game-status`），下载页用它判断 Android 是否已适配。

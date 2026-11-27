@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import type { SpawnOptions } from 'node:child_process';
-import { runGit } from './git-command.ts';
+import { withBuildLock } from '../bazaarplusplus-mod/scripts/build-lock.ts';
+import { captureGitSnapshot, runCommand, writeReceipt } from './verify.ts';
+
+export { withBuildLock };
 
 export interface GateSpawnOptions {
   cwd: string;
@@ -42,71 +43,25 @@ export const androidChecks: string[][] = [
   ['mod::test-performance']
 ];
 
-export async function withBuildLock<T>(
-  cwd: string,
-  action: (env: NodeJS.ProcessEnv) => T | PromiseLike<T>
-): Promise<T> {
-  const directory = path.join(cwd, 'bazaarplusplus-mod/artifacts/build.lock');
-  if (
-    process.env.BPP_MOD_BUILD_LOCK &&
-    path.resolve(process.env.BPP_MOD_BUILD_LOCK) === directory
-  )
-    return action(process.env);
-  fs.mkdirSync(path.dirname(directory), { recursive: true });
-  try {
-    fs.mkdirSync(directory);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-    throw new Error(
-      `Mod build is already locked: ${directory}. Wait for the other command; after an interrupted run, confirm its processes have stopped before removing this directory.`
-    );
-  }
-  try {
-    fs.writeFileSync(
-      path.join(directory, 'owner.json'),
-      JSON.stringify({ pid: process.pid, command: process.argv })
-    );
-    return await action({
-      ...process.env,
-      BPP_MOD_BUILD_LOCK: directory.split(path.sep).join('/')
-    });
-  } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-export function run(
-  command: string,
-  args: readonly string[],
-  options: SpawnOptions
-): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, options);
-    child.once('error', reject);
-    child.once('close', (code) => resolve(code ?? 1));
-  });
-}
+export const run = runCommand;
 
 export async function validate(
   cwd: string,
   env: NodeJS.ProcessEnv,
-  execute: GateRunner = run
+  execute: GateRunner = runCommand
 ): Promise<number> {
   const base = path.join(cwd, 'bazaarplusplus-mod/artifacts/validation');
   fs.mkdirSync(base, { recursive: true });
   const out = fs.mkdtempSync(path.join(base, 'android-'));
-  const git = (...args: string[]): string => runGit(args, { cwd }).trim();
+  const { head, dirty } = captureGitSnapshot(cwd);
+  const receiptPath = path.join(out, 'result.json');
   const receipt: ValidationReceipt = {
-    head: git('rev-parse', 'HEAD'),
-    dirty: git('status', '--porcelain').length > 0,
+    head,
+    dirty,
     status: 'running',
     steps: []
   };
-  const save = () =>
-    fs.writeFileSync(
-      path.join(out, 'result.json'),
-      JSON.stringify(receipt, null, 2) + '\n'
-    );
+  const save = () => writeReceipt(receiptPath, receipt);
   console.log(`Android validation: ${out}`);
   save();
   for (const [index, args] of androidChecks.entries()) {
@@ -145,7 +100,7 @@ export async function validate(
   }
   receipt.status = 'passed';
   save();
-  console.log(`Android validation passed: ${out}/result.json`);
+  console.log(`Android validation passed: ${receiptPath}`);
   return 0;
 }
 
@@ -155,7 +110,7 @@ if (import.meta.main) {
     process.exitCode = await withBuildLock(root, (env) => {
       if (mode === 'check' && !args.length) return validate(root, env);
       if (mode === 'lock' && args[0] === '--' && args.length > 1)
-        return run(args[1], args.slice(2), {
+        return runCommand(args[1], args.slice(2), {
           cwd: process.cwd(),
           env,
           stdio: 'inherit'

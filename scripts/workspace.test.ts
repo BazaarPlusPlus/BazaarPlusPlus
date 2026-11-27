@@ -277,7 +277,7 @@ test('omitted analyzer section cannot silently run with a stale checkout file', 
   );
 });
 
-test('signing staging holds bundle.sh files only, never injects values, and is removed even when the command fails', (t) => {
+test('signing staging holds bundle.ts files only, never injects values, and is removed even when the command fails', (t) => {
   const f = fixture(t);
   f.put(
     f.home,
@@ -371,7 +371,7 @@ test('config inside a checkout and escaping symlink projections are refused', (t
   assert.equal(fs.readFileSync(outside, 'utf8'), 'KEEP');
 });
 
-test('doctor derives required keys from config sections and resolves signing as bundle.sh does', (t) => {
+test('doctor derives required keys from config sections and resolves signing as bundle.ts does', (t) => {
   const f = fixture(t);
   f.put(
     f.home,
@@ -582,6 +582,52 @@ test('CLI refuses an unknown profile naming the profiles the table defines', (t)
   assert.match(
     result.stderr,
     /Unknown profile; use server, analyzer, signing, mod, game, release, bot or qqbot/
+  );
+});
+
+test('comma-separated profiles compose in one run and clean up signing staging', (t) => {
+  const f = fixture(t);
+  f.put(
+    f.home,
+    'config.toml',
+    tomlConfig({
+      cloudflare: 'CLOUDFLARE_ACCOUNT_ID=acct\nCLOUDFLARE_API_TOKEN=tok\n',
+      signing: 'ANDROID_KEY_ALIAS=bpp\n'
+    })
+  );
+  let staged: string | undefined;
+  const combined = withProfileEnvironment(
+    'release,signing',
+    f.home,
+    (env) => {
+      staged = env.BPP_SIGNING_SECRETS_DIR;
+      assert.equal(env.CLOUDFLARE_ACCOUNT_ID, 'acct');
+      assert.equal(env.CLOUDFLARE_API_TOKEN, 'tok');
+      assert.ok(
+        staged && fs.existsSync(path.join(staged, 'android-key-alias'))
+      );
+      return env;
+    },
+    {},
+    f.repository
+  );
+  assert.equal(combined.CLOUDFLARE_ACCOUNT_ID, 'acct');
+  assert.equal(fs.existsSync(staged!), false);
+  assert.throws(
+    () =>
+      withProfileEnvironment(
+        'release,release',
+        f.home,
+        () => {},
+        {},
+        f.repository
+      ),
+    /Duplicate profile: release/
+  );
+  assert.throws(
+    () =>
+      withProfileEnvironment('release,', f.home, () => {}, {}, f.repository),
+    /Unknown profile/
   );
 });
 

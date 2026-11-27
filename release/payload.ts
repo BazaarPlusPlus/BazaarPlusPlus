@@ -585,9 +585,9 @@ function preparePayloadUnlocked({
     resolveManaged
       ? resolveManaged()
       : execFileSync(
-          'bash',
+          'bun',
           [
-            path.join(modRoot, 'scripts', 'game.sh'),
+            path.join(modRoot, 'scripts', 'game.ts'),
             'managed-path',
             ...msbuildArgs
           ],
@@ -642,8 +642,8 @@ function preparePayloadUnlocked({
       });
     else
       execFileSync(
-        'bash',
-        [path.join(modRoot, 'scripts', 'build.sh'), 'produce', ...buildArgs],
+        'bun',
+        [path.join(modRoot, 'scripts', 'build.ts'), 'produce', ...buildArgs],
         {
           cwd: modRoot,
           stdio: 'inherit',

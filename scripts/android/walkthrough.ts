@@ -4,9 +4,15 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { SpawnSyncOptions } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { profiles as androidProfiles, onlyDevice } from './setup-device.ts';
-import type { ScreenReport } from './android-screen.ts';
-import { androidSdkPaths } from './android-sdk.ts';
+import { profiles as androidProfiles } from './setup-device.ts';
+import {
+  ANDROID_DEV_APP,
+  ANDROID_GAME_FILES,
+  androidSdkPaths,
+  appPut,
+  onlyDevice
+} from './adb.ts';
+import { captureRun } from './mod-loop.ts';
 
 export type Device =
   | { name: string; kind: 'android' }
@@ -45,9 +51,8 @@ const root = path.resolve(import.meta.dirname, '../..');
 const runs = path.join(root, 'artifacts/walkthrough');
 const commandFile = 'walkthrough-command.txt';
 const dataRootName = 'BazaarPlusPlusV6';
-const androidApp = 'com.bazaarplusplus.android.dev';
-const androidCommand = `no_backup/game-external/${dataRootName}/${commandFile}`;
-const androidScript = path.join(root, 'bazaarplusplus-mod/scripts/android.sh');
+const androidApp = ANDROID_DEV_APP;
+const androidCommand = `${ANDROID_GAME_FILES}/${dataRootName}/${commandFile}`;
 const defaultGameRoot = path.join(
   os.homedir(),
   'Library/Application Support/Steam/steamapps/common/The Bazaar'
@@ -151,13 +156,6 @@ function run(
   return result.stdout.replace(/\r+\n/g, '\n');
 }
 
-// Keep the serial online() checked even if another device appears later.
-const androidScriptRun = (d: { serial: string }, ...args: string[]): string =>
-  run(['bash', androidScript, ...args], {
-    cwd: path.join(root, 'bazaarplusplus-mod'),
-    env: { ...process.env, ADB: adbPath(), ANDROID_SERIAL: d.serial }
-  });
-
 const adbPath = (): string => androidSdkPaths().adb;
 
 const adb = (d: { serial: string }, ...args: string[]): string =>
@@ -181,7 +179,7 @@ export async function panel(name: string, logical: string): Promise<void> {
       commandFile
     );
     fs.writeFileSync(local, text);
-    androidScriptRun(d, 'put', local, `${dataRootName}/${commandFile}`);
+    appPut(adbPath(), d.serial, local, androidCommand);
     fs.rmSync(path.dirname(local), { recursive: true, force: true });
     exists = () =>
       adb(
@@ -315,19 +313,18 @@ export function capture(
       }).stdout
     );
   } else if (d.kind === 'android') {
-    const capture = `walkthrough-${runName}-${d.name}-${scenario}`;
-    androidScriptRun(d, 'capture', capture);
-    const out = path.join(
-      root,
-      'bazaarplusplus-mod/artifacts/android',
-      capture
+    const captureName = `walkthrough-${runName}-${d.name}-${scenario}`;
+    const result = captureRun(
+      {
+        workspaceRoot: root,
+        modRoot: path.join(root, 'bazaarplusplus-mod'),
+        env: { ...process.env, ADB: adbPath(), ANDROID_SERIAL: d.serial }
+      },
+      captureName,
+      false
     );
-    fs.copyFileSync(path.join(out, 'screen.png'), file);
-    problems = (
-      JSON.parse(
-        fs.readFileSync(path.join(out, 'environment.json'), 'utf8')
-      ) as ScreenReport
-    ).problems;
+    fs.copyFileSync(path.join(result.outDir, 'screen.png'), file);
+    problems = result.problems;
   } else {
     run(['screencapture', '-x', '-o', `-l${desktopWindow()}`, file]);
   }

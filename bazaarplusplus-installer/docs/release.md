@@ -21,11 +21,11 @@ Product versioning, isolated Payload preparation, immutable uploads and complete
 
 ## Packaging And Signing
 
-`run_release_prechecks` in `scripts/bundle.sh` requires the active product build lock and runs the platform release verification gate. It never chooses a separate version or prepares a second archive.
+`runReleasePrechecks` in `scripts/bundle.ts` requires the active product build lock and runs the platform release verification gate. It never chooses a separate version or prepares a second archive.
 
 On macOS, producer inputs are arm64, deployment target 12.0, system-linked, ABI-complete, loadable and ad-hoc signed. The installer verifies their inventory, signs nested Mach-O code and bundles inside-out with the official identity, repacks the signed copy, and packages/notarizes the outer installer. SourceForBuild remains unsigned provenance; final distribution hashes live in the artifact manifest. See [ADR-0006](adr/0006-native-replay-recorder-signing.md).
 
-`load_updater_signing_env` and `load_macos_developer_id_env` in `scripts/bundle.sh` read each signing value from the environment, else from the files staged in `BPP_SIGNING_SECRETS_DIR`; without that directory only exported values count. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.ts` independently verifies the trampoline architecture and deployment target.
+`loadUpdaterSigningEnv` and `loadMacosDeveloperIdEnv` in `scripts/bundle.ts` read each signing value from the environment, else from the files staged in `BPP_SIGNING_SECRETS_DIR`; without that directory only exported values count. `assertMacosTrampolineStub` in `scripts/checks/prebuild-check.ts` independently verifies the trampoline architecture and deployment target.
 
 ## Artifact And Upload Contract
 
