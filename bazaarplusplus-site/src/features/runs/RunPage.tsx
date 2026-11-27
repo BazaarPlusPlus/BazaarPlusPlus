@@ -236,10 +236,9 @@ function RunBody({
       {(detail.stream || detail.streamOmitted) && (
         <section className="bpp-panel flex flex-col gap-3 p-4">
           <h2 className="m-0 text-base">{terms.replay.decisions}</h2>
-          {path.data?.visits.length ? (
+          {path.data?.replay.length ? (
             <DecisionReplay
-              visits={path.data.visits}
-              index={path.data}
+              replay={path.data.replay}
               battles={battles}
               names={names}
             />

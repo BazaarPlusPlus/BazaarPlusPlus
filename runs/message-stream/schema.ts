@@ -100,13 +100,6 @@ export function parseTypeExpr(text: string): TypeExpr {
   return type;
 }
 
-export function formatTypeExpr(type: TypeExpr): string {
-  if ('array' in type) return `${formatTypeExpr(type.array)}[]`;
-  return type.args.length
-    ? `${type.name}<${type.args.map(formatTypeExpr).join(',')}>`
-    : type.name;
-}
-
 /** The last segment of a qualified name, for display: `NetMessageGameSim`. */
 export function shortName(name: string): string {
   const plain = name.slice(name.lastIndexOf('.') + 1);
