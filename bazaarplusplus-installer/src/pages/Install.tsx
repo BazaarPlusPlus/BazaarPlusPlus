@@ -181,7 +181,7 @@ export default function Install() {
             modInstalled={snapshot.data.mod_state.installed}
             gamePath={snapshot.data.selected_game_path}
           />
-          <GameAssetsPanel />
+          <GameAssetsPanel key={snapshot.data.selected_game_path ?? ''} />
           <InstallActionsPanel snapshot={snapshot} intents={intents} />
         </>
       ) : null}

@@ -68,7 +68,7 @@ pub fn run() {
                 let path = request.uri().path().to_owned();
                 tauri::async_runtime::spawn_blocking(move || {
                     responder.respond(crate::card_catalog::serve(
-                        &crate::card_catalog::catalog_dir(),
+                        &crate::services::paths::card_catalog_dir(),
                         &path,
                     ));
                 });

@@ -19,7 +19,7 @@ pub(crate) struct GameCardNames {
 
 impl GameCardNames {
     pub(crate) fn installed() -> Self {
-        installed_cache_dir().map_or_else(Self::none, Self::at)
+        crate::services::paths::game_cache_dir().map_or_else(Self::none, Self::at)
     }
 
     pub(crate) fn at(cache: PathBuf) -> Self {
@@ -47,18 +47,6 @@ impl GameCardNames {
                 HashMap::new()
             }
         }
-    }
-}
-
-pub(crate) fn installed_cache_dir() -> Option<PathBuf> {
-    let home = dirs::home_dir()?;
-    if cfg!(target_os = "macos") {
-        Some(home.join("Library/Application Support/com.TempoStorm.TheBazaar/prod/cache"))
-    } else if cfg!(target_os = "windows") {
-        // Unity's persistentDataPath: LocalLow\<company>\<product>.
-        Some(home.join("AppData/LocalLow/Tempo Storm/The Bazaar/prod/cache"))
-    } else {
-        None
     }
 }
 

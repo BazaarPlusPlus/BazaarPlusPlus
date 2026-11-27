@@ -123,32 +123,11 @@ fn repair(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
 }
 
 fn card_catalog(args: impl Iterator<Item = OsString>) -> anyhow::Result<()> {
-    let [data, game_data, translations, out, revision, gamedata_etag, zh_etag] = options(
+    let values = options(
         "card-catalog",
-        [
-            "--data",
-            "--game-data",
-            "--translations",
-            "--out",
-            "--revision",
-            "--gamedata-etag",
-            "--zh-etag",
-        ],
+        crate::card_catalog::ExportArgs::CLI_OPTIONS,
         args,
     )?;
-    let path = |value: Option<OsString>, option: &str| {
-        value
-            .map(PathBuf::from)
-            .with_context(|| format!("card-catalog requires {option}"))
-    };
-    let text = |value: Option<OsString>| value.map(|v| v.to_string_lossy().into_owned());
-    crate::card_catalog::export(
-        &path(data, "--data")?,
-        &path(game_data, "--game-data")?,
-        &path(translations, "--translations")?,
-        &path(out, "--out")?,
-        &text(revision).context("card-catalog requires --revision")?,
-        text(gamedata_etag),
-        text(zh_etag),
-    )
+    let export_args = crate::card_catalog::ExportArgs::from_cli_values(values)?;
+    crate::card_catalog::export(&export_args)
 }
