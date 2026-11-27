@@ -2,6 +2,17 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import {
+  fetchSnapshot,
+  gameLibsStoreFromEnvironment
+} from '../../release/game-assembly-snapshot.ts';
+import { fetchInteropSnapshot } from '../../release/interop-snapshot.ts';
+import { isInteropPlatform, lockKey } from '../../release/snapshot-lock.ts';
+import type {
+  AndroidSource,
+  ManagedPlatform,
+  SnapshotChannel
+} from '../../release/snapshot-lock.ts';
 
 export const MOD_ROOT = path.resolve(import.meta.dirname, '..');
 export const WORKSPACE_ROOT = path.resolve(MOD_ROOT, '..');
@@ -189,4 +200,52 @@ export function runDotnet(
   });
   if (result.error) throw result.error;
   return result.status ?? 1;
+}
+
+export async function resolveLockManagedPath(
+  platform: string,
+  channel: string,
+  options: {
+    allowUnlocked?: boolean;
+    env?: NodeJS.ProcessEnv;
+    modRoot?: string;
+    workspaceRoot?: string;
+  } = {}
+): Promise<string> {
+  const env = options.env ?? process.env;
+  const modRoot = options.modRoot ?? MOD_ROOT;
+  const workspaceRoot = options.workspaceRoot ?? WORKSPACE_ROOT;
+  const log = (message: string): boolean =>
+    process.stderr.write(`${message}\n`);
+  const storeFactory = () => gameLibsStoreFromEnvironment(env);
+
+  if (isInteropPlatform(platform)) {
+    lockKey(platform, channel);
+    const result = await fetchInteropSnapshot({
+      workspaceRoot,
+      modRoot,
+      source: channel as AndroidSource,
+      storeFactory,
+      log
+    });
+    log(`Loader Release ${result.loaderPath}`);
+    return result.interopPath;
+  }
+
+  let steamManaged = '';
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    if (platform === hostPlatform()) {
+      steamManaged = steamManagedPath(modRoot, env);
+    }
+  }
+  const result = await fetchSnapshot({
+    workspaceRoot,
+    modRoot,
+    platform: platform as ManagedPlatform,
+    channel: channel as SnapshotChannel,
+    steamManagedPath: steamManaged,
+    allowUnlocked: options.allowUnlocked === true,
+    log
+  });
+  return result.managedPath;
 }

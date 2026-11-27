@@ -26,7 +26,8 @@ export default defineConfig({
             'scripts/**/*.test.ts',
             '.github/scripts/*.test.ts',
             'design/*.test.ts',
-            '.agents/skills/*/scripts/*.test.ts'
+            '.agents/skills/*/scripts/*.test.ts',
+            'bazaarplusplus-mod/scripts/**/*.test.ts'
           ]
         }
       }

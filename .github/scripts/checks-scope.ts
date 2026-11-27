@@ -396,7 +396,11 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       );
       if (windowsBuildInput(project, file))
         select(`${project}-windows`, `Windows build input: ${file}`);
-      if (file.endsWith('.just')) select('release', `Command recipe: ${file}`);
+      if (
+        file.endsWith('.just') ||
+        file.startsWith('bazaarplusplus-mod/scripts/')
+      )
+        select('release', `Command recipe or tooling: ${file}`);
       for (const [input, consumers] of SHARED_INPUTS) {
         if (covers(input, file))
           for (const consumer of consumers)

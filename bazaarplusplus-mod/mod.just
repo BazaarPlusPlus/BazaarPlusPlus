@@ -1,7 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
-# Some VPN/tunnel configurations advertise an unusable IPv6 route; see scripts/lib.sh.
+# Some VPN/tunnel configurations advertise an unusable IPv6 route; see scripts/mod-env.ts.
 export DOTNET_SYSTEM_NET_DISABLEIPV6 := env('DOTNET_SYSTEM_NET_DISABLEIPV6', '1')
 
 # The published assemblies; each keeps a committed NuGet lock file.
@@ -16,19 +16,19 @@ check: fmt-check build locks-check lock-check
 
 # Compile; --deploy also repairs the macOS trampoline and copies into the installed game; [--deploy] [--fast] [-p:Name=Value ...].
 build *args:
-    bash scripts/build.sh build "$@"
+    bun scripts/build.ts build "$@"
 
 # Run the offline default xUnit suite; [-p:Name=Value ...].
 test *args:
-    bash scripts/test.sh test "$@"
+    bun scripts/test.ts test "$@"
 
 # Run timing assertions separately, after the functional suites have finished.
 test-performance *args:
-    bash scripts/test.sh test-performance "$@"
+    bun scripts/test.ts test-performance "$@"
 
 # Run the suites that need no Managed snapshot (Linux too; needs the android publisher fetch); [-p:Name=Value ...].
 test-core *args:
-    bash scripts/test.sh test-core "$@"
+    bun scripts/test.ts test-core "$@"
 
 # Run Android build and functional/performance gates serially; save logs and a revision receipt.
 android-check:
@@ -82,7 +82,7 @@ android-verify dir:
 
 # Export a game replay corpus to a Combat Impact Corpus and project it: <absolute-corpus-path> [report-path] [--benchmark].
 test-corpus +args:
-    bash scripts/test.sh test-corpus "$@"
+    bun scripts/test.ts test-corpus "$@"
 
 # Format C# files with the repo-pinned CSharpier.
 fmt:
@@ -104,52 +104,52 @@ locks-check:
 
 # Refresh the remote embedded seeds without building; [-p:Name=Value ...].
 fetch-data *args:
-    bash scripts/build.sh fetch-data "$@"
+    bun scripts/build.ts fetch-data "$@"
 
 # Decompile game DLLs (default Assembly-CSharp, or `all`) into decompiled/, decompiled-vstaging/ or decompiled-vptr/.
 [arg('channel', pattern='online|staging|ptr')]
 decompile channel *dlls:
-    bash scripts/game.sh decompile "$@"
+    bun scripts/game.ts decompile "$@"
 
 # Capture the mounted game's Managed dir under game-libs/ and record it in build/game-libs.lock.json.
 snapshot:
-    bash scripts/game.sh snapshot
+    bun scripts/game.ts snapshot
 
 # Capture an official Android build's Interop Snapshot (base APK, then any splits) under game-libs/ and record it in build/game-libs.lock.json.
 snapshot-android apk *args:
-    bash scripts/game.sh snapshot-android "$@"
+    bun scripts/game.ts snapshot-android "$@"
 
 # Sign in to Steam at the terminal and save the login the Steam capture recipes use; the operator runs this.
 steam-login:
-    bash scripts/game.sh steam-login
+    bun scripts/game.ts steam-login
 
 # Print the Steam buildid of a channel and the platforms whose lock entry is behind it, as JSON.
 [arg('channel', pattern='online|staging|ptr')]
 steam-stale channel:
-    bash scripts/game.sh steam-stale "$@"
+    bun scripts/game.ts steam-stale "$@"
 
 # Download one lock entry's Managed dir from its Steam depot and record it in build/game-libs.lock.json.
 [arg('channel', pattern='online|staging|ptr')]
 [arg('platform', pattern='macos|windows')]
 steam-capture platform channel:
-    bash scripts/game.sh steam-capture "$@"
+    bun scripts/game.ts steam-capture "$@"
 
 # Upload a captured snapshot (android: and its pinned inputs) to the private store; needs the release credentials.
 [arg('channel', pattern='online|staging|ptr|publisher|play')]
 [arg('platform', pattern='macos|windows|android')]
 publish platform channel:
-    bun ../scripts/workspace.ts run release -- bash scripts/game.sh publish "$@"
+    bun ../scripts/workspace.ts run release -- bun scripts/game.ts publish "$@"
 
 # Make one lock entry's Managed dir (android: interop dir and Loader Release) available and print it.
 [arg('channel', pattern='online|staging|ptr|publisher|play')]
 [arg('platform', pattern='macos|windows|android')]
 fetch platform channel:
-    bash scripts/game.sh fetch "$@"
+    bun scripts/game.ts fetch "$@"
 
 # Validate build/game-libs.lock.json; empty or stale entries warn, a mismatched Managed dir fails.
 lock-check:
-    bash scripts/game.sh lock-check
+    bun scripts/game.ts lock-check
 
 # CompatCheck-compile against every captured lock entry, or against the host platform's named channels (an empty entry fails).
 matrix *channels:
-    bash scripts/build.sh matrix "$@"
+    bun scripts/build.ts matrix "$@"

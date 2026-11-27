@@ -5,7 +5,7 @@ pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: '{JUSTFILE,**/*.just,package.json,packages/ui/package.json,bun.lock,bunfig.toml,tsconfig.json,vite.config.ts,vitest.config.ts,lefthook.yml,VERSION,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/**,packages/runs/**}'
+      glob: '{JUSTFILE,**/*.just,package.json,packages/ui/package.json,bun.lock,bunfig.toml,tsconfig.json,vite.config.ts,vitest.config.ts,lefthook.yml,VERSION,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/**,packages/runs/**,bazaarplusplus-mod/scripts/**}'
       run: just commands-check runs::check release::check
 
     - name: design

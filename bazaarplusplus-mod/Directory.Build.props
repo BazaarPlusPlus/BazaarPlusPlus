@@ -30,7 +30,7 @@
   <PropertyGroup>
     <BppScenarioRunnerProjects>CombatImpact.Corpus</BppScenarioRunnerProjects>
     <!-- The capsules `just mod::test-core` also runs, in this order, with `dotnet run` and no Managed
-         snapshot (scripts/test.sh reads this property). Each one stays in BppScenarioRunnerProjects,
+         snapshot (scripts/test.ts reads this property). Each one stays in BppScenarioRunnerProjects,
          which `mod::test` runs. Architecture.Tests' TestProjectRegistryTests guards both lists. -->
     <BppTestCoreProjects>CombatImpact.Corpus</BppTestCoreProjects>
   </PropertyGroup>

@@ -65,7 +65,7 @@ function printLine(value: string): void {
 
 const log = (message: string): boolean => process.stderr.write(`${message}\n`);
 
-const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplusplus-mod/scripts/game.sh):
+const usage = `Game Assembly and Interop Snapshot commands (driven by bazaarplusplus-mod/scripts/game.ts):
   bun release/game-libs.ts game-version <managed-dir>
   bun release/game-libs.ts digest <managed-dir>
   bun release/game-libs.ts snapshot --managed <dir> --buildid <id> --steam-branch <branch>
