@@ -771,7 +771,7 @@ test('installer::check-fast covers the commit subset without a Rust build', (t) 
     calls.every((entry) => entry.cwd === installer),
     JSON.stringify(calls)
   );
-  for (const script of ['format:check', 'lint', 'check:ts'])
+  for (const script of ['format:check', 'lint', 'typecheck'])
     assert.ok(hasCall(calls, call(f.dir, 'installer', 'bun', 'run', script)));
   const cargo = calls.filter((entry) => entry.tool === 'cargo');
   assert.ok(cargo.length > 0);
@@ -779,6 +779,38 @@ test('installer::check-fast covers the commit subset without a Rust build', (t) 
     cargo.every((entry) => entry.args[0] === 'fmt'),
     JSON.stringify(cargo)
   );
+});
+
+test('installer::check-subset and installer::compile-macos-icon route CI through just', (t) => {
+  const f = fixture(t);
+  assert.notEqual(f.run(['installer::check-subset', 'other']).status, 0);
+  assert.deepEqual(f.calls(), []);
+  succeeded(f.run(['installer::check-subset', 'frontend']));
+  succeeded(f.run(['installer::check-subset', 'native']));
+  succeeded(f.run(['installer::compile-macos-icon']));
+  assert.deepEqual(f.calls(), [
+    call(
+      f.dir,
+      'installer',
+      'bun',
+      'run',
+      'verify',
+      '--source-only',
+      '--subset',
+      'frontend'
+    ),
+    call(
+      f.dir,
+      'installer',
+      'bun',
+      'run',
+      'verify',
+      '--source-only',
+      '--subset',
+      'native'
+    ),
+    call(f.dir, 'installer', 'bun', 'scripts/release/compile-macos-icon.ts')
+  ]);
 });
 
 function hooksFixture(

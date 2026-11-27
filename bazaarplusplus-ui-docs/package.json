@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "vp lint --type-aware",
     "lint:fix": "vp lint --type-aware --fix",
-    "format": "vp fmt .",
+    "format": "vp fmt --write .",
     "format:check": "vp fmt --check ."
   },
   "dependencies": {

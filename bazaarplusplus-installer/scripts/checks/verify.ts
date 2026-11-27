@@ -75,6 +75,20 @@ function bunStep(
   };
 }
 
+function scriptStep(
+  subset: VerificationStepSubset,
+  label: string,
+  scriptPath: string,
+  extraArgs: string[] = []
+): VerificationStep {
+  return {
+    subset,
+    label,
+    command: 'bun',
+    args: [scriptPath, ...extraArgs]
+  };
+}
+
 export function verificationSteps({
   mode,
   releasePlatform,
@@ -94,15 +108,16 @@ export function verificationSteps({
 
   const prebuildStep =
     mode === 'source'
-      ? bunStep(
+      ? scriptStep(
           'shared',
           'Source version and resource contract checks',
-          'prebuild-check:source:after-bindings'
+          'scripts/checks/prebuild-check.ts',
+          ['--source-only']
         )
-      : bunStep(
+      : scriptStep(
           'shared',
           'Release version and payload checks',
-          'prebuild-check:after-bindings',
+          'scripts/checks/prebuild-check.ts',
           releasePlatform ? ['--platform', releasePlatform] : []
         );
 
@@ -149,13 +164,19 @@ export function verificationSteps({
           'warnings'
         ]
       },
-      bunStep(
+      scriptStep(
         'native',
         'Generate bindings and run Rust tests',
-        'generate:bindings:test'
+        'scripts/generate-bindings.ts',
+        ['--with-rust-tests']
       ),
-      bunStep('native', 'Check generated binding freshness', 'check:bindings'),
-      bunStep('frontend', 'Type-check TypeScript', 'check:ts'),
+      scriptStep(
+        'native',
+        'Check generated binding freshness',
+        'scripts/checks/prebuild-check.ts',
+        ['--bindings-only']
+      ),
+      bunStep('frontend', 'Type-check TypeScript', 'typecheck'),
       bunStep('frontend', 'Run frontend tests', 'test:unit', ['src']),
       // Windows also runs script tests because native shims, paths, and packaging differ by platform.
       bunStep('scripts', 'Run script tests', 'test:unit', ['scripts']),
