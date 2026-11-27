@@ -6,8 +6,8 @@ export const HOURLY_EMAIL_SEND_LIMIT = 5;
 export const HOURLY_WINDOW_MS = 60 * 60 * 1000;
 export const WEB_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const BIND_CODE_TTL_MS = 10 * 60 * 1000;
-export const PASSWORD_MIN_LENGTH = 8;
-export const PASSWORD_MAX_LENGTH = 128;
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 128;
 
 const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_SALT_BYTES = 16;
@@ -64,7 +64,7 @@ export function generateSixDigitCode(): string {
   }
 }
 
-export function toBase64Url(bytes: Uint8Array): string {
+function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
@@ -75,7 +75,7 @@ export function toBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/g, '');
 }
 
-export function fromBase64Url(text: string): Uint8Array | null {
+function fromBase64Url(text: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]+$/.test(text)) return null;
   const padded = text
     .replace(/-/g, '+')

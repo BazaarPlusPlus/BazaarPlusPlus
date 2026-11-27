@@ -20,7 +20,7 @@ internal sealed partial class HistoryPanelView
     private Action<string?>? _submitBppAccount;
     private string _accountCode = string.Empty;
     private string _bppAccountText = string.Empty;
-    private BppAccountFlowPhase _bppAccountRenderedPhase;
+    private bool _bppAccountRenderedFormVisible;
     private string? _inputAccount;
     private TMP_InputField? _accountInput;
     private TMP_InputField? _bppAccountInput;
@@ -233,9 +233,9 @@ internal sealed partial class HistoryPanelView
             _bppAccountInput?.DeactivateInputField();
             ReleaseInputFocus();
         }
-        if (_bppAccountRenderedPhase != m.BppAccountPhase)
+        if (_bppAccountRenderedFormVisible != m.BppAccountFormVisible)
         {
-            _bppAccountRenderedPhase = m.BppAccountPhase;
+            _bppAccountRenderedFormVisible = m.BppAccountFormVisible;
             _bppAccountText = string.Empty;
             _bppAccountInput?.SetTextWithoutNotify(string.Empty);
         }

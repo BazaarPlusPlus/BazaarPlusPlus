@@ -3,7 +3,7 @@ import { useCallback, useRef, useState, type ReactElement } from 'react';
 import type { Locale } from '../../app/router';
 
 /** Loaded only by the forms that need it, never proxied or cached (Cloudflare's rule). */
-export const TURNSTILE_SCRIPT_URL =
+const TURNSTILE_SCRIPT_URL =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 // Cloudflare's always-pass test site key, for builds without a real key

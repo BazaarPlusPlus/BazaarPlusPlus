@@ -216,7 +216,7 @@ function GameAccount({
     onSuccess: () => {
       setConfirm(false);
       // Unlinking hides the Records: drop their pages instead of refetching them.
-      for (const key of ['runs', 'run', 'run-detail']) {
+      for (const key of ['runs', 'run', 'run-detail', 'run-decisions']) {
         queryClient.removeQueries({ queryKey: [...ACCOUNT_QUERY, key] });
       }
       void queryClient.invalidateQueries({ queryKey: ACCOUNT_QUERY });
@@ -237,7 +237,9 @@ function GameAccount({
     <section className="bpp-panel">
       <div className="bpp-row">
         <div className="bpp-row-copy">
-          <span className="bpp-row-title truncate">{me.game.user_name}</span>
+          <span className="bpp-row-title truncate">
+            {me.game.user_name ?? '—'}
+          </span>
           <span className="text-small text-text-3">
             {fillCopy(copy.linkedAt, {
               date: date.format(me.game.linked_at_ms)

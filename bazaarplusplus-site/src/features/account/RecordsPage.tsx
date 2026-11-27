@@ -12,7 +12,7 @@ import { fillCopy, getSiteCopy } from '../../content/site-copy';
 import HeroBadge from '../../shared/components/HeroBadge';
 import PageLayout, { PageHeading } from '../../shared/components/PageLayout';
 import { getIntlLocale } from '../../shared/lib/intl-locale';
-import { loadMe, loadRuns, type RunSummary } from './account-api';
+import { loadMe, loadRuns, type AccountRecord } from './account-api';
 import {
   ACCOUNT_QUERY,
   RunFacts,
@@ -185,7 +185,7 @@ function HeroTable({ stats, locale }: { stats: RecordStats; locale: Locale }) {
   );
 }
 
-function RunRow({ run, locale }: { run: RunSummary; locale: Locale }) {
+function RunRow({ run, locale }: { run: AccountRecord; locale: Locale }) {
   const time = new Intl.DateTimeFormat(getIntlLocale(locale), {
     timeStyle: 'short'
   });
@@ -332,7 +332,7 @@ export default function RecordsPage({ location, replacePage }: Props) {
   );
 }
 
-function Records({ runs, locale }: { runs: RunSummary[]; locale: Locale }) {
+function Records({ runs, locale }: { runs: AccountRecord[]; locale: Locale }) {
   const stats = recordStats(runs);
   return (
     <>

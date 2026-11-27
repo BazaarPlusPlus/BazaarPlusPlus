@@ -3,9 +3,9 @@ import { RUN_CONTENT_TYPE } from '../bundle/prefix';
 import type { Env } from '../env';
 import { apiError, HttpError } from '../errors';
 import { jsonError, jsonResponse } from '../http/json';
+import { enforceAccountRateLimit, enforceRateLimit } from '../http/request';
 import { R2_RETENTION_MS } from '../limits';
 import { logError } from '../observability';
-import { enforceAccountRateLimit, enforceRateLimit } from './account-auth';
 import {
   BIND_CODE_TTL_MS,
   constantTimeHexEquals,
@@ -26,12 +26,8 @@ import {
   verifyPassword,
   WEB_SESSION_TTL_MS
 } from './account-crypto';
-import { renderVerificationEmail } from './account-email';
-import {
-  readJsonObject,
-  requireCodeSecret,
-  sendAccountEmail
-} from './account-service';
+import { renderVerificationEmail, sendAccountEmail } from './account-email';
+import { readJsonObject, requireCodeSecret } from './account-service';
 import { verifyTurnstile } from './turnstile';
 
 const SESSION_COOKIE_NAME = '__Host-bpp_session';
@@ -40,7 +36,7 @@ const RUN_DETAIL_CACHE_CONTROL = 'private, no-store';
 
 type EmailPurpose = 'register' | 'reset';
 
-export interface WebRunSummary {
+interface AccountRecord {
   run_id: string;
   hero: string | null;
   victories: number | null;
@@ -51,7 +47,7 @@ export interface WebRunSummary {
   ended_at_ms: number;
 }
 
-export interface WebMeResponse {
+interface WebMeResponse {
   email: string;
   game: { user_name: string | null; linked_at_ms: number } | null;
 }
@@ -658,7 +654,7 @@ async function handleListRuns(
   requestId: string
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
-  let runs: WebRunSummary[] = [];
+  let runs: AccountRecord[] = [];
   if (session.gameAccountId !== null) {
     try {
       runs = (
@@ -670,7 +666,7 @@ async function handleListRuns(
            LIMIT ?3`
         )
           .bind(session.gameAccountId, recordWindowStart(), RECORDS_LIMIT)
-          .all<WebRunSummary>()
+          .all<AccountRecord>()
       ).results;
     } catch {
       throw apiError('storage_unavailable', 'Records query failed');
@@ -683,7 +679,7 @@ function runNotFound(): HttpError {
   return apiError('not_found', 'Run not found');
 }
 
-type RecordRow = WebRunSummary & {
+type RecordRow = AccountRecord & {
   object_key: string;
   run_offset: number;
   run_length: number;
@@ -720,7 +716,7 @@ async function handleGetRun(
 ): Promise<Response> {
   const session = await authenticateWebSession(request, env.DB);
   const row = await findOwnedRun(env.DB, session, runId);
-  const run: WebRunSummary = {
+  const run: AccountRecord = {
     run_id: row.run_id,
     hero: row.hero,
     victories: row.victories,

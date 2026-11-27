@@ -9,7 +9,7 @@ import {
   type RunOutcomeTier
 } from '../../content/site-copy';
 import { getIntlLocale } from '../../shared/lib/intl-locale';
-import { errorCode, isSignedOut, type RunSummary } from './account-api';
+import { errorCode, isSignedOut, type AccountRecord } from './account-api';
 
 const aliases = new Map(Object.entries(aliasTable.aliases));
 
@@ -18,7 +18,7 @@ export function heroName(hero: string): string {
 }
 
 /** Matches the mod's HistoryPanelFormatter.GetRunOutcomeTier, as the installer does. */
-export function runOutcomeTier(
+function runOutcomeTier(
   victories: number | null,
   losses: number | null
 ): RunOutcomeTier {
@@ -105,7 +105,13 @@ export function useSignedOutRedirect(
 export const ACCOUNT_QUERY = ['account'] as const;
 
 /** Wins and losses, final rank, and rating with its change. */
-export function RunFacts({ run, locale }: { run: RunSummary; locale: Locale }) {
+export function RunFacts({
+  run,
+  locale
+}: {
+  run: AccountRecord;
+  locale: Locale;
+}) {
   const copy = getSiteCopy(locale).account;
   const delta = new Intl.NumberFormat(getIntlLocale(locale), {
     signDisplay: 'exceptZero'

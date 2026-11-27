@@ -4,11 +4,6 @@ using BazaarPlusPlus.Infrastructure.Logging;
 
 namespace BazaarPlusPlus.Game.HistoryPanel.BppAccount;
 
-public enum BppAccountAction
-{
-    Bind,
-}
-
 public enum BppAccountLogReason
 {
     SignedOut,
@@ -31,18 +26,16 @@ public enum BppAccountLogReason
 /// <summary>Keep game tokens, bind codes, emails, account IDs, and response bodies out of logs.</summary>
 public static class BppAccountLog
 {
-    internal static void Succeeded(string requestId, BppAccountAction action) =>
+    private const string BindAction = "Bind";
+
+    internal static void Succeeded(string requestId) =>
         BppLog.InfoEvent(
             new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.bpp_account.succeeded"),
             ("request_id", requestId, BppLogCorrelationPolicy.Short),
-            ("action", action)
+            ("action", BindAction)
         );
 
-    internal static void Failed(
-        string requestId,
-        BppAccountAction action,
-        BppAccountLogReason reason
-    ) =>
+    internal static void Failed(string requestId, BppAccountLogReason reason) =>
         BppLog.ErrorEvent(
             new BppLogEvent(
                 BppLogFeatureScope.HistoryPanel,
@@ -50,21 +43,17 @@ public static class BppAccountLog
                 storm: []
             ),
             ("request_id", requestId, BppLogCorrelationPolicy.Short),
-            ("action", action),
+            ("action", BindAction),
             ("reason_code", reason)
         );
 
-    internal static void Skipped(
-        string requestId,
-        BppAccountAction action,
-        BppAccountLogReason reason
-    ) =>
+    internal static void Skipped(string requestId, BppAccountLogReason reason) =>
         BppLog.DebugEvent(
             new BppLogEvent(BppLogFeatureScope.HistoryPanel, "history_panel.bpp_account.skipped"),
             () =>
                 [
                     ("request_id", requestId, BppLogCorrelationPolicy.Short),
-                    ("action", action),
+                    ("action", BindAction),
                     ("reason_code", reason),
                 ]
         );
