@@ -73,8 +73,6 @@ export type DecisionEntry = Placed &
         card: CardRef | null;
         /** Price paid or sell price, from the paired event. */
         amount: number | null;
-        /** Section and socket a move or a buy targeted. */
-        target: string | null;
         /** Tier or enchantment a pedestal gave. */
         result: string | null;
         outcome: Outcome;
@@ -168,14 +166,13 @@ type RunState = {
 type Evidence = {
   purchased: Map<string, number>;
   sold: Map<string, number>;
-  moved: Map<string, string>;
+  moved: Set<string>;
   equipped: Set<string>;
   /** A bought or picked duplicate merges into the card it upgrades: selected id → that card. */
   fused: Map<string, { into: string; tier: string | null }>;
   upgraded: Map<string, string>;
   enchanted: Map<string, string>;
   transitioned: boolean;
-  dealt: boolean;
   initialized: boolean;
   synced: boolean;
   errors: string[];
@@ -185,13 +182,12 @@ function emptyEvidence(): Evidence {
   return {
     purchased: new Map(),
     sold: new Map(),
-    moved: new Map(),
+    moved: new Set(),
     equipped: new Set(),
     fused: new Map(),
     upgraded: new Map(),
     enchanted: new Map(),
     transitioned: false,
-    dealt: false,
     initialized: false,
     synced: false,
     errors: []
@@ -280,7 +276,7 @@ function card(state: RunState, id: string): CardState {
   return found;
 }
 
-export function cardRef(state: Pick<RunState, 'cards'>, id: string): CardRef {
+function cardRef(state: Pick<RunState, 'cards'>, id: string): CardRef {
   const c = state.cards.get(id);
   return {
     instanceId: id,
@@ -583,7 +579,6 @@ function applyGameSim(
           if (shortName(event.type) === 'GameSimEventCardSpawned')
             placement(state, c, event, 'CombatantId');
         }
-        evidence.dealt = true;
         break;
       case 'GameSimEventCardTransformReverted': {
         const original = field(event, 'OriginalCard');
@@ -665,16 +660,7 @@ function applyGameSim(
             'ToInventory',
             'ToSocket'
           );
-        if (id !== null)
-          evidence.moved.set(
-            id,
-            [
-              enumName(field(event, 'ToInventory')),
-              enumName(field(event, 'ToSocket'))
-            ]
-              .filter(Boolean)
-              .join(' ')
-          );
+        if (id !== null) evidence.moved.add(id);
         break;
       case 'GameSimEventPlayerSkillEquipped':
         if (id !== null) {
@@ -800,16 +786,6 @@ function settle(pending: Pending, state: RunState) {
         // The game's own price context, not a zero price, makes a pick free.
         if (pending.before.free) entry.verb = 'picked';
       }
-      if (
-        Array.isArray(args.desiredSockets) ||
-        typeof args.targetSection === 'string'
-      )
-        entry.target = [
-          args.targetSection,
-          ...((args.desiredSockets as unknown[]) ?? [])
-        ]
-          .filter((x) => typeof x === 'string')
-          .join(' ');
       break;
     }
     case 'SendSellCard':
@@ -819,10 +795,7 @@ function settle(pending: Pending, state: RunState) {
       }
       break;
     case 'SendMoveItem':
-      if (id !== null && evidence.moved.has(id)) {
-        done = true;
-        entry.target = evidence.moved.get(id) ?? null;
-      }
+      if (id !== null && evidence.moved.has(id)) done = true;
       break;
     case 'SendReRollSelection':
       // Only a selection with new cards shows the reroll happened.
@@ -970,7 +943,6 @@ export async function projectDecisions(
         verb: VERBS[frame.command] ?? 'other',
         card: null,
         amount: null,
-        target: null,
         result: null,
         outcome: 'no-response',
         error: null,

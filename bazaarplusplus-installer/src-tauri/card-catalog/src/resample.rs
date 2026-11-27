@@ -117,9 +117,8 @@ pub fn resize(
     let mut vertical = coefficients(height, out_h, filter);
     let first = vertical.bounds[0].0;
     let last = vertical.bounds[out_h - 1].0 + vertical.bounds[out_h - 1].1;
-    let (mut src, mut w, mut rows_offset) = (px.to_vec(), width, 0usize);
     let need_vertical = out_h != height;
-    if out_w != width {
+    let (src, w): (std::borrow::Cow<'_, [u8]>, usize) = if out_w != width {
         for b in &mut vertical.bounds {
             b.0 -= first;
         }
@@ -141,13 +140,12 @@ pub fn resize(
                 }
             }
         }
-        src = out;
-        w = out_w;
+        (std::borrow::Cow::Owned(out), out_w)
     } else {
-        rows_offset = 0;
-    }
+        (std::borrow::Cow::Borrowed(px), width)
+    };
     if !need_vertical {
-        return src;
+        return src.into_owned();
     }
     let mut out = vec![0u8; w * out_h * channels];
     for yy in 0..out_h {
@@ -157,7 +155,7 @@ pub fn resize(
             for c in 0..channels {
                 let mut ss: i32 = 1 << (PRECISION_BITS - 1);
                 for y in 0..ymax {
-                    let v = src[((y + ymin + rows_offset) * w + xx) * channels + c];
+                    let v = src[((y + ymin) * w + xx) * channels + c];
                     ss = ss.wrapping_add(i32::from(v).wrapping_mul(k[y]));
                 }
                 out[(yy * w + xx) * channels + c] = clip8(ss);

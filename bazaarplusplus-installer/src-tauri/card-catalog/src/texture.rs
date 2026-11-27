@@ -58,10 +58,6 @@ pub fn texture_raw(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Re
     })
 }
 
-pub fn texture(env: &Env, file: &Serialized, path_id: i64, flip: bool) -> Result<Image> {
-    texture_raw(env, file, path_id, flip)?.decode()
-}
-
 impl Raw {
     pub fn decode(&self) -> Result<Image> {
         let image = decode(self.width, self.height, self.format, &self.data)?;

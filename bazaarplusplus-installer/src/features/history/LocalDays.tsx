@@ -14,12 +14,11 @@ import {
   type ReplayBattle
 } from '@bpp/ui';
 import {
-  type MomentIndex,
   combatFacts,
   decisionDays,
   type EventBattle,
   type MessageStream,
-  type Visit
+  type ReplayVisit
 } from '@bpp/runs/decisions';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type { HistoryBattleRow, HistoryRunDetail } from '../../types/backend';
@@ -57,8 +56,7 @@ export function LocalDays({
   }, [detail]);
   const [result, setResult] = useState<{
     input: typeof input;
-    visits: Visit[] | null;
-    index?: MomentIndex;
+    replay: ReplayVisit[] | null;
     stream?: MessageStream;
   }>();
   useEffect(() => {
@@ -89,21 +87,18 @@ export function LocalDays({
         if (active)
           setResult({
             input,
-            visits: path?.visits ?? [],
-            index: path
-              ? { moments: path.moments, openings: path.openings }
-              : undefined,
+            replay: path?.replay ?? [],
             stream: path?.stream
           });
       })
       .catch(() => {
-        if (active) setResult({ input, visits: null });
+        if (active) setResult({ input, replay: null });
       });
     return () => {
       active = false;
     };
   }, [input]);
-  const visits = result?.input === input ? result.visits : undefined;
+  const replay = result?.input === input ? result.replay : undefined;
   const fights = useMemo(
     () =>
       [...detail.battles, ...input.eventBattles].sort(
@@ -160,16 +155,11 @@ export function LocalDays({
       ),
     [fights]
   );
-  const failed = visits === null || input.section.state === 'unreadable';
+  const failed = replay === null || input.section.state === 'unreadable';
   return (
     <>
       {failed && <p role="status">{terms.replay.error}</p>}
-      {!days.length &&
-        (input.section.state !== 'available' || visits !== undefined ? (
-          empty
-        ) : (
-          <p>{t('runDetailLoading')}</p>
-        ))}
+      {!days.length && empty}
       <ol className="flex flex-col gap-3">
         {days.map(({ day, battles: rows }) => (
           <DayCard
@@ -179,23 +169,18 @@ export function LocalDays({
                 ? terms.replay.unknownDay
                 : fillTerm(terms.day, { n: day })
             }
-            battles={rows.length ? renderBattles(rows) : null}
+            battles={renderBattles(rows)}
           />
         ))}
       </ol>
       {input.section.state === 'available' && !failed && (
         <section className="bpp-panel flex flex-col gap-3 p-4">
           <h2 className="m-0 text-base">{terms.replay.decisions}</h2>
-          {visits?.length ? (
-            <DecisionReplay
-              visits={visits}
-              index={result?.index}
-              battles={battles}
-              names={names}
-            />
+          {replay?.length ? (
+            <DecisionReplay replay={replay} battles={battles} names={names} />
           ) : (
             <p>
-              {visits === undefined
+              {replay === undefined
                 ? t('runDetailLoading')
                 : terms.replay.noVisits}
             </p>

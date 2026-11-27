@@ -295,9 +295,7 @@ class Renderer {
       );
       if (!current()) return;
       const main = material.textures['_MainTex'];
-      if ('default' in main) return;
-      const [artWidth, artHeight] = main.size;
-      if (!(artWidth > 0 && artHeight > 0)) return;
+      if (!main || 'default' in main) return;
       const ctx = face.canvas.getContext('2d');
       if (!ctx) return;
       face.draw = (seconds) => {

@@ -1,4 +1,4 @@
-import type { RunSummary } from './account-api';
+import type { AccountRecord } from './account-api';
 
 /** Ten wins is a full run in The Bazaar, whatever the losses. */
 const TEN_WINS = 10;
@@ -27,7 +27,7 @@ export type RecordStats = {
   rating: RatingPoint[];
 };
 
-export type RecordDay = { dayStartMs: number; runs: RunSummary[] };
+export type RecordDay = { dayStartMs: number; runs: AccountRecord[] };
 
 function average(values: number[]): number {
   return values.length === 0
@@ -36,18 +36,18 @@ function average(values: number[]): number {
 }
 
 /** Newest first, by when each Run ended. */
-export function newestFirst(runs: readonly RunSummary[]): RunSummary[] {
+function newestFirst(runs: readonly AccountRecord[]): AccountRecord[] {
   return [...runs].sort(
     (a, b) => b.ended_at_ms - a.ended_at_ms || (a.run_id < b.run_id ? 1 : -1)
   );
 }
 
-function wins(run: RunSummary): number {
+function wins(run: AccountRecord): number {
   return run.victories ?? 0;
 }
 
-export function recordStats(runs: readonly RunSummary[]): RecordStats {
-  const byHero = new Map<string, RunSummary[]>();
+export function recordStats(runs: readonly AccountRecord[]): RecordStats {
+  const byHero = new Map<string, AccountRecord[]>();
   for (const run of runs) {
     if (run.hero == null) continue;
     byHero.set(run.hero, [...(byHero.get(run.hero) ?? []), run]);
@@ -86,7 +86,7 @@ export function recordStats(runs: readonly RunSummary[]): RecordStats {
 }
 
 /** Runs grouped by the local calendar day they ended, newest day first. */
-export function groupByDay(runs: readonly RunSummary[]): RecordDay[] {
+export function groupByDay(runs: readonly AccountRecord[]): RecordDay[] {
   const days: RecordDay[] = [];
   for (const run of newestFirst(runs)) {
     const ended = new Date(run.ended_at_ms);

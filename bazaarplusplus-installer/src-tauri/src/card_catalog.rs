@@ -4,7 +4,7 @@
 
 use crate::services::game_path::GamePathAcceptance;
 use crate::services::selected_game_installation::SelectedGameInstallationState;
-use anyhow::{bail, Context as _};
+use anyhow::Context as _;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::ffi::OsString;
@@ -72,25 +72,17 @@ struct Export {
     progress: Arc<Mutex<CardCatalogProgress>>,
 }
 
-pub(crate) fn catalog_dir() -> PathBuf {
-    crate::services::paths::installer_cache_dir().join("card-catalog")
-}
-
-fn data_dir(game: &Path) -> PathBuf {
-    #[cfg(target_os = "macos")]
-    return crate::services::tempo::game_bundle(game).join("Contents/Resources/Data");
-    #[cfg(not(target_os = "macos"))]
-    return game.join("TheBazaar_Data");
-}
-
 fn etag(manifest: &Path, entry: &str) -> Option<String> {
     let text = std::fs::read_to_string(manifest).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    value["Entries"][entry]["ETag"].as_str().map(str::to_owned)
+    value["Entries"][entry]["ETag"]
+        .as_str()
+        .map(|s| s.trim_matches('"').to_owned())
+        .filter(|s| !s.is_empty())
 }
 
 fn game_inputs(game: &Path, cache: &Path) -> Option<GameInputs> {
-    let data_dir = data_dir(game);
+    let data_dir = crate::services::paths::game_data_dir(game);
     let catalog_hash = std::fs::read(data_dir.join("StreamingAssets/aa/catalog.hash")).ok()?;
     let game_data = cache.join("GameData.db");
     let translations = cache.join("translations/zh-CN.bytes");
@@ -153,14 +145,13 @@ impl CardCatalogState {
     /// The catalog on disk, starting an export when the installed game has changed since it.
     /// `rebuild` exports again even when the catalog is current or the last export failed.
     pub(crate) fn ensure(&self, app: &tauri::AppHandle, rebuild: bool) -> CardCatalogStatus {
-        let dir = catalog_dir();
+        let dir = crate::services::paths::card_catalog_dir();
         let game = app
             .state::<SelectedGameInstallationState>()
             .resolve(app, None, GamePathAcceptance::Any)
             .map(|resolution| resolution.game_path);
-        let inputs = game.and_then(|game| {
-            game_inputs(&game, &crate::history::card_names::installed_cache_dir()?)
-        });
+        let inputs =
+            game.and_then(|game| game_inputs(&game, &crate::services::paths::game_cache_dir()?));
         self.ensure_with(&dir, inputs, &std::env::current_exe().ok(), rebuild)
     }
 
@@ -223,33 +214,92 @@ impl CardCatalogState {
 
 const PROGRESS: &str = "progress ";
 
-fn spawn(exe: &Path, dir: &Path, inputs: &GameInputs) -> anyhow::Result<Export> {
-    std::fs::create_dir_all(dir)?;
-    let mut args: Vec<OsString> = vec![
-        "card-catalog".into(),
-        "--data".into(),
-        inputs.data_dir.clone().into(),
-        "--game-data".into(),
-        inputs.game_data.clone().into(),
-        "--translations".into(),
-        inputs.translations.clone().into(),
-        "--out".into(),
-        dir.into(),
-        "--revision".into(),
-        inputs.revision.clone().into(),
+pub(crate) struct ExportArgs {
+    pub data_dir: PathBuf,
+    pub game_data: PathBuf,
+    pub translations: PathBuf,
+    pub out_dir: PathBuf,
+    pub revision: String,
+    pub gamedata_etag: Option<String>,
+    pub zh_etag: Option<String>,
+}
+
+impl ExportArgs {
+    pub(crate) const CLI_OPTIONS: [&str; 7] = [
+        "--data",
+        "--game-data",
+        "--translations",
+        "--out",
+        "--revision",
+        "--gamedata-etag",
+        "--zh-etag",
     ];
-    for (option, value) in [
-        ("--gamedata-etag", &inputs.gamedata_etag),
-        ("--zh-etag", &inputs.zh_etag),
-    ] {
-        if let Some(value) = value {
-            args.extend([option.into(), value.into()]);
+
+    fn from_inputs(dir: &Path, inputs: &GameInputs) -> Self {
+        Self {
+            data_dir: inputs.data_dir.clone(),
+            game_data: inputs.game_data.clone(),
+            translations: inputs.translations.clone(),
+            out_dir: dir.to_path_buf(),
+            revision: inputs.revision.clone(),
+            gamedata_etag: inputs.gamedata_etag.clone(),
+            zh_etag: inputs.zh_etag.clone(),
         }
     }
+
+    fn to_cli_args(&self) -> Vec<OsString> {
+        let mut args: Vec<OsString> = vec![
+            "card-catalog".into(),
+            Self::CLI_OPTIONS[0].into(),
+            self.data_dir.clone().into(),
+            Self::CLI_OPTIONS[1].into(),
+            self.game_data.clone().into(),
+            Self::CLI_OPTIONS[2].into(),
+            self.translations.clone().into(),
+            Self::CLI_OPTIONS[3].into(),
+            self.out_dir.clone().into(),
+            Self::CLI_OPTIONS[4].into(),
+            self.revision.clone().into(),
+        ];
+        for (option, value) in [
+            (Self::CLI_OPTIONS[5], &self.gamedata_etag),
+            (Self::CLI_OPTIONS[6], &self.zh_etag),
+        ] {
+            if let Some(value) = value {
+                args.extend([option.into(), value.into()]);
+            }
+        }
+        args
+    }
+
+    pub(crate) fn from_cli_values(values: [Option<OsString>; 7]) -> anyhow::Result<Self> {
+        let [data, game_data, translations, out, revision, gamedata_etag, zh_etag] = values;
+        let path = |value: Option<OsString>, option: &str| {
+            value
+                .map(PathBuf::from)
+                .with_context(|| format!("card-catalog requires {option}"))
+        };
+        let text = |value: Option<OsString>| value.map(|v| v.to_string_lossy().into_owned());
+        Ok(Self {
+            data_dir: path(data, Self::CLI_OPTIONS[0])?,
+            game_data: path(game_data, Self::CLI_OPTIONS[1])?,
+            translations: path(translations, Self::CLI_OPTIONS[2])?,
+            out_dir: path(out, Self::CLI_OPTIONS[3])?,
+            revision: text(revision)
+                .with_context(|| format!("card-catalog requires {}", Self::CLI_OPTIONS[4]))?,
+            gamedata_etag: text(gamedata_etag),
+            zh_etag: text(zh_etag),
+        })
+    }
+}
+
+fn spawn(exe: &Path, dir: &Path, inputs: &GameInputs) -> anyhow::Result<Export> {
+    std::fs::create_dir_all(dir)?;
+    let cli_args = ExportArgs::from_inputs(dir, inputs).to_cli_args();
     let mut command = Command::new(exe);
     // The export ends when its stdin closes, so it never outlives the installer.
     command
-        .args(args)
+        .args(cli_args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped());
     #[cfg(windows)]
@@ -291,15 +341,7 @@ fn parse_progress(line: &str) -> Option<CardCatalogProgress> {
 
 /// `bppinstaller card-catalog`: one export, run by the installer as its own child process.
 /// It reports `progress <done> <total>` lines on stdout.
-pub(crate) fn export(
-    data_dir: &Path,
-    game_data: &Path,
-    translations: &Path,
-    out_dir: &Path,
-    revision: &str,
-    gamedata_etag: Option<String>,
-    zh_etag: Option<String>,
-) -> anyhow::Result<()> {
+pub(crate) fn export(args: &ExportArgs) -> anyhow::Result<()> {
     std::thread::spawn(|| {
         let _ = std::io::stdin().read_to_end(&mut Vec::new());
         std::process::exit(2);
@@ -313,9 +355,9 @@ pub(crate) fn export(
     let staging = tempfile::tempdir()?;
     let game_data_copy = staging.path().join("GameData.db");
     let translations_copy = staging.path().join("zh-CN.bytes");
-    std::fs::copy(game_data, &game_data_copy).context("cannot copy GameData.db")?;
-    std::fs::copy(translations, &translations_copy).context("cannot copy zh-CN.bytes")?;
-    let previous = out_dir.join("index.json");
+    std::fs::copy(&args.game_data, &game_data_copy).context("cannot copy GameData.db")?;
+    std::fs::copy(&args.translations, &translations_copy).context("cannot copy zh-CN.bytes")?;
+    let previous = args.out_dir.join("index.json");
     let reported = std::cell::Cell::new(usize::MAX);
     let report = |done: usize, total: usize| {
         // One line per percent is enough for a progress bar.
@@ -326,37 +368,32 @@ pub(crate) fn export(
             let _ = stdout.flush();
         }
     };
-    card_catalog::extract(&card_catalog::Inputs {
-        data_dir,
+    let summary = card_catalog::extract(&card_catalog::Inputs {
+        data_dir: &args.data_dir,
         game_data: &game_data_copy,
         translations: &translations_copy,
         previous: previous.is_file().then_some(previous.as_path()),
-        out_dir,
+        out_dir: &args.out_dir,
         buildid: None,
-        gamedata_etag,
-        zh_etag,
+        gamedata_etag: args.gamedata_etag.clone(),
+        zh_etag: args.zh_etag.clone(),
         publication: false,
         require_fx: false,
         progress: Some(&report),
         // Half the cores: the export runs beside the game and the installer.
         threads: std::thread::available_parallelism().map_or(1, |n| (n.get() / 2).clamp(1, 4)),
     })?;
-    prune_text(out_dir)?;
-    std::fs::write(out_dir.join(REVISION_FILE), revision)?;
+    prune_text(&args.out_dir, &summary.text)?;
+    std::fs::write(args.out_dir.join(REVISION_FILE), &args.revision)?;
     Ok(())
 }
 
-/// Card Text files are replaced on every game update; the index names the current two.
-fn prune_text(out_dir: &Path) -> anyhow::Result<()> {
-    let index: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(out_dir.join("index.json"))?)?;
-    let Some(text) = index["text"].as_object() else {
-        bail!("the card catalog index names no Card Text");
-    };
-    let keep: Vec<&str> = text
-        .values()
-        .filter_map(serde_json::Value::as_str)
-        .collect();
+/// Card Text files are replaced on every game update; keep only the current locale files.
+fn prune_text(
+    out_dir: &Path,
+    text: &std::collections::BTreeMap<String, String>,
+) -> anyhow::Result<()> {
+    let keep: Vec<&str> = text.values().map(String::as_str).collect();
     for entry in std::fs::read_dir(out_dir)? {
         let name = entry?.file_name();
         let name = name.to_string_lossy();
@@ -378,7 +415,9 @@ fn servable(name: &str) -> Option<&'static str> {
         return Some("application/json");
     }
     if let Some(stem) = name.strip_suffix(".webp") {
-        let stem = stem.strip_prefix("tex-").unwrap_or(stem);
+        if let Some(tex) = stem.strip_prefix("tex-") {
+            return hex(tex, 20..=20).then_some("image/webp");
+        }
         return hex(stem, 8..=64).then_some("image/webp");
     }
     let stem = name.strip_suffix(".json")?;
@@ -477,7 +516,7 @@ mod tests {
 
     fn game(root: &Path, catalog_hash: &str, etag: &str) -> (PathBuf, PathBuf) {
         let game = root.join("game");
-        let aa = data_dir(&game).join("StreamingAssets/aa");
+        let aa = crate::services::paths::game_data_dir(&game).join("StreamingAssets/aa");
         std::fs::create_dir_all(&aa).unwrap();
         std::fs::write(aa.join("catalog.hash"), catalog_hash).unwrap();
         let cache = root.join("cache");
@@ -506,6 +545,15 @@ mod tests {
         assert_eq!(first.zh_etag.as_deref(), Some("zh"));
         assert_eq!(first.revision.len(), 16);
         assert_eq!(game_inputs(&game, &cache).unwrap().revision, first.revision);
+        // HTTP ETags often carry surrounding quotes; strip them consistently with release/card-art.ts.
+        std::fs::write(
+            cache.join("manifest.json"),
+            r#"{"Entries":{"GameData":{"ETag":"\"data-1\""}}}"#,
+        )
+        .unwrap();
+        let quoted = game_inputs(&game, &cache).unwrap();
+        assert_eq!(quoted.gamedata_etag.as_deref(), Some("data-1"));
+        assert_eq!(quoted.revision, first.revision);
         let (game, cache) = self::game(root.path(), "build-2", "data-1");
         assert_ne!(game_inputs(&game, &cache).unwrap().revision, first.revision);
         let (game, cache) = self::game(root.path(), "build-1", "data-2");
@@ -564,12 +612,11 @@ mod tests {
         for name in [old, kept[0], kept[1], "0123456789abcdef0123.webp"] {
             std::fs::write(dir.path().join(name), "").unwrap();
         }
-        std::fs::write(
-            dir.path().join("index.json"),
-            format!(r#"{{"text":{{"en":"{}","zh":"{}"}}}}"#, kept[0], kept[1]),
-        )
-        .unwrap();
-        prune_text(dir.path()).unwrap();
+        let text = std::collections::BTreeMap::from([
+            ("en".to_owned(), kept[0].to_owned()),
+            ("zh".to_owned(), kept[1].to_owned()),
+        ]);
+        prune_text(dir.path(), &text).unwrap();
         assert!(!dir.path().join(old).exists());
         for name in [kept[0], kept[1], "0123456789abcdef0123.webp"] {
             assert!(dir.path().join(name).exists(), "{name}");

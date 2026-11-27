@@ -30,7 +30,7 @@ function number(value: number): Json {
 }
 
 /** A raw MessagePack value as JSON: bytes as base64, a map as its ordered entries. */
-export function readableRaw(value: MpValue): Json {
+function readableRaw(value: MpValue): Json {
   if (value === null || typeof value === 'boolean' || typeof value === 'string')
     return value;
   if (typeof value === 'number') return number(value);
@@ -46,7 +46,7 @@ export function readableRaw(value: MpValue): Json {
 }
 
 /** An enum value as `Name (n)`; `? (n)` when the schema has no name for it. */
-export function enumLabel(value: EnumValue): string {
+function enumLabel(value: EnumValue): string {
   return `${value.names.length ? value.names.join('/') : '?'} (${value.value})`;
 }
 

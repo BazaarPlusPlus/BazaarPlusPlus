@@ -356,13 +356,8 @@ const zh = {
   statFinalRating: '段位分',
   noLocalBattles: '暂无本地战斗记录',
   noLocalBattlesDescription: '对局完成后战斗记录会自动出现在这里；也可刷新重试',
-  battleMissingBoard: '未记录阵容',
-  battleEmptyBoard: '空阵容',
-  battleMissingSkills: '未记录技能',
-  battleEmptySkills: '无技能',
   battleOpponentBoard: '对手阵容',
 
-  battleColDay: '天数',
   battleColResult: '结果',
   battleColOpponentHero: '对手英雄',
   battleColOpponentPlayer: '对手玩家',
@@ -889,13 +884,8 @@ const en: Record<MessageKey, string> = {
   noLocalBattles: 'No local battle records',
   noLocalBattlesDescription:
     'Battle records appear here automatically after a run finishes. You can also refresh to retry.',
-  battleMissingBoard: 'Board not recorded',
-  battleEmptyBoard: 'Empty board',
-  battleMissingSkills: 'Skills not recorded',
-  battleEmptySkills: 'No skills',
   battleOpponentBoard: 'Opponent board',
 
-  battleColDay: 'Day',
   battleColResult: 'Result',
   battleColOpponentHero: 'Opponent hero',
   battleColOpponentPlayer: 'Opponent player',

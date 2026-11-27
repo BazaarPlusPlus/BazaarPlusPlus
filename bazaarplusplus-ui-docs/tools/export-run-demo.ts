@@ -29,8 +29,7 @@ const moments = visit.actions
       action: action.verb,
       card: action.card?.templateId,
       snapshot: moment.snapshot,
-      frame: path.stream.readableFrame(path.stream.frame(seq)!),
-      bytes: Array.from(path.stream.frame(seq)!.message ?? [])
+      frame: path.stream.readableFrame(path.stream.frame(seq)!)
     };
   });
 writeFileSync(

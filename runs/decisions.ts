@@ -100,80 +100,10 @@ export function combatFacts(
   return { markers, eventBattles };
 }
 
-type Verb = Visit['actions'][number]['verb'];
-export type VisitLabel =
-  | Visit['kind']
-  | Verb
-  | 'moves'
-  | 'visited'
-  | 'fought'
-  | 'hour'
-  | 'undecoded'
-  | 'gold'
-  | 'net'
-  | 'health'
-  | 'attempted'
-  | 'noResponse';
-
-/** A visit's heading in the replay: what it was, where, and its net gold and health. */
-export function presentVisit<C extends { name: string }>(
-  visit: Visit,
-  battle:
-    | {
-        encounterId: string | null;
-        opponentHero: string | null;
-        outcome: string | null;
-      }
-    | undefined,
-  display: (c: CardRef) => C,
-  label: (
-    key: VisitLabel,
-    params?: { n?: number | string; name?: string }
-  ) => string
-) {
-  const encounter = visit.encounter
-    ? display(visit.encounter)
-    : battle?.encounterId
-      ? display({
-          templateId: battle.encounterId,
-          instanceId: battle.encounterId,
-          tier: null,
-          enchant: null,
-          size: null,
-          price: null,
-          type: null,
-          tag: null
-        })
-      : undefined;
-  const title =
-    visit.kind === 'pvp' && battle?.opponentHero
-      ? label('pvp') + ' · ' + battle.opponentHero
-      : encounter && visit.kind !== 'levelUp' && visit.kind !== 'pvp'
-        ? label(visit.kind === 'monster' ? 'fought' : 'visited', {
-            name: encounter.name
-          })
-        : label(visit.kind);
-  const delta = (value: number | null, key: 'net' | 'health') =>
-    value
-      ? {
-          positive: value > 0,
-          text: label(key, { n: value > 0 ? '+' + value : '−' + -value })
-        }
-      : null;
-  return {
-    title,
-    encounter,
-    hour: visit.hour === null ? null : label('hour', { n: visit.hour }),
-    gold: delta(visit.gold, 'net'),
-    health: delta(visit.health, 'health'),
-    gap: visit.gap ? label('undecoded') : null
-  };
-}
-
 export type ReplayStep = {
-  /** The moment's response seq; a battle's opening uses its own. */
+  /** The action's command seq, or the opening response seq for a battle step. */
   seq: number;
-  verb: VisitLabel;
+  verb: Visit['actions'][number]['verb'] | Visit['kind'];
   /** Consecutive moves read as one step that ends on the last move. */
   count: number;
   card: CardRef | null;
@@ -250,29 +180,6 @@ export function replayVisits(
   });
 }
 
-/** A step's row: its verb, the card it acted on, the result and the gold it moved. */
-export function presentStep<C>(
-  step: ReplayStep,
-  display: (c: CardRef) => C,
-  label: (key: VisitLabel, params?: { n?: number | string }) => string
-) {
-  return {
-    verb:
-      step.verb === 'moved' && step.count > 1
-        ? label('moves', { n: step.count })
-        : label(step.verb),
-    card: step.card ? display(step.card) : null,
-    title: step.card ? (step.card.templateId ?? step.card.instanceId) : null,
-    result: step.result,
-    status: step.status && label(step.status),
-    amount: step.amount
-      ? label('gold', {
-          n: step.amount < 0 ? '−' + -step.amount : step.amount
-        })
-      : null
-  };
-}
-
 /** Battle days in day order; unknown days last. */
 export function decisionDays<B>(
   battles: readonly B[],
@@ -292,35 +199,3 @@ export type MomentIndex = {
   moments: Map<number, Moment>;
   openings: Map<string, Moment>;
 };
-
-export function presentMoment<C>(
-  moment: Moment,
-  display: (card: CardRef) => C
-) {
-  const placed = (cards: NonNullable<Moment['snapshot']>['board']) =>
-    cards?.map((c) => ({
-      ...display(c),
-      id: c.instanceId,
-      slot: c.slot,
-      size: c.size
-    })) ?? null;
-  const s = moment.snapshot;
-  return {
-    board: placed(s?.board ?? null),
-    stash: placed(s?.stash ?? null),
-    skills:
-      s?.skills?.map((c) => ({ ...display(c), id: c.instanceId })) ?? null,
-    encounterId: moment.encounter?.instanceId ?? null,
-    encounter: moment.encounter ? display(moment.encounter) : null,
-    offer:
-      moment.offer?.map((c) => ({
-        card: display(c),
-        id: c.instanceId,
-        chosen: c.instanceId === moment.chosen,
-        price: c.price
-      })) ?? (moment.offer as null | undefined),
-    gold: s?.gold ?? null,
-    health: s?.health ?? null,
-    level: s?.level ?? null
-  };
-}

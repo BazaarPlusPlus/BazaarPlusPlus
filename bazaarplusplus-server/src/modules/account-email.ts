@@ -1,5 +1,9 @@
 import tokens from '../../../design/tokens.json';
+import type { Env } from '../env';
+import { apiError } from '../errors';
 import { BPP_MARK_PNG_BASE64 } from './email-mark.g';
+
+const DEFAULT_EMAIL_FROM = 'noreply@bazaarplusplus.com';
 
 // Verification-code emails. Colours and the font stack come from
 // design/tokens.json; sizes are email-specific (EMAIL below) because a mail is
@@ -141,4 +145,24 @@ export function renderVerificationEmail(input: {
 `;
 
   return { subject, text, html, attachments: [markAttachment()] };
+}
+
+export async function sendAccountEmail(
+  env: Env,
+  to: string,
+  message: VerificationEmail
+): Promise<void> {
+  if (env.EMAIL === undefined) {
+    throw apiError('storage_unavailable', 'Email delivery is not configured');
+  }
+  const from = env.ACCOUNT_EMAIL_FROM?.trim() || DEFAULT_EMAIL_FROM;
+  try {
+    await env.EMAIL.send({
+      from: { email: from, name: 'BazaarPlusPlus' },
+      to,
+      ...message
+    });
+  } catch {
+    throw apiError('storage_unavailable', 'Failed to send verification email');
+  }
 }

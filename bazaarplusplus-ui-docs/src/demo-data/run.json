@@ -28,8 +28,7 @@
         "health": 300,
         "level": 1
       },
-      "frame": "{\n  \"Seq\": 8,\n  \"TimestampMs\": 1795533032586,\n  \"Message\": null,\n  \"RespondsToSeq\": null,\n  \"Command\": \"SendSelectItem\",\n  \"CommandArgsJson\": \"{\\\"instanceId\\\":\\\"itm_TDefTXG\\\",\\\"desiredSockets\\\":[\\\"Socket_3\\\"],\\\"targetSection\\\":\\\"Hand\\\"}\",\n  \"CommandArgs\": {\n    \"instanceId\": \"itm_TDefTXG\",\n    \"desiredSockets\": [\n      \"Socket_3\"\n    ],\n    \"targetSection\": \"Hand\"\n  }\n}",
-      "bytes": []
+      "frame": "{\n  \"Seq\": 8,\n  \"TimestampMs\": 1795533032586,\n  \"Message\": null,\n  \"RespondsToSeq\": null,\n  \"Command\": \"SendSelectItem\",\n  \"CommandArgsJson\": \"{\\\"instanceId\\\":\\\"itm_TDefTXG\\\",\\\"desiredSockets\\\":[\\\"Socket_3\\\"],\\\"targetSection\\\":\\\"Hand\\\"}\",\n  \"CommandArgs\": {\n    \"instanceId\": \"itm_TDefTXG\",\n    \"desiredSockets\": [\n      \"Socket_3\"\n    ],\n    \"targetSection\": \"Hand\"\n  }\n}"
     },
     {
       "seq": 12,
@@ -66,8 +65,7 @@
         "health": 300,
         "level": 1
       },
-      "frame": "{\n  \"Seq\": 12,\n  \"TimestampMs\": 1795533037636,\n  \"Message\": null,\n  \"RespondsToSeq\": null,\n  \"Command\": \"SendSelectItem\",\n  \"CommandArgsJson\": \"{\\\"instanceId\\\":\\\"itm_X13Ze7Z\\\",\\\"desiredSockets\\\":[\\\"Socket_4\\\"],\\\"targetSection\\\":\\\"Hand\\\"}\",\n  \"CommandArgs\": {\n    \"instanceId\": \"itm_X13Ze7Z\",\n    \"desiredSockets\": [\n      \"Socket_4\"\n    ],\n    \"targetSection\": \"Hand\"\n  }\n}",
-      "bytes": []
+      "frame": "{\n  \"Seq\": 12,\n  \"TimestampMs\": 1795533037636,\n  \"Message\": null,\n  \"RespondsToSeq\": null,\n  \"Command\": \"SendSelectItem\",\n  \"CommandArgsJson\": \"{\\\"instanceId\\\":\\\"itm_X13Ze7Z\\\",\\\"desiredSockets\\\":[\\\"Socket_4\\\"],\\\"targetSection\\\":\\\"Hand\\\"}\",\n  \"CommandArgs\": {\n    \"instanceId\": \"itm_X13Ze7Z\",\n    \"desiredSockets\": [\n      \"Socket_4\"\n    ],\n    \"targetSection\": \"Hand\"\n  }\n}"
     }
   ]
 }

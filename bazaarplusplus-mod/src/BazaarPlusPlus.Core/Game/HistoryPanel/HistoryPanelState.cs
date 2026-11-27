@@ -28,12 +28,6 @@ public enum GhostBattleFilter
     ILost,
 }
 
-public enum BppAccountFlowPhase
-{
-    Idle,
-    EnterBindCode,
-}
-
 public sealed class HistoryPanelState
 {
     public IReadOnlyList<HistoryRunRecord> Runs => RunPage.Rows;
@@ -115,7 +109,7 @@ public sealed class HistoryPanelState
 
     public StatusSeverity AccountLinkBannerSeverity { get; set; }
 
-    public BppAccountFlowPhase BppAccountPhase { get; set; }
+    public bool BppAccountFormExpanded { get; set; }
 
     public bool BppAccountInProgress { get; set; }
 

@@ -83,6 +83,6 @@ internal sealed partial class HistoryPanel
     private void SubmitBppAccountInput(string? input)
     {
         if (_coordinator != null)
-            _ = _coordinator.TrySubmitBppAccountInputAsync(input);
+            _ = _coordinator.TryBindBppAccountAsync(input);
     }
 }

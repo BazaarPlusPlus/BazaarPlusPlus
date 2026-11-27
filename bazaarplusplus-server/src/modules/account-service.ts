@@ -1,15 +1,13 @@
 import { validIdentifier } from '../bundle/manifest';
 import type { Env } from '../env';
 import { apiError, type HttpError } from '../errors';
+import { enforceAccountRateLimit } from '../http/request';
 import type { AccountBindResponse } from '../http/schemas';
-import { enforceAccountRateLimit } from './account-auth';
 import { hmacBindCode, maskEmail, normalizeBindCode } from './account-crypto';
-import type { VerificationEmail } from './account-email';
 import {
   type OfficialGameAccount,
   verifyOfficialGameAccount
 } from './game-account-verifier';
-const DEFAULT_EMAIL_FROM = 'noreply@bazaarplusplus.com';
 const SAFE_HEADER_TOKEN = /^[^\r\n\t]{1,64}$/;
 const MAX_JSON_BODY_BYTES = 16 * 1024;
 
@@ -89,26 +87,6 @@ function requiredHeaderToken(
     });
   }
   return value;
-}
-
-export async function sendAccountEmail(
-  env: Env,
-  to: string,
-  message: VerificationEmail
-): Promise<void> {
-  if (env.EMAIL === undefined) {
-    throw apiError('storage_unavailable', 'Email delivery is not configured');
-  }
-  const from = env.ACCOUNT_EMAIL_FROM?.trim() || DEFAULT_EMAIL_FROM;
-  try {
-    await env.EMAIL.send({
-      from: { email: from, name: 'BazaarPlusPlus' },
-      to,
-      ...message
-    });
-  } catch {
-    throw apiError('storage_unavailable', 'Failed to send verification email');
-  }
 }
 
 interface GameAccountClaim {

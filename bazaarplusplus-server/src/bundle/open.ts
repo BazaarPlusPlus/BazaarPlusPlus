@@ -198,13 +198,15 @@ function parseRunProjection(value: unknown): ValidatedRunProjection | null {
       ? nullableSignedSafeInteger(source[key], `run.projection.run.${key}`)
       : null;
 
+  // Validate schema-defined fields even when not persisted on the bundles row.
+  optString('status');
+  optString('game_mode');
+  optSignedInt('started_at_ms');
+  optSignedInt('day');
+
   return {
-    status: optString('status'),
-    game_mode: optString('game_mode'),
     hero: optString('hero'),
-    started_at_ms: optSignedInt('started_at_ms'),
     ended_at_ms: optSignedInt('ended_at_ms'),
-    day: optSignedInt('day'),
     victories: optSignedInt('victories'),
     losses: optSignedInt('losses'),
     final_player_rank: optString('final_player_rank'),

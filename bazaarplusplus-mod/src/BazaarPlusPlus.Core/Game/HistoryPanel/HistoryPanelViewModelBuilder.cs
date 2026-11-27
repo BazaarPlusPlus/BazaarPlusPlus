@@ -126,8 +126,7 @@ public static class HistoryPanelViewModelBuilder
             state.AccountLinkInProgress
         );
         var hasAccount = !string.IsNullOrWhiteSpace(state.CachedAccountId);
-        var bppFormVisible =
-            hasAccount && state.BppAccountPhase == BppAccountFlowPhase.EnterBindCode;
+        var bppFormVisible = hasAccount && state.BppAccountFormExpanded;
 
         var archiveStatus = ArchiveStatus(state, coordinator, playerBoard, opponentBoard);
         var showsBothBoards = ShowsBothBoards(state);
@@ -229,7 +228,6 @@ public static class HistoryPanelViewModelBuilder
                 ? HistoryPanelText.BppAccount.Working()
                 : HistoryPanelText.BppAccount.BindSubmitButton(),
             BppAccountControlsEnabled = hasAccount && !state.BppAccountInProgress,
-            BppAccountPhase = state.BppAccountPhase,
             BppAccountBannerText = state.BppAccountBannerMessage,
             BppAccountBannerSeverity = state.BppAccountBannerSeverity,
             SectionMode = state.SectionMode,

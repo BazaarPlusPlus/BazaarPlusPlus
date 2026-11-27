@@ -13,6 +13,10 @@ export type GameTerms = {
   win: string;
   loss: string;
   skills: string;
+  missingBoard: string;
+  emptyBoard: string;
+  missingSkills: string;
+  emptySkills: string;
   loading: string;
   replay: {
     decisions: string;
@@ -119,6 +123,10 @@ export const gameTerms: Record<GameLocale, GameTerms> = {
     win: 'Win',
     loss: 'Loss',
     skills: 'Skills',
+    missingBoard: 'Board not recorded',
+    emptyBoard: 'Empty board',
+    missingSkills: 'Skills not recorded',
+    emptySkills: 'No skills',
     loading: 'Loading…',
     replay: {
       decisions: 'Run replay',
@@ -221,6 +229,10 @@ export const gameTerms: Record<GameLocale, GameTerms> = {
     win: '胜',
     loss: '负',
     skills: '技能',
+    missingBoard: '未记录阵容',
+    emptyBoard: '空阵容',
+    missingSkills: '未记录技能',
+    emptySkills: '无技能',
     loading: '正在读取…',
     replay: {
       decisions: '整局回放',

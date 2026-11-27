@@ -363,7 +363,7 @@ public sealed class HistoryTouchLayout
             linkedWidth,
             target
         );
-        BppAccountTop = AccountLinked.Bottom + Gap;
+        var bppAccountTop = AccountLinked.Bottom + Gap;
         BppAccountToggle = new TouchRect(w - actionWidth, 0f, actionWidth, target);
         BppAccountTitle = new TouchRect(0f, 0f, Math.Max(0f, BppAccountToggle.Left - Gap), target);
         BppAccountStatus = new TouchRect(0f, BppAccountToggle.Bottom + small, w, line2);
@@ -384,7 +384,7 @@ public sealed class HistoryTouchLayout
         );
         BppAccountBanner = new TouchRect(0f, BppAccountSubmit.Bottom + small, w, line2);
         BppAccountExpandedHeight = BppAccountBanner.Bottom;
-        MoreContentHeight = BppAccountTop + BppAccountExpandedHeight;
+        MoreContentHeight = bppAccountTop + BppAccountExpandedHeight;
 
         var buttonWidth = metrics.Target(112f);
         NoteSave = new TouchRect(
@@ -568,8 +568,6 @@ public sealed class HistoryTouchLayout
     public TouchRect AccountBanner { get; }
 
     public TouchRect AccountLinked { get; }
-
-    public float BppAccountTop { get; }
 
     public TouchRect BppAccountTitle { get; }
 

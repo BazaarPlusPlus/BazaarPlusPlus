@@ -1,3 +1,4 @@
+import { replayVisits, type ReplayVisit } from '../decisions';
 import schemaJson from './game-message-schema.json';
 import type { StreamFrame } from './stream';
 import type { BattleMarker } from './project';
@@ -13,6 +14,7 @@ export type DecisionPath = {
   stream: MessageStream;
   entries: DecisionEntry[];
   visits: Visit[];
+  replay: ReplayVisit[];
 };
 
 /** The decision path of a Run with a Run Message Stream; loaded on demand with the schema. */
@@ -31,11 +33,13 @@ export async function buildDecisionPath(detail: {
     stream,
     detail.markers
   );
+  const visits = projectVisits(entries, contexts);
   return {
     moments,
     openings,
     stream,
     entries,
-    visits: projectVisits(entries, contexts)
+    visits,
+    replay: replayVisits(visits, { moments, openings })
   };
 }

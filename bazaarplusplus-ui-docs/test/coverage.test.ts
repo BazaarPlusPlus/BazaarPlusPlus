@@ -26,7 +26,7 @@ const families: Record<string, string[]> = {
     'SuccessIcon',
     'WarningIcon'
   ],
-  cards: ['CardTile', 'CardArt', 'CardChip', 'TierLabel', 'EnchantLabel'],
+  cards: ['CardTile', 'CardChip'],
   board: ['Board', 'SkillStrip'],
   'card-detail': ['CardDetail', 'CardText'],
   'day-card': ['DayCard'],

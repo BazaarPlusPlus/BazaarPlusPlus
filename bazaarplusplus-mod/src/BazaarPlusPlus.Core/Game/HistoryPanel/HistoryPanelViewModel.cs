@@ -81,8 +81,6 @@ public sealed class HistoryPanelViewModel
 
     public bool BppAccountControlsEnabled { get; set; }
 
-    public BppAccountFlowPhase BppAccountPhase { get; set; }
-
     public string? BppAccountBannerText { get; set; }
 
     public StatusSeverity BppAccountBannerSeverity { get; set; }

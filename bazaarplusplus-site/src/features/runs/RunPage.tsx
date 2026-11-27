@@ -74,12 +74,10 @@ function tiles(diff: CardDiff | null, card: (input: CardInput) => GameCard) {
   );
 }
 
-function cardName(card: RunCard): string {
-  return card.name ?? card.templateId;
-}
-
 function Changes({ step, locale }: { step: TimelineStep; locale: Locale }) {
   const copy = getSiteCopy(locale).account;
+  const { name } = useCardCatalog();
+  const cardName = (c: RunCard) => name(c.templateId) ?? c.name ?? c.templateId;
   const cards = [...(step.board?.cards ?? []), ...(step.skills?.cards ?? [])];
   const added = cards.filter((c) => c.change === 'new');
   const upgraded = cards.filter((c) => c.change === 'tier-up');
@@ -152,13 +150,13 @@ function StepBody({ step, locale }: { step: TimelineStep; locale: Locale }) {
           <div className="flex min-w-0 flex-col gap-2">
             <Board
               cards={tiles(step.board, card)}
-              missingLabel={copy.notRecorded}
-              emptyLabel={copy.emptyBoard}
+              missingLabel={terms.missingBoard}
+              emptyLabel={terms.emptyBoard}
             />
             <SkillStrip
               cards={tiles(step.skills, card)}
-              missingLabel={copy.missingSkills}
-              emptyLabel={copy.emptySkills}
+              missingLabel={terms.missingSkills}
+              emptyLabel={terms.emptySkills}
               label={terms.skills}
             />
           </div>
@@ -169,8 +167,8 @@ function StepBody({ step, locale }: { step: TimelineStep; locale: Locale }) {
   );
 }
 
-/** The decision path, decoded from the Run Message Stream after the page shows. */
-function Decisions({
+/** Battle day cards plus the Decision path replay decoded lazily from the Run Message Stream. */
+function RunBody({
   detail,
   steps,
   locale
@@ -236,10 +234,9 @@ function Decisions({
       {(detail.stream || detail.streamOmitted) && (
         <section className="bpp-panel flex flex-col gap-3 p-4">
           <h2 className="m-0 text-base">{terms.replay.decisions}</h2>
-          {path.data?.visits.length ? (
+          {path.data?.replay.length ? (
             <DecisionReplay
-              visits={path.data.visits}
-              index={path.data}
+              replay={path.data.replay}
               battles={battles}
               names={names}
             />
@@ -282,7 +279,7 @@ function Timeline({ runId, locale }: { runId: string; locale: Locale }) {
     );
   }
   const { run, steps } = detail.data;
-  return <Decisions detail={run} steps={steps} locale={locale} />;
+  return <RunBody detail={run} steps={steps} locale={locale} />;
 }
 
 export default function RunPage({ location, replacePage }: Props) {
@@ -335,11 +332,9 @@ export default function RunPage({ location, replacePage }: Props) {
             </div>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small tabular-nums">
               <RunFacts run={run} locale={locale} />
-              {run.ended_at_ms != null && (
-                <span className="text-text-3">
-                  {date.format(run.ended_at_ms)}
-                </span>
-              )}
+              <span className="text-text-3">
+                {date.format(run.ended_at_ms)}
+              </span>
             </div>
           </>
         )}

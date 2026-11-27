@@ -247,7 +247,7 @@ pub struct Language {
     /// Keyword entries by word, sorted.
     pub keywords: BTreeMap<String, Value>,
     labels: HashMap<String, String>,
-    /// Labels in the regex's alternation order.
+    /// Labels ordered longest-first so prefix matching picks the most specific keyword.
     alternatives: Vec<String>,
 }
 
@@ -635,8 +635,63 @@ fn shared_enchantments(cards: &BTreeMap<String, Value>) -> (BTreeMap<String, Val
     (compact, table)
 }
 
-pub struct GameData<'a> {
-    pub db: &'a Connection,
+/// Python's `str.strip()`.
+pub(crate) fn strip(s: &str) -> &str {
+    s.trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+}
+
+/// One pass over `GameData.db`'s `cards` table feeding both Card Text and Card Art extraction.
+pub(crate) struct GameCards {
+    /// Item and skill JSON rows in SQLite scan order.
+    pub definitions: Vec<(String, Value)>,
+    /// `(template_id, $type, ArtKey)` for every item and skill in SQLite scan order.
+    pub cards: Vec<(String, String, Option<String>)>,
+    /// English titles for every card with a non-empty `Localization.Title.Text`.
+    pub names: BTreeMap<String, String>,
+    /// Every template id present in `GameData.db`.
+    pub current: HashSet<String>,
+}
+
+pub(crate) fn read_game_cards(db: &Connection) -> Result<GameCards> {
+    let mut definitions = Vec::new();
+    let mut cards = Vec::new();
+    let mut names = BTreeMap::new();
+    let mut current = HashSet::new();
+    let mut stmt = db.prepare("SELECT id, data FROM cards")?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let id = text_column(row, 0)?;
+        let data: Value = serde_json::from_str(&text_column(row, 1)?)?;
+        if let Some(title) = data
+            .get("Localization")
+            .and_then(|l| l.get("Title"))
+            .and_then(|t| t.get("Text"))
+            .and_then(Value::as_str)
+        {
+            let title = strip(title);
+            if !title.is_empty() {
+                names.insert(id.clone(), title.to_owned());
+            }
+        }
+        if let Some(kind) = data["$type"]
+            .as_str()
+            .filter(|k| matches!(*k, "TCardItem" | "TCardSkill"))
+        {
+            let art = data
+                .get("ArtKey")
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            cards.push((id.clone(), kind.to_owned(), art));
+            definitions.push((id.clone(), data));
+        }
+        current.insert(id);
+    }
+    Ok(GameCards {
+        definitions,
+        cards,
+        names,
+        current,
+    })
 }
 
 fn text_column(row: &rusqlite::Row<'_>, i: usize) -> rusqlite::Result<String> {
@@ -654,8 +709,9 @@ pub struct Previous<'a> {
 }
 
 /// Write `text-<locale>-<digest>.json` for each locale and return the file names.
-pub fn write_card_text(
+pub(crate) fn write_card_text(
     db: &Connection,
+    game_cards: &GameCards,
     translations: &Path,
     previous: Option<&Previous<'_>>,
     output: &Path,
@@ -672,20 +728,8 @@ pub fn write_card_text(
     }
     let tooltips: String = db.query_row("SELECT data FROM tooltips", [], |r| text_column(r, 0))?;
     let keywords = ordered_object(&tooltips)?;
-    let mut definitions: Vec<(String, Value)> = Vec::new();
-    let mut current: HashSet<String> = HashSet::new();
-    {
-        let mut stmt = db.prepare("SELECT id, data FROM cards")?;
-        let mut rows = stmt.query([])?;
-        while let Some(row) = rows.next()? {
-            let id = text_column(row, 0)?;
-            let data: Value = serde_json::from_str(&text_column(row, 1)?)?;
-            if matches!(data["$type"].as_str(), Some("TCardItem" | "TCardSkill")) {
-                definitions.push((id.clone(), data));
-            }
-            current.insert(id);
-        }
-    }
+    let definitions = &game_cards.definitions;
+    let current = &game_cards.current;
     let mut files = BTreeMap::new();
     for locale in LOCALES {
         let mut language = Language::new(
@@ -698,7 +742,7 @@ pub fn write_card_text(
             },
         );
         let mut cards = BTreeMap::new();
-        for (key, card) in &definitions {
+        for (key, card) in definitions {
             cards.insert(
                 key.clone(),
                 card_definition(card, &language).with_context(|| key.clone())?,
@@ -744,7 +788,7 @@ pub fn write_card_text(
                     previous.dir,
                     filename,
                     locale,
-                    &current,
+                    current,
                     &tags,
                     &mut cards,
                     &mut language,
@@ -762,9 +806,8 @@ pub fn write_card_text(
             "tagLabels": tag_labels,
         });
         let data = canonical(&payload);
-        let digest = hex(&sha2::Sha256::digest(data.as_bytes()));
-        let filename = format!("text-{locale}-{}.json", &digest[..20]);
-        std::fs::write(output.join(&filename), data.as_bytes())?;
+        let filename =
+            crate::write_immutable(output, &format!("text-{locale}-"), ".json", data.as_bytes())?;
         files.insert(locale.to_owned(), filename);
     }
     Ok(files)
@@ -1057,7 +1100,8 @@ mod tests {
                 dir: out.path(),
                 text,
             });
-            write_card_text(&db, &zh_path, previous.as_ref(), out.path()).unwrap()
+            let game_cards = read_game_cards(&db).unwrap();
+            write_card_text(&db, &game_cards, &zh_path, previous.as_ref(), out.path()).unwrap()
         };
         let files = write(None);
         let as_map = |files: &BTreeMap<String, String>| {

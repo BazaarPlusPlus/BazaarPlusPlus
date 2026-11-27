@@ -17,22 +17,10 @@ public sealed class BppAccountPrivacyTests
         const string bindCode = "K7M2-Q9XR";
 
         BppLog.Reset();
-        BppAccountLog.Succeeded(RequestId, BppAccountAction.Bind);
-        BppAccountLog.Failed(
-            RequestId,
-            BppAccountAction.Bind,
-            BppAccountLog.MapServerError("game_token_rejected")
-        );
-        BppAccountLog.Failed(
-            RequestId,
-            BppAccountAction.Bind,
-            BppAccountLog.MapServerError("invalid_bind_code")
-        );
-        BppAccountLog.Failed(
-            RequestId,
-            BppAccountAction.Bind,
-            BppAccountLog.MapServerError("game_account_already_bound")
-        );
+        BppAccountLog.Succeeded(RequestId);
+        BppAccountLog.Failed(RequestId, BppAccountLog.MapServerError("game_token_rejected"));
+        BppAccountLog.Failed(RequestId, BppAccountLog.MapServerError("invalid_bind_code"));
+        BppAccountLog.Failed(RequestId, BppAccountLog.MapServerError("game_account_already_bound"));
 
         Assert.Equal(4, BppLog.Events.Count);
         foreach (var captured in BppLog.Events)

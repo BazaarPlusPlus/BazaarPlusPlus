@@ -47,11 +47,22 @@ function CardDialogHost({
   );
 }
 
-export function HistoryCardCatalog({ children }: { children: ReactNode }) {
+export function HistoryCardCatalog({
+  catalogKey,
+  children
+}: {
+  catalogKey?: string;
+  children: ReactNode;
+}) {
   const { locale, t } = useI18n();
   const { source, progress } = useCardSource();
   return (
-    <CardCatalog source={source} locale={locale} dialogHost={CardDialogHost}>
+    <CardCatalog
+      key={catalogKey}
+      source={source}
+      locale={locale}
+      dialogHost={CardDialogHost}
+    >
       {progress && (
         <p role="status" className="m-0 text-small text-text-3">
           {t('cardCatalogExporting', {

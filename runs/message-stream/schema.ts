@@ -1,6 +1,6 @@
 /**
  * The Game Message Schema: the MessagePack layout of the game's network messages, merged from
- * every Game Assembly Snapshot that tools/message-schema/generate.ts read. One schema serves
+ * every Game Assembly Snapshot that runs/tools/message-schema/generate.ts read. One schema serves
  * every Run: the mod records a message as the client re-serialized it, so a Run's bytes follow
  * its client build, and every client build the schema read is in it.
  *
@@ -98,13 +98,6 @@ export function parseTypeExpr(text: string): TypeExpr {
   const type = read();
   if (at !== text.length) throw new Error(`Invalid type expression ${text}`);
   return type;
-}
-
-export function formatTypeExpr(type: TypeExpr): string {
-  if ('array' in type) return `${formatTypeExpr(type.array)}[]`;
-  return type.args.length
-    ? `${type.name}<${type.args.map(formatTypeExpr).join(',')}>`
-    : type.name;
 }
 
 /** The last segment of a qualified name, for display: `NetMessageGameSim`. */

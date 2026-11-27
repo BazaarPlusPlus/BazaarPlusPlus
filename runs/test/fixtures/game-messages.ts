@@ -51,10 +51,6 @@ export const events = {
   upgraded: (id: string, tier: string) => [
     eventTag('GameSimEventCardUpgraded'),
     [id, enumValue('ETier', tier)]
-  ],
-  transitioned: (to: string) => [
-    eventTag('GameSimEventStateTransitioned'),
-    [state(to), null]
   ]
 };
 

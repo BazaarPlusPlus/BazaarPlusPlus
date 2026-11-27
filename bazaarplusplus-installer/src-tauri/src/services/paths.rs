@@ -125,6 +125,29 @@ pub fn overlay_cache_dir() -> PathBuf {
     installer_cache_dir().join(OVERLAY_CACHE_DIRECTORY)
 }
 
+pub fn card_catalog_dir() -> PathBuf {
+    installer_cache_dir().join("card-catalog")
+}
+
+pub fn game_data_dir(game: &Path) -> PathBuf {
+    #[cfg(target_os = "macos")]
+    return crate::services::tempo::game_bundle(game).join("Contents/Resources/Data");
+    #[cfg(not(target_os = "macos"))]
+    return game.join("TheBazaar_Data");
+}
+
+pub fn game_cache_dir() -> Option<PathBuf> {
+    let home = dirs::home_dir()?;
+    if cfg!(target_os = "macos") {
+        Some(home.join("Library/Application Support/com.TempoStorm.TheBazaar/prod/cache"))
+    } else if cfg!(target_os = "windows") {
+        // Unity's persistentDataPath: LocalLow\<company>\<product>.
+        Some(home.join("AppData/LocalLow/Tempo Storm/The Bazaar/prod/cache"))
+    } else {
+        None
+    }
+}
+
 fn overlay_settings_base_dir() -> PathBuf {
     dirs::config_dir()
         .or_else(dirs::data_local_dir)

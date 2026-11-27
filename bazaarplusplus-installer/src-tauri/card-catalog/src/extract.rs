@@ -1,21 +1,21 @@
 //! The whole Card Art set: art files, Card Text, Enchantment FX and the index naming them.
 
 use crate::addressables;
-use crate::fx::{MaterialExporter, Prepared};
-use crate::json::{hex, json_string};
+use crate::fx::{Described, MaterialExporter, Prepared};
+use crate::json::json_string;
 use crate::resample::{resize, resize_rgba, Filter};
-use crate::text::{write_card_text, Previous};
+use crate::text::{read_game_cards, write_card_text, GameCards, Previous};
 use crate::texture::{py_round, sprite_raw, texture_raw, Image, Raw};
 use crate::unity::{Env, Serialized};
 use crate::webp;
 use anyhow::{anyhow, bail, Context, Result};
 use rusqlite::Connection;
 use serde_json::{json, Map, Value as Json};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::mpsc::SyncSender;
 
 /// A Large card is 3 board units wide; at 2x it needs about 400 px of the square art.
 pub const ITEM_HEIGHT: usize = 400;
@@ -39,7 +39,7 @@ pub struct Inputs<'a> {
     /// Publication refuses a set that resolved too few cards.
     pub publication: bool,
     pub require_fx: bool,
-    /// Called with (cards done, cards in GameData) as the art is exported.
+    /// Called with (steps done, total steps) across card art and Enchantment FX export.
     pub progress: Option<&'a dyn Fn(usize, usize)>,
     /// Threads that decode, resize and encode art.
     pub threads: usize,
@@ -57,6 +57,7 @@ pub struct Summary {
     pub fx_bytes: u64,
     pub fx_sizes: BTreeMap<String, usize>,
     pub fx_masks: usize,
+    pub text: BTreeMap<String, String>,
 }
 
 impl Summary {
@@ -75,9 +76,36 @@ impl Summary {
     }
 }
 
-/// Python's `str.strip()`.
-fn strip(s: &str) -> &str {
-    s.trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+fn run_workers<J, R, F>(
+    workers: usize,
+    produce: impl FnOnce(&SyncSender<J>) -> Result<()>,
+    work: F,
+) -> Result<Vec<R>>
+where
+    J: Send,
+    R: Send,
+    F: Fn(J) -> R + Sync,
+{
+    let (jobs, queue) = std::sync::mpsc::sync_channel::<J>(workers * 2);
+    let queue = std::sync::Mutex::new(queue);
+    let (done_tx, done_rx) = std::sync::mpsc::channel::<R>();
+    std::thread::scope(|scope| -> Result<()> {
+        for _ in 0..workers {
+            let (queue, done_tx, work) = (&queue, done_tx.clone(), &work);
+            scope.spawn(move || loop {
+                let next = queue.lock().ok().and_then(|q| q.recv().ok());
+                let Some(job) = next else { break };
+                if done_tx.send(work(job)).is_err() {
+                    break;
+                }
+            });
+        }
+        drop(done_tx);
+        let produced = produce(&jobs);
+        drop(jobs);
+        produced
+    })?;
+    Ok(done_rx.into_iter().collect())
 }
 
 fn bundles(data_dir: &Path) -> Result<Vec<PathBuf>> {
@@ -185,49 +213,6 @@ fn art_webp(image: &Image, height: usize, alpha: bool) -> Result<Vec<u8>> {
     )
 }
 
-struct Rows {
-    cards: Vec<(String, String, Option<String>)>,
-    names: BTreeMap<String, String>,
-    current: HashSet<String>,
-}
-
-fn game_cards(db: &Connection) -> Result<Rows> {
-    let mut stmt = db.prepare(
-        r#"SELECT Id, json_extract(CAST(Data AS TEXT), '$."$type"'), json_extract(CAST(Data AS TEXT), '$.ArtKey')
-           FROM cards WHERE json_extract(CAST(Data AS TEXT), '$."$type"') IN ('TCardItem', 'TCardSkill')"#,
-    )?;
-    let cards = stmt
-        .query_map([], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, Option<String>>(2)?,
-            ))
-        })?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    let mut stmt = db.prepare(
-        "SELECT Id, json_extract(CAST(Data AS TEXT), '$.Localization.Title.Text') FROM cards",
-    )?;
-    let mut names = BTreeMap::new();
-    let mut current = HashSet::new();
-    let mut rows = stmt.query([])?;
-    while let Some(row) = rows.next()? {
-        let id: String = row.get(0)?;
-        if let Ok(Some(title)) = row.get::<_, Option<String>>(1) {
-            let title = strip(&title);
-            if !title.is_empty() {
-                names.insert(id.clone(), title.to_owned());
-            }
-        }
-        current.insert(id);
-    }
-    Ok(Rows {
-        cards,
-        names,
-        current,
-    })
-}
-
 pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
     let paths = addressables::paths(&std::fs::read(
         inputs.data_dir.join("StreamingAssets/aa/catalog.bin"),
@@ -284,7 +269,7 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
     let db =
         Connection::open_with_flags(inputs.game_data, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
             .with_context(|| inputs.game_data.display().to_string())?;
-    let empty = Map::new();
+    let rows = read_game_cards(&db)?;
     let text = {
         let prior = match (&previous, inputs.previous) {
             (Some(p), Some(path)) => p["text"].as_object().map(|text| Previous {
@@ -293,13 +278,18 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
             }),
             _ => None,
         };
-        write_card_text(&db, inputs.translations, prior.as_ref(), inputs.out_dir)?
+        write_card_text(
+            &db,
+            &rows,
+            inputs.translations,
+            prior.as_ref(),
+            inputs.out_dir,
+        )?
     };
-    let rows = game_cards(&db)?;
 
     let mut files_by_art: HashMap<String, String> = HashMap::new();
     let mut fx_by_art: HashMap<String, String> = HashMap::new();
-    let mut fx_by_material: HashMap<(String, i64), String> = HashMap::new();
+    let mut fx_by_material: HashMap<(String, i64), Described> = HashMap::new();
     // Reading bundles stays on this thread; decoding, resizing and encoding run on workers.
     struct Job {
         art_key: String,
@@ -308,16 +298,7 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
         alpha: bool,
     }
     let workers = inputs.threads.max(1);
-    let (jobs, queue) = std::sync::mpsc::sync_channel::<Job>(workers * 2);
-    let queue = std::sync::Mutex::new(queue);
-    let (done_tx, done_rx) = std::sync::mpsc::channel::<(String, Result<String>)>();
     let out_dir = inputs.out_dir;
-    let encode = |job: &Job| -> Result<String> {
-        let data = art_webp(&job.raw.decode()?, job.height, job.alpha)?;
-        let name = format!("{}.webp", &hex(&Sha256::digest(&data))[..20]);
-        std::fs::write(out_dir.join(&name), &data)?;
-        Ok(name)
-    };
 
     // Progress counts each card read, then each item's Enchantment FX.
     let fx_steps = if exporter.is_some() {
@@ -341,103 +322,100 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
     // An item's material, for its Enchantment FX once its art is written.
     let mut materials_by_art: Vec<(String, Rc<Serialized>, i64, crate::unity::Value)> = Vec::new();
     let mut card_arts: Vec<(&String, &String, &String)> = Vec::new();
-    std::thread::scope(|scope| -> Result<()> {
-        for _ in 0..workers {
-            let (queue, done_tx, encode) = (&queue, done_tx.clone(), &encode);
-            scope.spawn(move || loop {
-                let next = queue.lock().ok().and_then(|q| q.recv().ok());
-                let Some(job) = next else { break };
-                let result = encode(&job);
-                if done_tx.send((job.art_key, result)).is_err() {
-                    break;
-                }
-            });
-        }
-        drop(done_tx);
-        for (done, (template_id, kind, art_key)) in rows.cards.iter().enumerate() {
-            report(done);
-            let Some(art_key) = art_key.as_ref().filter(|k| !k.is_empty()) else {
-                continue;
-            };
-            if kind == "TCardItem" {
-                items.1 += 1;
-            } else {
-                skills.1 += 1;
-            }
-            card_arts.push((template_id, kind, art_key));
-            if queued.contains(art_key.as_str()) {
-                continue;
-            }
-            let attempt = (|| -> Result<Option<Job>> {
-                let Some((file, pid, class)) = asset(art_key) else {
-                    return Ok(None);
+    let art_results = run_workers(
+        workers,
+        |jobs| {
+            for (done, (template_id, kind, art_key)) in rows.cards.iter().enumerate() {
+                report(done);
+                let Some(art_key) = art_key.as_ref().filter(|k| !k.is_empty()) else {
+                    continue;
                 };
                 if kind == "TCardItem" {
-                    if class != 114 {
-                        return Ok(None);
-                    }
-                    let card_data = file.read(pid)?;
-                    let guid = card_data
-                        .get("cardMaterialReference")
-                        .and_then(|r| r.get("m_AssetGUID"))
-                        .and_then(|g| g.str().ok())
-                        .unwrap_or("");
-                    let Some((material_file, material_id, 21)) = asset(guid) else {
+                    items.1 += 1;
+                } else {
+                    skills.1 += 1;
+                }
+                card_arts.push((template_id, kind, art_key));
+                if queued.contains(art_key.as_str()) {
+                    continue;
+                }
+                let attempt = (|| -> Result<Option<Job>> {
+                    let Some((file, pid, class)) = asset(art_key) else {
                         return Ok(None);
                     };
-                    let material = material_file.read(material_id)?;
-                    for pair in material.at("m_SavedProperties.m_TexEnvs")?.list()? {
-                        let main = pair.at("second.m_Texture")?;
-                        if pair.at("first")?.str()? != "_MainTex"
-                            || main.at("m_PathID")?.int()? == 0
-                        {
-                            continue;
+                    if kind == "TCardItem" {
+                        if class != 114 {
+                            return Ok(None);
                         }
-                        let (tf, tid) = env.deref(&material_file, main)?;
-                        let raw = texture_raw(&env, &tf, tid, true)?;
-                        materials_by_art.push((
-                            art_key.clone(),
-                            material_file.clone(),
-                            material_id,
-                            material.clone(),
-                        ));
-                        return Ok(Some(Job {
+                        let card_data = file.read(pid)?;
+                        let guid = card_data
+                            .get("cardMaterialReference")
+                            .and_then(|r| r.get("m_AssetGUID"))
+                            .and_then(|g| g.str().ok())
+                            .unwrap_or("");
+                        let Some((material_file, material_id, 21)) = asset(guid) else {
+                            return Ok(None);
+                        };
+                        let material = material_file.read(material_id)?;
+                        for pair in material.at("m_SavedProperties.m_TexEnvs")?.list()? {
+                            let main = pair.at("second.m_Texture")?;
+                            if pair.at("first")?.str()? != "_MainTex"
+                                || main.at("m_PathID")?.int()? == 0
+                            {
+                                continue;
+                            }
+                            let (tf, tid) = env.deref(&material_file, main)?;
+                            let raw = texture_raw(&env, &tf, tid, true)?;
+                            materials_by_art.push((
+                                art_key.clone(),
+                                material_file.clone(),
+                                material_id,
+                                material.clone(),
+                            ));
+                            return Ok(Some(Job {
+                                art_key: art_key.clone(),
+                                raw,
+                                height: ITEM_HEIGHT,
+                                alpha: false,
+                            }));
+                        }
+                        Ok(None)
+                    } else {
+                        let raw = match class {
+                            213 => sprite_raw(&env, &file, pid)?,
+                            28 => texture_raw(&env, &file, pid, true)?,
+                            _ => return Ok(None),
+                        };
+                        Ok(Some(Job {
                             art_key: art_key.clone(),
                             raw,
-                            height: ITEM_HEIGHT,
-                            alpha: false,
-                        }));
+                            height: SKILL_HEIGHT,
+                            alpha: true,
+                        }))
                     }
-                    Ok(None)
-                } else {
-                    let raw = match class {
-                        213 => sprite_raw(&env, &file, pid)?,
-                        28 => texture_raw(&env, &file, pid, true)?,
-                        _ => return Ok(None),
-                    };
-                    Ok(Some(Job {
-                        art_key: art_key.clone(),
-                        raw,
-                        height: SKILL_HEIGHT,
-                        alpha: true,
-                    }))
+                })();
+                match attempt {
+                    Ok(Some(job)) => {
+                        queued.insert(art_key.clone());
+                        jobs.send(job)
+                            .map_err(|_| anyhow!("the art encoders stopped"))?;
+                    }
+                    Ok(None) => {}
+                    // One broken asset must not stop the set.
+                    Err(error) => eprintln!("skip {kind} {template_id} {art_key}: {error:#}"),
                 }
-            })();
-            match attempt {
-                Ok(Some(job)) => {
-                    queued.insert(art_key.clone());
-                    jobs.send(job)
-                        .map_err(|_| anyhow!("the art encoders stopped"))?;
-                }
-                Ok(None) => {}
-                // One broken asset must not stop the set.
-                Err(error) => eprintln!("skip {kind} {template_id} {art_key}: {error:#}"),
             }
-        }
-        drop(jobs);
-        Ok(())
-    })?;
-    for (art_key, result) in done_rx {
+            Ok(())
+        },
+        |job: Job| -> (String, Result<String>) {
+            let result = (|| -> Result<String> {
+                let data = art_webp(&job.raw.decode()?, job.height, job.alpha)?;
+                crate::write_immutable(out_dir, "", ".webp", &data)
+            })();
+            (job.art_key, result)
+        },
+    )?;
+    for (art_key, result) in art_results {
         match result {
             Ok(name) => {
                 files_by_art.insert(art_key, name);
@@ -455,65 +433,60 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
             }
         }
     }
+    let mut described_by_file: HashMap<String, Described> = HashMap::new();
     if let Some(exporter) = &exporter {
         // The first art written for a material names it in that material's descriptor.
         let mut identities: Vec<(String, (String, i64))> = Vec::new();
-        let (jobs, queue) =
-            std::sync::mpsc::sync_channel::<((String, i64), Prepared, String)>(workers * 2);
-        let queue = std::sync::Mutex::new(queue);
-        let (done_tx, done_rx) = std::sync::mpsc::channel::<((String, i64), Result<String>)>();
-        std::thread::scope(|scope| {
-            for _ in 0..workers {
-                let (queue, done_tx, mut describer) =
-                    (&queue, done_tx.clone(), exporter.describer());
-                scope.spawn(move || loop {
-                    let next = queue.lock().ok().and_then(|q| q.recv().ok());
-                    let Some((identity, prepared, art)) = next else {
-                        break;
+        let describer = exporter.describer();
+        let fx_results = run_workers(
+            workers,
+            |jobs: &SyncSender<((String, i64), Prepared, String)>| {
+                let mut dispatched = HashSet::new();
+                for (step, (art_key, material_file, material_id, material)) in
+                    materials_by_art.iter().enumerate()
+                {
+                    report(rows.cards.len() + step);
+                    let Some(art) = files_by_art.get(art_key) else {
+                        continue;
                     };
-                    let result = describer.describe_prepared(&prepared, &art, ITEM_HEIGHT);
-                    if done_tx.send((identity, result)).is_err() {
-                        break;
+                    let identity = (material_file.name.clone(), *material_id);
+                    identities.push((art_key.clone(), identity.clone()));
+                    if !dispatched.insert(identity.clone()) {
+                        continue;
                     }
-                });
-            }
-            drop(done_tx);
-            let mut dispatched = HashSet::new();
-            for (step, (art_key, material_file, material_id, material)) in
-                materials_by_art.iter().enumerate()
-            {
-                report(rows.cards.len() + step);
-                let Some(art) = files_by_art.get(art_key) else {
-                    continue;
-                };
-                let identity = (material_file.name.clone(), *material_id);
-                identities.push((art_key.clone(), identity.clone()));
-                if !dispatched.insert(identity.clone()) {
-                    continue;
-                }
-                match exporter.prepare(&env, material_file, material) {
-                    Ok(prepared) => {
-                        if jobs.send((identity, prepared, art.clone())).is_err() {
-                            break;
+                    match exporter.prepare(&env, material_file, material) {
+                        Ok(prepared) => {
+                            if jobs.send((identity, prepared, art.clone())).is_err() {
+                                break;
+                            }
                         }
+                        Err(error) => eprintln!("skip FX {art_key}: {error:#}"),
                     }
-                    Err(error) => eprintln!("skip FX {art_key}: {error:#}"),
                 }
-            }
-            drop(jobs);
-        });
-        for (identity, result) in done_rx {
+                Ok(())
+            },
+            |(identity, prepared, art)| {
+                let result = describer.describe_prepared(&prepared, &art, ITEM_HEIGHT);
+                (identity, result)
+            },
+        )?;
+        for (identity, result) in fx_results {
             match result {
-                Ok(file) => {
-                    fx_by_material.insert(identity, file);
+                Ok(described) => {
+                    fx_by_material.insert(identity, described);
                 }
                 Err(error) => eprintln!("skip FX {}#{}: {error:#}", identity.0, identity.1),
             }
         }
         for (art_key, identity) in identities {
-            if let Some(file) = fx_by_material.get(&identity) {
-                fx_by_art.insert(art_key, file.clone());
+            if let Some(described) = fx_by_material.get(&identity) {
+                fx_by_art.insert(art_key, described.file.clone());
             }
+        }
+        for described in fx_by_material.into_values() {
+            described_by_file
+                .entry(described.file.clone())
+                .or_insert(described);
         }
     }
 
@@ -530,6 +503,7 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
         files: cards.values().collect::<HashSet<_>>().len(),
         names: rows.names.len(),
         fx_items: fx.len(),
+        text: text.clone(),
         ..Summary::default()
     };
     let mut materials: BTreeMap<&str, usize> = BTreeMap::new();
@@ -538,32 +512,20 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
     }
     let mut textures = HashSet::new();
     for (file, count) in &materials {
-        let descriptor: Json = serde_json::from_slice(&std::fs::read(inputs.out_dir.join(file))?)?;
-        *summary
-            .fx_sizes
-            .entry(descriptor["size"].as_str().unwrap_or_default().to_owned())
-            .or_default() += count;
-        for (slot, binding) in descriptor["textures"].as_object().unwrap_or(&empty) {
-            if slot != "_MainTex" {
-                if let Some(f) = binding["file"].as_str() {
-                    textures.insert(f.to_owned());
-                }
-            }
+        let Some(described) = described_by_file.get(*file) else {
+            continue;
+        };
+        *summary.fx_sizes.entry(described.size.clone()).or_default() += count;
+        for f in &described.textures {
+            textures.insert(f.as_str());
         }
-        if descriptor["textures"]["_EnchantmentMask"]
-            .get("file")
-            .is_some()
-        {
+        if described.has_mask {
             summary.fx_masks += count;
         }
     }
     summary.fx_materials = materials.len();
     summary.fx_textures = textures.len();
-    for name in textures
-        .iter()
-        .map(String::as_str)
-        .chain(materials.keys().copied())
-    {
+    for name in textures.iter().copied().chain(materials.keys().copied()) {
         summary.fx_bytes += std::fs::metadata(inputs.out_dir.join(name))?.len();
     }
     if inputs.publication
@@ -606,7 +568,7 @@ pub fn extract(inputs: &Inputs<'_>) -> Result<Summary> {
 /// separators=(",", ":"))`: insertion order, ASCII only.
 fn card_index(
     cards: &BTreeMap<String, String>,
-    rows: &Rows,
+    rows: &GameCards,
     previous: Option<&Json>,
     game: [Option<&String>; 3],
     text: &BTreeMap<String, String>,
@@ -722,7 +684,7 @@ mod tests {
             ("dddd", card("TCardEncounterStep", "art-d", Some(""))),
             ("eeee", card("TCardPlayerEffect", "art-e", None)),
         ]);
-        let rows = game_cards(&db).unwrap();
+        let rows = read_game_cards(&db).unwrap();
         let mut ids: Vec<&str> = rows.cards.iter().map(|r| r.0.as_str()).collect();
         ids.sort_unstable();
         assert_eq!(ids, ["aaaa", "bbbb"]);
@@ -737,8 +699,9 @@ mod tests {
         );
     }
 
-    fn rows(names: &[(&str, &str)], current: &[&str]) -> Rows {
-        Rows {
+    fn rows(names: &[(&str, &str)], current: &[&str]) -> GameCards {
+        GameCards {
+            definitions: vec![],
             cards: vec![],
             names: names
                 .iter()

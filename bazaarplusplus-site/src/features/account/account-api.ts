@@ -1,6 +1,6 @@
 /** The Website account API: `handleWebApiRequest` in bazaarplusplus-server owns it. */
 
-export type RunSummary = {
+export type AccountRecord = {
   run_id: string;
   hero: string | null;
   victories: number | null;
@@ -13,7 +13,7 @@ export type RunSummary = {
 
 export type Me = {
   email: string;
-  game: { user_name: string; linked_at_ms: number } | null;
+  game: { user_name: string | null; linked_at_ms: number } | null;
 };
 
 export type BindCode = { code: string; expires_at_ms: number };
@@ -71,15 +71,15 @@ export function loadMe(signal: AbortSignal): Promise<Me> {
 }
 
 /** Every Record of the linked game account: its ranked Runs of the last 8 days. */
-export async function loadRuns(signal: AbortSignal): Promise<RunSummary[]> {
-  return (await getJson<{ runs: RunSummary[] }>('runs', signal)).runs;
+export async function loadRuns(signal: AbortSignal): Promise<AccountRecord[]> {
+  return (await getJson<{ runs: AccountRecord[] }>('runs', signal)).runs;
 }
 
 export async function loadRun(
   runId: string,
   signal: AbortSignal
-): Promise<RunSummary> {
-  const body = await getJson<{ run: RunSummary }>(
+): Promise<AccountRecord> {
+  const body = await getJson<{ run: AccountRecord }>(
     `runs/${encodeURIComponent(runId)}`,
     signal
   );

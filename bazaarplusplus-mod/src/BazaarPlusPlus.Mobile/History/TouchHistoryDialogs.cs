@@ -41,7 +41,7 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
     private readonly HistoryButton _bppSubmit;
     private readonly TextMeshProUGUI _bppBanner;
     private string? _inputAccount;
-    private BppAccountFlowPhase _bppRenderedPhase;
+    private bool _bppRenderedFormVisible;
     private (bool Form, bool Status, bool Linked, bool BppForm)? _shownRows;
 
     public TouchHistoryMoreDialog(
@@ -336,9 +336,9 @@ internal sealed class TouchHistoryMoreDialog : IHistoryOverlay
             _bppInput.SetTextWithoutNotify(string.Empty);
             _bppInput.DeactivateInputField(false);
         }
-        if (_bppRenderedPhase != m.BppAccountPhase)
+        if (_bppRenderedFormVisible != m.BppAccountFormVisible)
         {
-            _bppRenderedPhase = m.BppAccountPhase;
+            _bppRenderedFormVisible = m.BppAccountFormVisible;
             _bppInput.SetTextWithoutNotify(string.Empty);
         }
         _database.text = m.DatabaseChipText;

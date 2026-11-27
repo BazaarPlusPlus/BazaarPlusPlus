@@ -19,3 +19,5 @@ The History List filters runs by a Key Card (#1085), and players search for it b
 ## Consequences
 
 ADR-0008's Data Root limit still holds for everything History writes and for the history it reads; this read is its one exception. A game update that changes the cache layout turns the titles back to English until History follows it. [History And Storage](../history-storage.md#key-cards) owns the current behavior.
+
+2026-11-27 note: root [ADR 0025](../../../docs/adr/0025-card-catalog-in-the-ui-kit.md) expanded use of this cache — the installer's Card Catalog exporter (`src-tauri/src/card_catalog.rs`) reads `manifest.json` and `translations/manifest.json` and stages temporary copies of `GameData.db` and `zh-CN.bytes` to export Card Art, Card Text, and Enchantment FX offline.

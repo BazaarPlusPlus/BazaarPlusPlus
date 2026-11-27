@@ -27,7 +27,6 @@ const action = (
   verb,
   card: null,
   amount: null,
-  target: null,
   result: null,
   outcome: 'done',
   error: null,

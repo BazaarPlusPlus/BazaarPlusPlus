@@ -1933,9 +1933,6 @@ strong.bpp-effect-value {
   min-width: 0;
   text-align: start;
 }
-button.bpp-visit-identity {
-  cursor: pointer;
-}
 .bpp-visit-art {
   position: relative;
   flex: none;
@@ -1944,6 +1941,9 @@ button.bpp-visit-identity {
   overflow: hidden;
   background: var(--bg-selected);
   border-radius: var(--r-inner);
+}
+button.bpp-visit-art {
+  cursor: pointer;
 }
 .bpp-visit-hour {
   display: block;
@@ -2127,7 +2127,7 @@ button.bpp-visit-identity {
 .bpp-moment-totals > div {
   flex: 1;
 }
-.bpp-decision-row:has(.bpp-moment-button) {
+.bpp-decision-row {
   position: relative;
 }
 .bpp-decision-row .bpp-moment-button::after {
@@ -2143,7 +2143,6 @@ button.bpp-visit-identity {
 }
 
 .bpp-moment .bpp-board:has(.bpp-card-fallback) {
-  aspect-ratio: auto;
   min-height: var(--row-height);
 }
 .bpp-moment .bpp-card-face:has(.bpp-card-fallback) {

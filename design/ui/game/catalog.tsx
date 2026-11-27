@@ -95,9 +95,19 @@ function useResource<T>(
       });
       return () => {
         found.listeners.delete(notify);
+        // Evict a failed fetch once unmounted so the next open retries (ADR 0025),
+        // without triggering a re-fetch loop while still mounted.
+        if (
+          key &&
+          found.listeners.size === 0 &&
+          found.snapshot.error !== undefined &&
+          entries.get(key) === found
+        ) {
+          entries.delete(key);
+        }
       };
     },
-    [found]
+    [found, key]
   );
   return useSyncExternalStore(
     subscribe,

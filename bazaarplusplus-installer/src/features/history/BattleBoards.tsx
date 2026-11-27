@@ -28,13 +28,13 @@ export function BattleBoards({ battle }: { battle: HistoryBattleRow }) {
       <>
         <Board
           cards={items?.map(tile) ?? null}
-          missingLabel={t('battleMissingBoard')}
-          emptyLabel={t('battleEmptyBoard')}
+          missingLabel={terms.missingBoard}
+          emptyLabel={terms.emptyBoard}
         />
         <SkillStrip
           cards={skills?.map(tile) ?? null}
-          missingLabel={t('battleMissingSkills')}
-          emptyLabel={t('battleEmptySkills')}
+          missingLabel={terms.missingSkills}
+          emptyLabel={terms.emptySkills}
           label={terms.skills}
         />
       </>

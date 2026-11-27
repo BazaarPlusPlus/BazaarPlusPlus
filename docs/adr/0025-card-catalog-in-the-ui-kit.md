@@ -22,7 +22,7 @@
   - 数据缓存在模块里，用 `useSyncExternalStore` 读取，不依赖 react-query。读取失败的请求下次会重试。
   - 弹窗由产品通过 `dialogHost` 放进自己的弹窗栈（安装器用 `ModalSource`）。
 - `design/ui/game/terms.ts` 持有游戏术语的中英文 `gameTerms`：品阶、附魔、卡牌详情、回放的标签、地点类型和操作名。产品不再自己定义这些词。
-- `design/ui/game/Decisions.tsx` 的 `DecisionReplay` 和 `StreamFrames` 是回放接入。产品只传拜访、`MomentIndex`、战斗结果和这局自己的卡名。
+- `design/ui/game/Decisions.tsx` 的 `DecisionReplay` 和 `StreamFrames` 是回放接入。产品只传 `buildDecisionPath` 产出的 `replay` 列表、战斗结果和这局自己的卡名。
 - 由此修改 ADR-0018 的两条规则：
   - 组件库可以引入 `react` 和根目录 `runs/`（相对路径），不能引入其他运行时依赖。
   - 两端相同的游戏数据读取和游戏术语归组件库。产品自己的数据（这一局、路由、产品文案）仍留在产品里。
