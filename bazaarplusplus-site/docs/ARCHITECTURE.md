@@ -13,7 +13,7 @@ The code is the structural source of truth. This document records intended owner
 | Card Art and Card Text | `worker.ts`; the card catalog in `../packages/ui/src/game/catalog.tsx` | The Worker serves `/card-art/*` from `cdn.bazaarplusplus.com/card-art/` through the Cache API: only `index.json` (1 h, stale-while-revalidate) and content-addressed art and locale files (immutable); only a 200 is cached. The Run page gives the UI kit's `CardCatalog` the source `/card-art/`; names, art, hover details, the card dialog and Enchantment FX come from it (root ADR 0025). |
 | Account pages | `src/features/account/` | Owns sign-in by email and password, registration and password reset by emailed code, the profile (Bind Code, unlinking, account deletion), the records page and sign-out. A Record is one of the linked game account's ranked Runs of the last 8 days (root `GLOSSARY.md`); `/api/runs` returns all of them at once, and `records.ts` sorts them by end time and derives the totals, the rating line, the hero table and the day groups in the browser. `account-api.ts` is the only `/api/*` client. `turnstile.tsx` loads the Turnstile script only on the sign-in, registration and reset pages and spends one token per submit; the site key comes from `VITE_TURNSTILE_SITE_KEY` at build time (`deploy-site.yml`), else Cloudflare's always-pass test key. |
 | Run detail | `src/features/runs/` | `run-payload.ts` decodes the Record's Run segment in the browser (gzip, 64 MiB cap, payload version 6, Run id); `run-timeline.ts` derives each Battle's board and its change from the last observed board by InstanceId. The page only renders that model. |
-| Decision path | `../packages/runs/message-stream/` | Reads Run segment key 8 lazily, after the page shows: `wire.ts` undoes the game's Lz4BlockArray, `translate.ts` names every value with the Game Message Schema and keeps what it cannot name raw and flagged, `project.ts` and `visits.ts` fold the frames into visits and board moments for `RunReplay` (a command counts only with evidence from its paired responses; a GameStateSync is a new baseline; an undecodable message suspends inferences until one). Raw stream frames remain inspectable via `StreamFrames` / `FrameInspector`. The schema and translator load in their own chunk. |
+| Decision Path | `../packages/runs/message-stream/` | Reads Run segment key 8 lazily, after the page shows: `wire.ts` undoes the game's Lz4BlockArray, `translate.ts` names every value with the Game Message Schema and keeps what it cannot name raw and flagged, `project.ts` and `visits.ts` fold the frames into visits and board moments for `RunReplay` (a command counts only with evidence from its paired responses; a GameStateSync is a new baseline; an undecodable message suspends inferences until one). Raw stream frames remain inspectable via `StreamFrames` / `FrameInspector`. The schema and translator load in their own chunk. |
 | Game Message Schema | `../packages/runs/tools/message-schema/` | `extract.cs` (System.Reflection.Metadata) reads a Game Assembly Snapshot; `generate.ts` merges it into the committed `game-message-schema.json`, cumulative across builds and shared by site and installer (root ADR 0023). `just runs::check` checks that the file matches what the generator writes for the sources it records; until a new game build is merged, its new keys stay raw and flagged. The Snapshot Lock pull request stays lock-only (root ADR 0015). |
 | Hero Analysis | `src/features/heroes/hero-analysis.ts` | Pure, React-free policy for scope selection, merging, ranking, trends, matchups, focus fallback, and selected-window coverage. |
 | Hero Analysis presentation | `src/features/heroes/HeroOverviewDashboard.tsx`, `HeroTrendPanel.tsx`, and `HeroRankingTable.tsx` | The dashboard composes validated analysis and shares hero focus. The trend module owns SVG geometry and chart interaction; the ranking module owns its columns and sorting policy. |
@@ -35,9 +35,29 @@ Installer resolution reads each platform's Platform Release Manifest at `latest/
 - Hero Analysis query values canonicalize at the SPA location boundary independently of page data loading.
 - Analysis Scope changes and alias canonicalization replace history. Internal navigation pushes. Locale links preserve the current path, scope, and hash.
 
+## Hero Analysis Vocabulary
+
+Shared domain terms (Game Message Schema, Decision Path, Record, Game Status, Platform Release Manifest, Card Catalog) live in [the root glossary](../../GLOSSARY.md). Use these site-specific concepts in code, docs, and analysis copy:
+
+**Hero Analysis** (英雄分析):
+Rankings, trends, and matchup conclusions drawn from hero statistics, independent of page layout.
+_Avoid_: Hero read model, dashboard data
+
+**Hero Metrics Dataset** (英雄指标数据集):
+The per-day raw statistics available for analysis and their available dates, independent of schema version and transport format.
+_Avoid_: analyzer payload, dashboard data
+
+**Analysis Scope** (分析范围):
+The time window and hero segment (All, Legend, Non-Legend) one analysis covers, independent of UI and URL representation.
+_Avoid_: filters, query params
+
+**Dataset Coverage** (数据集覆盖):
+How expected dates relate to available and failed dates; failed dates stay visible and never become zeros.
+_Avoid_: load count, completeness flag
+
 ## Hero Metrics Dataset
 
 - `loadHeroMetricsDataset` fetches the snapshot and is its only decoder. A non-2xx response throws `HeroMetricsHttpError` with the status, so the `/heroes` query never retries a 4xx; network failures, 5xx, timeouts, and undecodable snapshots are retried.
 - One snapshot contains 1–7 contiguous daily entries. Its inclusive `window.end`, rather than the wall clock, governs window selection and freshness.
-- Additive fields and non-canonical heroes are compatible. An invalid envelope fails the page; an invalid daily entry degrades Dataset Coverage under `GLOSSARY.md` semantics.
+- Additive fields and non-canonical heroes are compatible. An invalid envelope fails the page; an invalid daily entry degrades Dataset Coverage under the semantics above.
 - Snapshots store `legend` and `non_legend`; analysis derives `all` by additive merge.

@@ -1,31 +1,51 @@
-# Glossary
+# BazaarPlusPlus Android App
 
-Cross-project terms (Android App, Game Code Hash, Interop Package, Launch Record) are in the root `GLOSSARY.md`.
+Android App-specific terms. Cross-project terms (Android App, Game Code Hash, Game Adaptation, Interop Package, Launch Record, Managed Payload, Android Source) are defined in [the root glossary](../GLOSSARY.md).
 
-**Installed game**: the official `com.tempogames.thebazaar` as the package manager reports it: its base APK, split APKs, `versionCode`, `lastUpdateTime` and the sha256 of its signing certificates, which name its Android source. The App reads it and never writes to it.
+## Game loading
 
-**Game class loader**: the `PathClassLoader` the App builds over `bridge.dex` and every installed game APK, with the library links as its native search path. The game's Java code and the bridge Activity run in it.
+**Installed Game**:
+The official `com.tempogames.thebazaar` as reported by Android's package manager: its base APK, split APKs, `versionCode`, `lastUpdateTime`, and signing certificate sha256s (which identify its Android Source). The App reads it and never writes to it.
 
-**Bridge Activity**: `GameActivity` in `src/bridge/`, a subclass of the game's `UnityPlayerActivity` that the game class loader defines. `GameComponentFactory` instantiates it; it wraps its base Context in a Game context.
+**Game Class Loader**:
+The `PathClassLoader` the App builds over `bridge.dex` and every Installed Game APK, with the Library Links directory as its native search path. The game's Java code and the Bridge Activity run in it.
 
-**Game context**: `GameContext`, the `ContextWrapper` that reports the game's package name, `ApplicationInfo` and resources while every writable directory stays in the App's sandbox.
+**Bridge Activity**:
+`GameActivity` in `src/bridge/`, a subclass of the game's `UnityPlayerActivity` defined by the Game Class Loader. `GameComponentFactory` instantiates it; it wraps its base Context in a Game Context.
 
-**Library links**: the directory under the App's `no_backup/` that links each of the game's native libraries, and the App's own `libmain.so` and `libe_sqlite3.so`, into one search path for the game class loader.
+**Game Context**:
+`GameContext`, the `ContextWrapper` that reports the official game's package name, `ApplicationInfo`, and resources while keeping every writable directory inside the App's sandbox.
 
-**Android App Runtime**: what the App APK carries for LemonLoader: `assets/lemon-runtime.zip` (the Loader Release's assets and the Updater as the packaged deployment), `assets/bpp-runtime.json`, and the native libraries under `jniLibs/`. `release/android-app.ts stage-runtime` writes it.
+**Library Links**:
+The directory under the App's `no_backup/` that symlinks each of the game's native libraries together with the App's `libmain.so` and `libe_sqlite3.so` into one native search path for the Game Class Loader.
 
-**Carried release**: the release a release APK runs without a download: `assets/bpp-release/<sha256>.zip` for every Game Adaptation's Interop Package and Managed Payload, and `assets/bpp-release/release.json`, its Platform Release Manifest without `app` (`release/CarriedRelease`). A launch takes a file from there when the sha256 matches, and uses the document when no manifest can be read.
+## Runtime and staging
 
-**Loader deployment state**: the `.lemonloader-*` markers and generated files under the App's `MelonLoader/` files directory. `LoaderDeployment` resets them when the App's `versionCode` or the interop changes, so LemonLoader deploys the new runtime instead of silently keeping the old one.
+**Android App Runtime**:
+What the App APK carries for LemonLoader: `assets/lemon-runtime.zip` (the Loader Release's assets and the Updater as the packaged deployment), `assets/bpp-runtime.json`, and the native libraries under `jniLibs/`. Written by `release/android-app.ts stage-runtime`.
 
-**Launch tier**: the outcome of `launch/LaunchGate` for the installed game against the Platform Release Manifest's `adaptations`: `NORMAL`, `NEWER_WAITING`, `OLDER`, `NOT_INSTALLED`, `ANDROID_RELEASE_APK`, plus `OFFLINE_NO_CACHE`. A Game Code Hash that matches any adaptation is `NORMAL` with that adaptation; otherwise only the adaptation of the installed game's source, by signer, is compared. Root ADR 0019's table ("启动门禁") names the first five; the launcher shows one per tier.
+**Carried Release**:
+The release bundled inside a release APK so it can run without a download: `assets/bpp-release/<sha256>.zip` for every Game Adaptation's Interop Package and Managed Payload, plus `assets/bpp-release/release.json` (its Platform Release Manifest without `app`, `release/CarriedRelease`). A launch reuses a bundled file when its sha256 matches and falls back to the bundled manifest when no live manifest can be read.
 
-**Release cache**: `release/ReleaseCache`, the last Platform Release Manifest that decoded, kept in internal storage (`files/release/`, `files/release-dev/` for a Development origin) for a launch without network.
+**Loader Deployment State**:
+The `.lemonloader-*` markers and generated files under the App's `MelonLoader/` files directory. `LoaderDeployment` resets them whenever the App's `versionCode` or the Interop Package changes so LemonLoader deploys the new runtime instead of silently reusing the old one.
 
-**Staged version**: the Managed Payload version the App last put in the Data Root's `Updates/` (`files/managed-staged.txt`). When the installed Mods are still older and that `Updates/<version>/` is gone, the Updater rejected it, and the launcher says the last plugin install failed.
+**Launch Tier**:
+The `launch/LaunchGate` decision for the Installed Game against the Platform Release Manifest's `adaptations`: `NORMAL`, `NEWER_WAITING`, `OLDER`, `NOT_INSTALLED`, `ANDROID_RELEASE_APK`, plus `OFFLINE_NO_CACHE`. A Game Code Hash matching any adaptation resolves to `NORMAL` with that adaptation; otherwise only the adaptation for the installed game's Android Source (by signer) is compared (root ADR 0019).
 
-**Staged game**: the Game Code Hash of the Game Adaptation whose Managed Payload the App last staged (`files/managed-staged-game.txt`). When the selected adaptation's game differs, or none is recorded, the launch deletes every file the installed Managed Payload Manifest names, then the manifest, and stages that adaptation's Managed Payload whatever its version: the Updater compares versions only.
+**Release Cache**:
+`release/ReleaseCache`, the last decoded Platform Release Manifest stored in internal storage (`files/release/`, or `files/release-dev/` for a Development Origin) for offline launches.
 
-**Development origin**: a debug build's release source `http://127.0.0.1:<port>`, set by `files/dev/manifest-port` (`just android::dev-manifest-port`) and reached through `adb reverse`. It serves the public bucket's `installer/` layout; a debug build also trusts `files/dev/trusted-cert.der` (`just android::dev-signing-key`) for interop statements. Release builds have neither (`src/release/.../DevOverrides`).
+**Staged Version**:
+The Managed Payload version the App last staged into the Data Root's `Updates/` (`files/managed-staged.txt`). If the installed Mods are still older and `Updates/<version>/` is gone, the Updater rejected it and the launcher reports that the last plugin install failed.
 
-**Development interop**: an Interop Package at `files/dev/interop.zip` in the debug App's internal storage, put there by `just android::push-interop`. While it exists, BPP launch uses it and skips the manifest, the Managed Payload and the Launch Record (a stale record is deleted), whatever the Development origin says.
+**Staged Game**:
+The Game Code Hash of the Game Adaptation whose Managed Payload the App last staged (`files/managed-staged-game.txt`). When the selected adaptation's game differs or none is recorded, launch removes every file listed in the installed Managed Payload Manifest plus the manifest itself and stages the adaptation's Managed Payload regardless of version, because the Updater compares versions only.
+
+## Development overrides
+
+**Development Origin**:
+A debug build's local release source `http://127.0.0.1:<port>`, configured by `files/dev/manifest-port` (`just android::dev-manifest-port`) over `adb reverse`, serving the public bucket's `installer/` layout; debug builds also trust `files/dev/trusted-cert.der` (`just android::dev-signing-key`) for interop statements. Release builds have neither (`src/release/.../DevOverrides`).
+
+**Development Interop**:
+An Interop Package placed at `files/dev/interop.zip` in the debug App's internal storage by `just android::push-interop`. While present, BPP launch uses it and skips the manifest, Managed Payload staging, and Launch Record (deleting any stale record), overriding any Development Origin.

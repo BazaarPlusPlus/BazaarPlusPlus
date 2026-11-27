@@ -2,6 +2,13 @@
 
 在群里 @ 机器人查询最近三天战绩；只 @ 不带文字就是查自己。`src/commands.ts` 的 `HELP` 是命令列表和用法的唯一来源。
 
+## 领域术语
+
+跨项目术语遵循[根词汇表](../GLOSSARY.md)（`Bundle`、`Run`、`Card Art`）与[分析器词汇表](../bazaarplusplus-analyzer/GLOSSARY.md)（`Accepted Run`、`Ten-Win Run`、`Build Identity`）。本服务自有两个核心概念：
+
+- **Binding**：将一个 QQ `member_openid` 映射到一个游戏账号及绑定时使用的显示名，独立于群组；多个 QQ 用户可绑定同一游戏账号。它是可见性 opt-in，不是归属证明；只要至少存在一条 Binding，任何人都可以查询该账号，解绑只删除调用者自己的 Binding。
+- **Player Report**：针对北京时间当天及前两天内结束的已完成 `Accepted Run` 实时计算的战报视图；任务结束后不保留任何 Run 或 Battle 数据。
+
 ## 数据和处理
 
 Webhook 只验签、处理 QQ 验证挑战、将消息放入 Queue 并 ACK。consumer 确定是图片命令后立即启动 Browser Run，与数据处理并行。它下载这个账号的候选 Bundle，逐份校验 SHA-256、流式解压 Run，跳过事件正文与录像，结算截图只校验不绘制，计算后渲染 JPEG。图片生成或上传失败时发送文字。每次回复记录一条 `bot.timing` 日志，含各步骤耗时和 Bundle 数。所有回复携带原始消息 ID 和固定序号；QQ 的重复消息错误视为已处理。超过被动回复时限的任务直接丢弃。

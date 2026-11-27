@@ -1,6 +1,6 @@
 # AGENTS.md
 
-BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one Product Release; the server, analyzer, site, UI documentation site, and QQ bot are separate deployments. Each project keeps its own toolchain, lockfiles, `AGENTS.md`, and `GLOSSARY.md`. Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
+BazaarPlusPlus monorepo. The mod, the installer and the Android App ship as one Product Release; the server, analyzer, site, UI documentation site, and QQ bot are separate deployments. Each project keeps its own toolchain, lockfiles, and `AGENTS.md`; domain glossaries live at the root and in the four core domain projects (`bazaarplusplus-mod`, `-installer`, `-android`, `-analyzer`). Work inside the project the change touches and follow its `AGENTS.md`; this file holds only what spans projects.
 
 | The change touches | Project |
 |---|---|
@@ -72,7 +72,7 @@ Run `just release::sync` after editing `VERSION` or `release/payload.json`; it r
 
 ## Documentation
 
-- Each fact has one owner. A term goes in the project's `GLOSSARY.md` (in the root one when several projects use it). Current behavior goes in `docs/*.md`. A decision goes in `docs/adr/`. Plans, feature requests, and bugs go in GitHub issues (see Agent skills).
+- Each fact has one owner. A domain term goes in the owning core project's `GLOSSARY.md` (or the root `GLOSSARY.md` when several projects use it). Current behavior goes in `docs/*.md`. A decision goes in `docs/adr/`. Plans, feature requests, and bugs go in GitHub issues (see Agent skills).
 - Config files, scripts, and `--help` output own every value they state. A doc carries only the convention, the reason, or the gotcha they cannot state.
 - Name domain concepts with the glossary's terms; a real naming gap gets a `GLOSSARY.md` entry in the same change. When your output contradicts an ADR, name the ADR and say why it is worth reopening.
 - In committed docs and comments, cite code by path plus symbol name; line numbers drift. `file:line` is fine in session evidence and reviews.
