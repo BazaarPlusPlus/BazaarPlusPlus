@@ -1,10 +1,11 @@
-import { Board, SkillStrip } from '@bpp/ui';
+import { Board, SkillStrip, gameTerms } from '@bpp/ui';
 import { card, pinned, pinnedSkills, skill } from '../cards';
-import { type DemoProps, translate } from '../copy';
+import type { DemoProps } from '../copy';
 export default function BoardDemo({ lang }: DemoProps) {
+  const terms = gameTerms[lang];
   const obs = {
-    emptyLabel: translate(lang, '空阵容', 'Empty board'),
-    missingLabel: translate(lang, '未记录阵容', 'Board not recorded')
+    emptyLabel: terms.emptyBoard,
+    missingLabel: terms.missingBoard
   };
   const cards = ['Small', 'Medium', 'Large'].map((size, i) =>
     Object.assign(
@@ -28,15 +29,15 @@ export default function BoardDemo({ lang }: DemoProps) {
       <Board cards={null} {...obs} />
       <SkillStrip
         cards={skills}
-        emptyLabel={translate(lang, '无技能', 'No skills')}
-        missingLabel={translate(lang, '未记录技能', 'Skills not recorded')}
-        label={translate(lang, '技能', 'Skills')}
+        emptyLabel={terms.emptySkills}
+        missingLabel={terms.missingSkills}
+        label={terms.skills}
       />
       <SkillStrip
         cards={[]}
-        emptyLabel={translate(lang, '无技能', 'No skills')}
-        missingLabel={translate(lang, '未记录技能', 'Skills not recorded')}
-        label={translate(lang, '技能', 'Skills')}
+        emptyLabel={terms.emptySkills}
+        missingLabel={terms.missingSkills}
+        label={terms.skills}
       />
     </div>
   );

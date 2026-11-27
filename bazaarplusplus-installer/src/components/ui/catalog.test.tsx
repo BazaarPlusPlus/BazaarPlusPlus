@@ -168,4 +168,18 @@ describe('CardCatalog', () => {
     await render('en', 'second', [input('SWORD')]);
     await vi.waitFor(() => expect(names()).toEqual(['Renamed Sword']));
   });
+
+  it('retries a failed index fetch after remounting (ADR 0025)', async () => {
+    const saved = files['index.json'];
+    delete files['index.json'];
+    await render('en', 'retry-case', [input('SWORD')]);
+    await vi.waitFor(() => expect(fetched).toEqual(['/catalog/index.json']));
+    expect(names()).toEqual(['SWORD']);
+
+    await act(async () => root.render(null));
+    files['index.json'] = saved;
+    await render('en', 'retry-case', [input('SWORD')]);
+    await vi.waitFor(() => expect(names()).toEqual(['Sword']));
+    expect(fetched).toEqual(['/catalog/index.json', '/catalog/index.json']);
+  });
 });

@@ -180,22 +180,6 @@ export function DecisionReplay({
   );
 }
 
-function download(name: string, parts: Array<Uint8Array | string>) {
-  const url = URL.createObjectURL(
-    new Blob(parts as BlobPart[], {
-      type:
-        typeof parts[0] === 'string'
-          ? 'application/json'
-          : 'application/octet-stream'
-    })
-  );
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 /** The Run Message Stream's raw frames, readable and downloadable. */
 export function StreamFrames({ stream }: { stream: MessageStream }) {
   const { terms } = useCardCatalog();
@@ -204,7 +188,6 @@ export function StreamFrames({ stream }: { stream: MessageStream }) {
       frames={stream.frames}
       read={(frame) => stream.readableFrame(frame)}
       exportFrames={() => stream.exportFrames()}
-      download={download}
       labels={terms.replay}
     />
   );

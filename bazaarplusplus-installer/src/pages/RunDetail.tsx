@@ -234,7 +234,7 @@ export default function RunDetail() {
             </div>
           </section>
 
-          <HistoryCardCatalog>
+          <HistoryCardCatalog catalogKey={detail.run.run_id}>
             <LocalDays
               detail={detail}
               empty={

@@ -290,11 +290,7 @@ type LocalizedSiteCopy = {
     yesterday: string;
     outcomes: Record<RunOutcomeTier, string>;
     winLoss: string;
-    emptySkills: string;
-    missingSkills: string;
     pve: string;
-    notRecorded: string;
-    emptyBoard: string;
     added: string;
     left: string;
     tierUp: string;
@@ -422,10 +418,6 @@ const zh: LocalizedSiteCopy = {
     },
     winLoss: '{wins} 胜 {losses} 负',
     pve: 'PvE',
-    notRecorded: '未记录阵容',
-    emptyBoard: '空阵容',
-    emptySkills: '无技能',
-    missingSkills: '未记录技能',
     added: '新增',
     left: '离场',
     tierUp: '升级',
@@ -852,10 +844,6 @@ const en: LocalizedSiteCopy = {
     },
     winLoss: '{wins}–{losses}',
     pve: 'PvE',
-    notRecorded: 'Board not recorded',
-    emptyBoard: 'Empty board',
-    emptySkills: 'No skills',
-    missingSkills: 'Skills not recorded',
     added: 'New',
     left: 'Left the board',
     tierUp: 'Upgraded',

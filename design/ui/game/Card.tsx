@@ -136,7 +136,7 @@ function enchantClass(enchant: Enchantment | null) {
   return enchant ? `bpp-enchant-${enchant.toLowerCase()}` : '';
 }
 
-function tierClass(tier: CardTier | null) {
+export function tierClass(tier: CardTier | null | undefined) {
   return tier ? `bpp-tier-${tier.toLowerCase()}` : '';
 }
 

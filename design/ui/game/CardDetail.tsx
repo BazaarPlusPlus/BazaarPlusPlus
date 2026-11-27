@@ -1,6 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import { FxFace } from './enchantment-fx/Face';
-import { CardArt, EnchantLabel, TierLabel, type GameCard } from './Card';
+import {
+  CardArt,
+  EnchantLabel,
+  TierLabel,
+  tierClass,
+  type GameCard
+} from './Card';
 import { CardText, type CardTextLine } from './CardText';
 import { enchantments, type CardTier, type Enchantment } from './types';
 
@@ -125,7 +131,7 @@ export function CardDetail({
       <header className="bpp-detail-head">
         {card.art && (
           <div
-            className={`bpp-detail-art bpp-tier-${(card.tier ?? '').toLowerCase()}`}
+            className={`bpp-detail-art ${tierClass(card.tier)}`}
             data-size={card.size ?? DEFINITION_SIZES[definition?.size ?? '']}
           >
             <CardArt src={card.art} alt="" fallback="" />

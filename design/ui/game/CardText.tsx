@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { tierClass } from './Card';
 import type { CardTier } from './types';
 
 type Segment =
@@ -57,10 +58,7 @@ export function CardText({
         ) {
           const Value = tier ? 'strong' : 'span';
           return (
-            <Value
-              key={key}
-              className={`bpp-effect-value bpp-tier-${(tier ?? '').toLowerCase()}`}
-            >
+            <Value key={key} className={`bpp-effect-value ${tierClass(tier)}`}>
               {values[0]}
               {percent}
             </Value>

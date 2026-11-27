@@ -74,12 +74,10 @@ function tiles(diff: CardDiff | null, card: (input: CardInput) => GameCard) {
   );
 }
 
-function cardName(card: RunCard): string {
-  return card.name ?? card.templateId;
-}
-
 function Changes({ step, locale }: { step: TimelineStep; locale: Locale }) {
   const copy = getSiteCopy(locale).account;
+  const { name } = useCardCatalog();
+  const cardName = (c: RunCard) => name(c.templateId) ?? c.name ?? c.templateId;
   const cards = [...(step.board?.cards ?? []), ...(step.skills?.cards ?? [])];
   const added = cards.filter((c) => c.change === 'new');
   const upgraded = cards.filter((c) => c.change === 'tier-up');
@@ -152,13 +150,13 @@ function StepBody({ step, locale }: { step: TimelineStep; locale: Locale }) {
           <div className="flex min-w-0 flex-col gap-2">
             <Board
               cards={tiles(step.board, card)}
-              missingLabel={copy.notRecorded}
-              emptyLabel={copy.emptyBoard}
+              missingLabel={terms.missingBoard}
+              emptyLabel={terms.emptyBoard}
             />
             <SkillStrip
               cards={tiles(step.skills, card)}
-              missingLabel={copy.missingSkills}
-              emptyLabel={copy.emptySkills}
+              missingLabel={terms.missingSkills}
+              emptyLabel={terms.emptySkills}
               label={terms.skills}
             />
           </div>

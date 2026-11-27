@@ -2,11 +2,9 @@ export { Badge, type BadgeProps, type BadgeTone } from './Badge';
 export {
   Button,
   buttonClassName,
-  type ButtonElementProps,
   type ButtonProps,
   type ButtonSize,
-  type ButtonVariant,
-  type LinkButtonProps
+  type ButtonVariant
 } from './Button';
 export {
   Dialog,
@@ -25,8 +23,7 @@ export {
   InfoIcon,
   SpinnerIcon,
   SuccessIcon,
-  WarningIcon,
-  type IconProps
+  WarningIcon
 } from './icons';
 export { PageHeader } from './PageHeader';
 export {
@@ -51,34 +48,17 @@ export {
   type CardTier,
   type Enchantment
 } from './game/types';
-export {
-  CardArt,
-  CardChip,
-  CardTile,
-  EnchantLabel,
-  TierLabel,
-  type GameCard
-} from './game/Card';
+export { CardChip, CardTile, type GameCard } from './game/Card';
 export { Board, SkillStrip } from './game/Board';
 export { CardText, type CardTextLine } from './game/CardText';
-export {
-  CardDetail,
-  type CardDefinition,
-  type CardDetailLabels
-} from './game/CardDetail';
+export { CardDetail, type CardDefinition } from './game/CardDetail';
 export { DayCard } from './game/DayCard';
 export { FrameInspector } from './game/FrameInspector';
-export {
-  RunReplay,
-  MomentPanel,
-  type ReplayStepView,
-  type ReplayVisitView
-} from './game/RunReplay';
+export { RunReplay, MomentPanel } from './game/RunReplay';
 export type { CardFx, FxMaterial } from './game/enchantment-fx/program';
 export {
   CardCatalog,
   useCardCatalog,
-  type CardDialogHost,
   type CardInput,
   type CardSource
 } from './game/catalog';
@@ -87,9 +67,4 @@ export {
   StreamFrames,
   type ReplayBattle
 } from './game/Decisions';
-export {
-  fillTerm,
-  gameTerms,
-  type GameLocale,
-  type GameTerms
-} from './game/terms';
+export { fillTerm, gameTerms, type GameLocale } from './game/terms';
