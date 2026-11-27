@@ -269,6 +269,91 @@ it('renders only localized card and enchantment tags', async () => {
   expect(tags('.bpp-detail-enchant')).toEqual(['武器']);
 });
 
+it('supports controlled showAllEnchantments without touching localStorage', async () => {
+  const getItem = vi.spyOn(Storage.prototype, 'getItem');
+  const setItem = vi.spyOn(Storage.prototype, 'setItem');
+  const onChange = vi.fn();
+  const baseProps = {
+    card: {
+      name: '雷达',
+      art: null,
+      tier: null,
+      tierLabel: '',
+      enchant: 'Obsidian' as const,
+      enchantLabel: '黑曜石'
+    },
+    definition: {
+      title: '雷达',
+      size: 'Medium',
+      startingTier: 'Silver' as const,
+      attributes: {},
+      tags: [],
+      lines: [],
+      enchantments: {
+        Obsidian: { tags: [], lines: [] },
+        Shiny: { tags: [], lines: [] }
+      }
+    },
+    tagLabels: {},
+    labels: {
+      sizes: { Medium: '中型' },
+      enchantments: '附魔',
+      allEnchantments: '全部附魔',
+      cooldown: '',
+      ammo: '',
+      seconds: '',
+      unavailable: ''
+    },
+    tierLabels: {},
+    enchantLabels: {
+      Deadly: '',
+      Ethereal: '',
+      Fiery: '',
+      Golden: '',
+      Heavy: '',
+      Icy: '',
+      Mystical: '',
+      Obsidian: '黑曜石',
+      Radiant: '',
+      Restorative: '',
+      Shielded: '',
+      Shiny: '闪亮',
+      Tiny: '',
+      Toxic: '',
+      Turbo: '',
+      Mossy: ''
+    }
+  };
+
+  await render(
+    <CardDetail
+      {...baseProps}
+      showAllEnchantments={false}
+      onShowAllEnchantmentsChange={onChange}
+    />
+  );
+  expect(container.querySelectorAll('.bpp-detail-enchant')).toHaveLength(1);
+  const toggle = container.querySelector<HTMLInputElement>(
+    '.bpp-detail-toggle input'
+  )!;
+  expect(toggle.checked).toBe(false);
+  await act(async () => toggle.click());
+  expect(onChange).toHaveBeenCalledWith(true);
+
+  await render(
+    <CardDetail
+      {...baseProps}
+      showAllEnchantments
+      onShowAllEnchantmentsChange={onChange}
+    />
+  );
+  expect(container.querySelectorAll('.bpp-detail-enchant')).toHaveLength(2);
+  expect(getItem).not.toHaveBeenCalled();
+  expect(setItem).not.toHaveBeenCalled();
+  getItem.mockRestore();
+  setItem.mockRestore();
+});
+
 describe('CardTile', () => {
   it('keeps the accessible enchantment and change marker without a material', () => {
     const html = renderToStaticMarkup(

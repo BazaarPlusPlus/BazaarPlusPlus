@@ -13,6 +13,7 @@ import {
 import {
   CardCatalog,
   CardTile,
+  createCardCatalogClient,
   useCardCatalog,
   type CardInput,
   type GameLocale
@@ -186,5 +187,50 @@ describe('CardCatalog', () => {
     await render('en', 'retry-case', [input('SWORD')]);
     await vi.waitFor(() => expect(names()).toEqual(['Sword']));
     expect(fetched).toEqual(['/catalog/index.json', '/catalog/index.json']);
+  });
+
+  it('isolates custom clients, uses custom fetch, and clears cached entries', async () => {
+    let calls = 0;
+    let title = 'First Sword';
+    const client = createCardCatalogClient({
+      fetch: async () => {
+        calls += 1;
+        return Response.json({
+          cards: {},
+          names: { SWORD: title }
+        });
+      }
+    });
+    await act(async () =>
+      root.render(
+        <CardCatalog
+          source={{ base: '/custom/', revision: 'v1' }}
+          locale="en"
+          client={client}
+        >
+          <Cards cards={[input('SWORD')]} />
+        </CardCatalog>
+      )
+    );
+    await vi.waitFor(() => expect(names()).toEqual(['First Sword']));
+    expect(calls).toBe(1);
+    expect(fetched).toEqual([]);
+
+    await act(async () => root.render(null));
+    title = 'Refreshed Sword';
+    client.clear();
+    await act(async () =>
+      root.render(
+        <CardCatalog
+          source={{ base: '/custom/', revision: 'v1' }}
+          locale="en"
+          client={client}
+        >
+          <Cards cards={[input('SWORD')]} />
+        </CardCatalog>
+      )
+    );
+    await vi.waitFor(() => expect(names()).toEqual(['Refreshed Sword']));
+    expect(calls).toBe(2);
   });
 });

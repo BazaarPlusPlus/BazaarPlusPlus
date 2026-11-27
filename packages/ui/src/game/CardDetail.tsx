@@ -44,6 +44,8 @@ function subscribe(notify: () => void) {
     subscribers.delete(notify);
   };
 }
+const noopSubscribe = () => () => {};
+const alwaysFalse = () => false;
 
 function Tags({ tags }: { tags: (string | false | undefined)[] }) {
   const shown = tags.filter(Boolean);
@@ -89,7 +91,9 @@ export function CardDetail({
   enchantLabels,
   tierLabels,
   titleId,
-  preview = false
+  preview = false,
+  showAllEnchantments,
+  onShowAllEnchantmentsChange
 }: {
   card: GameCard;
   definition?: CardDefinition;
@@ -100,8 +104,25 @@ export function CardDetail({
   titleId?: string;
   /** A hover preview is read-only: it follows the enchantment switch but does not show it. */
   preview?: boolean;
+  /** Controlled state for showing every enchantment; bypasses shared localStorage when provided. */
+  showAllEnchantments?: boolean;
+  /** Called when the user toggles the "all enchantments" switch in controlled mode. */
+  onShowAllEnchantmentsChange?: (next: boolean) => void;
 }) {
-  const all = useSyncExternalStore(subscribe, allEnchantments, () => false);
+  const controlled = showAllEnchantments !== undefined;
+  const storedAll = useSyncExternalStore(
+    controlled ? noopSubscribe : subscribe,
+    controlled ? alwaysFalse : allEnchantments,
+    alwaysFalse
+  );
+  const all = controlled ? showAllEnchantments : storedAll;
+  const setAll = (next: boolean) => {
+    if (controlled) {
+      onShowAllEnchantmentsChange?.(next);
+    } else {
+      setAllEnchantments(next);
+    }
+  };
   const localizedTags = (tags: string[]) =>
     tags.map((tag) => tagLabels[tag]).filter(Boolean);
   const attrs = card.tier ? definition?.attributes[card.tier] : undefined;
@@ -182,7 +203,7 @@ export function CardDetail({
                 <input
                   type="checkbox"
                   checked={all}
-                  onChange={(event) => setAllEnchantments(event.target.checked)}
+                  onChange={(event) => setAll(event.target.checked)}
                 />
                 {labels.allEnchantments}
               </label>

@@ -125,7 +125,7 @@ jobs:
         with:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
-      - run: just ui::check ui::test
+      - run: just ui::check ui::test ui::pack-check
 
   site:
     name: site (full check and test)

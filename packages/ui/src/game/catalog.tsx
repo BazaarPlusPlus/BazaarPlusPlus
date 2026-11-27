@@ -41,11 +41,62 @@ type Entry = {
   promise?: Promise<unknown>;
 };
 
-// One copy of each file per page, shared by every component that reads it.
-const entries = new Map<string, Entry>();
+export type CardCatalogFetch = (input: string) => Promise<Response>;
+
+export interface CardCatalogClientOptions {
+  /** Custom fetch implementation for reading index, Card Text, and FX assets. */
+  fetch?: CardCatalogFetch;
+}
+
+export interface CardCatalogClient {
+  /** Drops cached index, Card Text, and Enchantment FX material entries. */
+  clear: () => void;
+}
+
+type ClientInternals = {
+  entries: Map<string, Entry>;
+  fetch: CardCatalogFetch;
+};
+
+const clientInternals = new WeakMap<CardCatalogClient, ClientInternals>();
 const IDLE: Snapshot<never> = { pending: false };
 
-function entry(key: string, load: () => Promise<unknown>) {
+/**
+ * Creates an isolated card catalog cache and fetcher for `<CardCatalog client={...}>`.
+ * External apps and tests can pass a dedicated client instead of sharing the module default.
+ */
+export function createCardCatalogClient(
+  options: CardCatalogClientOptions = {}
+): CardCatalogClient {
+  const entries = new Map<string, Entry>();
+  const fetcher: CardCatalogFetch =
+    options.fetch ?? ((url) => globalThis.fetch(url));
+  const client: CardCatalogClient = {
+    clear() {
+      entries.clear();
+    }
+  };
+  clientInternals.set(client, { entries, fetch: fetcher });
+  return client;
+}
+
+// One shared cache per page when no custom client is passed.
+const defaultClient = createCardCatalogClient();
+
+function internalsOf(client: CardCatalogClient): ClientInternals {
+  const found = clientInternals.get(client);
+  if (!found)
+    throw new Error(
+      'CardCatalog client must come from createCardCatalogClient'
+    );
+  return found;
+}
+
+function entry(
+  entries: Map<string, Entry>,
+  key: string,
+  load: () => Promise<unknown>
+) {
   let found = entries.get(key);
   if (!found) {
     found = { snapshot: { pending: true }, listeners: new Set(), load };
@@ -72,8 +123,12 @@ function start(found: Entry) {
   return found.promise;
 }
 
-function request<T>(key: string, load: () => Promise<T>): Promise<T> {
-  const found = entry(key, load);
+function request<T>(
+  entries: Map<string, Entry>,
+  key: string,
+  load: () => Promise<T>
+): Promise<T> {
+  const found = entry(entries, key, load);
   return (start(found) as Promise<T>).catch((error: unknown) => {
     // A failed request is tried again the next time something asks for it.
     if (entries.get(key) === found) entries.delete(key);
@@ -82,10 +137,11 @@ function request<T>(key: string, load: () => Promise<T>): Promise<T> {
 }
 
 function useResource<T>(
+  entries: Map<string, Entry>,
   key: string | null,
   load: () => Promise<T>
 ): Snapshot<T> {
-  const found = key ? entry(key, load) : null;
+  const found = key ? entry(entries, key, load) : null;
   const subscribe = useCallback(
     (notify: () => void) => {
       if (!found) return () => {};
@@ -107,7 +163,7 @@ function useResource<T>(
         }
       };
     },
-    [found, key]
+    [entries, found, key]
   );
   return useSyncExternalStore(
     subscribe,
@@ -116,8 +172,8 @@ function useResource<T>(
   ) as Snapshot<T>;
 }
 
-async function json(url: string) {
-  const response = await fetch(url);
+async function json(fetcher: CardCatalogFetch, url: string) {
+  const response = await fetcher(url);
   if (!response.ok) throw new Error(`${url} ${response.status}`);
   return (await response.json()) as unknown;
 }
@@ -143,8 +199,11 @@ function files(value: unknown, pattern: RegExp) {
   return out;
 }
 
-async function loadIndex(source: CardSource): Promise<Index> {
-  const body = (await json(source.base + 'index.json')) as Record<
+async function loadIndex(
+  fetcher: CardCatalogFetch,
+  source: CardSource
+): Promise<Index> {
+  const body = (await json(fetcher, source.base + 'index.json')) as Record<
     string,
     unknown
   >;
@@ -173,8 +232,11 @@ type CardText = {
   tagLabels: Record<string, string>;
 };
 
-async function loadText(url: string): Promise<CardText> {
-  const body = (await json(url)) as {
+async function loadText(
+  fetcher: CardCatalogFetch,
+  url: string
+): Promise<CardText> {
+  const body = (await json(fetcher, url)) as {
     version: number;
     tagLabels?: Record<string, string>;
     // Each distinct enchantment definition is stored once; a card names it by position.
@@ -205,20 +267,28 @@ function indexKey(source: CardSource) {
   return `index ${source.base} ${source.revision ?? ''}`;
 }
 
-function useIndex(source: CardSource | null) {
-  return useResource(source && indexKey(source), () =>
-    source ? loadIndex(source) : Promise.reject(new Error('No card source'))
+function useIndex(internals: ClientInternals, source: CardSource | null) {
+  return useResource(internals.entries, source && indexKey(source), () =>
+    source
+      ? loadIndex(internals.fetch, source)
+      : Promise.reject(new Error('No card source'))
   );
 }
 
 /** The Card Text for a locale; English when the catalog has none for it. */
-function useCardText(source: CardSource | null, locale: GameLocale) {
-  const index = useIndex(source);
+function useCardText(
+  internals: ClientInternals,
+  source: CardSource | null,
+  locale: GameLocale
+) {
+  const index = useIndex(internals, source);
   const language = index.data?.text[locale] ? locale : 'en';
   const file = index.data?.text[language];
   const url = source && file ? source.base + file : null;
-  const text = useResource(url, () =>
-    url ? loadText(url) : Promise.reject(new Error('No Card Text'))
+  const text = useResource(internals.entries, url, () =>
+    url
+      ? loadText(internals.fetch, url)
+      : Promise.reject(new Error('No Card Text'))
   );
   return {
     cards: text.data?.cards,
@@ -241,6 +311,9 @@ type Catalog = {
 };
 
 const CatalogContext = createContext<Catalog | null>(null);
+const ClientContext = createContext<ClientInternals>(
+  internalsOf(defaultClient)
+);
 
 export function useCardCatalog(): Catalog {
   const catalog = use(CatalogContext);
@@ -260,7 +333,8 @@ function Definition({
   preview?: boolean;
 }) {
   const { source, locale, terms } = useCardCatalog();
-  const { cards, tagLabels, loading } = useCardText(source, locale);
+  const internals = use(ClientContext);
+  const { cards, tagLabels, loading } = useCardText(internals, source, locale);
   return (
     <CardDetail
       card={card}
@@ -294,17 +368,24 @@ function PlainHost({ open, children }: { open: boolean; children: ReactNode }) {
 export function CardCatalog({
   source,
   locale,
+  client = defaultClient,
   dialogHost: Host = PlainHost,
   children
 }: {
   source: CardSource | null;
   locale: GameLocale;
+  client?: CardCatalogClient;
   dialogHost?: CardDialogHost;
   children: ReactNode;
 }) {
-  const index = useIndex(source).data;
+  const internals = internalsOf(client);
+  const index = useIndex(internals, source).data;
   // Names in Chinese come from the Chinese Card Text, so it loads with the page.
-  const titles = useCardText(locale === 'zh' ? source : null, 'zh').cards;
+  const titles = useCardText(
+    internals,
+    locale === 'zh' ? source : null,
+    'zh'
+  ).cards;
   const [selection, setSelection] = useState<Selection | null>(null);
   const terms = gameTerms[locale];
   const catalog = useMemo<Catalog>(() => {
@@ -324,13 +405,13 @@ export function CardCatalog({
           tiny,
           slots,
           material: () =>
-            request(base + file, () =>
-              json(base + file)
+            request(internals.entries, base + file, () =>
+              json(internals.fetch, base + file)
             ) as Promise<FxMaterial>,
           texture: async (filename) => {
             if (!ART.test(filename) && !TEXTURE.test(filename))
               throw new Error('Invalid texture filename');
-            const response = await fetch(base + filename);
+            const response = await internals.fetch(base + filename);
             if (!response.ok) throw new Error('Unavailable card texture');
             return response.blob();
           }
@@ -376,29 +457,31 @@ export function CardCatalog({
       };
     };
     return { source, locale, terms, name, card };
-  }, [source, locale, terms, index, titles]);
+  }, [internals, source, locale, terms, index, titles]);
   const close = () => setSelection(null);
   return (
-    <CatalogContext.Provider value={catalog}>
-      {children}
-      <Host open={!!selection}>
-        {selection && (
-          <Dialog labelledBy="card-detail-title" onClose={close}>
-            <DialogCard>
-              <DialogBody>
-                <Definition
-                  templateId={selection.templateId}
-                  card={selection.card}
-                  titleId="card-detail-title"
-                />
-              </DialogBody>
-              <DialogFooter>
-                <Button onClick={close}>{terms.card.close}</Button>
-              </DialogFooter>
-            </DialogCard>
-          </Dialog>
-        )}
-      </Host>
-    </CatalogContext.Provider>
+    <ClientContext.Provider value={internals}>
+      <CatalogContext.Provider value={catalog}>
+        {children}
+        <Host open={!!selection}>
+          {selection && (
+            <Dialog labelledBy="card-detail-title" onClose={close}>
+              <DialogCard>
+                <DialogBody>
+                  <Definition
+                    templateId={selection.templateId}
+                    card={selection.card}
+                    titleId="card-detail-title"
+                  />
+                </DialogBody>
+                <DialogFooter>
+                  <Button onClick={close}>{terms.card.close}</Button>
+                </DialogFooter>
+              </DialogCard>
+            </Dialog>
+          )}
+        </Host>
+      </CatalogContext.Provider>
+    </ClientContext.Provider>
   );
 }

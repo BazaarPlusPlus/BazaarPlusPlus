@@ -48,6 +48,7 @@ test('each public visual export belongs to a live demo', () => {
             // The card catalog binds the components above to product data; the
             // UI kit's catalog tests and product Run Detail tests cover them.
             'CardCatalog',
+            'createCardCatalogClient',
             'useCardCatalog',
             'DecisionReplay',
             'StreamFrames'

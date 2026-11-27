@@ -24,7 +24,11 @@ export {
 export type { CardFx, FxMaterial, FxTexture } from './enchantment-fx/program';
 export {
   CardCatalog,
+  createCardCatalogClient,
   useCardCatalog,
+  type CardCatalogClient,
+  type CardCatalogClientOptions,
+  type CardCatalogFetch,
   type CardDialogHost,
   type CardInput,
   type CardSource

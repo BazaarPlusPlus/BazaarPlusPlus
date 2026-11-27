@@ -19,6 +19,10 @@ test:
 build:
     bun run build
 
+# Pack a tarball and smoke-test it in external Tailwind 4 and plain-CSS consumer builds.
+pack-check:
+    bun tools/pack-check.ts
+
 # Format UI kit sources in place.
 fmt:
     bun run format

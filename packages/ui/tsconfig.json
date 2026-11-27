@@ -25,6 +25,7 @@
     "src/**/*.tsx",
     "test/**/*.ts",
     "test/**/*.tsx",
+    "tools/**/*.ts",
     "ui-classes.ts"
   ]
 }
