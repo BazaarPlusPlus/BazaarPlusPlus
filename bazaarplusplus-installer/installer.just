@@ -46,9 +46,8 @@ cli *args:
 dev:
     bun run dev
 
-# Start the full Tauri desktop app; verifies the locked Bun dependencies before launch.
+# Start the full Tauri desktop app; installs locked Bun dependencies before launch.
 app:
-    bun scripts/checks/check-toolchain.ts "$(bun --version)"
     (cd .. && bun install --frozen-lockfile)
     bun run tauri dev
 

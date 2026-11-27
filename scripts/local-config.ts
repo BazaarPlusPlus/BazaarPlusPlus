@@ -494,7 +494,7 @@ function stagedValues(
   return values;
 }
 
-// Keep the key path rules in sync with bundle.sh load_apple_api_key_path_env.
+// Keep the key path rules in sync with bundle.ts loadAppleApiKeyPathEnv.
 export function resolveSigning(
   home: string,
   env: NodeJS.ProcessEnv = process.env

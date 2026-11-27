@@ -1,10 +1,10 @@
 import { test, expect } from 'vite-plus/test';
-import { runShell } from '../test-support/shell.ts';
 import {
   RELEASE_PLATFORMS,
   replayRecorderBundlePath,
   resolveBuildPlatform,
-  defaultTargetBuildPlatforms
+  defaultTargetBuildPlatforms,
+  tauriPlatform
 } from '../../../release/release-platforms.ts';
 import { resolveTargetPlatforms } from '../checks/prebuild-check.ts';
 
@@ -13,24 +13,12 @@ const TAURI_PLATFORMS = RELEASE_PLATFORMS.filter(
 );
 
 test.each(TAURI_PLATFORMS)(
-  'bundle.sh facts for $buildPlatform come from the module',
+  'tauriPlatform facts for $buildPlatform come from the module',
   (p) => {
-    const out = runShell(
-      `
-      set -euo pipefail
-      source ./scripts/bundle.sh
-      printf 'rust=[%s]\\n' "$(release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM")"
-      # Only the macOS Payload carries a replay recorder plugin bundle to sign.
-      if [ "$BPP_TEST_BUILD_PLATFORM" = macos ]; then
-        printf 'replay=%s\\n' "$(release_platforms_cli replay-recorder-bundle "$BPP_TEST_BUILD_PLATFORM")"
-      fi
-    `,
-      { BPP_TEST_BUILD_PLATFORM: p.buildPlatform }
-    );
-    expect(out).toContain(`rust=[${p.rustTarget ?? ''}]`);
+    expect(tauriPlatform(p.buildPlatform)).toEqual(p);
     if (p.buildPlatform === 'macos') {
-      expect(out).toContain(
-        `replay=${replayRecorderBundlePath(p.buildPlatform)}`
+      expect(replayRecorderBundlePath(p.buildPlatform)).toMatch(
+        /GfxPluginBppReplayVideoToolbox\.bundle$/
       );
     }
   }
@@ -47,17 +35,8 @@ test('prebuild-check target platforms derive from the table', () => {
 });
 
 test.each(['linux', 'android'])(
-  'rust-targets rejects %s, which has no Tauri installer',
+  'tauriPlatform rejects %s, which has no Tauri installer',
   (platform) => {
-    const out = runShell(
-      `
-    source ./scripts/bundle.sh
-    set +e
-    release_platforms_cli rust-targets "$BPP_TEST_BUILD_PLATFORM" 2>&1
-    printf 'exit:%s\\n' "$?"
-  `,
-      { BPP_TEST_BUILD_PLATFORM: platform }
-    );
-    expect(out).toContain('exit:1');
+    expect(() => tauriPlatform(platform)).toThrow();
   }
 );

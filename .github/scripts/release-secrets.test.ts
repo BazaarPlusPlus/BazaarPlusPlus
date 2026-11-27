@@ -144,7 +144,7 @@ test('windows needs no Apple material and no Android keystore', () => {
   assert.match(macos.stderr, /6 required secret\(s\) missing/);
 });
 
-test('stage writes the files bundle.sh reads from BPP_SIGNING_SECRETS_DIR', (t) => {
+test('stage writes the files bundle.ts reads from BPP_SIGNING_SECRETS_DIR', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bpp-release-secrets-'));
   t.onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
   const macos = path.join(root, 'macos');

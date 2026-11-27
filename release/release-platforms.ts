@@ -177,7 +177,7 @@ export function assertPlatformCoherence(rootDir: string): void {
   }
 }
 
-/** bundle.sh signs and team-checks this path. */
+/** bundle.ts signs and team-checks this path. */
 export function replayRecorderBundlePath(
   buildPlatform: BuildPlatform,
   inventory?: PayloadInventory
@@ -191,44 +191,4 @@ export function replayRecorderBundlePath(
     );
   }
   return bundles[0].path;
-}
-
-function printLines(values: readonly (string | null)[]): void {
-  process.stdout.write(`${values.map((value) => value ?? '').join('\n')}\n`);
-}
-
-export function cliMain(args: readonly string[]): number {
-  const [verb, buildPlatform] = args;
-  try {
-    const platform = tauriPlatform(buildPlatform);
-    switch (verb) {
-      case 'rust-targets':
-        printLines([platform.rustTarget]);
-        break;
-      case 'replay-recorder-bundle':
-        printLines([replayRecorderBundlePath(platform.buildPlatform)]);
-        break;
-      case 'build-env':
-        printLines([
-          platform.tauriConfig,
-          platform.resourceZip,
-          platform.bundleTargets,
-          platform.installerDir,
-          platform.bundleCleanupDir,
-          platform.releaseBinary,
-          platform.rustTarget
-        ]);
-        break;
-      default:
-        throw new Error(`Unknown release-platforms verb: ${verb ?? ''}`);
-    }
-    return 0;
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    return 1;
-  }
-}
-
-if (import.meta.main) {
-  process.exitCode = cliMain(process.argv.slice(2));
 }

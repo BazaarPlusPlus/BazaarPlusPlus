@@ -2,9 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { parseArgs } from 'node:util';
 import zlib from 'node:zlib';
-import { resolveBuildPlatform } from './release-platforms.ts';
 import type { BuildPlatform, TauriBuildPlatform } from './release-platforms.ts';
 import { readProductVersion } from './product.ts';
 import type { ProductVersion } from './product.ts';
@@ -640,55 +638,4 @@ export function validatePayloadZip({
     }
   }
   return { zipPath, manifestPath, entries: mapping };
-}
-
-const PACK_USAGE =
-  'Usage: payload-zip.ts pack --source <directory> --output <zip> [--manifest-output <json> --platform <macos|windows>]';
-
-async function main(args: readonly string[]): Promise<void> {
-  if (args[0] !== 'pack') throw new Error(PACK_USAGE);
-  const { assertBuildOwner } = await import('./payload.ts');
-  assertBuildOwner(
-    path.resolve(import.meta.dirname, '..', 'bazaarplusplus-installer')
-  );
-  const { values } = parseArgs({
-    args: args.slice(1),
-    strict: true,
-    options: {
-      source: { type: 'string' },
-      output: { type: 'string' },
-      'manifest-output': { type: 'string' },
-      platform: { type: 'string' }
-    }
-  });
-  const sourceDir = values.source;
-  const outputPath = values.output;
-  const manifestPath = values['manifest-output'];
-  const platform =
-    values.platform === undefined
-      ? undefined
-      : resolveBuildPlatform(values.platform);
-  if (
-    !sourceDir ||
-    !outputPath ||
-    (manifestPath !== undefined && (!manifestPath || !platform))
-  )
-    throw new Error(PACK_USAGE);
-  const result = writeDeterministicZip({
-    sourceDir,
-    outputPath,
-    manifestPath,
-    platform
-  });
-  console.log(`payload-zip: wrote ${result.zipPath}`);
-  if (result.manifestPath) {
-    console.log(`payload-zip: wrote ${result.manifestPath}`);
-  }
-}
-
-if (import.meta.main) {
-  main(process.argv.slice(2)).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
-  });
 }

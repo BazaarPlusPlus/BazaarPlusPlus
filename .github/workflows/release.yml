@@ -226,7 +226,7 @@ jobs:
           retention-days: 7
       - if: env.STAGE == 'prepare'
         run: echo "Dry run stopped after release::prepare for $RELEASE_PLATFORM; nothing was signed or uploaded." >> "$GITHUB_STEP_SUMMARY"
-      # bundle.sh reads signing material as files from BPP_SIGNING_SECRETS_DIR,
+      # bundle.ts reads signing material as files from BPP_SIGNING_SECRETS_DIR,
       # the same layout `bun scripts/workspace.ts run signing` stages locally.
       - if: env.STAGE == 'release'
         name: Stage the signing secrets
@@ -242,7 +242,7 @@ jobs:
         run: |
           bun .github/scripts/release-secrets.ts stage "$RELEASE_PLATFORM" "$RUNNER_TEMP/signing-secrets"
           echo "BPP_SIGNING_SECRETS_DIR=$RUNNER_TEMP/signing-secrets" >> "$GITHUB_ENV"
-      # bundle.sh codesigns nested resources before Tauri bundles, so the
+      # bundle.ts codesigns nested resources before Tauri bundles, so the
       # Developer ID identity must already be in a keychain; Tauri then finds the
       # same identity through APPLE_SIGNING_IDENTITY and notarizes with the API key.
       - if: env.STAGE == 'release' && matrix.platform == 'macos'

@@ -285,7 +285,7 @@ const INFORMATIONAL_REFERENCES: [string, string][] = [
   ],
   [
     'bazaarplusplus-mod/native/macos/build.sh',
-    'bazaarplusplus-installer/scripts/bundle.sh'
+    'bazaarplusplus-installer/scripts/bundle.ts'
   ]
 ];
 

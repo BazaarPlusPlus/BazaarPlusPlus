@@ -237,7 +237,7 @@ function describeLockEntry({
 }
 
 function bundleInstaller(rootDir: string, token: string): void {
-  execFileSync('bash', [path.join(rootDir, 'scripts/bundle.sh')], {
+  execFileSync('bun', [path.join(rootDir, 'scripts/bundle.ts')], {
     cwd: rootDir,
     stdio: 'inherit',
     env: { ...process.env, BPP_RELEASE_LOCK_TOKEN: token }

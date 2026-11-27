@@ -277,7 +277,7 @@ test('omitted analyzer section cannot silently run with a stale checkout file', 
   );
 });
 
-test('signing staging holds bundle.sh files only, never injects values, and is removed even when the command fails', (t) => {
+test('signing staging holds bundle.ts files only, never injects values, and is removed even when the command fails', (t) => {
   const f = fixture(t);
   f.put(
     f.home,
@@ -371,7 +371,7 @@ test('config inside a checkout and escaping symlink projections are refused', (t
   assert.equal(fs.readFileSync(outside, 'utf8'), 'KEEP');
 });
 
-test('doctor derives required keys from config sections and resolves signing as bundle.sh does', (t) => {
+test('doctor derives required keys from config sections and resolves signing as bundle.ts does', (t) => {
   const f = fixture(t);
   f.put(
     f.home,
