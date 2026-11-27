@@ -123,12 +123,12 @@ export function checkMarkdownLinks(rootDir: string): DocsAssertionResult {
   return { checked, failures };
 }
 
-// GLOSSARY.md is the sole entry map, so an unlinked topic is one an agent can
+// AGENTS.md is the sole entry map, so an unlinked topic is one an agent can
 // only find by luck.
 export function checkEntryMapCoverage(rootDir: string): DocsAssertionResult {
   const linked = new Set(
-    extractMarkdownLinks(read(rootDir, 'GLOSSARY.md')).map((link) =>
-      path.resolve(path.dirname(absolute(rootDir, 'GLOSSARY.md')), link.target)
+    extractMarkdownLinks(read(rootDir, 'AGENTS.md')).map((link) =>
+      path.resolve(path.dirname(absolute(rootDir, 'AGENTS.md')), link.target)
     )
   );
   const topics = listDocs(rootDir, 'docs');
@@ -137,7 +137,7 @@ export function checkEntryMapCoverage(rootDir: string): DocsAssertionResult {
     .map((topic) => ({
       file: topic,
       line: 1,
-      message: 'topic is not linked from `GLOSSARY.md`'
+      message: 'topic is not linked from `AGENTS.md`'
     }));
   return { checked: topics.length, failures };
 }
@@ -148,7 +148,7 @@ const ASSERTIONS: {
 }[] = [
   { name: 'Cited path existence', run: checkCitedPaths },
   { name: 'Relative markdown links', run: checkMarkdownLinks },
-  { name: 'GLOSSARY.md topic coverage', run: checkEntryMapCoverage }
+  { name: 'AGENTS.md topic coverage', run: checkEntryMapCoverage }
 ];
 
 export function runDocsCheck(
