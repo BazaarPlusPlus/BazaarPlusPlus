@@ -55,11 +55,13 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
         run: |
-          cat > .npmrc <<'EOF'
+          npmrc="$RUNNER_TEMP/publish-ui.npmrc"
+          cat > "$npmrc" <<'EOF'
           @bazaarplusplus:registry=https://npm.pkg.github.com
           //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
           EOF
-          trap 'rm -f .npmrc' EXIT
+          trap 'rm -f "$npmrc"' EXIT
+          export NPM_CONFIG_USERCONFIG="$npmrc"
           if [ "$DRY_RUN" = 'true' ]; then
             npm publish --dry-run
           else
