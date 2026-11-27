@@ -80,6 +80,29 @@ test('every script path a launcher or a command in the docs names is tracked', (
   expect(referenced.filter(({ target }) => !exists(target))).toEqual([]);
 });
 
+const ALLOWED_SHELL_SCRIPTS = [
+  '.claude/hooks/session-start.sh',
+  '.github/scripts/analyzer-state.sh',
+  'bazaarplusplus-mod/native/mac-audio-tap/build.sh',
+  'bazaarplusplus-mod/native/macos/build.sh',
+  'bazaarplusplus-mod/native/macos/verify.sh'
+];
+
 test('root tooling is TypeScript; no .mjs remains', () => {
   expect(tracked.filter((name) => name.endsWith('.mjs'))).toEqual([]);
+});
+
+test('no Python scripts exist outside bazaarplusplus-analyzer', () => {
+  expect(
+    tracked.filter(
+      (name) =>
+        name.endsWith('.py') && !name.startsWith('bazaarplusplus-analyzer/')
+    )
+  ).toEqual([]);
+});
+
+test('shell scripts stay within the narrow native/hook allowlist', () => {
+  expect(tracked.filter((name) => name.endsWith('.sh')).sort()).toEqual(
+    [...ALLOWED_SHELL_SCRIPTS].sort()
+  );
 });
