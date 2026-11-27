@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button } from '@bpp/ui';
+import { Button } from '@bazaarplusplus/ui';
 import { pages } from './pages';
 import { translate, type Locale, type DemoProps } from './copy';
 import Foundations from './Foundations';
@@ -102,6 +102,35 @@ function App() {
                   </div>
                 </section>
               ))}
+              <section className="min-w-0 rounded-panel border border-line bg-panel p-4 grid gap-3">
+                <h2 className="text-title">
+                  {t(
+                    '外部项目安装（GitHub Packages）',
+                    'Install (@bazaarplusplus/ui)'
+                  )}
+                </h2>
+                <p className="text-body text-text-2">
+                  {t(
+                    '通过 GitHub Packages 安装需在 .npmrc 配置 @bazaarplusplus 仓库与具备 read:packages 权限的 Token，并引入 React 19。',
+                    'GitHub Packages requires a .npmrc registry entry and a token with read:packages scope, plus React 19.'
+                  )}
+                </p>
+                <pre className="overflow-x-auto p-3 bg-canvas rounded-control text-code">{`# .npmrc
+@bazaarplusplus:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=\${GITHUB_TOKEN}
+
+# Install
+bun add @bazaarplusplus/ui react@^19 react-dom@^19`}</pre>
+                <pre className="overflow-x-auto p-3 bg-canvas rounded-control text-code">{`/* Tailwind CSS v4 */
+@import 'tailwindcss';
+@import '@bazaarplusplus/ui/tokens.css';
+@import '@bazaarplusplus/ui/theme.css';
+@import '@bazaarplusplus/ui/styles.css';
+
+/* Components */
+import { Button, Badge } from '@bazaarplusplus/ui';
+import { CardCatalog, CardTile } from '@bazaarplusplus/ui/game';`}</pre>
+              </section>
               <a
                 className="text-text-2 underline"
                 href={

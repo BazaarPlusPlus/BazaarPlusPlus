@@ -7,3 +7,5 @@
 mod 持有本地事件行和 key 8 的写入契约。网站负责解压与账户传输，安装器负责 SQLite 与 IPC。产品提供文案、卡牌查询及操作，DayCard 与 RunReplay 的 React 实现按 ADR-0018 归 design/ui。
 
 2026-11-27 注：回放接入 `DecisionReplay`、卡牌查询和游戏术语也归 design/ui，产品只提供这一局的数据，见 [ADR 0025](0025-card-catalog-in-the-ui-kit.md)。
+
+2026-11-27 注：`runs/` 已迁至 `packages/runs/`（内部 workspace 包 `@bpp/runs`），`DecisionReplay` 已通过结构化类型与 `@bpp/runs` 解耦，见 [ADR 0026](0026-standalone-ui-and-runs-packages.md)。

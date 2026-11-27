@@ -1,6 +1,6 @@
 import { gzipSync } from 'node:zlib';
 
-import { encodeMessagePack } from '../../../runs/test/fixtures/encode';
+import { encodeMessagePack } from '../../../packages/runs/test/fixtures/encode';
 export { encodeMessagePack };
 export function gzipRun(root: unknown[]): Uint8Array {
   return new Uint8Array(gzipSync(encodeMessagePack(root)));

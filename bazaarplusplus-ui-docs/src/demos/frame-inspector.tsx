@@ -1,4 +1,4 @@
-import { FrameInspector, gameTerms } from '@bpp/ui';
+import { FrameInspector, gameTerms } from '@bazaarplusplus/ui/game';
 import run from '../demo-data/run.json';
 import type { DemoProps } from '../copy';
 export default function Frames({ lang }: DemoProps) {

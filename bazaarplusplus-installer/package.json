@@ -32,6 +32,8 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@bazaarplusplus/ui": "workspace:*",
+    "@bpp/runs": "workspace:*",
     "@tauri-apps/api": "^2.12.5",
     "@tauri-apps/plugin-opener": "^2.7.3",
     "@tauri-apps/plugin-process": "^2.4.0",
@@ -54,8 +56,5 @@
     "typescript": "^7.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000",
     "vite-plus": "1.7.0"
-  },
-  "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@8.3.8000"
   }
 }

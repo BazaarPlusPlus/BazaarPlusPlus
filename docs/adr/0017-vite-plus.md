@@ -23,3 +23,5 @@ server 暂不迁移。它的测试用 `@cloudflare/vitest-pool-workers` 在 work
 - 根工具、installer、site 和 ui-docs 用同一个 `vite-plus` 版本，由根目录 `package.json` 决定；`vite` 别名和 `overrides` 必须指向该 `vite-plus` 版本在根 `bun.lock` 里声明的 `@voidzero-dev/vite-plus-core` 版本（1.7.0 起其版本号编码内置 Vite 版本，不再与 `vite-plus` 相同），`vp` 发现不一致就拒绝构建。Dependabot 不改 `npm:` 别名，所以只有根目录的 Dependabot 跟踪 `vite-plus`。它开 PR 后，`.github/workflows/vite-plus-sync.yml` 把版本写进别名、site、ui-docs 和 installer，用 deploy key（secret `VITE_PLUS_SYNC_SSH_KEY`）推回 PR 分支，让 PR 的检查重新运行。`GITHUB_TOKEN` 的推送不会触发检查。`scripts/vite-plus.test.ts` 拦住任何不一致；手动升级时改根目录版本，再运行 `just vite-plus-sync`。
 - 仓库没有 Bun workspace。`vp migrate` 要在每个项目目录里分别运行：在根目录运行时，它会改写子项目的导入。
 - server 仍直接用 oxlint、oxfmt 和 Vitest 4，格式选项留在 `.oxfmtrc.json`，和另外三份 `fmt` 块保持一致。
+
+2026-11-27 注：[ADR 0026](0026-standalone-ui-and-runs-packages.md) 启用了白名单根 Bun Workspaces（`packages/*`、`bazaarplusplus-site`、`bazaarplusplus-installer`、`bazaarplusplus-ui-docs`），并将 `packages/ui` 纳入 `vite-plus` 对齐范围；`bazaarplusplus-server` 与 `bazaarplusplus-bot` 仍保持独立 `bun.lock`。

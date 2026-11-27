@@ -8,7 +8,7 @@ import {
   SpinnerIcon,
   SuccessIcon,
   WarningIcon
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui';
 import { translate, type DemoProps } from '../copy';
 
 export default function Demo({ lang }: DemoProps) {

@@ -1,5 +1,10 @@
 import wechatPaySvg from '../../static/support/wechat-pay.svg';
-import { Dialog, DialogBody, DialogCard, DialogHeader } from '@bpp/ui';
+import {
+  Dialog,
+  DialogBody,
+  DialogCard,
+  DialogHeader
+} from '@bazaarplusplus/ui';
 import { useActiveModalDismissalPolicy } from '../components/ui/ModalCoordinator';
 import { useI18n } from '../i18n/LocaleProvider';
 

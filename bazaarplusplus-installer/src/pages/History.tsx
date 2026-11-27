@@ -7,7 +7,12 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Button, buttonClassName, StatusPanel, StatusBanner } from '@bpp/ui';
+import {
+  Button,
+  buttonClassName,
+  StatusPanel,
+  StatusBanner
+} from '@bazaarplusplus/ui';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';
 import {

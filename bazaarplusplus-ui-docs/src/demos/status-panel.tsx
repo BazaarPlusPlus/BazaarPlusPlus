@@ -1,4 +1,4 @@
-import { StatusPanel } from '@bpp/ui';
+import { StatusPanel } from '@bazaarplusplus/ui';
 import { translate, type DemoProps } from '../copy';
 
 export default function Demo({ lang }: DemoProps) {

@@ -10,7 +10,7 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: 'build(release)'
+      prefix: 'build(workspace)'
     # Coupled toolchain majors and Node compatibility types need deliberate upgrades.
     ignore:
       - dependency-name: 'typescript'
@@ -20,74 +20,23 @@ updates:
       - dependency-name: 'vite-plus'
         update-types: ['version-update:semver-major']
     groups:
-      # Only this entry tracks vite-plus. Dependabot leaves the `vite` alias
-      # (npm:) behind; .github/workflows/vite-plus-sync.yml aligns the alias,
-      # site and installer on its PR.
+      # Only root tracks vite-plus; .github/workflows/vite-plus-sync.yml aligns
+      # workspace member manifests and the root vite alias on its PR.
       vite-plus:
         patterns: ['vite-plus']
+      typescript:
+        patterns: ['typescript']
+        update-types: ['patch']
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+        update-types: ['patch']
+      cloudflare:
+        patterns: ['wrangler', 'miniflare', '@cloudflare/*']
+        update-types: ['patch']
+      tauri:
+        patterns: ['@tauri-apps/*']
+        update-types: ['patch']
       tooling:
-        patterns: ['*']
-        update-types: ['patch']
-      minor-updates:
-        patterns: ['*']
-        update-types: ['minor']
-  - package-ecosystem: 'bun'
-    directory: '/bazaarplusplus-site'
-    schedule:
-      interval: 'weekly'
-    open-pull-requests-limit: 3
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: 'build(site)'
-    # Coupled toolchain majors need a deliberate compatibility upgrade.
-    ignore:
-      - dependency-name: 'typescript'
-        update-types: ['version-update:semver-major']
-      # The root entry tracks vite-plus; `just vite-plus-sync` copies it here.
-      - dependency-name: 'vite-plus'
-    groups:
-      typescript:
-        patterns: ['typescript']
-        update-types: ['patch']
-      react:
-        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
-        update-types: ['patch']
-      cloudflare:
-        patterns: ['wrangler', 'miniflare', '@cloudflare/*']
-        update-types: ['patch']
-      other:
-        patterns: ['*']
-        update-types: ['patch']
-      minor-updates:
-        patterns: ['*']
-        update-types: ['minor']
-  - package-ecosystem: 'bun'
-    directory: '/bazaarplusplus-ui-docs'
-    schedule:
-      interval: 'weekly'
-    open-pull-requests-limit: 3
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: 'build(ui-docs)'
-    # Coupled toolchain majors need a deliberate compatibility upgrade.
-    ignore:
-      - dependency-name: 'typescript'
-        update-types: ['version-update:semver-major']
-      # The root entry tracks vite-plus; `just vite-plus-sync` copies it here.
-      - dependency-name: 'vite-plus'
-    groups:
-      typescript:
-        patterns: ['typescript']
-        update-types: ['patch']
-      react:
-        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
-        update-types: ['patch']
-      cloudflare:
-        patterns: ['wrangler', 'miniflare', '@cloudflare/*']
-        update-types: ['patch']
-      other:
         patterns: ['*']
         update-types: ['patch']
       minor-updates:
@@ -151,37 +100,6 @@ updates:
       cloudflare-security:
         applies-to: security-updates
         patterns: ['wrangler', 'miniflare', 'undici', '@cloudflare/*']
-  - package-ecosystem: 'bun'
-    directory: '/bazaarplusplus-installer'
-    schedule:
-      interval: 'weekly'
-    open-pull-requests-limit: 3
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: 'build(installer)'
-    # Coupled toolchain majors need a deliberate compatibility upgrade.
-    ignore:
-      - dependency-name: 'typescript'
-        update-types: ['version-update:semver-major']
-      # The root entry tracks vite-plus; `just vite-plus-sync` copies it here.
-      - dependency-name: 'vite-plus'
-    groups:
-      typescript:
-        patterns: ['typescript']
-        update-types: ['patch']
-      react:
-        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
-        update-types: ['patch']
-      tauri:
-        patterns: ['@tauri-apps/*']
-        update-types: ['patch']
-      other:
-        patterns: ['*']
-        update-types: ['patch']
-      minor-updates:
-        patterns: ['*']
-        update-types: ['minor']
   - package-ecosystem: 'cargo'
     directory: '/bazaarplusplus-installer/src-tauri'
     schedule:

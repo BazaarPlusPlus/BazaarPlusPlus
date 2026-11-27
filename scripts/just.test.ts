@@ -43,6 +43,8 @@ const projects = [
   'analyzer',
   'android'
 ];
+const packageProjects = ['ui'];
+const allProjects = [...projects, ...packageProjects];
 const moduleFiles = [
   ...fs
     .readFileSync(path.join(root, 'JUSTFILE'), 'utf8')
@@ -189,14 +191,16 @@ const releaseVerb = ({ tool, args }: RecordedCall): string | null => {
   return index === -1 ? null : args[index + 1];
 };
 const projectDir = (dir: string, project: string): string =>
-  path.join(dir, `bazaarplusplus-${project}`);
+  packageProjects.includes(project)
+    ? path.join(dir, 'packages', project)
+    : path.join(dir, `bazaarplusplus-${project}`);
 
 function assertProjectGates(
   dir: string,
   calls: RecordedCall[],
-  gated: readonly string[] = projects
+  gated: readonly string[] = allProjects
 ): void {
-  const dirs = new Set([dir, ...projects.map((p) => projectDir(dir, p))]);
+  const dirs = new Set([dir, ...allProjects.map((p) => projectDir(dir, p))]);
   for (const entry of calls) {
     assert.ok(
       dirs.has(entry.cwd),
@@ -349,7 +353,7 @@ test('fmt formats every project, then re-projects release files', (t) => {
   assertProjectGates(
     f.dir,
     calls,
-    projects.filter((project) => project !== 'android')
+    allProjects.filter((project) => project !== 'android')
   );
   assert.deepEqual(calls[0], call(f.dir, null, ...rootOxfmt('--write')));
   assert.deepEqual(

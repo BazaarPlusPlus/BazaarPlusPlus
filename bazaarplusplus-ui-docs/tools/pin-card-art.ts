@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import type { FxMaterial } from '../../design/ui/game/enchantment-fx/program';
-import type { CardDefinition } from '../../design/ui/game/CardDetail';
+import type { FxMaterial } from '../../packages/ui/src/game/enchantment-fx/program';
+import type { CardDefinition } from '../../packages/ui/src/game/CardDetail';
 import run from '../src/demo-data/run.json';
-import { cardTiers } from '../../design/ui/game/types';
+import { cardTiers } from '../../packages/ui/src/game/types';
 
 const origin = 'https://cdn.bazaarplusplus.com/card-art/';
 const dir = 'public/card-art/';

@@ -3,7 +3,7 @@ import { Loader2, Star } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useLocation } from 'react-router-dom';
 import { PageShell } from '../components/ui/PageShell';
-import { StatusPanel } from '@bpp/ui';
+import { StatusPanel } from '@bazaarplusplus/ui';
 import { useAppBootstrap } from '../features/about/AppBootstrapProvider';
 import { GameAssetsPanel } from '../features/install/GameAssetsPanel';
 import { InstallActionsPanel } from '../features/install/InstallActionsPanel';

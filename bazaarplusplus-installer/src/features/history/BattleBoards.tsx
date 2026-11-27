@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { Board, SkillStrip, useCardCatalog } from '@bpp/ui';
+import { Board, SkillStrip, useCardCatalog } from '@bazaarplusplus/ui/game';
 import { useI18n } from '../../i18n/LocaleProvider';
 import type { HistoryBattleCard, HistoryBattleRow } from '../../types/backend';
 

@@ -6,7 +6,7 @@ describe('pxFontSizes', () => {
   it('rejects a px font size and names its line', () => {
     const css = '.a {\n  color: red;\n  font-size: 14px;\n}\n';
     expect(pxFontSizes(css)).toEqual([
-      'design/components/bundle.css:3 sets font-size: 14px; use a --type-* token'
+      'packages/ui/styles/primitives.css:3 sets font-size: 14px; use a --type-* token'
     ]);
   });
 

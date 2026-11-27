@@ -72,15 +72,13 @@ interface AppTypeStyle {
 const designDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.dirname(designDir);
 const tokensPath = path.join(designDir, 'tokens.json');
-const bundlePath = path.join(designDir, 'components', 'bundle.css');
-const tokensCssPath = path.join(
-  repoRoot,
-  'bazaarplusplus-installer',
-  'src',
-  'styles',
-  'tokens.css'
-);
-const TAILWIND_THEME = 'design/tailwind-theme.css';
+const UI_STYLES_DIR = path.join(repoRoot, 'packages', 'ui', 'styles');
+const UI_COMPONENT_STYLES = [
+  'packages/ui/styles/primitives.css',
+  'packages/ui/styles/game.css'
+];
+const tokensCssPath = path.join(UI_STYLES_DIR, 'tokens.css');
+const TAILWIND_THEME = 'packages/ui/styles/theme.css';
 const COVERS = path.join(designDir, 'assets', 'Covers', 'the-bazaar');
 const COPIES = [
   {
@@ -249,8 +247,8 @@ function tokenNames(tokens: DesignTokens): Set<string> {
   return names;
 }
 
-function undefinedBundleVars(tokens: DesignTokens): string[] {
-  const css = fs.readFileSync(bundlePath, 'utf8');
+function undefinedStyleVars(tokens: DesignTokens, relPath: string): string[] {
+  const css = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
   const declared = new Set(
     [...css.matchAll(/(?:^|[;{\s])--([\w-]+)\s*:/g)].map((match) => match[1])
   );
@@ -260,7 +258,10 @@ function undefinedBundleVars(tokens: DesignTokens): string[] {
     .sort();
 }
 
-export function pxFontSizes(css: string): string[] {
+export function pxFontSizes(
+  css: string,
+  file = 'packages/ui/styles/primitives.css'
+): string[] {
   const problems: string[] = [];
   const text = css.replace(/\/\*[\s\S]*?\*\//g, (comment) =>
     comment.replace(/[^\n]/g, ' ')
@@ -269,7 +270,7 @@ export function pxFontSizes(css: string): string[] {
     const value = /(?:^|[;{\s])font-size\s*:\s*([^;}]*)/.exec(line)?.[1];
     if (value && /\d(?:\.\d+)?px\b/.test(value)) {
       problems.push(
-        `design/components/bundle.css:${index + 1} sets font-size: ${value.trim()}; use a --type-* token`
+        `${file}:${index + 1} sets font-size: ${value.trim()}; use a --type-* token`
       );
     }
   });
@@ -643,11 +644,12 @@ function main(argv: readonly string[]): void {
   if (current !== css) {
     if (check) {
       problems.push(
-        'bazaarplusplus-installer/src/styles/tokens.css is stale; run `just design::build`'
+        'packages/ui/styles/tokens.css is stale; run `just design::build`'
       );
     } else {
+      fs.mkdirSync(path.dirname(tokensCssPath), { recursive: true });
       fs.writeFileSync(tokensCssPath, css);
-      console.log('Wrote bazaarplusplus-installer/src/styles/tokens.css');
+      console.log('Wrote packages/ui/styles/tokens.css');
     }
   }
 
@@ -707,13 +709,18 @@ function main(argv: readonly string[]): void {
     }
   }
 
-  const missing = undefinedBundleVars(tokens);
-  if (missing.length > 0) {
+  for (const relPath of UI_COMPONENT_STYLES) {
+    const missing = undefinedStyleVars(tokens, relPath);
+    if (missing.length > 0) {
+      problems.push(`${relPath} reads undefined tokens: ${missing.join(', ')}`);
+    }
     problems.push(
-      `design/components/bundle.css reads undefined tokens: ${missing.join(', ')}`
+      ...pxFontSizes(
+        fs.readFileSync(path.join(repoRoot, relPath), 'utf8'),
+        relPath
+      )
     );
   }
-  problems.push(...pxFontSizes(fs.readFileSync(bundlePath, 'utf8')));
   problems.push(...heroMismatches(tokens));
   problems.push(...supporterMismatches(tokens));
   problems.push(...staleLauncherIcon());

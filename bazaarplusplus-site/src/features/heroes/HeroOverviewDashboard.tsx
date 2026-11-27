@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy } from '../../content/site-copy';
-import { Badge, SegmentedControl, StatusPanel } from '@bpp/ui';
+import { Badge, SegmentedControl, StatusPanel } from '@bazaarplusplus/ui';
 import HeroBadge from '../../shared/components/HeroBadge';
 import { SectionHeading } from '../../shared/components/PageLayout';
 import StatsPageShell from '../../shared/components/StatsPageShell';

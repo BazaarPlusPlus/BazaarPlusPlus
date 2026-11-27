@@ -14,9 +14,11 @@ mod analyzer 'bazaarplusplus-analyzer/analyzer.just'
 mod android 'bazaarplusplus-android/android.just'
 mod release 'release/release.just'
 mod design 'design/design.just'
+mod runs 'packages/runs/runs.just'
+mod ui 'packages/ui/ui.just'
 
 # `just --fmt` does not descend into modules, so format each file explicitly.
-just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-ui-docs/ui-docs.just bazaarplusplus-server/server.just bazaarplusplus-bot/bot.just bazaarplusplus-analyzer/analyzer.just bazaarplusplus-android/android.just release/release.just design/design.just"
+just_files := "JUSTFILE bazaarplusplus-mod/mod.just bazaarplusplus-installer/installer.just bazaarplusplus-site/site.just bazaarplusplus-ui-docs/ui-docs.just bazaarplusplus-server/server.just bazaarplusplus-bot/bot.just bazaarplusplus-analyzer/analyzer.just bazaarplusplus-android/android.just release/release.just design/design.just packages/runs/runs.just packages/ui/ui.just"
 
 # List commands without building or publishing anything.
 default:
@@ -24,15 +26,15 @@ default:
 
 # Check all projects without signing, publishing, or deploying to the game.
 [group('workspace')]
-check: commands-check design::check release::check mod::check installer::check site::check ui-docs::check server::check bot::check analyzer::check android::check
+check: commands-check design::check runs::check ui::check release::check mod::check installer::check site::check ui-docs::check server::check bot::check analyzer::check android::check
 
 # Run all project tests without publishing data or deploying to the game.
 [group('workspace')]
-test: commands-check release::test mod::test installer::test site::test ui-docs::test server::test bot::test analyzer::test android::test
+test: commands-check runs::test ui::test release::test mod::test installer::test site::test ui-docs::test server::test bot::test analyzer::test android::test
 
 # Format every project in place, then re-project release files.
 [group('workspace')]
-fmt: && mod::fmt installer::fmt site::fmt ui-docs::fmt server::fmt bot::fmt analyzer::fmt release::sync
+fmt: && mod::fmt ui::fmt installer::fmt site::fmt ui-docs::fmt server::fmt bot::fmt analyzer::fmt release::sync
     for file in {{ just_files }}; do {{ quote(just_executable()) }} --justfile "$file" --fmt; done
     bun run vp fmt --write
 

@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import type { Locale, ResolvedSpaLocation } from '../../app/router';
 import { getSiteCopy, type DownloadPageCopy } from '../../content/site-copy';
-import { AlertIcon, Badge, Button } from '@bpp/ui';
+import { AlertIcon, Badge, Button } from '@bazaarplusplus/ui';
 import {
   CheckIcon,
   DownloadIcon,

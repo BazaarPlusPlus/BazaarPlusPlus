@@ -1,13 +1,14 @@
 import { defineConfig } from 'vite-plus';
 
-// Each bazaarplusplus-* project checks itself with its own config.
+// Each bazaarplusplus-* project and packages/ui checks itself with its own config.
 const ignorePatterns = [
   'bazaarplusplus-*/**',
+  'packages/ui/**',
   // A symlink to .agents/skills, which is checked under its real path.
   '.claude/**',
   // oxfmt aligns tables by character count, which breaks Chinese tables.
   '**/*.md',
-  'runs/message-stream/game-message-schema.json'
+  'packages/runs/message-stream/game-message-schema.json'
 ];
 
 export default defineConfig({
@@ -19,12 +20,7 @@ export default defineConfig({
     sortPackageJson: false
   },
   lint: {
-    ignorePatterns: [
-      ...ignorePatterns,
-      // The Web component library lints itself under the React rules
-      // (design/ui/vite.config.ts).
-      'design/ui/**'
-    ],
+    ignorePatterns,
     plugins: ['typescript'],
     categories: {
       correctness: 'off'

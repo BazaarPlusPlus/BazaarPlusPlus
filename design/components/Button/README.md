@@ -1,6 +1,6 @@
 The one button: primary, secondary, ghost or danger, in md, sm and two icon-only sizes, with a busy state that keeps its width.
 
-Source: `Button` and `buttonClassName` in `design/ui/Button.tsx` with `.bpp-btn*` in `bundle.css`, rendered by the installer and the site. It renders as an `<a>` when given `href`.
+Source: `Button` and `buttonClassName` in `packages/ui/src/Button.tsx` with `.bpp-btn*` in `packages/ui/styles/primitives.css`, rendered by the installer and the site. It renders as an `<a>` when given `href`.
 
 ## Use
 

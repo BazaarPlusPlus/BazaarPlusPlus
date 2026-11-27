@@ -55,9 +55,11 @@ All platforms upload run and replay data in the background while outside a run, 
 | `bazaarplusplus-server/`    | Cloudflare Worker: Bundle upload, Ghost discovery, and BazaarDB delivery     |
 | `bazaarplusplus-bot/`       | QQ commands, account bindings, and player report images                      |
 | `bazaarplusplus-analyzer/`  | Turns Bundles into hero and build snapshots                                  |
-| `bazaarplusplus-ui-docs/` | [UI kit documentation](https://ui.bazaarplusplus.com) |
+| `bazaarplusplus-ui-docs/`   | [UI kit documentation](https://ui.bazaarplusplus.com)                        |
 | `bazaarplusplus-site/`      | bazaarplusplus.com                                                           |
-| `design/`                   | Design tokens, shared styles, and the brand book                             |
+| `packages/ui/`              | Standalone React 19 + Tailwind 4 UI kit (`@bazaarplusplus/ui`)               |
+| `packages/runs/`            | Shared internal run message stream and decision projection (`@bpp/runs`)     |
+| `design/`                   | Cross-platform design tokens, brand mark, and guidelines                     |
 | `VERSION`, `release/`       | Product version and the release pipeline                                     |
 
 ```bash

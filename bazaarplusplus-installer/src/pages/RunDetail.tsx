@@ -12,13 +12,8 @@ import {
 import { BattleBoards } from '../features/history/BattleBoards';
 import { HistoryCardCatalog } from '../features/history/HistoryCardCatalog';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Button,
-  buttonClassName,
-  fillTerm,
-  gameTerms,
-  StatusPanel
-} from '@bpp/ui';
+import { Button, buttonClassName, StatusPanel } from '@bazaarplusplus/ui';
+import { fillTerm, gameTerms } from '@bazaarplusplus/ui/game';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PageShell } from '../components/ui/PageShell';
 import { ProblemBanner } from '../components/ui/ProblemBanner';

@@ -9,7 +9,7 @@ import {
   type Enchantment,
   type FxMaterial,
   type GameCard
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui/game';
 import manifest from '../public/card-art/manifest.json';
 import definitions from './demo-data/definition.json';
 import type { Locale } from './copy';

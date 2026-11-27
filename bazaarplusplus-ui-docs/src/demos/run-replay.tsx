@@ -1,4 +1,9 @@
-import { MomentPanel, RunReplay, fillTerm, gameTerms } from '@bpp/ui';
+import {
+  MomentPanel,
+  RunReplay,
+  fillTerm,
+  gameTerms
+} from '@bazaarplusplus/ui/game';
 import type { DemoProps } from '../copy';
 import { card, pinned } from '../cards';
 import run from '../demo-data/run.json';

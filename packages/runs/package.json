@@ -1,0 +1,14 @@
+{
+  "name": "@bpp/runs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./msgpack": "./msgpack.ts",
+    "./decisions": "./decisions.ts",
+    "./decision-path": "./message-stream/decision-path.ts",
+    "./message-stream/*": "./message-stream/*.ts",
+    "./message-stream/game-message-schema.json": "./message-stream/game-message-schema.json",
+    "./test/fixtures/*": "./test/fixtures/*.ts"
+  }
+}

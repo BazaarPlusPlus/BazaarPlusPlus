@@ -133,7 +133,7 @@ jobs:
       # The Managed Payload zip is signed with the installer's pinned Tauri CLI.
       - if: matrix.platform == 'android'
         name: Install the Tauri CLI
-        run: bun install --frozen-lockfile --cwd bazaarplusplus-installer
+        run: bun install --frozen-lockfile
       # The Android App builds with the JDK and the SDK packages its toolchain
       # lock pins, as the android job of checks.yml does; apksigner and zipalign
       # come from the same build-tools.

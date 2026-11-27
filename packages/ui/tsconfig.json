@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "customConditions": ["@bpp/source"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/**/*.ts",
+    "test/**/*.tsx",
+    "tools/**/*.ts",
+    "ui-classes.ts"
+  ]
+}

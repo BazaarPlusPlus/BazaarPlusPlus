@@ -11,20 +11,13 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "customConditions": ["@bpp/source"],
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "vite/client", "react", "react-dom"],
-    "paths": {
-      "@bpp/runs/msgpack": ["../runs/msgpack.ts"],
-      "@bpp/runs/decisions": ["../runs/decisions.ts"],
-      "@bpp/runs/decision-path": ["../runs/message-stream/decision-path.ts"],
-      "@bpp/ui": ["../design/ui/index.ts"],
-      "react": ["./node_modules/@types/react"],
-      "react/*": ["./node_modules/@types/react/*"]
-    }
+    "types": ["node", "vite/client", "react", "react-dom"]
   },
   "include": [
     "src/**/*.ts",

@@ -1,3 +1,7 @@
+---
+superseded-by: 0026-standalone-ui-and-runs-packages.md
+---
+
 # installer 和 site 共用一套 Web 组件库
 
 ## 背景

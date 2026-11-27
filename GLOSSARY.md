@@ -166,5 +166,5 @@ _Avoid_: Run Summary, Run detail copy
 ## Design
 
 **Design System** (设计系统):
-The one source for what the installer and bazaarplusplus.com look and read like: design tokens, the shared `bpp-*` component styles, the brand mark, the brand book and the writing standard, kept in `design/` and published as a Design System artifact. The products consume it; they do not restate its values (`docs/design.md`).
+The one source for what the installer, bazaarplusplus.com, the Android App, and in-game panels look and read like: design tokens, the brand mark, the brand book and the writing standard, kept in `design/`, with interactive Web component documentation at `bazaarplusplus-ui-docs/` (`docs/design.md`).
 _Avoid_: style guide, theme

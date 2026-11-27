@@ -1,4 +1,5 @@
-import * as ui from '@bpp/ui';
+import * as ui from '@bazaarplusplus/ui';
+import * as game from '@bazaarplusplus/ui/game';
 import { test, expect } from 'vite-plus/test';
 import { pages } from '../src/pages';
 const families: Record<string, string[]> = {
@@ -26,7 +27,7 @@ const families: Record<string, string[]> = {
     'SuccessIcon',
     'WarningIcon'
   ],
-  cards: ['CardTile', 'CardChip'],
+  cards: ['CardTile', 'CardChip', 'SkillTile'],
   board: ['Board', 'SkillStrip'],
   'card-detail': ['CardDetail', 'CardText'],
   'day-card': ['DayCard'],
@@ -35,7 +36,7 @@ const families: Record<string, string[]> = {
 };
 test('each public visual export belongs to a live demo', () => {
   expect(Object.values(families).flat().sort()).toEqual(
-    Object.keys(ui)
+    [...Object.keys(ui), ...Object.keys(game)]
       .filter(
         (k) =>
           ![
@@ -45,8 +46,9 @@ test('each public visual export belongs to a live demo', () => {
             'gameTerms',
             'fillTerm',
             // The card catalog binds the components above to product data; the
-            // installer's catalog and Run Detail tests cover them.
+            // UI kit's catalog tests and product Run Detail tests cover them.
             'CardCatalog',
+            'createCardCatalogClient',
             'useCardCatalog',
             'DecisionReplay',
             'StreamFrames'

@@ -49,3 +49,5 @@
 - 安装器第一次导出完成前（约 30 秒），以及找不到游戏或游戏缓存时，卡牌只有战斗快照里的名字，没有卡图、卡牌详情和附魔效果。页面在导出时显示一行状态。
 - 网站中文页面的卡名改为中文，打开对局详情时会读中文 Card Text（约 324 KB，gzip 后）。
 - 组件库的改动现在也会影响 `runs/` 的使用方式；改 `runs/` 的展示接口时，要跑 installer、site 和 UI 文档站的 check 与 test。
+
+2026-11-27 注：组件库已独立为 `packages/ui/`（`@bazaarplusplus/ui`），`CardCatalog` 支持可注入的 `createCardCatalogClient`，`DecisionReplay` 改用结构化类型不再直接依赖 `runs/`，见 [ADR 0026](0026-standalone-ui-and-runs-packages.md)。

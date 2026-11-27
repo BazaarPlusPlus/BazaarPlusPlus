@@ -12,7 +12,7 @@ import {
   fillTerm,
   useCardCatalog,
   type ReplayBattle
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui/game';
 import {
   combatFacts,
   decisionDays,

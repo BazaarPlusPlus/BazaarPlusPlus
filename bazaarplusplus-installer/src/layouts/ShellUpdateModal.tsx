@@ -14,7 +14,7 @@ import {
   DialogCard,
   DialogFooter,
   DialogHeader
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui';
 import { useActiveModalDismissalPolicy } from '../components/ui/ModalCoordinator';
 import { ConfirmNote } from '../components/ui/ConfirmDialog';
 import { ProblemBanner } from '../components/ui/ProblemBanner';

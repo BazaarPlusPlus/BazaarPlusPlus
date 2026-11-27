@@ -40,9 +40,7 @@ function writeFixture(
             vite: spec.vite,
             'vite-plus': spec.vitePlus
           },
-          overrides: {
-            vite: spec.override
-          }
+          ...(project === '.' ? { overrides: { vite: spec.override } } : {})
         },
         null,
         2

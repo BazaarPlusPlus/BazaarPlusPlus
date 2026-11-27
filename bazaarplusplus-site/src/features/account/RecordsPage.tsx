@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Button, StatusPanel } from '@bpp/ui';
+import { Button, StatusPanel } from '@bazaarplusplus/ui';
 
 import {
   buildRouteHref,

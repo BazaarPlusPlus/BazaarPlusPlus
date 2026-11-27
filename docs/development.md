@@ -43,13 +43,13 @@ just mod::fetch macos online      # Windows 用 windows
 
 ## 环境与依赖
 
-根发布工具和各项目各自保留依赖与 `bun.lock`，不启用 workspaces。Bun 负责 JS/TS 开发工具链；Cloudflare Worker 仍由 workerd 执行。各目录的 `bunfig.toml` 让依赖 CLI 的 Node shebang 也通过 Bun 运行，并关闭自动加载 `.env`，由 workspace profile 和框架各自读取配置。测试仍用 `bun run test` 调用 Vitest。
+根目录对前端生态启用了白名单 Bun Workspaces（`packages/*`、`bazaarplusplus-site`、`bazaarplusplus-installer`、`bazaarplusplus-ui-docs` 共用根 `bun.lock` 与 `overrides`，见 [ADR 0026](adr/0026-standalone-ui-and-runs-packages.md)）；`bazaarplusplus-server` 与 `bazaarplusplus-bot` 因依赖 Vitest 4 + `@cloudflare/vitest-pool-workers` 仍各自保留独立 `bun.lock`。Bun 负责 JS/TS 开发工具链；Cloudflare Worker 仍由 workerd 执行。各目录的 `bunfig.toml` 让依赖 CLI 的 Node shebang 也通过 Bun 运行，并关闭自动加载 `.env`，由 workspace profile 和框架各自读取配置。测试仍用 `bun run test` 调用 Vitest。
 
 | 范围 | 版本来源 | 安装依赖 |
 | --- | --- | --- |
 | just | 本仓库用 `just 1.58.0` 验证 | macOS `brew install just`；Windows `winget install --id Casey.Just --exact` |
-| 根发布工具 | 根 `package.json` 的 `packageManager` | 根目录 `bun install --frozen-lockfile` |
-| installer、site、ui-docs、server | 各自 `package.json` 的 `engines` 与 `packageManager` | 各目录 `bun install --frozen-lockfile`；site 和 ui-docs 另需 `bun run playwright install chromium`（`site::e2e` 和 `ui-docs::test` 需要） |
+| 根发布工具、`packages/*`、installer、site、ui-docs | 根 `package.json` 的 `packageManager` 与各自 `engines` | 根目录 `bun install --frozen-lockfile`；site 和 ui-docs 另需 `bun run playwright install chromium`（`site::e2e` 和 `ui-docs::test` 需要） |
+| server、bot | 各自 `package.json` 的 `engines` 与 `packageManager` | 各自目录 `bun install --frozen-lockfile` |
 | mod | `bazaarplusplus-mod/global.json`；快照锁指向的游戏程序集，见[游戏程序集](#游戏程序集) | .NET restore |
 | installer Rust | `bazaarplusplus-installer/rust-toolchain.toml`；[Tauri 系统依赖](https://tauri.app/start/prerequisites/) | locked Cargo |
 | analyzer | `bazaarplusplus-analyzer/.python-version`、uv | analyzer 目录 `uv sync --locked` |
@@ -61,7 +61,7 @@ Windows 在 Git Bash 中执行 just，`bash`、`just` 和语言工具链都要�
 
 根工具是 `release/`、`scripts/`、`.github/scripts/`、`design/build.ts` 和 `.agents/skills/*/scripts/` 里的 TypeScript。它们共用根目录的一套工具链：`tsconfig.json`（严格类型检查）、`vite.config.ts`（`lint` 块拦住绕过类型检查的写法，`fmt` 块管格式）和 `vitest.config.ts`（`release` 和 `tooling` 两个测试项目）。根目录的 lint 和格式化覆盖除各 `bazaarplusplus-*` 项目和 Markdown 以外的所有文件，包括 `design/`。门禁是 `just commands-check` 和 `just release::test`。项目自己的脚本留在项目里，用项目的门禁，例如 installer 的 `scripts/`：Bun 也直接运行它们，所以 `bazaarplusplus-installer/scripts/tsconfig.json` 继承根目录的编译选项。
 
-根工具、installer、site 和 ui-docs 用 Vite+（`vp`）：`vp check` 一次跑格式、lint 和类型检查，`vp test` 跑 Vitest，`vp build` 构建；oxlint 和 oxfmt 的版本由 `vite-plus` 固定。server 仍直接用 oxlint、oxfmt 和 Vitest 4，因为 `@cloudflare/vitest-pool-workers` 还不支持 Vite+ 自带的 Vitest 5（[ADR 0017](adr/0017-vite-plus.md)）。五个项目使用同一组格式选项（根工具、installer、site、ui-docs 在 `vite.config.ts` 的 `fmt` 块，server 在 `.oxfmtrc.json`），只有忽略路径不同。改格式选项时五份一起改。
+根工具、packages/ui、installer、site 和 ui-docs 用 Vite+（`vp`）：`vp check` 一次跑格式、lint 和类型检查，`vp test` 跑 Vitest，`vp build` 构建，`vp pack` 打包 `@bazaarplusplus/ui`；oxlint 和 oxfmt 的版本由 `vite-plus` 固定。server 与 bot 仍直接用 oxlint、oxfmt 和 Vitest 4，因为 `@cloudflare/vitest-pool-workers` 还不支持 Vite+ 自带的 Vitest 5（[ADR 0017](adr/0017-vite-plus.md)）。各项目使用同一组格式选项（根工具、packages/ui、installer、site、ui-docs 在 `vite.config.ts` 的 `fmt` 块，server 与 bot 在 `.oxfmtrc.json`），只有忽略路径不同。改格式选项时一起改。
 
 - Bun 直接运行 `.ts` 文件，没有单独的构建步骤。继续限制为可擦除的语法：`erasableSyntaxOnly` 拒绝 enum、namespace 和参数属性。相对 import 写 `.ts` 扩展名。类型 import 写成 `import type`，避免隐式运行时依赖。
 - 新脚本按用途放：发布模块放 `release/`，开发者工具和共享 helper 放 `scripts/`，只给 CI 用的放 `.github/scripts/`。测试和模块放在同一目录，命名为 `<模块>.test.ts`。

@@ -5,26 +5,30 @@ pre-commit:
   parallel: true
   jobs:
     - name: workspace
-      glob: '{JUSTFILE,**/*.just,package.json,bun.lock,bunfig.toml,tsconfig.json,vite.config.ts,vitest.config.ts,lefthook.yml,VERSION,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/**}'
-      run: just commands-check release::check
+      glob: '{JUSTFILE,**/*.just,package.json,packages/ui/package.json,bun.lock,bunfig.toml,tsconfig.json,vite.config.ts,vitest.config.ts,lefthook.yml,VERSION,release/**,scripts/**,.github/scripts/**,.agents/skills/**,design/**,packages/runs/**}'
+      run: just commands-check runs::check release::check
 
     - name: design
-      glob: 'design/**'
+      glob: '{design/**,packages/ui/styles/**}'
       run: just design::check
+
+    - name: ui
+      glob: '{packages/ui/**,design/tokens.json,JUSTFILE}'
+      run: just ui::check-fast
 
     - name: mod
       glob: '{bazaarplusplus-mod/**,bazaarplusplus-server/contracts/**,bazaarplusplus-analyzer/contracts/**,release/**,VERSION,JUSTFILE}'
       run: just verify mod::check
 
     - name: installer
-      glob: '{bazaarplusplus-installer/**,design/**,tsconfig.json,release/**,VERSION,scripts/**,JUSTFILE}'
+      glob: '{bazaarplusplus-installer/**,packages/ui/**,packages/runs/**,design/**,tsconfig.json,release/**,VERSION,scripts/**,JUSTFILE}'
       run: just installer::check-fast
 
     - name: ui-docs
-      glob: '{bazaarplusplus-ui-docs/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,JUSTFILE}'
+      glob: '{bazaarplusplus-ui-docs/**,packages/ui/**,design/**,JUSTFILE}'
       run: just ui-docs::check
     - name: site
-      glob: '{bazaarplusplus-site/**,design/**,bazaarplusplus-installer/src/styles/tokens.css,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
+      glob: '{bazaarplusplus-site/**,packages/ui/**,packages/runs/**,design/**,bazaarplusplus-analyzer/contracts/**,release/**,JUSTFILE}'
       run: just site::check
 
     - name: server

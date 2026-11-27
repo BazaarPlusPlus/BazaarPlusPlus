@@ -4,7 +4,7 @@ import {
   type UiProblem
 } from '../../features/shared/problems';
 import { useI18n } from '../../i18n/LocaleProvider';
-import { Button, StatusBanner } from '@bpp/ui';
+import { Button, StatusBanner } from '@bazaarplusplus/ui';
 
 export function ProblemBanner({
   message,

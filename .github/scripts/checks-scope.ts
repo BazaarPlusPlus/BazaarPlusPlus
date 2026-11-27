@@ -66,6 +66,7 @@ const PROJECT_SCOPES: Partial<Record<string, string[]>> = {
 };
 export const SCOPES: string[] = [
   'release',
+  'ui',
   ...PROJECTS.flatMap((project) => PROJECT_SCOPES[project] ?? [project]),
   'macos-icon'
 ];
@@ -233,7 +234,6 @@ export const SHARED_INPUTS: [string, string[]][] = [
   // scripts/vite-plus.test.ts pins its vite-plus version to root package.json.
   ['bazaarplusplus-ui-docs/package.json', ['release']],
   ['bazaarplusplus-site/package.json', ['release']],
-  ['bazaarplusplus-installer/src/styles/tokens.css', ['site', 'ui-docs']],
   ['bazaarplusplus-installer/static/support/', ['site']],
   ['bazaarplusplus-installer/src-tauri/resources/', ['mod']],
   ['bazaarplusplus-installer/scripts/headless.ts', ['mod']],
@@ -246,7 +246,6 @@ export const SHARED_INPUTS: [string, string[]][] = [
   ['bazaarplusplus-installer/src-tauri/tauri.conf.json', ['mod']],
   ...[
     'package.json',
-    'bun.lock',
     'bunfig.toml',
     'src-tauri/Cargo.toml',
     'src-tauri/Cargo.lock',
@@ -403,12 +402,18 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
           for (const consumer of consumers)
             select(consumer, `Shared input: ${file}`);
       }
-    } else if (file.startsWith('runs/')) {
+    } else if (file.startsWith('packages/ui/')) {
+      for (const consumer of ['ui', 'installer-frontend', 'site', 'ui-docs'])
+        select(consumer, `UI kit: ${file}`);
+      if (file === 'packages/ui/package.json' || file.endsWith('.just'))
+        select('release', `UI kit config: ${file}`);
+    } else if (file.startsWith('packages/runs/')) {
       for (const scope of ['installer-frontend', 'site', 'release'])
         select(scope, file);
     } else if (file.startsWith('design/')) {
       // The release lane includes design::check, which verifies outputs consumed by the apps.
       for (const consumer of [
+        'ui',
         'installer-frontend',
         'site',
         'ui-docs',

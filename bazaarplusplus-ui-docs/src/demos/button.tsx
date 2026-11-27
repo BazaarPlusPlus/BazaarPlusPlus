@@ -1,4 +1,4 @@
-import { Button } from '@bpp/ui';
+import { Button } from '@bazaarplusplus/ui';
 import { translate, type DemoProps } from '../copy';
 
 export default function Demo({ lang }: DemoProps) {

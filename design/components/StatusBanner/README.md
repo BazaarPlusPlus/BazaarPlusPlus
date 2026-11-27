@@ -1,6 +1,6 @@
 An inline banner for page-level status: tone icon, message, optional actions and a collapsible diagnostic.
 
-Source: `StatusBanner` in `design/ui/StatusBanner.tsx` with `.bpp-banner*`. `ProblemBanner` (`bazaarplusplus-installer/src/components/ui/ProblemBanner.tsx`) is the single way a page shows a semantic problem. It wraps StatusBanner with a localized message, the problem's diagnostic and an optional Retry (`sm` secondary button).
+Source: `StatusBanner` in `packages/ui/src/StatusBanner.tsx` with `.bpp-banner*`. `ProblemBanner` (`bazaarplusplus-installer/src/components/ui/ProblemBanner.tsx`) is the single way a page shows a semantic problem. It wraps StatusBanner with a localized message, the problem's diagnostic and an optional Retry (`sm` secondary button).
 
 ## Use
 

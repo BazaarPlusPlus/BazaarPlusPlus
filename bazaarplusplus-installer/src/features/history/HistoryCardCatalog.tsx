@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { CardCatalog, type CardSource } from '@bpp/ui';
+import { CardCatalog, type CardSource } from '@bazaarplusplus/ui/game';
 import { hasTauriRuntime } from '../../api/runtime';
 import { ModalSource } from '../../components/ui/ModalCoordinator';
 import { useI18n } from '../../i18n/LocaleProvider';

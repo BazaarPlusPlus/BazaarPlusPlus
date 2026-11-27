@@ -1,4 +1,4 @@
-import { cardTiers } from '@bpp/ui';
+import { cardTiers } from '@bazaarplusplus/ui/game';
 import type { CardSet, RunBattle, RunCard } from './run-payload';
 
 const ITEM_TYPE = 0;

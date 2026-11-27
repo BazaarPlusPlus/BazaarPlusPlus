@@ -8,7 +8,7 @@ import {
   DialogBody,
   DialogCard,
   DialogHeader
-} from '@bpp/ui';
+} from '@bazaarplusplus/ui';
 import { ExternalLinkIcon } from '../../shared/components/icons';
 import InfoPageShell from '../../shared/components/InfoPageShell';
 import { SectionHeading } from '../../shared/components/PageLayout';

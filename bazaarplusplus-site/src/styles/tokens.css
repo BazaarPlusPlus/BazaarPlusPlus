@@ -1,7 +1,7 @@
 /* The Tailwind bridge: utilities resolve to the :root tokens that global.css
    imports before this file (bg-panel, text-text-2, border-line, text-body).
-   design/build.ts generates it from design/tokens.json. See docs/design.md. */
-@import '../../../design/tailwind-theme.css';
+   design/build.ts generates it into @bazaarplusplus/ui/theme.css. See docs/design.md. */
+@import '@bazaarplusplus/ui/theme.css';
 
 /* The site's own theme values, beside the generated bridge. */
 @theme inline {

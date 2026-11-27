@@ -1,4 +1,4 @@
-import { SegmentedControl } from '@bpp/ui';
+import { SegmentedControl } from '@bazaarplusplus/ui';
 import { translate, type DemoProps } from '../copy';
 import { useState } from 'react';
 export default function Demo({ lang }: DemoProps) {

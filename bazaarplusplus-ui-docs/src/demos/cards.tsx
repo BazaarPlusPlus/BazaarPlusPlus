@@ -1,4 +1,9 @@
-import { CardChip, CardTile, cardTiers, enchantments } from '@bpp/ui';
+import {
+  CardChip,
+  CardTile,
+  cardTiers,
+  enchantments
+} from '@bazaarplusplus/ui/game';
 import { card, pinned } from '../cards';
 import { type DemoProps, translate } from '../copy';
 const open = () => {};

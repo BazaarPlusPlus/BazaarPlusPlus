@@ -1,5 +1,5 @@
 import { combatFacts } from '@bpp/runs/decisions';
-import type { CardSize } from '@bpp/ui';
+import type { CardSize } from '@bazaarplusplus/ui/game';
 import type { BattleMarker, StreamFrame } from '@bpp/runs/decisions';
 import { decodeMessagePack } from '@bpp/runs/msgpack';
 
