@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { type FxMaterial } from '@bazaarplusplus/ui/game';
+import type { FxMaterial } from '../../packages/ui/src/game/enchantment-fx/program';
 import {
   mockAccountApi,
   runDetailHandlers,

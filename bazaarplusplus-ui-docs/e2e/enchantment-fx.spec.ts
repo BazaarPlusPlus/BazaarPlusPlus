@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { enchantments, type FxMaterial } from '@bazaarplusplus/ui/game';
+import { enchantments } from '../../packages/ui/src/game/types';
+import type { FxMaterial } from '../../packages/ui/src/game/enchantment-fx/program';
 
 const catalogDirectory = resolvePath('public/card-art');
 const catalogManifest = JSON.parse(
