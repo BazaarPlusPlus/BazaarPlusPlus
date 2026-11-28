@@ -8,12 +8,23 @@ import {
   type GameCard
 } from './Card';
 import { CardText, type CardTextLine } from './CardText';
-import { enchantments, type CardTier, type Enchantment } from './types';
+import {
+  enchantments,
+  type CardSize,
+  type CardTier,
+  type Enchantment
+} from './types';
 
-const DEFINITION_SIZES: Record<string, number> = {
+const DEFINITION_SIZES: Record<string, CardSize> = {
   Small: 1,
   Medium: 2,
   Large: 3
+};
+
+const SIZE_NAMES: Record<CardSize, string> = {
+  1: 'Small',
+  2: 'Medium',
+  3: 'Large'
 };
 
 // One choice for every card detail and preview on the page, remembered across visits.
@@ -147,13 +158,22 @@ export function CardDetail({
   const entries = all
     ? [...current, ...effects.filter(([name]) => name !== card.enchant)]
     : current;
+  const templateSize = DEFINITION_SIZES[definition?.size ?? ''];
+  const effectiveSize: CardSize | undefined =
+    card.size ??
+    (templateSize
+      ? card.enchant === 'Tiny' && templateSize > 1
+        ? ((templateSize - 1) as CardSize)
+        : templateSize
+      : undefined);
+  const sizeName = effectiveSize ? SIZE_NAMES[effectiveSize] : definition?.size;
   return (
     <article className="bpp-card-detail">
       <header className="bpp-detail-head">
         {card.art && (
           <div
             className={`bpp-detail-art ${tierClass(card.tier)}`}
-            data-size={card.size ?? DEFINITION_SIZES[definition?.size ?? '']}
+            data-size={effectiveSize}
           >
             <CardArt src={card.art} alt="" fallback="" />
             {card.fx && card.enchant && (
@@ -167,7 +187,7 @@ export function CardDetail({
           <TierLabel label={card.tierLabel} />
           <Tags
             tags={[
-              definition && (labels.sizes[definition.size] ?? definition.size),
+              definition && sizeName && (labels.sizes[sizeName] ?? sizeName),
               ...localizedTags(definition?.tags ?? [])
             ]}
           />

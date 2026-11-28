@@ -269,6 +269,96 @@ it('renders only localized card and enchantment tags', async () => {
   expect(tags('.bpp-detail-enchant')).toEqual(['武器']);
 });
 
+it('shows the reduced size on Tiny Medium and Large cards in CardDetail', async () => {
+  const enchantLabels = {
+    Deadly: '',
+    Ethereal: '',
+    Fiery: '',
+    Golden: '',
+    Heavy: '',
+    Icy: '',
+    Mystical: '',
+    Obsidian: '',
+    Radiant: '',
+    Restorative: '',
+    Shielded: '',
+    Shiny: '',
+    Tiny: '迷你',
+    Toxic: '',
+    Turbo: '',
+    Mossy: ''
+  };
+  const labels = {
+    sizes: { Small: '小型', Medium: '中型', Large: '大型' },
+    enchantments: '附魔',
+    allEnchantments: '',
+    cooldown: '',
+    ammo: '',
+    seconds: '',
+    unavailable: ''
+  };
+  await render(
+    <CardDetail
+      card={{
+        name: '降落伞',
+        art: 'parachute.webp',
+        tier: 'Diamond',
+        tierLabel: '钻石',
+        enchant: 'Tiny',
+        enchantLabel: '迷你'
+      }}
+      definition={{
+        title: '降落伞',
+        size: 'Medium',
+        startingTier: 'Diamond',
+        attributes: {},
+        tags: [],
+        lines: [],
+        enchantments: {}
+      }}
+      tagLabels={{}}
+      labels={labels}
+      tierLabels={{}}
+      enchantLabels={enchantLabels}
+    />
+  );
+  expect(
+    container.querySelector('.bpp-detail-art')?.getAttribute('data-size')
+  ).toBe('1');
+  expect(tags('header')).toEqual(['小型']);
+
+  await render(
+    <CardDetail
+      card={{
+        name: '霜绝祭坛',
+        art: 'altar.webp',
+        tier: 'Legendary',
+        tierLabel: '传奇',
+        enchant: 'Tiny',
+        enchantLabel: '迷你',
+        size: 2
+      }}
+      definition={{
+        title: '霜绝祭坛',
+        size: 'Large',
+        startingTier: 'Legendary',
+        attributes: {},
+        tags: [],
+        lines: [],
+        enchantments: {}
+      }}
+      tagLabels={{}}
+      labels={labels}
+      tierLabels={{}}
+      enchantLabels={enchantLabels}
+    />
+  );
+  expect(
+    container.querySelector('.bpp-detail-art')?.getAttribute('data-size')
+  ).toBe('2');
+  expect(tags('header')).toEqual(['中型']);
+});
+
 it('supports controlled showAllEnchantments without touching localStorage', async () => {
   const getItem = vi.spyOn(Storage.prototype, 'getItem');
   const setItem = vi.spyOn(Storage.prototype, 'setItem');

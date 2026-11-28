@@ -24,35 +24,57 @@ function material(
 
 describe('PremiumCard program selection', () => {
   it.each([
+    ['Deadly', 'DANGEROUS'],
     ['Ethereal', 'SHINY'],
-    ['Icy', 'ICY']
-  ] as const)('uses the static frame for %s', async (enchant, keyword) => {
-    expect(
-      await fragment(material(enchant, keyword), enchant, false)
-    ).toBeNull();
-  });
-
-  it.each([
+    ['Fiery', 'FIERY'],
     ['Golden', 'GOLDEN'],
     ['Heavy', 'HEAVY'],
+    ['Icy', 'ICY'],
     ['Mossy', 'MOSSY'],
     ['Mystical', 'MYSTICAL'],
-    ['Shielded', 'TEMPERED']
-  ] as const)('renders %s on small materials', async (enchant, keyword) => {
-    expect(
-      await fragment(material(enchant, keyword), enchant, false)
-    ).toContain('vec3 effect()');
+    ['Obsidian', 'OBSIDIAN'],
+    ['Radiant', 'PRISMATIC'],
+    ['Restorative', 'RESTORATIVE'],
+    ['Shielded', 'TEMPERED'],
+    ['Shiny', 'DAZZLING'],
+    ['Toxic', 'TOXIC'],
+    ['Turbo', 'TURBO']
+  ] as const)('renders %s across card sizes', async (enchant, keyword) => {
+    const sources = await Promise.all(
+      (['small', 'medium', 'large'] as const).map((size) =>
+        fragment(material(enchant, keyword, size), enchant, false)
+      )
+    );
+    for (const source of sources) expect(source).toContain('vec3 effect()');
   });
 
-  it('checks the material revision and the Tiny geometry independently of the enchantment', async () => {
+  it('allows Tiny only on Medium and Large cards in tiny mode', async () => {
+    expect(
+      await fragment(material('Tiny', 'TINY', 'small'), 'Tiny', true)
+    ).toBeNull();
+    expect(
+      await fragment(material('Tiny', 'TINY', 'small'), 'Tiny', false)
+    ).toBeNull();
+    expect(
+      await fragment(material('Tiny', 'TINY', 'medium'), 'Tiny', false)
+    ).toBeNull();
+    expect(
+      await fragment(material('Tiny', 'TINY', 'large'), 'Tiny', false)
+    ).toBeNull();
+    expect(
+      await fragment(material('Tiny', 'TINY', 'medium'), 'Tiny', true)
+    ).toContain('_TinyBlocks');
+    expect(
+      await fragment(material('Tiny', 'TINY', 'large'), 'Tiny', true)
+    ).toContain('_TinyBlocks');
+  });
+
+  it('checks the material revision and rejects tiny mode on non-Tiny enchantments', async () => {
     const atlas = material('Shiny', 'DAZZLING', 'medium');
     expect(await fragment(atlas, 'Shiny', false)).toContain(
       '_DazzlingGlintMap'
     );
     expect(await fragment(atlas, 'Shiny', true)).toBeNull();
     expect(await fragment({ ...atlas, version: 2 }, 'Shiny', false)).toBeNull();
-    expect(await fragment(material('Tiny', 'TINY'), 'Tiny', true)).toContain(
-      '_Shared_Smoke'
-    );
   });
 });

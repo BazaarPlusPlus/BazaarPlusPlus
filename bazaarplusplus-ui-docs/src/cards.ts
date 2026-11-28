@@ -57,19 +57,30 @@ async function asset(file: string) {
   if (!response.ok) throw new Error('Unavailable Card Art asset: ' + file);
   return response;
 }
+function effectiveSize(base: CardSize, enchant: Enchantment | null): CardSize {
+  if (enchant !== 'Tiny') return base;
+  if (base === 1)
+    throw new Error('Tiny enchantment applies only to Medium and Large cards');
+  return (base - 1) as CardSize;
+}
 const sources = pinned.map((p): CardFx => ({
   slots: sizes[p.size],
   tiny: false,
   material: async () => (await (await asset(p.fx)).json()) as FxMaterial,
   texture: async (file) => (await asset(file)).blob()
 }));
-const tinySources = sources.map((source) => ({ ...source, tiny: true }));
+const tinySources = pinned.map((p, index): CardFx => ({
+  ...sources[index],
+  slots: sizes[p.size] > 1 ? ((sizes[p.size] - 1) as CardSize) : 1,
+  tiny: sizes[p.size] > 1
+}));
 export function card(
   lang: Locale,
   p: (typeof pinned)[number],
   enchant: Enchantment | null = null
 ): GameCard & { id: string; size: CardSize } {
   const tier = p.tier as CardTier;
+  const size = effectiveSize(sizes[p.size], enchant);
   const result = {
     id: p.id,
     name: p[lang],
@@ -78,7 +89,7 @@ export function card(
     tierLabel: gameTerms[lang].tiers[tier],
     enchant,
     enchantLabel: enchant ? gameTerms[lang].enchantments[enchant] : '',
-    size: sizes[p.size],
+    size,
     fx: enchant
       ? (enchant === 'Tiny' ? tinySources : sources)[pinned.indexOf(p)]
       : undefined
