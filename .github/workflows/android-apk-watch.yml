@@ -17,7 +17,7 @@ name: Android APK watch
 
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '17 */4 * * *'
   workflow_dispatch:
     inputs:
       force:
@@ -59,7 +59,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: package.json
-      # Size and ETag only: the hourly check never downloads 2.8 GB.
+      # Size and ETag only: the periodic check never downloads 2.8 GB.
       - if: env.PLAY_APKS == ''
         name: Compare the official APK with the locked one
         id: compare
@@ -128,7 +128,7 @@ jobs:
           git commit -m "chore(mod): record the official Android APK's ETag"
           git push origin "$BRANCH"
           printf '%s\n' \
-            "The publisher serves the locked APK (same sha256) under ETag \`$ETAG\`. Recording it keeps the hourly check from downloading it again." \
+            "The publisher serves the locked APK (same sha256) under ETag \`$ETAG\`. Recording it keeps the scheduled check from downloading it again." \
             '' \
             "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             '' \
@@ -182,7 +182,7 @@ jobs:
             fresh=true
           fi
           echo "fresh=$fresh" >> "$GITHUB_OUTPUT"
-      # Content-only too: the hourly comparison reads the locked APK's size from
+      # Content-only too: the periodic comparison reads the locked APK's size from
       # the private bucket, and the lock must stay fetchable from it alone.
       - if: steps.capture.outputs.fresh == 'true'
         name: Publish the captured inputs
