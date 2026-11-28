@@ -84,13 +84,14 @@ test('root documents, each project and global inputs select their daily gates', 
   expectScopes(['bazaarplusplus-site/src/main.tsx'], ['site']);
   for (const file of [
     'VERSION',
-    'release/payload.json',
-    'release/manifest.ts',
     'bun.lock',
     'JUSTFILE',
     'bunfig.toml',
     '.github/workflows/checks.yml',
-    'scripts/workspace.ts',
+    '.github/scripts/checks-scope.ts',
+    'scripts/git-command.ts',
+    'release/unknown-future-module.ts',
+    'scripts/unknown-future-script.ts',
     'new-input'
   ])
     expectScopes([file], [...SCOPES]);
@@ -190,7 +191,7 @@ test('deletions and cross-directory moves include old and new consumers', () => 
   );
   assert.deepEqual(
     selected(classifyChanges([{ status: 'D', file: 'docs/design.md' }])),
-    [...SCOPES].sort()
+    ['installer-frontend', 'mod-macos', 'release']
   );
   for (const changes of [
     null,
@@ -302,9 +303,9 @@ test('new cross-project reads cannot silently bypass consumers, including backsl
   );
 });
 
-test('design system inputs select the UI kit, installer frontend, site, Android App, server and root gates', () => {
+test('design system inputs select only the scopes that consume each design surface', () => {
   expectScopes(
-    ['design/tokens.json', 'design/build.ts', 'design/README.md'],
+    ['design/tokens.json', 'design/build.ts'],
     [
       'ui',
       'installer-frontend',
@@ -326,15 +327,46 @@ test('design system inputs select the UI kit, installer frontend, site, Android 
     'ui',
     'ui-docs'
   ]);
-});
-
-test('Android App inputs select only the android lane', () => {
+  expectScopes(
+    ['design/README.md', 'design/components/CardDetail/README.md'],
+    ['release']
+  );
+  assert.deepEqual(
+    selected(
+      classifyChanges([
+        { status: 'D', file: 'design/components/InGameKit/README.md' }
+      ])
+    ),
+    ['installer-frontend', 'mod-macos', 'release']
+  );
+  expectScopes(
+    ['design/components/InGameKit/art/material.png', 'design/kit-art.ts'],
+    ['mod', 'release']
+  );
   expectScopes(
     [
-      'bazaarplusplus-android/app/src/main/AndroidManifest.xml',
-      'bazaarplusplus-android/README.md'
+      'design/launcher-icon.ts',
+      'design/assets/Covers/the-bazaar/library_hero.jpg'
     ],
+    ['android', 'release']
+  );
+});
+
+test('Android App inputs select only the android lane, while non-contract project docs select release', () => {
+  expectScopes(
+    ['bazaarplusplus-android/app/src/main/AndroidManifest.xml'],
     ['android']
+  );
+  expectScopes(
+    [
+      'bazaarplusplus-android/README.md',
+      'bazaarplusplus-site/README.md',
+      'bazaarplusplus-ui-docs/AGENTS.md',
+      'bazaarplusplus-server/README.md',
+      'bazaarplusplus-bot/README.md',
+      'bazaarplusplus-analyzer/docs/architecture.md'
+    ],
+    ['release']
   );
   expectScopes(['bazaarplusplus-android/android.just'], ['android', 'release']);
   assert.deepEqual(
@@ -346,6 +378,180 @@ test('Android App inputs select only the android lane', () => {
       'bazaarplusplus-android/app/build.gradle.kts -> bazaarplusplus-mod/build/game-libs.lock.json'
     ]
   );
+});
+
+test('release, workspace scripts and agent configs select only their real consumers', () => {
+  for (const file of [
+    'release/card-art.ts',
+    'release/android-release.ts',
+    'release/mirror.ts',
+    'release/publish.ts',
+    'release/payload.test.ts',
+    'scripts/workspace.ts',
+    'scripts/dev/history-sample.ts',
+    'scripts/qqbot/hero-report.ts',
+    'scripts/android/setup-device.ts',
+    'scripts/just.test.ts',
+    '.agents/setup',
+    '.claude/hooks/session-start.sh',
+    '.github/scripts/codeql-scope.ts',
+    '.github/scripts/checks-scope.test.ts'
+  ])
+    expectScopes([file], ['release']);
+
+  expectScopes(
+    ['release/payload.json'],
+    ['release', 'mod', 'mod-windows', 'installer', 'installer-windows']
+  );
+  expectScopes(
+    ['release/downloads.ts'],
+    ['release', 'bot', 'site', 'installer', 'installer-windows', 'mod']
+  );
+  expectScopes(
+    ['release/manifest.ts'],
+    ['release', 'android', 'installer', 'installer-windows']
+  );
+  expectScopes(
+    ['release/fixtures/latest/android-aarch64.json'],
+    ['release', 'android', 'mod', 'site']
+  );
+  expectScopes(
+    ['release/fixtures/managed-payload/manifest.txt'],
+    ['release', 'android', 'installer', 'installer-windows', 'mod']
+  );
+  expectScopes(['release/game-libs.ts'], ['release', 'mod']);
+  expectScopes(
+    ['release/projections.ts'],
+    ['release', 'installer', 'installer-windows']
+  );
+  expectScopes(
+    ['scripts/test-support/git-fixture.ts'],
+    ['release', 'installer', 'installer-windows']
+  );
+  expectScopes(['scripts/verify.ts'], ['release', 'mod', 'mod-windows']);
+});
+
+test('every executable or data reference from projects into release/, scripts/ and design/ (including transitive TS imports) is covered', () => {
+  const root = path.resolve(import.meta.dirname, '../..');
+  const tracked = runFixtureGit(['ls-files', '-z'], { cwd: root })
+    .split('\0')
+    .filter((file) => file && fs.existsSync(path.join(root, file)));
+  const consumerScopesFor = (file: string): string[] => {
+    if (file.startsWith('packages/ui/')) return ['ui'];
+    if (file.startsWith('packages/runs/')) return ['release'];
+    const match = file.match(
+      /^bazaarplusplus-(site|ui-docs|server|bot|analyzer|installer|mod|android)\//
+    );
+    if (!match) return [];
+    const project = match[1];
+    // Dev/local-only just recipes (dev, cli, stage-runtime, etc.) are not run in project CI.
+    if (file.endsWith('.just')) return [];
+    if (project === 'installer') {
+      return file.startsWith('bazaarplusplus-installer/src/') &&
+        !file.startsWith('bazaarplusplus-installer/src/types/generated/')
+        ? ['installer-frontend']
+        : ['installer-frontend', 'installer-macos'];
+    }
+    if (project === 'mod') return ['mod-macos', 'mod-android'];
+    return [project];
+  };
+
+  const TS_IMPORT =
+    /^\s*(?:import|export)\s+(?!type\s)[^;'"]*?\bfrom\s+['"](\.[^'"]+)['"]|^\s*import\s+['"](\.[^'"]+)['"]|\bimport\(\s*['"](\.[^'"]+)['"]\s*\)/gm;
+  const RELATIVE_ROOT_REF = /(?:\.\.\/)+(?:release|scripts|design)\/[\w./-]+/g;
+  const resolveRelative = (
+    fromFile: string,
+    specifier: string
+  ): string | null => {
+    const projectRoot = fromFile.match(/^bazaarplusplus-[^/]+/)?.[0];
+    const bases = [path.posix.dirname(fromFile)];
+    if (projectRoot && projectRoot !== bases[0]) bases.push(projectRoot);
+    for (const dir of bases) {
+      const base = path.posix.normalize(path.posix.join(dir, specifier));
+      for (const candidate of [base, `${base}.ts`, `${base}.tsx`]) {
+        if (fs.existsSync(path.join(root, candidate))) return candidate;
+      }
+    }
+    return null;
+  };
+  const isRootShared = (target: string) =>
+    target.startsWith('release/') ||
+    target.startsWith('scripts/') ||
+    target.startsWith('design/');
+
+  const expandTarget = (entry: string, followTsImports: boolean): string[] => {
+    const out: string[] = [];
+    const queue = [entry];
+    const seen = new Set<string>();
+    while (queue.length) {
+      const current = queue.pop()!;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      if (!fs.existsSync(path.join(root, current))) continue;
+      const stat = fs.statSync(path.join(root, current));
+      if (stat.isDirectory()) {
+        for (const child of tracked) {
+          if (child.startsWith(`${current}/`)) out.push(child);
+        }
+        continue;
+      }
+      out.push(current);
+      if (followTsImports && current.endsWith('.ts')) {
+        const source = fs.readFileSync(path.join(root, current), 'utf8');
+        for (const match of source.matchAll(TS_IMPORT)) {
+          const spec = match[1] ?? match[2] ?? match[3];
+          if (!spec) continue;
+          const next = resolveRelative(current, spec);
+          if (next && isRootShared(next)) queue.push(next);
+        }
+      }
+    }
+    return out;
+  };
+
+  const missing: string[] = [];
+  let checkedTargets = 0;
+  for (const file of tracked) {
+    if (file.endsWith('.md')) continue;
+    const requiredScopes = consumerScopesFor(file);
+    if (!requiredScopes.length) continue;
+    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    if (source.includes('\0')) continue;
+    const isTsLike = /\.(?:[cm]?[jt]sx?)$/.test(file);
+    const directTargets: { target: string; followTs: boolean }[] = [];
+    if (isTsLike) {
+      for (const match of source.matchAll(TS_IMPORT)) {
+        const spec = match[1] ?? match[2] ?? match[3];
+        if (!spec) continue;
+        const resolved = resolveRelative(file, spec);
+        if (resolved && isRootShared(resolved))
+          directTargets.push({ target: resolved, followTs: true });
+      }
+    }
+    for (const [rawRef] of source
+      .replaceAll('\\', '/')
+      .matchAll(RELATIVE_ROOT_REF)) {
+      const resolved = resolveRelative(file, rawRef.replace(/[/.]+$/, ''));
+      if (resolved && isRootShared(resolved))
+        directTargets.push({ target: resolved, followTs: false });
+    }
+    for (const { target, followTs } of directTargets) {
+      for (const expanded of expandTarget(target, followTs)) {
+        checkedTargets += 1;
+        const lanes = selected(classifyChanges(changed(expanded)));
+        for (const scope of requiredScopes) {
+          if (!lanes.includes(scope)) {
+            missing.push(`${file} -> ${expanded} (missing ${scope})`);
+          }
+        }
+      }
+    }
+  }
+  assert.ok(
+    checkedTargets > 30,
+    `expected >30 checked targets, got ${checkedTargets}`
+  );
+  assert.deepEqual([...new Set(missing)].sort(), []);
 });
 
 test('Installer build inputs request Windows while ordinary source uses macOS', () => {

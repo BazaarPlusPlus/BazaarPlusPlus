@@ -167,8 +167,6 @@ export const SHARED_INPUTS: [string, string[]][] = [
     'bazaarplusplus-analyzer/tests/fixtures/run-payload-v6.projection.json',
     ['bot']
   ],
-  ['design/tokens.json', ['bot']],
-  ['release/downloads.ts', ['bot']],
   ['bazaarplusplus-server/contracts/', ['mod', 'analyzer', 'bot']],
   ['bazaarplusplus-server/docs/api-reference.md', ['mod', 'bot']],
   ['bazaarplusplus-analyzer/contracts/', ['site', 'mod', 'installer', 'bot']],
@@ -300,7 +298,7 @@ export function unregisteredReferences(file: string, source: string): string[] {
     ...source
       .replaceAll('\\', '/')
       .matchAll(
-        /bazaarplusplus-(?:ui-docs|site|server|analyzer|installer|mod|android)\/[\w./*-]*/g
+        /bazaarplusplus-(?:ui-docs|site|server|bot|analyzer|installer|mod|android)\/[\w./*-]*/g
       )
   ];
   return references.flatMap(([reference]) => {
@@ -360,6 +358,146 @@ export function fullScope(reason: string): ChecksPlan {
   return Object.fromEntries(SCOPES.map((scope) => [scope, [reason]]));
 }
 
+const DESIGN_ALL_CONSUMERS = [
+  'ui',
+  'installer-frontend',
+  'site',
+  'ui-docs',
+  'android',
+  'bot',
+  'server',
+  'release'
+];
+
+const DOC_LINK_CHECKERS = ['release', 'installer-frontend', 'mod-macos'];
+
+// Explicit consumer maps for root-owned release/ and scripts/ inputs. Unknown
+// files under either directory fall through to fullScope (fail-open); tests
+// verify every non-markdown reference from projects (plus transitive TS imports).
+const RELEASE_INPUTS: [string, string[]][] = [
+  ['release/test-support/', ['release']],
+  [
+    'release/payload.json',
+    ['release', 'mod', 'mod-windows', 'installer', 'installer-windows']
+  ],
+  ['release/generated/Payload.targets', ['release', 'mod', 'mod-windows']],
+  [
+    'release/downloads.ts',
+    ['release', 'bot', 'site', 'installer', 'installer-windows', 'mod']
+  ],
+  [
+    'release/manifest.ts',
+    ['release', 'android', 'installer', 'installer-windows']
+  ],
+  ['release/fixtures/latest.json', ['release', 'mod']],
+  ['release/fixtures/latest/', ['release', 'android', 'mod', 'site']],
+  ['release/fixtures/game-status.json', ['release', 'site']],
+  ['release/fixtures/android-game-status.json', ['release', 'site']],
+  ['release/fixtures/android-carried-release.json', ['release', 'android']],
+  ['release/fixtures/android-interop/', ['release', 'android']],
+  [
+    'release/fixtures/managed-payload/manifest.txt',
+    ['release', 'android', 'installer', 'installer-windows', 'mod']
+  ],
+  ['release/fixtures/managed-payload/', ['release', 'android', 'mod']],
+  // Transitively imported by both mod/scripts and installer/scripts.
+  ['release/product.ts', ['release', 'mod', 'installer', 'installer-windows']],
+  [
+    'release/game-assembly-snapshot.ts',
+    ['release', 'mod', 'installer', 'installer-windows']
+  ],
+  [
+    'release/snapshot-lock.ts',
+    ['release', 'mod', 'installer', 'installer-windows']
+  ],
+  ['release/r2-store.ts', ['release', 'mod', 'installer', 'installer-windows']],
+  [
+    'release/snapshot-files.ts',
+    ['release', 'mod', 'installer', 'installer-windows']
+  ],
+  // Transitively imported by mod/scripts only.
+  ['release/game-libs.ts', ['release', 'mod']],
+  ['release/android-adaptation.ts', ['release', 'mod']],
+  ['release/game-status.ts', ['release', 'mod']],
+  ['release/android-apk.ts', ['release', 'mod']],
+  ['release/interop-snapshot.ts', ['release', 'mod']],
+  ['release/official-apk.ts', ['release', 'mod']],
+  // Transitively imported by installer/scripts only.
+  [
+    'release/release-platforms.ts',
+    ['release', 'installer', 'installer-windows']
+  ],
+  ['release/projections.ts', ['release', 'installer', 'installer-windows']],
+  ['release/payload.ts', ['release', 'installer', 'installer-windows']],
+  ['release/payload-zip.ts', ['release', 'installer', 'installer-windows']],
+  [
+    'release/history-database.ts',
+    ['release', 'installer', 'installer-windows']
+  ],
+  ['release/version-sync.ts', ['release', 'installer', 'installer-windows']],
+  [
+    'release/payload-inventory.ts',
+    ['release', 'installer', 'installer-windows']
+  ],
+  [
+    'release/native-recorder-input.ts',
+    ['release', 'installer', 'installer-windows']
+  ],
+  [
+    'release/artifact-manifest.ts',
+    ['release', 'installer', 'installer-windows']
+  ],
+  ['release/managed-payload.ts', ['release', 'installer', 'installer-windows']],
+  [
+    'release/managed-payload-chunks.ts',
+    ['release', 'installer', 'installer-windows']
+  ],
+  // Root release CLI, orchestration and metadata only.
+  ['release/android-app.ts', ['release']],
+  ['release/android-interop.ts', ['release']],
+  ['release/android-release.ts', ['release']],
+  ['release/card-art.ts', ['release']],
+  ['release/cli.ts', ['release']],
+  ['release/github-secrets.json', ['release']],
+  ['release/github-secrets.ts', ['release']],
+  ['release/mirror.ts', ['release']],
+  ['release/mod-data.ts', ['release']],
+  ['release/publish.ts', ['release']],
+  ['release/release.just', ['release']]
+];
+
+const SCRIPT_INPUTS: [string, string[]][] = [
+  ['scripts/test-support/', ['release', 'installer', 'installer-windows']],
+  ['scripts/mod-validation.ts', ['release', 'mod', 'mod-windows']],
+  ['scripts/verify.ts', ['release', 'mod', 'mod-windows']],
+  ['scripts/dev/', ['release']],
+  ['scripts/qqbot/', ['release']],
+  ['scripts/android/', ['release']],
+  ['scripts/workspace.ts', ['release']],
+  ['scripts/local-config.ts', ['release']],
+  ['scripts/secrets.ts', ['release']],
+  ['scripts/vite-plus.ts', ['release']],
+  ['scripts/install-hooks.ts', ['release']]
+];
+
+const GITHUB_SCRIPT_RELEASE_ONLY = new Set([
+  '.github/scripts/analyzer-state.sh',
+  '.github/scripts/check-mod-dependency-update.ts',
+  '.github/scripts/codeql-scope.ts',
+  '.github/scripts/dependabot-auto-merge.ts',
+  '.github/scripts/release-secrets.ts'
+]);
+
+function matchInput(
+  table: readonly [string, string[]][],
+  file: string
+): string[] | null {
+  for (const [input, consumers] of table) {
+    if (covers(input, file)) return consumers;
+  }
+  return null;
+}
+
 export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
   if (!Array.isArray(changes) || !changes.length)
     return fullScope('Diff unavailable or empty');
@@ -383,6 +521,21 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       file.startsWith(`bazaarplusplus-${p}/`)
     );
     if (project) {
+      const sharedConsumers = SHARED_INPUTS.filter(([input]) =>
+        covers(input, file)
+      ).flatMap(([, consumers]) => consumers);
+      // Only mod (DocsHygieneTests, TenWinBuildMarkdownTests) and installer
+      // (docs:check) verify their own Markdown; other projects' non-contract
+      // docs only need root tooling checks (script-references.test.ts).
+      if (
+        file.endsWith('.md') &&
+        project !== 'mod' &&
+        project !== 'installer' &&
+        sharedConsumers.length === 0
+      ) {
+        select('release', `Project documentation: ${file}`);
+        continue;
+      }
       select(
         project === 'installer' && installerFrontendOnly(file)
           ? 'installer-frontend'
@@ -401,11 +554,8 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
         file.startsWith('bazaarplusplus-mod/scripts/')
       )
         select('release', `Command recipe or tooling: ${file}`);
-      for (const [input, consumers] of SHARED_INPUTS) {
-        if (covers(input, file))
-          for (const consumer of consumers)
-            select(consumer, `Shared input: ${file}`);
-      }
+      for (const consumer of sharedConsumers)
+        select(consumer, `Shared input: ${file}`);
     } else if (file.startsWith('packages/ui/')) {
       for (const consumer of ['ui', 'installer-frontend', 'site', 'ui-docs'])
         select(consumer, `UI kit: ${file}`);
@@ -415,29 +565,66 @@ export function classifyChanges(changes: DiffChange[] | null): ChecksPlan {
       for (const scope of ['installer-frontend', 'site', 'release'])
         select(scope, file);
     } else if (file.startsWith('design/')) {
-      // The release lane includes design::check, which verifies outputs consumed by the apps.
-      for (const consumer of [
-        'ui',
-        'installer-frontend',
-        'site',
-        'ui-docs',
-        'android',
-        'bot',
-        'server',
-        'release'
-      ])
-        select(consumer, `Design system: ${file}`);
+      if (file.endsWith('.md')) {
+        // Removing or replacing design docs can break links checked by mod and installer.
+        const consumers =
+          status === 'D' || status === 'T' ? DOC_LINK_CHECKERS : ['release'];
+        for (const consumer of consumers)
+          select(consumer, `Design documentation: ${file}`);
+      } else if (
+        file.startsWith('design/components/InGameKit/art/') ||
+        file === 'design/kit-art.ts'
+      ) {
+        for (const consumer of ['mod', 'release'])
+          select(consumer, `InGameKit design input: ${file}`);
+      } else if (
+        file === 'design/launcher-icon.ts' ||
+        file.startsWith('design/assets/Covers/')
+      ) {
+        for (const consumer of ['android', 'release'])
+          select(consumer, `Android design input: ${file}`);
+      } else {
+        // The release lane includes design::check, which verifies outputs consumed by the apps.
+        for (const consumer of DESIGN_ALL_CONSUMERS)
+          select(consumer, `Design system: ${file}`);
+      }
+    } else if (file.startsWith('release/')) {
+      if (file.endsWith('.test.ts')) {
+        select('release', `Release test: ${file}`);
+      } else {
+        const consumers = matchInput(RELEASE_INPUTS, file);
+        if (!consumers) return fullScope(`Unknown release input: ${file}`);
+        for (const consumer of consumers)
+          select(consumer, `Release input: ${file}`);
+      }
+    } else if (file.startsWith('scripts/')) {
+      if (file.endsWith('.test.ts') || file.endsWith('.md')) {
+        select('release', `Workspace script test or doc: ${file}`);
+      } else {
+        const consumers = matchInput(SCRIPT_INPUTS, file);
+        if (!consumers) return fullScope(`Shared or unknown script: ${file}`);
+        for (const consumer of consumers)
+          select(consumer, `Workspace script: ${file}`);
+      }
+    } else if (file.startsWith('.agents/') || file.startsWith('.claude/')) {
+      select('release', `Agent configuration: ${file}`);
     } else if (file.startsWith('docs/') || /^[^/]+\.md$/.test(file)) {
-      // Project docs checks resolve links to root docs. Removing/moving their
-      // targets needs those checks too; editing the target's prose does not.
-      if (status === 'D' || status === 'T')
-        return fullScope(`Removed or replaced root documentation: ${file}`);
-      select('release', `Root documentation: ${file}`);
+      // Installer docs:check and mod DocsHygieneTests resolve links to root
+      // docs. Removing/moving their targets needs those checks too; editing
+      // prose only needs root tooling checks.
+      if (status === 'D' || status === 'T') {
+        for (const consumer of DOC_LINK_CHECKERS)
+          select(consumer, `Removed or replaced root documentation: ${file}`);
+      } else {
+        select('release', `Root documentation: ${file}`);
+      }
     } else if (
       ['.gitignore', '.gitattributes', '.github/dependabot.yml'].includes(
         file
       ) ||
       file.startsWith('.github/codeql/') ||
+      (file.startsWith('.github/scripts/') &&
+        (file.endsWith('.test.ts') || GITHUB_SCRIPT_RELEASE_ONLY.has(file))) ||
       (file.startsWith('.github/workflows/') &&
         !['checks.yml', 'release.yml'].includes(path.posix.basename(file)))
     ) {
