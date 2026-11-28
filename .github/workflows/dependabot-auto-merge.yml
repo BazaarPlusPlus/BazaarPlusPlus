@@ -2,7 +2,22 @@ name: Operations / Dependabot auto-merge
 
 on:
   pull_request_target:
+    branches: [master]
     types: [opened, synchronize, reopened, ready_for_review, edited]
+    # Narrow trigger to dependency/action manifests to avoid skipped-run noise on ordinary PRs.
+    paths:
+      - '**/package.json'
+      - '**/bun.lock'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/pyproject.toml'
+      - '**/uv.lock'
+      - '**/Directory.Packages.props'
+      - '**/*.csproj'
+      - '**/packages.lock.json'
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '**/*.gradle*'
 
 permissions:
   contents: read

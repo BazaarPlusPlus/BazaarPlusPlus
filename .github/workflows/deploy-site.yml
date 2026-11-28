@@ -17,9 +17,13 @@ on:
     branches: [master]
     paths:
       - bazaarplusplus-site/**
+      - '!bazaarplusplus-site/**/*.md'
       - packages/ui/**
       - packages/runs/**
-      - release/**
+      - release/downloads.ts
+      - release/fixtures/latest/**
+      - release/fixtures/game-status.json
+      - release/fixtures/android-game-status.json
       - .github/workflows/deploy-site.yml
 
 permissions:
@@ -75,7 +79,11 @@ jobs:
             echo "::error::VITE_TURNSTILE_SITE_KEY is empty; a build without it uses Cloudflare's test key, which the production server rejects."
             exit 1
           fi
-      - run: just site::check site::test
+      # PR checks already ran full site::ci before merge; preview pushes only build.
+      - if: github.event_name == 'push'
+        run: just site::build
+      - if: github.event_name != 'push'
+        run: just site::check site::test
       - name: Deploy with the pinned Wrangler
         id: deploy
         # Explicit bash enables pipefail so a Wrangler failure is not hidden by tee.

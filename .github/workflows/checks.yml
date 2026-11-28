@@ -2,8 +2,16 @@ name: CI / Checks
 
 on:
   pull_request:
+  # Keep master push narrow to cache-key inputs (Installer Rust, Android Gradle
+  # wrapper/deps, Mod NuGet) so merges do not re-run PR checks redundantly.
   push:
     branches: [master]
+    paths:
+      - bazaarplusplus-installer/rust-toolchain.toml
+      - bazaarplusplus-installer/src-tauri/**
+      - bazaarplusplus-android/gradle/wrapper/gradle-wrapper.properties
+      - bazaarplusplus-android/**/*.gradle.kts
+      - bazaarplusplus-mod/**/packages.lock.json
   workflow_dispatch:
     inputs:
       scope:

@@ -6,7 +6,15 @@ name: Operations / vite-plus sync
 # with a deploy key, because a GITHUB_TOKEN push starts no checks.
 on:
   pull_request_target:
+    branches: [master]
     types: [opened, synchronize, reopened]
+    paths:
+      - package.json
+      - bun.lock
+      - packages/ui/package.json
+      - bazaarplusplus-site/package.json
+      - bazaarplusplus-ui-docs/package.json
+      - bazaarplusplus-installer/package.json
 
 permissions:
   contents: read

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'vite-plus/test';
 import { run } from './dependabot-auto-merge.ts';
@@ -233,4 +234,40 @@ test('a CommonJS dynamic import loads the module, as github-script does', () => 
     { encoding: 'utf8' }
   );
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('dependabot-auto-merge workflow path filter covers every ecosystem in dependabot.yml', () => {
+  const dependabot = fs.readFileSync(
+    new URL('../dependabot.yml', import.meta.url),
+    'utf8'
+  );
+  const workflow = fs.readFileSync(
+    new URL('../workflows/dependabot-auto-merge.yml', import.meta.url),
+    'utf8'
+  );
+  const ecosystems = [
+    ...dependabot.matchAll(/package-ecosystem:\s*['"]?([\w-]+)['"]?/g)
+  ].map((match) => match[1]);
+  assert.ok(ecosystems.length >= 5, 'expected dependabot ecosystems');
+  const expectedGlobs: Record<string, string[]> = {
+    bun: ['**/package.json', '**/bun.lock'],
+    cargo: ['**/Cargo.toml', '**/Cargo.lock'],
+    uv: ['**/pyproject.toml', '**/uv.lock'],
+    nuget: [
+      '**/Directory.Packages.props',
+      '**/*.csproj',
+      '**/packages.lock.json'
+    ],
+    'github-actions': ['.github/workflows/**', '.github/actions/**']
+  };
+  for (const ecosystem of new Set(ecosystems)) {
+    const globs = expectedGlobs[ecosystem];
+    assert.ok(globs, `unmapped Dependabot ecosystem: ${ecosystem}`);
+    for (const glob of globs) {
+      assert.ok(
+        workflow.includes(`'${glob}'`),
+        `dependabot-auto-merge.yml paths missing ${glob} for ${ecosystem}`
+      );
+    }
+  }
 });

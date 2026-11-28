@@ -13,6 +13,7 @@ on:
     branches: [master]
     paths:
       - bazaarplusplus-ui-docs/**
+      - '!bazaarplusplus-ui-docs/**/*.md'
       - packages/ui/**
       - design/tokens.json
       - design/assets/Logos/**
@@ -44,9 +45,17 @@ jobs:
         with:
           tool: just@1.58.0
       - run: bun install --frozen-lockfile
-      - run: bun run playwright install --with-deps chromium
+      # PR checks already ran Playwright E2E; master pushes keep typecheck, build
+      # and unit tests before production deploy, while manual dispatches run full E2E.
+      - if: github.event_name != 'push'
+        run: bun run playwright install --with-deps chromium
         working-directory: bazaarplusplus-ui-docs
-      - run: BPP_UI_DOCS_PREBUILT=1 just ui-docs::check ui-docs::test
+      - if: github.event_name == 'push'
+        run: |
+          just ui-docs::check
+          bun run --cwd bazaarplusplus-ui-docs test
+      - if: github.event_name != 'push'
+        run: BPP_UI_DOCS_PREBUILT=1 just ui-docs::check ui-docs::test
       - name: Deploy checked assets
         working-directory: bazaarplusplus-ui-docs
         env:
