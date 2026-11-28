@@ -242,12 +242,12 @@ class Renderer {
     try {
       const material: FxMaterial = await face.source.material();
       if (!current()) return;
-      const source = await fragment(
-        material,
-        face.enchant,
-        !!face.source.tiny ||
-          (face.source.slots === 1 && material.size !== 'small')
-      );
+      const templateSlots = { small: 1, medium: 2, large: 3 }[material.size];
+      const tinyMode =
+        material.size !== 'small' &&
+        (!!face.source.tiny ||
+          (face.source.slots != null && face.source.slots < templateSlots));
+      const source = await fragment(material, face.enchant, tinyMode);
       if (!source || !current()) return;
       const shader = this.programs.get(source) ?? link(gl, source);
       this.programs.set(source, shader);
@@ -255,6 +255,7 @@ class Renderer {
         shader.uniforms.map(async ({ type, name, location }) => {
           if (type === gl.SAMPLER_2D) {
             const binding = material.textures[name];
+            if (!binding) throw new Error('Missing FX texture ' + name);
             const key =
               'default' in binding
                 ? binding.default

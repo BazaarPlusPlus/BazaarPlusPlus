@@ -30,6 +30,29 @@ float cellularLight() {
 }
 `;
 
+export const sparks = `
+float sparks(vec2 p, float core, bool rays) {
+  float sum = 0.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 neighbor = vec2(x, y);
+      float seed = fract(latticeSin(dot(floor(p) + neighbor, vec2(12.9898005, 78.2330017))) * 43758.5508);
+      vec2 delta = fract(p) - neighbor - vec2(seed, fract(seed * 34.5));
+      float radius = length(delta);
+      float intensity = core / max(radius, 1e-8);
+      if (rays) {
+        vec2 ray = delta * 0.30;
+        vec2 crossed = rotateUV(delta, 0.8) * 1.5;
+        intensity += 0.1 * (max(0.0, 1.0 - abs(ray.x * ray.y) * 1000.0)
+                          + max(0.0, 1.0 - abs(crossed.x * crossed.y) * 1000.0));
+      }
+      sum += fract(seed * 345.6) * min(1.0, intensity * smoothstep(0.0, 1.0, max(0.0, 1.0 - 2.0 * radius)));
+    }
+  }
+  return sum;
+}
+`;
+
 export const runes = `
 uniform sampler2D _MysticalRunes;
 uniform vec4 _MysticalRunes_ST;

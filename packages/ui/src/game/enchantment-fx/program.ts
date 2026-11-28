@@ -46,7 +46,12 @@ export async function fragment(
   if (material.version !== 1 || material.profile !== 'premium-card-v1')
     return null;
   const program = programs[enchant];
-  if (!program || (tinyMode && enchant !== 'Tiny')) return null;
+  if (
+    !program ||
+    (tinyMode && enchant !== 'Tiny') ||
+    (enchant === 'Tiny' && (material.size === 'small' || !tinyMode))
+  )
+    return null;
 
   const keywords = material.keywords[enchant]?.[tinyMode ? 'tiny' : 'normal'];
   const size = '_CRDSIZE_' + material.size.toUpperCase();
@@ -81,6 +86,9 @@ uniform float _AbsorptionMaskMin, _AbsorptionMaskMax, _GlowMaskMin, _GlowMaskMax
 uniform float _EnchantmentUCenter, _EnchantmentVCenter, _EnchantmentFlareScale;
 vec2 center() {
   return vec2(_EnchantmentUCenter, _EnchantmentVCenter);
+}
+vec2 cardUV(vec2 p) {
+  return (p - 0.5) * vec2(aspect, 1.0) + 0.5;
 }
 vec2 flarePosition() {
   return ((uv - 0.5) * _EnchantmentFlareScale + center()) * vec2(aspect, 1);
@@ -131,6 +139,11 @@ const programs: Partial<
     }
   >
 > = {
+  Ethereal: {
+    keyword: 'SHINY',
+    module: () => import('./programs/ethereal')
+  },
+  Icy: { keyword: 'ICY', module: () => import('./programs/icy') },
   Mystical: {
     keyword: 'MYSTICAL',
     module: () => import('./programs/mystical')

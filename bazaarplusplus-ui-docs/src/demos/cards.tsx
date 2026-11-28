@@ -26,12 +26,23 @@ export default function Cards({ lang }: DemoProps) {
         ))}
       </div>
       <div className="gallery">
-        {enchantments.map((enchant, index) => (
-          <CardTile
-            key={enchant}
-            card={{ ...card(lang, pinned[index], enchant), onOpen: open }}
-          />
-        ))}
+        {enchantments.flatMap((enchant, index) => {
+          const items = [
+            <CardTile
+              key={enchant}
+              card={{ ...card(lang, pinned[index], enchant), onOpen: open }}
+            />
+          ];
+          if (enchant === 'Tiny' && pinned[16]) {
+            items.push(
+              <CardTile
+                key="Tiny-large"
+                card={{ ...card(lang, pinned[16], enchant), onOpen: open }}
+              />
+            );
+          }
+          return items;
+        })}
       </div>
       <div className="flex flex-wrap gap-3">
         <CardChip card={first} title={first.name} />

@@ -90,3 +90,34 @@ test('unavailable material retains plain card art', async ({ page }) => {
     .toBeGreaterThan(0);
   await expect(tile.locator('canvas')).toHaveAttribute('width', '0');
 });
+test('all enchantments render WebGL effects and Tiny reduces width by one slot', async ({
+  page
+}) => {
+  await page.goto('/cards');
+  const tiles = page.locator('.gallery').nth(1).locator('.bpp-card');
+  await expect(tiles).toHaveCount(17);
+  // IntersectionObserver prepares each canvas once it enters the viewport.
+  for (let i = 0; i < 17; i++) {
+    const tile = tiles.nth(i);
+    // eslint-disable-next-line no-await-in-loop
+    await tile.scrollIntoViewIfNeeded();
+    // eslint-disable-next-line no-await-in-loop
+    await expect
+      .poll(() => tile.locator('canvas').getAttribute('width').then(Number))
+      .toBeGreaterThan(0);
+  }
+  const tinyMedium = page.getByRole('button', { name: '降落伞 · 钻石 · 迷你' });
+  const tinyLarge = page.getByRole('button', {
+    name: '霜绝祭坛 · 传奇 · 迷你'
+  });
+  await expect(tinyMedium).toHaveAttribute('data-size', '1');
+  await expect(tinyLarge).toHaveAttribute('data-size', '2');
+  await tinyMedium.scrollIntoViewIfNeeded();
+  await tinyMedium.hover();
+  await expect(
+    page.locator('.bpp-card-preview .bpp-detail-art')
+  ).toHaveAttribute('data-size', '1');
+  await expect(
+    page.locator('.bpp-card-preview .bpp-detail-tags')
+  ).toContainText('小型');
+});
