@@ -4,14 +4,14 @@ name: Operations / Analyzer
 # analyzer-state/ in the private Bundle bucket, heals settled Source Hours,
 # publishes both consumer snapshots to metrics/v6/ in the public bucket
 # (https://cdn.bazaarplusplus.com/metrics/v6) and mirrors the Data Root back. Snapshots
-# still advance once per Complete Source Day; the hourly schedule keeps each
+# still advance once per Complete Source Day; the periodic schedule keeps each
 # run's intake small. The Bundle Server token lives in the `analyzer` GitHub
 # Environment and the Cloudflare operator token is a repository secret
 # (release/github-secrets.json); see
 # bazaarplusplus-analyzer/docs/architecture.md, Production runs.
 
 # GitHub runs scheduled workflows on a best-effort basis and drops many of
-# these hourly events. A dropped hour is not lost: the next run that fires
+# these scheduled events. A dropped run is not lost: the next run that fires
 # ingests every settled Source Hour since the last one, so collection only
 # arrives in larger batches, and snapshots still advance once per Complete
 # Source Day. The Mod API Worker also dispatches this workflow at 01:00 and
@@ -23,7 +23,7 @@ name: Operations / Analyzer
 # day's Daily Highlights.
 on:
   schedule:
-    - cron: '23 * * * *'
+    - cron: '23 */3 * * *'
   workflow_dispatch:
     inputs:
       publish:

@@ -153,10 +153,10 @@ just release::promote --platform android
 
 ### Android 发布顺序
 
-官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 每小时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`bun release/game-libs.ts official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
+官方 APK 更新后，`.github/workflows/android-apk-watch.yml` 定时比较一次发行商 APK 的 Content-Length 和 ETag：大小对照锁定 APK 在私有桶里的大小，ETag 对照锁条目的 `apkEtag`（`bun release/game-libs.ts official-apk`，不下载）。手动采集的条目 `apkEtag` 为 null，只比大小。任一项不一致，或手动触发时选了 `force`，它就在 Linux runner 上下载 APK 并核对 sha256。之后分三种情况：
 
 - **没变**：sha256 与锁相同。ETag 也相同就什么都不做。ETag 变了，它只开一个记录新 ETag 的 PR，不升版本号，否则以后每次检查都会重新下载。
-- **只改内容**：sha256 变了，它采集新的 `android-publisher` 条目（记下下载时的 ETag），再用 `bun release/game-libs.ts android-change` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android publisher`：每小时的比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
+- **只改内容**：sha256 变了，它采集新的 `android-publisher` 条目（记下下载时的 ETag），再用 `bun release/game-libs.ts android-change` 对照采集前的锁条目（`captureKind`）。`il2cppSha256` 与 `metadataSha256` 都没变，就是只改内容。Android App 只按游戏代码哈希（这两个哈希）判断，所以已发布的 Android App 在新游戏上照常运行 BazaarPlusPlus，不需要新的适配，也不需要发布。它照常执行 `mod::publish android publisher`：定时比较要在私有桶里读锁定 APK 的大小，锁条目也必须能只靠私有桶取回。interop 与锁定的相同（`captureKind` 核对 `interopSha256`，不同就报错，要人工检查采集工具链），所以不再跑 Android Mod 的构建检查。PR 只改锁文件，不升 `VERSION`。
 - **代码变了**：任一个哈希变了。上传输入之后，它跑 `mod::android-build` 和 `mod::test-core`，再开一个只改锁文件的 PR，不升 `VERSION`。在适配它的版本发布之前，下载页的 Android 卡片显示"未适配，适配中"。
 
 这些 PR 由 `GITHUB_TOKEN` 创建，不会触发检查，所以检查结果写在 PR 正文里。仓库设置里要允许 GitHub Actions 创建 PR。锁或打开的锁 PR 记录了官方 APK 之后，工作流把它的游戏写进公开的 `game-status/android.json`（`bun release/game-libs.ts android-game-status`），下载页用它判断 Android 是否已适配。

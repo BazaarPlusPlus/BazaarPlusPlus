@@ -109,7 +109,7 @@ servers `http://localhost:3000`, `:4173`, `:5173`, `http://127.0.0.1:3000` and
 ## Production runs
 
 Production runs are `.github/workflows/analyzer.yml` on a GitHub-hosted runner,
-plus manual dispatch with an optional `--no-publish`. Its hourly `schedule`
+plus manual dispatch with an optional `--no-publish`. Its periodic `schedule`
 is best-effort: GitHub drops many of those events, and the next run that fires
 ingests every settled hour since the last one. The Mod API Worker also
 dispatches it at 01:00 and 12:00 UTC. A runner starts
@@ -151,7 +151,7 @@ the same source, epoch and publication target; they are not environment settings
 `default_data_root` in `src/bazaarlens/config.py` places local state outside all
 checkouts. `BPP_DATA_ROOT` can override it for a runner or an existing data directory.
 
-The hourly schedule keeps each run's intake small and leaves room for skipped
+The periodic schedule keeps each run's intake small and leaves room for skipped
 schedules within the eight-day Bundle retention. `BPP_MAX_RUN_SECONDS` is set below the six-hour job
 limit so a long heal stops itself and its committed hours are mirrored before
 the runner is reclaimed. The workflow's secrets live in the `analyzer` GitHub
@@ -163,7 +163,7 @@ about 10:00 Beijing time (02:00 UTC). The Mod API Worker's Cron Triggers
 dispatch it at 01:50 UTC and `analyzer.yml` at 01:00 and 12:00 UTC, because
 GitHub started its schedules hours late or dropped them
 (`bazaarplusplus-server/docs/adr/0005-workflow-dispatch.md`). The call
-seals and publishes the previous UTC day even when hourly runs were dropped. That run also returns the
+seals and publishes the previous UTC day even when scheduled runs were dropped. That run also returns the
 `window.end` it analyzed and the Daily Highlights `bazaarlens highlights`
 prints for it from the restored facts; the report job renders three images
 from the public `heroes/latest.json` and the Daily Highlights and sends them to
@@ -172,7 +172,7 @@ output, never to a bucket. The report runs in its own job, so a QQ failure never
 fails the analyzer, and the analyzer has no QQ dependency; a failed Daily
 Highlights step only drops their parts of the report. The `analyzer-v6`
 concurrency group is on the job rather than the workflow, so a called run still
-waits for an hourly one.
+waits for a scheduled one.
 
 ## Modes and evidence
 

@@ -5,7 +5,7 @@ name: Steam snapshot watch
 
 on:
   schedule:
-    - cron: '43 * * * *'
+    - cron: '43 */3 * * *'
   workflow_dispatch:
 
 permissions:
